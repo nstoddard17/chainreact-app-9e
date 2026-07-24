@@ -992,6 +992,205 @@ CS-3 added no service, no route, no UI, no option resolver, no migration, and no
 
 ---
 
+## 11e. CS-4 outcome — Vehicle Links management screen (SHIPPED, flag-gated OFF)
+
+**Status:** implemented behind `ENABLE_RESOURCE_LINKS_UI`, **default OFF**. This is the
+first user-visible surface of the arc and the slice that makes CS-3 usable: before it, a link
+row could only be inserted by hand into the database.
+
+### Feature flag
+
+[`services/resourceLinks/flags.ts`](../../../services/resourceLinks/flags.ts) —
+`RESOURCE_LINKS_UI_FLAG = "ENABLE_RESOURCE_LINKS_UI"` (the plan named the flag
+`RESOURCE_LINKS_UI`; the env var follows CLAUDE.md's `ENABLE_<NAME>` convention). Read at
+CALL time, so tests and rollout toggle without re-importing. Only the exact string `"true"`
+enables it — `"1"`, `"TRUE"`, `"yes"` all stay OFF, asserted by test.
+
+While OFF: the page `notFound()`s and all three routes 404 **before** the auth/role gate, so
+a disabled surface cannot be used to probe membership or link existence. The `/apps` entry
+link is not rendered, so nothing points at a 404.
+
+**What the flag deliberately does NOT gate: CS-3's runtime lookup.** `fleetio:find_linked_vehicle`
+keeps resolving any link row that already exists, flag or no flag. Turning the management
+surface off must never break a workflow that is already running.
+
+### Permission decision (plan Q6, answered)
+
+| | Owner | Admin | Member | Non-member |
+|---|---|---|---|---|
+| View links | ✅ | ✅ | ✅ | ❌ 403 |
+| Use links in a workflow (CS-3) | ✅ | ✅ | ✅ | — |
+| Create / replace / archive | ✅ | ✅ | ❌ 403 `FORBIDDEN` | ❌ 403 `NOT_ACCOUNT_MEMBER` |
+
+**Mutations are owner/admin.** A vehicle mapping changes where a meter reading LANDS, so it
+belongs with the administrative acts (API keys, connect/disconnect) rather than with everyday
+workflow editing. Q6 floated "any member may confirm"; CS-4 answers no *for now* — a narrower
+gate widens later without breaking anyone, the reverse does not.
+
+Authorization is **membership role + `account_id`, always**. It never consults
+`created_by_user_id`, `confirmed_by_user_id`, or who connected the Motive/Fleetio integration —
+asserted by a test in which one admin archives another owner's link. Mutations also refuse on a
+frozen (`pending_deletion`) account while reads keep working.
+
+### Route / service / repository boundaries
+
+```
+route  (thin: flag → auth → account role → HTTP mapping only)
+  → service  (authorization re-check, freeze, conflicts, labels, row→view projection)
+    → repository  (CS-1, database-only, mandatory account_id predicate)
+```
+
+| Route | Verb | Gate |
+|---|---|---|
+| [`/api/accounts/[id]/vehicle-links`](../../../app/api/accounts/[id]/vehicle-links/route.ts) | GET | any member |
+| | POST | owner/admin |
+| [`/api/accounts/[id]/vehicle-links/[linkId]`](../../../app/api/accounts/[id]/vehicle-links/[linkId]/route.ts) | DELETE | owner/admin |
+| [`/api/accounts/[id]/vehicle-options`](../../../app/api/accounts/[id]/vehicle-options/route.ts) | GET | any member |
+
+`accountId` comes from the PATH and is authorized against the verified session by
+`requireAccountRole`; it is never ownership on its own, and the repository's `account_id`
+predicate sits underneath. A caller-supplied `accountId` in the POST **body** is a `.strict()`
+parse error (400), never a silently-honored field — asserted.
+
+The service ([`vehicleLinkService.ts`](../../../services/resourceLinks/vehicleLinkService.ts))
+re-checks the role itself, so it is safe regardless of caller. The route maps the failure to
+HTTP; the service decides it.
+
+**Vehicle options** ([`vehicleOptions.ts`](../../../services/resourceLinks/vehicleOptions.ts))
+resolve the ACTIVE account's integration and dispatch the EXISTING, unmodified
+`motive:vehicles` / `fleetio:vehicles` resolvers. This is why the screen does not use
+`/api/options/[source]`: that endpoint's credential decision is workflow-keyed and, with no
+`workflowId`, falls back to the caller's PERSONAL account. **No resolver was added or changed
+and `OptionsResolverContext` is untouched** — plan Q3 stays deferred. `provider` is validated
+against a two-value allow-list, so the route is not a generic resolver proxy.
+
+### Manual pairing flow
+
+1. **Linked** — one row per active mapping, leading with the HUMAN identity
+   ("Unit 104 ↔ Truck 104"), plus match basis, who confirmed it, and the date. Raw provider ids
+   live ONLY inside a collapsed `Details` disclosure. A note states the names are last-seen
+   snapshots, so a rename never reads as corruption. Remove asks inline, then archives.
+2. **Unlinked** — every Motive vehicle with no active link (a server-side set difference).
+   Opening a row reveals the searchable `fleetio:vehicles` picker; picking a vehicle and
+   pressing **Link** confirms it. **No id is ever typed and no JSON is ever edited** — both
+   sides come from real account-aware lists, and both labels are captured as snapshots.
+3. **Suggested** — a disabled **"Coming next"** note. No candidate rows, no counts, no
+   evidence: CS-4 ships no matching, and a placeholder that looked like real suggestions would
+   be fake UI. CS-2's engine exists but nothing calls it until CS-5.
+
+`matchBasis` is always `manual` in CS-4 (the body schema has no `matchBasis` field, so a
+`suggested_*` basis is unreachable until CS-5 ships the surface that earns it).
+
+**Conflicts — two kinds, deliberately different:**
+
+- **Source conflict** (this Motive vehicle is already linked): 409 `SOURCE_ALREADY_LINKED`,
+  naming the current target. The plain "Link" button is REPLACED by an explicit
+  **"Replace link"**, which is the only thing that sends `replaceExisting: true`. Nothing is
+  ever silently overwritten; a replacement archives the old row first (history survives) and
+  then inserts.
+- **Target conflict** (this Fleetio vehicle is claimed by a DIFFERENT Motive vehicle): 409
+  `TARGET_ALREADY_LINKED`, naming the other side. Refused outright — `replaceExisting` does
+  NOT override it, because auto-archiving someone else's mapping would move a second truck's
+  readings without being asked. Both names belong to the same account, so neither can cross a
+  tenant boundary.
+- Re-confirming the SAME pair is idempotent success, not an error.
+- A unique-index RACE (two admins at once) surfaces as `LINK_CONFLICT` with reload guidance —
+  never a raw Postgres string.
+
+Archiving is soft, so the pair is immediately free and the vehicle returns to Unlinked;
+re-linking after archival is asserted end to end.
+
+### User-facing unmapped error (first class)
+
+`UNMAPPED_VEHICLE` is now a real `RunFailureCode`. The chain:
+
+```
+handler throws UnmappedVehicleError (CS-3)
+  → classifyHandlerError(err.name) → "UNMAPPED_VEHICLE"
+    → humanizeActionError → the persisted classification
+```
+
+Users see: **"Vehicle isn't linked yet"** —
+> This Motive vehicle is not linked to Fleetio yet. Link it in Apps → Vehicle Links, then run
+> the workflow again.
+
+- The typed code is preserved end to end.
+- **Copy is code-derived and identifier-free.** The thrown message names the vehicle id; it is
+  never echoed, because the classification is persisted on the run row and fans out to
+  notifications.
+- **Archived and never-linked are indistinguishable** — same code, same copy. The user's next
+  step is the same, and distinguishing them would reveal that a mapping once existed.
+- **No `action`, therefore no CTA.** `/apps/vehicle-links` is behind a default-OFF flag; a CTA
+  linking to a 404 would be worse than none, and the taxonomy rule is "never a misleading
+  action". The description names the destination in words. Adding a `link_vehicles` action is
+  a clean follow-up **once the flag flips**. Instead, the `/apps` page renders a link to the
+  screen — but ONLY when the flag is on — so the instruction is followable exactly when it is
+  true.
+
+**Refactor note:** the engine's handler-error ternary chain moved verbatim into
+[`services/execution/classifyHandlerError.ts`](../../../services/execution/classifyHandlerError.ts).
+Pure extraction, no behavior change — `engine.ts` sat exactly at its 640-line ESLint budget and
+the new branch would have tipped it over. The engine test now throws the REAL
+`UnmappedVehicleError` class rather than a hand-set name, so renaming it fails a test instead
+of silently degrading run history.
+
+### Account-isolation evidence
+
+- Account A's list never contains B's links; the same Motive id may be linked in BOTH accounts
+  to different targets.
+- B's owner naming A's account → 403 `NOT_ACCOUNT_MEMBER`; naming their OWN account with A's
+  link id → 404. **A cross-account link id is byte-identical to one that never existed** —
+  asserted by comparing the two responses.
+- An unknown link id, an already-archived link, and another account's link all return the SAME
+  404.
+- A's target-conflict check never consults B's links (B claiming Fleetio 42 does not block A
+  from claiming its own Fleetio 42).
+- The wire view carries no `accountId`, no raw user id, no `matchBasis`-adjacent row internals,
+  and no credential — the confirmer appears as ONE resolved co-member display label (from the
+  membership SECURITY DEFINER RPC, which gates on `auth.uid()`).
+
+### Tests run (focused — full `npm test` intentionally NOT run, per owner instruction)
+
+| Suite | Result |
+|---|---|
+| [`vehicleLinkService.test.ts`](../../../tests/unit/services/resourceLinks/vehicleLinkService.test.ts) (new) — permissions, manual pairing, conflicts, archive/re-link, isolation | 29 passed |
+| [`vehicle-links.route.test.ts`](../../../tests/unit/app/api/accounts/vehicle-links.route.test.ts) (new) — all four route verbs, flag gating, authz, conflict→HTTP, no-leak | 25 passed |
+| [`VehicleLinksDashboard.test.tsx`](../../../tests/unit/features/apps/vehicleLinks/VehicleLinksDashboard.test.tsx) (new) — UI states, pairing, replace-confirmation, member view, honest Suggested | 17 passed |
+| [`vehicleLinksPage.test.tsx`](../../../tests/unit/app/apps/vehicleLinksPage.test.tsx) (new) — flag OFF/ON, auth, membership, server-derived props | 10 passed |
+| [`vehicleOptions.test.ts`](../../../tests/unit/services/resourceLinks/vehicleOptions.test.ts) (new) — account scoping, disconnected vs error, no-leak | 9 passed |
+| [`unmappedVehicleError.test.ts`](../../../tests/unit/core/errors/unmappedVehicleError.test.ts) (new) — the whole classification chain | 8 passed |
+| Consolidated focused run (all of the above + CS-1 repo/migration, CS-2 matching, CS-3 action/meta, all Fleetio + Motive resolver suites, engine, testModeGate, runPersistence, error humanization/CTA, workflow-error-classification contract, credential-paste, `api-route-authorization`, `no-service-role-imports`, `discovery-meta-coverage`) | **44 suites / 704 passed** |
+| `npm run lint` · `lint:structure` · `lint:migrations` | clean (lint: 0 errors) |
+| Direct `npx eslint` on all 24 touched files | clean |
+
+**`npm run typecheck`:** CS-4's own files are clean. Three errors remain in the tree, all in a
+CONCURRENT session's uncommitted account-deletion / purge / billing test files
+(`mock.invocationCallOrder[0]` typed `number | undefined`). None reference this arc; none were
+touched here, and per the batch's "preserve concurrent work" rule they were left alone.
+Likewise `tests/unit/services/execution/staleWorkflowRunSweep.test.ts` fails at HEAD
+`1034374c6` for a pre-existing reason (an `EXECUTION_INTERRUPTED` CTA-action assertion) —
+verified unchanged by this slice.
+
+**No migration was created.** CS-4 needed none: the CS-1 table already carries every column,
+constraint, and index this screen uses, and the service composes its conflict checks from the
+existing `listLinks` / `createConfirmedLink` / `archiveLink` operations. `db:push` was not run.
+
+### What remains for CS-5
+
+Unchanged from §9: wire the Suggested tab to CS-2's `proposeVehicleMatches` — evidence display
+per tier, tier-1 bulk confirm ("Confirm all exact VIN matches"), Dismiss, and stale-link health
+flags (target no longer visible in Fleetio / source no longer visible in Motive), all behind
+the same flag. CS-5 will also start writing the `suggested_*` match bases, which CS-4
+deliberately cannot produce. Plan **Q1** (do real Fleetio accounts populate `vin` /
+`license_plate`?) must be resolved at live certification **before** CS-5's tier-1 bulk confirm
+is trusted. Once the flag flips (CS-6), add the `link_vehicles` CTA action so the unmapped-run
+error links straight to the screen.
+
+CS-4 added no migration, no option resolver, no change to `OptionsResolverContext`, and no
+change to CS-3's action, its schema, its output, or the Fleetio manifest.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 *(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,

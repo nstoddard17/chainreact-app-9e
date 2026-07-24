@@ -52,6 +52,7 @@ import {
   persistRun,
 } from "./runPersistence";
 import { bfsExecutionOrder } from "./executionOrder";
+import { classifyHandlerError } from "./classifyHandlerError";
 import type {
   EngineDependencies,
   RunFailureCode,
@@ -739,41 +740,14 @@ export class WorkflowEngine {
           type: node.type,
         });
       } catch (err) {
-        // CR-FAILREASON-1 — normalize provider auth / transient throws to typed
-        // codes the humanizer maps to `reconnect` / `retry_later`. We read
-        // `err.name` (the error classes in services/oauth/refreshAndRetry set a
-        // stable `name`) rather than importing those classes, to avoid a
-        // services/oauth → services/execution import cycle. The raw message is
+        // CR-FAILREASON-1 — normalize provider auth / transient / setup throws
+        // to typed codes the humanizer maps to a specific next step. The rule
+        // lives in `classifyHandlerError` (pure; matches on the stable `err.name`
+        // so no error class needs importing into the engine). The raw message is
         // kept on the step for SERVER-SIDE diagnostics only; the user-facing
-        // classification for these codes is code-derived (no raw text echoed),
-        // and the run-detail route re-sanitizes step errors before the client.
-        const errName = err instanceof Error ? err.name : "";
-        const code: RunFailureCode =
-          errName === "Unauthorized401Error" ||
-          errName === "IntegrationActionRequiredError"
-            ? "INTEGRATION_REAUTH_REQUIRED"
-            : errName === "InsufficientScopeError"
-              ? "INTEGRATION_SCOPE_REQUIRED"
-              : errName === "AbortError" || errName === "TimeoutError"
-                ? "TRANSIENT_PROVIDER_ERROR"
-                : // TRUCK-BRIDGE-1 CS-4 — the step asked for a vehicle link this
-                  // account has not confirmed (or has removed). A setup gap with a
-                  // specific fix, not a handler bug → its own classification, so the
-                  // humanizer can point at Apps → Vehicle Links instead of falling
-                  // through to the identifier-free generic branch.
-                  errName === "UnmappedVehicleError"
-                  ? "UNMAPPED_VEHICLE"
-                  : // CS-4 MCP-DRIFT — the engine refused to execute against a changed,
-                  // unreviewed integration interface (certified-schema drift). Safe
-                  // stop, not a handler bug → its own first-class classification.
-                  errName === "McpSchemaDriftError"
-                  ? "INTEGRATION_CHANGED"
-                  : // AI-PROVIDER-6 — a ChainReact AI step refused for lack of
-                    // AI credits. Its own code so run history points at billing
-                    // rather than at the step's configuration.
-                    errName === "AiCreditsExhaustedError"
-                    ? "AI_CREDITS_EXHAUSTED"
-                    : "HANDLER_FAILED";
+        // classification is code-derived, and the run-detail route re-sanitizes
+        // step errors before the client.
+        const code: RunFailureCode = classifyHandlerError(err);
         steps.push({
           nodeId: node.id,
           status: "failed",

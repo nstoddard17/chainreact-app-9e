@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { isResourceLinksUiEnabled } from "@/services/resourceLinks/flags";
 import * as integrationsRepo from "@/repositories/integrations";
 import * as notificationsRepo from "@/repositories/notifications";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
@@ -113,6 +115,23 @@ export default async function AppsPage({ searchParams }: Props) {
     >
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />
+        {/*
+         * 5.TRUCK-BRIDGE-1 CS-4 — the entry point the unmapped-vehicle run error
+         * names ("Link it in Apps → Vehicle Links"). Rendered ONLY when
+         * RESOURCE_LINKS_UI is on, so while the flag is off there is no link to a
+         * route that 404s — and when it is on, that error message is actually
+         * followable. Server-rendered here rather than inside AppsDashboard so the
+         * client component needs no flag plumbing.
+         */}
+        {isResourceLinksUiEnabled() && (
+          <Link
+            href="/apps/vehicle-links"
+            data-testid="apps-vehicle-links-link"
+            className="self-start text-sm underline underline-offset-4"
+          >
+            Vehicle links — pair Motive vehicles with Fleetio
+          </Link>
+        )}
         <AppsDashboard
           items={items}
           categories={categories}

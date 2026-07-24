@@ -929,6 +929,41 @@ describe("WorkflowEngine — failure modes (rule §Engine pre-resolution)", () =
     });
   });
 
+  // 5.TRUCK-BRIDGE-1 CS-4 — a vehicle-link setup gap gets its OWN code so the
+  // humanizer can point at Apps → Vehicle Links instead of falling through to
+  // the identifier-free generic HANDLER_FAILED copy. The REAL CS-3 error class
+  // is thrown here (not a hand-set name), so a rename of that class fails this
+  // test rather than silently degrading run history.
+  it("UNMAPPED_VEHICLE when a step throws the real UnmappedVehicleError", async () => {
+    const { UnmappedVehicleError } = await import(
+      "@/integrations/fleetio/actions/findLinkedVehicle"
+    );
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    mockGetActionHandler.mockReturnValueOnce(async () => {
+      throw new UnmappedVehicleError("Motive", "motive", "motive-veh-88231");
+    });
+
+    const result = await new WorkflowEngine({
+      resolveStrict: (v) => v,
+    }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.steps[1]).toMatchObject({
+      status: "failed",
+      error: { code: "UNMAPPED_VEHICLE" },
+    });
+  });
+
   it("stops on first failure — downstream steps are not executed", async () => {
     mockGetByIdServiceRole.mockResolvedValueOnce({
       ...baseWorkflow,
