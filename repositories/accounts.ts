@@ -296,6 +296,39 @@ export async function getByIdServiceRole(
 }
 
 /**
+ * Service-role read of a user's PERSONAL account (4.ACCOUNT-BILLING-LIFECYCLE-3).
+ *
+ * The sibling `getPersonalAccountForUser` uses the RLS/session client, so it can only ever
+ * see the CALLER's own personal account — asking it about somebody else returns null, which
+ * would be indistinguishable from "that user does not exist". Ownership-transfer eligibility
+ * has to inspect the RECIPIENT's personal account, i.e. a different user's row, so it needs
+ * this service-role read.
+ *
+ * Returns null when the user has no personal account at all — which, for a user id that
+ * came from a membership row, means their identity is gone (purged) or was never
+ * provisioned. Callers must treat null as INELIGIBLE, never as "fine".
+ */
+export async function getPersonalAccountForUserServiceRole(
+  userId: string,
+): Promise<AccountRecord | null> {
+  const supabase = getServiceRoleClient(
+    `accounts: getPersonalAccountForUser (service-role) for user ${userId}`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("*")
+    .eq("type", "personal")
+    .eq("owner_user_id", userId)
+    .maybeSingle<AccountsRow>();
+  if (error) {
+    throw new Error(
+      `accounts.getPersonalAccountForUserServiceRole failed: ${error.message}`,
+    );
+  }
+  return data ? rowToRecord(data) : null;
+}
+
+/**
  * Service-role read of just the deletion status. Used by the freeze guards
  * (services/accounts/accountFreeze.ts) on background / service-role paths
  * (engine billing gate, OAuth refresh, activation) that RLS does not gate.

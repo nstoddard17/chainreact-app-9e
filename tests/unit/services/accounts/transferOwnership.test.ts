@@ -10,9 +10,12 @@
 
 const mockGetById = jest.fn();
 const mockTransfer = jest.fn();
+// ACCOUNT-BILLING-LIFECYCLE-3 — recipient eligibility reads the TARGET's personal account.
+const mockGetPersonalSR = jest.fn();
 jest.mock("@/repositories/accounts", () => ({
   getByIdServiceRole: (...a: unknown[]) => mockGetById(...a),
   transferAccountOwnershipServiceRole: (...a: unknown[]) => mockTransfer(...a),
+  getPersonalAccountForUserServiceRole: (...a: unknown[]) => mockGetPersonalSR(...a),
 }));
 
 const mockGetRoleSR = jest.fn();
@@ -46,6 +49,10 @@ beforeEach(() => {
   mockGetById.mockReset();
   mockTransfer.mockReset().mockResolvedValue(undefined);
   mockGetRoleSR.mockReset();
+  // Default: the recipient is a healthy ACTIVE user, so pre-existing cases behave as before.
+  mockGetPersonalSR
+    .mockReset()
+    .mockResolvedValue(acct({ id: "personal-of-target", type: "personal", ownerUserId: TARGET }));
 });
 
 describe("transferOwnership", () => {

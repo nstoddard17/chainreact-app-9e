@@ -145,3 +145,60 @@ describe("POST /api/accounts/[id]/transfer-ownership", () => {
     expect((await res.json()).code).toBe(code);
   });
 });
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-3 — the recipient-eligibility refusal projected into HTTP.
+ *
+ * The guard itself lives in the SERVICE (the only path that can make another user an owner);
+ * the route's job is to turn the typed reason into something the initiating owner can act on
+ * without learning another user's private account lifecycle.
+ */
+describe("POST — recipient unavailable (ACCOUNT-BILLING-LIFECYCLE-3)", () => {
+  it("409s with TARGET_UNAVAILABLE and actionable copy", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
+    mockVerifyReauth.mockResolvedValue({ ok: true });
+    mockTransfer.mockResolvedValueOnce({
+      ok: false,
+      reason: "target_unavailable",
+    });
+
+    const res = await POST(req({ targetUserId: TARGET, password: "pw" }), params());
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("TARGET_UNAVAILABLE");
+    // Actionable: tells the owner what to do instead.
+    expect(body.error).toMatch(/choose a different member/i);
+  });
+
+  it("discloses NOTHING about the recipient's account lifecycle", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
+    mockVerifyReauth.mockResolvedValue({ ok: true });
+    mockTransfer.mockResolvedValueOnce({
+      ok: false,
+      reason: "target_unavailable",
+    });
+
+    const body = await (await POST(req({ targetUserId: TARGET, password: "pw" }), params())).json();
+    const text = JSON.stringify(body);
+
+    // Never reveals that the other user is deleting their account, nor when, nor any id.
+    expect(text).not.toMatch(/deleting|deletion|pending|frozen|purge|grace/i);
+    expect(text).not.toContain(TARGET);
+  });
+
+  it("the route does NOT re-implement the eligibility check", async () => {
+    // A second copy in the route would drift from the service and could be bypassed by any
+    // non-route caller — the exact failure mode this slice removed from the deletion path.
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const src = readFileSync(
+      join(process.cwd(), "app/api/accounts/[id]/transfer-ownership/route.ts"),
+      "utf8",
+    );
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code).not.toMatch(/getPersonalAccountForUserServiceRole|deletionStatus/);
+  });
+});

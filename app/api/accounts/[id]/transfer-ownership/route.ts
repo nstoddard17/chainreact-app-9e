@@ -73,6 +73,18 @@ function transferFailure(reason: TransferOwnershipReason): NextResponse {
         { error: "That member is already the owner.", code: "TARGET_ALREADY_OWNER" },
         { status: 400 },
       );
+    case "target_unavailable":
+      // ACCOUNT-BILLING-LIFECYCLE-3. Actionable for the initiating owner ("pick someone
+      // else") WITHOUT disclosing another user's private account lifecycle — the caller is
+      // told the recipient is unavailable, not that they are deleting their account.
+      return NextResponse.json(
+        {
+          error:
+            "That member can't become the owner right now because their ChainReact account is unavailable. Choose a different member.",
+          code: "TARGET_UNAVAILABLE",
+        },
+        { status: 409 },
+      );
     case "transfer_failed":
       return NextResponse.json(
         { error: "Couldn't transfer ownership. Please try again.", code: "TRANSFER_FAILED" },
