@@ -327,7 +327,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // same slice, so actions/webhookTrigger/pollingTrigger are all true from day
   // one. ACCOUNT credential class (a company's fleet — the Stripe/QuickBooks
   // posture); refreshable non-PKCE OAuth with body-auth token exchange and
-  // SINGLE-USE ROTATING refresh tokens; companyId (read from /v1/users/me) is
+  // SINGLE-USE ROTATING refresh tokens; companyId (read from /v1/companies) is
   // the providerAccountId + webhook fan-out scope.
   motiveManifest,
   // EDEN-3 — Eden (eden.so), a content-research / boards / creator-analysis /

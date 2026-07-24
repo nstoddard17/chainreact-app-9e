@@ -146,8 +146,9 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, AnyProviderOAuth>> = Object.fre
   // dispatcher's generic `callbackParams` passthrough; connect FAILS
   // without it. See integrations/quickbooks/oauth.ts.
   quickbooks: quickbooksOAuth,
-  // MOTIVE-1 — non-PKCE body-auth OAuth; companyId read from /v1/users/me at
-  // connect (not a callback param), rotating single-use refresh tokens.
+  // MOTIVE-1 — non-PKCE body-auth OAuth; companyId read from /v1/companies at
+  // connect (not a callback param; /v1/users/me needs users.read which the
+  // manage-only portal grant lacks), rotating single-use refresh tokens.
   motive: motiveOAuth,
   // CS-1 MCP-AUTH — Linear, first MCP-catalog app, via the shared MCP OAuth
   // helper (integrations/_shared/mcp/oauth.ts) in static-endpoint mode:

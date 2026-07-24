@@ -54,10 +54,14 @@ Read-and-write dropdown — **"Read and write" REPLACES `.read` with `.manage`**
 (they are never granted together). Requesting any scope the app doesn't hold
 rejects the ENTIRE authorize request with "The requested scope is invalid,
 unknown, or malformed." The manifest therefore requests exactly one scope per
-row, mirrored 1:1 in `integrations/motive/manifest.ts`. Motive labels `.manage`
-as "Read and write", so GETs under a manage-only row are expected to work —
-**verify at Phase 13** (fuel list/get, driver/vehicle pickers, fuel polling,
-`GET /v1/users/me` at connect).
+row, mirrored 1:1 in `integrations/motive/manifest.ts`. **CAUTION — manage
+does NOT imply read (live 403, 2026-07-24):** `GET /v1/users/me` 403'd under a
+`users.manage`-only token, so connect-time company identity now uses
+`GET /v1/companies` (`companies.read`). GETs under the other manage-only rows
+(fuel list/get, driver/vehicle pickers, fuel polling) are **AT RISK of the same
+403** — prove or disprove each at Phase 13; if they fail, those reads need the
+`.read` variant, which the portal can't grant alongside `.manage` until Motive
+approval changes what the app may hold.
 
 Required portal configuration (checkbox ✓ + dropdown level):
 

@@ -2,9 +2,11 @@
  * @jest-environment node
  *
  * MOTIVE-1 — motiveOAuth: non-PKCE authorize URL, body-auth token exchange,
- * companyId-from-/v1/users/me contract, missing-refresh fail-fast, rotating
- * refresh persistence, invalid_grant → RefreshAuthRequiredError. No plaintext
- * token or client secret ever appears in persisted shapes or the browser URL.
+ * companyId-from-/v1/companies contract (NOT /v1/users/me — that GET needs
+ * `users.read`, which the manage-only Drivers portal row doesn't grant; live
+ * 403 2026-07-24), missing-refresh fail-fast, rotating refresh persistence,
+ * invalid_grant → RefreshAuthRequiredError. No plaintext token or client
+ * secret ever appears in persisted shapes or the browser URL.
  */
 import { decryptToken } from "@/core/encryption/tokens";
 import { RefreshAuthRequiredError } from "@/contracts/integration";
@@ -55,7 +57,7 @@ const TOKEN_SUCCESS = {
   expires_in: 7200,
   token_type: "Bearer",
 };
-const USERS_ME = { user: { id: 5, first_name: "Sam", last_name: "Driver", company: { id: 8801, name: "Acme Freight" } } };
+const COMPANIES = { companies: [{ company: { id: 8801, name: "Acme Freight" } }] };
 
 describe("buildAuthUrl", () => {
   it("produces the account.gomotive.com authorize URL with NO PKCE params and no secret", () => {
@@ -99,8 +101,8 @@ describe("buildAuthUrl", () => {
 });
 
 describe("handleCallback", () => {
-  it("exchanges the code (body auth) and takes companyId from /v1/users/me", async () => {
-    const spy = mockFetchSequence([{ json: TOKEN_SUCCESS }, { json: USERS_ME }]);
+  it("exchanges the code (body auth) and takes companyId from /v1/companies", async () => {
+    const spy = mockFetchSequence([{ json: TOKEN_SUCCESS }, { json: COMPANIES }]);
     const result = await motiveOAuth.handleCallback("code-1", "state", null, null, {});
 
     const [tokenUrl, tokenInit] = spy.mock.calls[0]!;
@@ -111,8 +113,8 @@ describe("handleCallback", () => {
     expect(body).toContain("client_id=test-motive-client-id");
     expect(body).toContain("client_secret=test-motive-client-secret");
 
-    const [meUrl] = spy.mock.calls[1]!;
-    expect(String(meUrl)).toContain("/v1/users/me");
+    const [companiesUrl] = spy.mock.calls[1]!;
+    expect(String(companiesUrl)).toContain("/v1/companies");
 
     expect(result.account.providerAccountId).toBe("8801");
     expect(result.account.displayName).toBe("Acme Freight");
@@ -123,10 +125,10 @@ describe("handleCallback", () => {
     expect(JSON.stringify(result)).not.toContain("motive-refresh-token");
   });
 
-  it("FAILS the connect when the user has no company id", async () => {
-    mockFetchSequence([{ json: TOKEN_SUCCESS }, { json: { user: { id: 5 } } }]);
+  it("FAILS the connect when the grant has no company", async () => {
+    mockFetchSequence([{ json: TOKEN_SUCCESS }, { json: { companies: [] } }]);
     await expect(motiveOAuth.handleCallback("code-1", "state", null, null, {})).rejects.toThrow(
-      /company id/i,
+      /company/i,
     );
   });
 

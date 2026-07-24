@@ -25,10 +25,11 @@ import {
  *     `redirect_uri`. Response: `{ access_token, refresh_token, expires_in:
  *     7200, token_type: "Bearer" }`.
  *   - **companyId comes from an API read, not the callback.** After the token
- *     exchange we read `GET /v1/users/me` and take the current user's company
- *     id as the providerAccountId (the multi-company discriminator + webhook
- *     fan-out scope). A missing company id FAILS the connect — a row without a
- *     company could never scope a webhook or a company-scoped call.
+ *     exchange we read `GET /v1/companies` (gated by `companies.read` — see
+ *     resolveCompany for why NOT `/v1/users/me`) and take the sole authorized
+ *     company's id as the providerAccountId (the multi-company discriminator +
+ *     webhook fan-out scope). A missing company id FAILS the connect — a row
+ *     without a company could never scope a webhook or a company-scoped call.
  *   - Refresh: POST the token endpoint with `grant_type=refresh_token`. Refresh
  *     tokens are SINGLE-USE / rotating — the returned refresh token is persisted
  *     on every refresh (Calendly/QuickBooks precedent); reuse of a spent token
@@ -91,14 +92,10 @@ interface MotiveTokenError {
   error_description?: string;
 }
 
-interface MotiveUsersMeResponse {
-  user?: {
-    id?: number | string;
-    first_name?: string | null;
-    last_name?: string | null;
-    company_id?: number | string | null;
+interface MotiveCompaniesResponse {
+  companies?: Array<{
     company?: { id?: number | string; name?: string | null } | null;
-  } | null;
+  } | null> | null;
 }
 
 async function readMotiveErrorCode(res: Response): Promise<string> {
@@ -114,14 +111,23 @@ async function readMotiveErrorCode(res: Response): Promise<string> {
 }
 
 /**
- * Connect-time company identity from `GET /v1/users/me`. Returns the company id
- * (required — throws when absent) + a display name. Best-effort on the name
+ * Connect-time company identity from `GET /v1/companies`. Returns the company
+ * id (required — throws when absent) + a display name. Best-effort on the name
  * only; the company id is load-bearing.
+ *
+ * LIVE-CORRECTED 2026-07-24: this originally read `GET /v1/users/me`, but that
+ * endpoint is gated by `users.read` — which the token does NOT hold, because
+ * Motive's portal grants exactly one variant per permission row and the
+ * Drivers-and-Fleet-Managers row is set to Read-and-write (`users.manage`
+ * only). Motive enforces "GET needs `.read`" strictly (manage does NOT imply
+ * read — live 403). `/v1/companies` is gated by `companies.read`, which the
+ * token always holds (its portal row is Read-only). A Motive grant authorizes
+ * ONE company, so the first (sole) row is the connect identity.
  */
 async function resolveCompany(
   accessToken: string,
 ): Promise<{ companyId: string; displayName: string }> {
-  const res = await fetch(`${motiveApiBase()}/v1/users/me`, {
+  const res = await fetch(`${motiveApiBase()}/v1/companies`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
@@ -130,36 +136,33 @@ async function resolveCompany(
   if (!res.ok) {
     logMotiveApiError({
       method: "GET",
-      path: "/v1/users/me",
+      path: "/v1/companies",
       status: res.status,
       requestId: readMotiveRequestId(res),
     });
     throw new Error(
-      `Motive connect: could not read the current user's company (${await readMotiveErrorCode(res)}).`,
+      `Motive connect: could not read the authorized company (${await readMotiveErrorCode(res)}).`,
     );
   }
-  const json = (await res.json()) as MotiveUsersMeResponse;
-  const user = json.user;
-  const rawCompanyId = user?.company?.id ?? user?.company_id;
+  const json = (await res.json()) as MotiveCompaniesResponse;
+  const company = json.companies?.[0]?.company;
+  const rawCompanyId = company?.id;
   const companyId =
     rawCompanyId != null && String(rawCompanyId).length > 0
       ? String(rawCompanyId)
       : null;
   if (!companyId) {
     throw new Error(
-      "Motive connect: the current user has no company id. Refusing the connect — a company-less connection cannot scope webhooks or company-scoped calls.",
+      "Motive connect: the grant has no company. Refusing the connect — a company-less connection cannot scope webhooks or company-scoped calls.",
     );
   }
   const companyName =
-    typeof user?.company?.name === "string" && user.company.name.length > 0
-      ? user.company.name
+    typeof company?.name === "string" && company.name.length > 0
+      ? company.name
       : null;
-  const personName = [user?.first_name, user?.last_name]
-    .filter((p): p is string => typeof p === "string" && p.length > 0)
-    .join(" ");
   return {
     companyId,
-    displayName: companyName ?? (personName.length > 0 ? personName : companyId),
+    displayName: companyName ?? companyId,
   };
 }
 

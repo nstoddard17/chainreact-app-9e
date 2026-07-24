@@ -21,7 +21,9 @@ import {
  *     on every exchange/refresh (Calendly/QuickBooks rotation-persist shape).
  *
  * Company scoping — a Motive grant authorizes ONE company's data. The company
- * id is read from `GET /v1/users/me` at connect time and stored as the
+ * id is read from `GET /v1/companies` at connect time (NOT `/v1/users/me` —
+ * that GET needs `users.read`, which the manage-only Drivers row doesn't
+ * grant; live 403, corrected 2026-07-24) and stored as the
  * `providerAccountId`. `accountIdField: "companyId"` — it is both the
  * multi-company discriminator (one authorization = one company; two companies =
  * two integration rows) and the webhook fan-out scope.
@@ -60,9 +62,12 @@ export const motiveManifest: ProviderManifest = ProviderManifestSchema.parse({
   // its Read-only / Read-and-write dropdown — "Read and write" REPLACES `.read`
   // with `.manage` (requesting both 403s the whole authorize request with
   // "requested scope is invalid"). So `.read` is requested ONLY for rows the
-  // portal keeps at Read only. Motive labels `.manage` as "Read and write" —
-  // GET endpoints under a manage-only row (fuel list/get, driver/vehicle
-  // pickers, fuel-purchase polling) ride the manage scope; verify at Phase 13.
+  // portal keeps at Read only. CAUTION (live 403, 2026-07-24): manage does NOT
+  // imply read — `GET /v1/users/me` 403'd under users.manage (connect now uses
+  // /v1/companies via companies.read). GET endpoints under manage-only rows
+  // (fuel list/get, driver/vehicle pickers, fuel-purchase polling) are AT RISK
+  // of the same 403 until Phase 13 proves them or Motive approval unlocks
+  // granting read+manage together.
   // `company_webhooks.manage` is MANDATORY for the 7 webhook triggers
   // (POST /v1/company_webhooks) — live-verified valid despite being absent from
   // Motive's public scope docs. Deliberately NOT requested: `forms.read` /

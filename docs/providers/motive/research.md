@@ -42,7 +42,10 @@
   callback: `${NEXT_PUBLIC_APP_URL}/api/integrations/oauth/motive/callback`.
 - **Account discriminator (`accountIdField`): `companyId`.** A Motive OAuth
   grant authorizes ONE company's data. The company id is read from
-  `GET /v1/users/me` (or `/v1/companies`) at connect time and stored as the
+  `GET /v1/companies` at connect time (**LIVE-CORRECTED 2026-07-24:**
+  `/v1/users/me` requires `users.read`, which the manage-only Drivers portal
+  row does not grant — it 403'd the first live connect; manage does NOT imply
+  read) and stored as the
   `providerAccountId` — it is the webhook fan-out scope and the multi-company
   discriminator (one authorization = one company; two companies = two rows).
 - **Base API host:** `https://api.gomotive.com` (dual-supports
