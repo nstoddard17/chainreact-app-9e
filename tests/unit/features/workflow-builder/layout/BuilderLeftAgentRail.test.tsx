@@ -6,6 +6,7 @@
  * has no AI behavior, no backend calls, and no provider logic — it
  * only renders chrome around its children.
  */
+import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderLeftAgentRail } from "@/features/workflow-builder/layout/BuilderLeftAgentRail";
@@ -66,9 +67,11 @@ describe("BuilderLeftAgentRail — collapsed state", () => {
     // Slice 4.BUILDER-DESIGN-PARITY-1 — the Anthropic ChainV2 design
     // keeps a vertical 40px spine in the collapsed state (rotated
     // "REACT AGENT" label + expand button) rather than fully vacating
-    // the column. The critical invariant — children must NOT mount in
-    // collapsed mode so BuilderAiPanel doesn't fire its state effects
-    // / network calls — is preserved.
+    // the column. The mount invariant applies to a rail that has NEVER
+    // been expanded: children must not mount so the guidance panel fires
+    // no state effects / network calls. (After a first expansion the
+    // payload is kept alive but hidden — see the DOC-RAIL-LAYOUT-1
+    // describe block below.)
     render(
       <BuilderLeftAgentRail isCollapsed onToggle={() => undefined}>
         <div data-testid="payload">payload body</div>
@@ -97,5 +100,84 @@ describe("BuilderLeftAgentRail — collapsed state", () => {
       screen.getByRole("button", { name: /expand react agent/i }),
     );
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("BuilderLeftAgentRail — keep-alive after first expansion (DOC-RAIL-LAYOUT-1)", () => {
+  function Stateful() {
+    const [count, setCount] = useState(0);
+    return (
+      <button
+        type="button"
+        data-testid="stateful-child"
+        onClick={() => setCount((c) => c + 1)}
+      >
+        count:{count}
+      </button>
+    );
+  }
+
+  it("collapsing AFTER an expansion hides the payload instead of unmounting it", () => {
+    const { rerender } = render(
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
+        <div data-testid="payload">payload body</div>
+      </BuilderLeftAgentRail>,
+    );
+    expect(screen.getByTestId("payload")).toBeVisible();
+
+    rerender(
+      <BuilderLeftAgentRail isCollapsed onToggle={() => undefined}>
+        <div data-testid="payload">payload body</div>
+      </BuilderLeftAgentRail>,
+    );
+    // Still mounted (ONE panel instance) but hidden from view + a11y tree.
+    const payload = screen.getByTestId("payload");
+    expect(payload).toBeInTheDocument();
+    expect(payload).not.toBeVisible();
+    expect(screen.getByTestId("builder-left-agent-rail-payload")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+  });
+
+  it("children state (composer text / conversation analog) survives collapse → reopen", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
+        <Stateful />
+      </BuilderLeftAgentRail>,
+    );
+    await user.click(screen.getByTestId("stateful-child"));
+    await user.click(screen.getByTestId("stateful-child"));
+    expect(screen.getByTestId("stateful-child")).toHaveTextContent("count:2");
+
+    rerender(
+      <BuilderLeftAgentRail isCollapsed onToggle={() => undefined}>
+        <Stateful />
+      </BuilderLeftAgentRail>,
+    );
+    rerender(
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
+        <Stateful />
+      </BuilderLeftAgentRail>,
+    );
+    // Same instance, same state — nothing was remounted by the round-trip.
+    expect(screen.getByTestId("stateful-child")).toHaveTextContent("count:2");
+  });
+
+  it("a rail that STARTS collapsed still never mounts children until first expansion", () => {
+    const { rerender } = render(
+      <BuilderLeftAgentRail isCollapsed onToggle={() => undefined}>
+        <div data-testid="payload">payload body</div>
+      </BuilderLeftAgentRail>,
+    );
+    expect(screen.queryByTestId("payload")).toBeNull();
+
+    rerender(
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
+        <div data-testid="payload">payload body</div>
+      </BuilderLeftAgentRail>,
+    );
+    expect(screen.getByTestId("payload")).toBeVisible();
   });
 });

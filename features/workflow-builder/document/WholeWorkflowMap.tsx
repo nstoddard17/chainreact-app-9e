@@ -69,7 +69,10 @@ export function WholeWorkflowMap({
       data-testid="document-whole-workflow-map"
       role="dialog"
       aria-label="Whole workflow map"
-      className="flex h-full w-[320px] shrink-0 flex-col border-l outline-none"
+      // DOC-RAIL-LAYOUT-1 — below md the map becomes an overlay sheet anchored
+      // to the right edge (capped at 85vw) instead of reserving permanent row
+      // width, so a 400px viewport never crushes the Document to a sliver.
+      className="flex h-full w-[320px] shrink-0 flex-col border-l outline-none max-md:absolute max-md:inset-y-0 max-md:right-0 max-md:z-20 max-md:w-[min(320px,85vw)] max-md:shadow-2xl"
       style={{ background: "var(--builder-panel)", borderColor: "var(--builder-border)" }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {

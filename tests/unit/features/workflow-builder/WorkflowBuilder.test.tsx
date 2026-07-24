@@ -1122,7 +1122,7 @@ describe("WorkflowBuilder", () => {
     // (and its state / effects) must NOT mount while collapsed — is
     // preserved and asserted below. Rail presence is now identified by
     // `data-collapsed="true"`.
-    it("header toggle collapses the rail (guidance rail unmounts; spine remains)", async () => {
+    it("header toggle collapses the rail (guidance rail hides; spine remains)", async () => {
       const user = userEvent.setup();
       render(
         <WorkflowBuilder
@@ -1141,9 +1141,15 @@ describe("WorkflowBuilder", () => {
           .getByTestId("builder-left-agent-rail")
           .getAttribute("data-collapsed"),
       ).toBe("true");
-      // The panel disappears with the rail — its state / effects don't
-      // run while collapsed. This is the load-bearing invariant.
-      expect(screen.queryByTestId("builder-guidance-rail")).toBeNull();
+      // DOC-RAIL-LAYOUT-1 — the panel is KEPT ALIVE but fully hidden (kept
+      // out of view and the a11y tree) so composer text / conversation
+      // survive close → reopen. A rail that was never expanded still mounts
+      // nothing (see BuilderLeftAgentRail tests).
+      expect(screen.getByTestId("builder-guidance-rail")).not.toBeVisible();
+      expect(screen.getByTestId("builder-left-agent-rail-payload")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
     });
 
     it("in-rail × button collapses the rail (alternative to the header toggle)", async () => {
@@ -1168,7 +1174,8 @@ describe("WorkflowBuilder", () => {
           .getByTestId("builder-left-agent-rail")
           .getAttribute("data-collapsed"),
       ).toBe("true");
-      expect(screen.queryByTestId("builder-guidance-rail")).toBeNull();
+      // DOC-RAIL-LAYOUT-1 — kept alive but hidden (state survives reopen).
+      expect(screen.getByTestId("builder-guidance-rail")).not.toBeVisible();
     });
 
     it("header toggle is bidirectional — clicking again restores the rail", async () => {

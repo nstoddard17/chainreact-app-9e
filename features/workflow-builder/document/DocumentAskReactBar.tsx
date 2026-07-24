@@ -27,7 +27,7 @@ export function DocumentAskReactBar({
   return (
     <div
       data-testid="document-ask-react-bar"
-      className="sticky bottom-3 z-10 mx-auto mt-4 flex w-full max-w-[720px] items-center gap-2 rounded-full px-2 py-1.5"
+      className="sticky bottom-3 z-10 mx-auto mt-4 flex w-full max-w-[860px] items-center gap-2 rounded-full px-2 py-1.5"
       style={{
         background: "var(--builder-panel)",
         border: "1.5px solid var(--builder-border)",

@@ -417,7 +417,12 @@ export function WorkflowBuilder({
   // Slice 4.BUILDER-LEFT-AGENT-1: left React Agent rail collapse state
   // (persisted to localStorage via useLeftAgentRail). The header
   // exposes a toggle; the rail itself exposes an in-rail × button.
-  const leftRail = useLeftAgentRail();
+  // DOC-RAIL-LAYOUT-1 — builder-mode-aware: Document mode tracks its own
+  // session-only state that defaults (and re-defaults on every entry) to
+  // collapsed, so the Document gets the full workspace and its Ask React bar
+  // is the one visible AI entry. The persisted Visual preference is never
+  // touched by Document-mode toggling and is restored on switch back.
+  const leftRail = useLeftAgentRail(documentViewActive ? "document" : "visual");
 
   // Transition refs — drawer mode changes are user-event-driven, so we
   // only re-open the drawer when the relevant signal *transitions* from

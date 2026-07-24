@@ -900,7 +900,12 @@ export function DocumentView({
       aria-label="Workflow document"
     >
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[720px] px-6 py-10 sm:px-10">
+        {/* DOC-RAIL-LAYOUT-1 — with the Agent rail collapsed by default the
+            Document owns the whole workspace: the readable column is centered
+            at a moderately wider prose width (860px, was 720px — never
+            edge-to-edge), and the top padding is tightened so a small
+            workflow sits high instead of stranded mid-canvas. */}
+        <div className="mx-auto max-w-[860px] px-6 pb-16 pt-6 sm:px-10">
           {/* CS-6 — a top-level selection surfaces the safe-actions toolbar. */}
           {interactive && selectedIds.size > 0 ? (
             <DocumentSelectionToolbar

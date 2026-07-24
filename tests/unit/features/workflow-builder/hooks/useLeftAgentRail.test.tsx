@@ -5,6 +5,10 @@
  * persistence. Covers default-expanded behavior, the localStorage round
  * trip, the toggle / collapse / expand callbacks, and graceful
  * degradation when storage is unavailable.
+ *
+ * DOC-RAIL-LAYOUT-1 — builder-mode-aware state: Document mode defaults to
+ * collapsed (session-only, never persisted), re-collapses on every entry,
+ * and never overwrites the persisted Visual preference.
  */
 import { act, render } from "@testing-library/react";
 import {
@@ -14,11 +18,13 @@ import {
 } from "@/features/workflow-builder/hooks/useLeftAgentRail";
 
 function Harness({
+  view,
   onState,
 }: {
+  view?: "visual" | "document";
   onState: (state: UseLeftAgentRailResult) => void;
 }) {
-  const state = useLeftAgentRail();
+  const state = useLeftAgentRail(view ?? "visual");
   onState(state);
   return null;
 }
@@ -105,6 +111,98 @@ describe("useLeftAgentRail — callbacks", () => {
     expect(states[1]!.toggle).toBe(states[2]!.toggle);
     expect(states[0]!.collapse).toBe(states[1]!.collapse);
     expect(states[0]!.expand).toBe(states[1]!.expand);
+  });
+});
+
+describe("useLeftAgentRail — Document mode (DOC-RAIL-LAYOUT-1)", () => {
+  it("defaults to collapsed in Document mode even when nothing is persisted", () => {
+    let last!: UseLeftAgentRailResult;
+    render(<Harness view="document" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(true);
+  });
+
+  it("defaults to collapsed in Document mode even when the Visual preference is expanded", () => {
+    window.localStorage.setItem(__LEFT_AGENT_RAIL_STORAGE_KEY__, "false");
+    let last!: UseLeftAgentRailResult;
+    render(<Harness view="document" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(true);
+  });
+
+  it("expand()/toggle() work in Document mode but never touch localStorage", () => {
+    let last!: UseLeftAgentRailResult;
+    render(<Harness view="document" onState={(s) => (last = s)} />);
+    act(() => last.expand());
+    expect(last.isCollapsed).toBe(false);
+    expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBeNull();
+    act(() => last.toggle());
+    expect(last.isCollapsed).toBe(true);
+    expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBeNull();
+  });
+
+  it("Visual → Document collapses; Document → Visual restores the Visual state untouched", () => {
+    let last!: UseLeftAgentRailResult;
+    const { rerender } = render(<Harness view="visual" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(false); // Visual default: expanded
+
+    rerender(<Harness view="document" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(true); // Document default: collapsed
+
+    // Open + close + open the rail in Document — Visual state must not move.
+    act(() => last.expand());
+    expect(last.isCollapsed).toBe(false);
+    act(() => last.collapse());
+    act(() => last.expand());
+
+    rerender(<Harness view="visual" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(false); // Visual still expanded
+    // Document toggling never persisted anything over the Visual preference.
+    expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBeNull();
+  });
+
+  it("a persisted collapsed Visual preference survives a Document round-trip", () => {
+    window.localStorage.setItem(__LEFT_AGENT_RAIL_STORAGE_KEY__, "true");
+    let last!: UseLeftAgentRailResult;
+    const { rerender } = render(<Harness view="visual" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(true);
+
+    rerender(<Harness view="document" onState={(s) => (last = s)} />);
+    act(() => last.expand()); // explicit open in Document
+    expect(last.isCollapsed).toBe(false);
+
+    rerender(<Harness view="visual" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(true); // persisted Visual collapse restored
+    expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBe("true");
+  });
+
+  it("re-entering Document mode resets an explicitly opened rail back to collapsed", () => {
+    let last!: UseLeftAgentRailResult;
+    const { rerender } = render(<Harness view="document" onState={(s) => (last = s)} />);
+    act(() => last.expand());
+    expect(last.isCollapsed).toBe(false);
+
+    rerender(<Harness view="visual" onState={(s) => (last = s)} />);
+    rerender(<Harness view="document" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(true);
+  });
+
+  it("an explicitly opened Document rail stays open across unrelated re-renders", () => {
+    let last!: UseLeftAgentRailResult;
+    const { rerender } = render(<Harness view="document" onState={(s) => (last = s)} />);
+    act(() => last.expand());
+    rerender(<Harness view="document" onState={(s) => (last = s)} />);
+    rerender(<Harness view="document" onState={(s) => (last = s)} />);
+    expect(last.isCollapsed).toBe(false);
+  });
+
+  it("callbacks remain referentially stable across view switches", () => {
+    const states: UseLeftAgentRailResult[] = [];
+    const { rerender } = render(<Harness view="visual" onState={(s) => states.push(s)} />);
+    rerender(<Harness view="document" onState={(s) => states.push(s)} />);
+    rerender(<Harness view="visual" onState={(s) => states.push(s)} />);
+    expect(states.length).toBeGreaterThanOrEqual(3);
+    expect(states[0]!.toggle).toBe(states[states.length - 1]!.toggle);
+    expect(states[0]!.expand).toBe(states[states.length - 1]!.expand);
+    expect(states[0]!.collapse).toBe(states[states.length - 1]!.collapse);
   });
 });
 

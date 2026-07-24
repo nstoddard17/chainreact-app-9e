@@ -128,7 +128,16 @@ describe("empty-state creation", () => {
     expect(screen.getByText("What should this workflow do?")).toBeInTheDocument();
     expect(screen.getByTestId("document-draft-composer")).toBeInTheDocument();
     expect(screen.getByTestId("document-start-with-trigger")).toBeInTheDocument();
-    // ONE agent state — the left rail — never a second Document conversation.
+    // DOC-RAIL-LAYOUT-1 — Document mode starts with the Agent rail collapsed
+    // (and a never-expanded rail mounts no panel at all), so the Document's
+    // own composer is the one visible AI entry. Expanding surfaces the ONE
+    // agent state — the left rail — never a second Document conversation.
+    expect(screen.getByTestId("builder-left-agent-rail")).toHaveAttribute(
+      "data-collapsed",
+      "true",
+    );
+    expect(screen.queryAllByTestId("builder-guidance-rail")).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
     expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
   });
 
