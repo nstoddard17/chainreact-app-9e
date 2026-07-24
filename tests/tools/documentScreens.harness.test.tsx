@@ -62,6 +62,12 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+const mockRequestGuidance = jest.fn();
+jest.mock("@/lib/api/ai/guidance", () => ({
+  __esModule: true,
+  requestWorkflowGuidance: (...a: unknown[]) => mockRequestGuidance(...a),
+}));
+
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
@@ -151,6 +157,41 @@ const sectionsDef = {
   },
 };
 
+/** DOC-REACT-AGENT-2 — long enough that a referenced sentence sits low in the viewport. */
+const longDef = {
+  nodes: [
+    { id: "t", kind: "trigger" as const, provider: "hubspot", type: "new_contact", config: {}, position: { x: 0, y: 0 } },
+    ...Array.from({ length: 11 }, (_, i) => ({
+      id: `s${i + 1}`,
+      kind: "action" as const,
+      provider: "slack",
+      type: "send_channel_message",
+      config: { channel: "C1", text: `Step ${i + 1} — notify the team about this lead` },
+      position: { x: 0, y: 120 * (i + 1) },
+    })),
+  ],
+  edges: [
+    { id: "e-t", from: "t", to: "s1" },
+    ...Array.from({ length: 10 }, (_, i) => ({ id: `e${i}`, from: `s${i + 1}`, to: `s${i + 2}` })),
+  ],
+};
+
+function renderDocWithAgent(w: WorkflowDetail) {
+  window.localStorage.setItem(__BUILDER_VIEW_PREF_BASE_KEY__, "document");
+  return render(
+    <WorkflowBuilder
+      workflow={w}
+      triggerProviders={providers}
+      actionProviders={providers}
+      requiredFieldsByType={requiredFieldsByType}
+      summaryFieldsByType={summaryFieldsByType}
+      accountId="acct-review"
+      guidanceEnabled
+      documentBuilderEnabled
+    />,
+  );
+}
+
 function renderDoc(w: WorkflowDetail) {
   window.localStorage.setItem(__BUILDER_VIEW_PREF_BASE_KEY__, "document");
   return render(
@@ -175,6 +216,7 @@ function dump(name: string) {
 beforeEach(() => {
   mockUpdateWorkflow.mockReset().mockResolvedValue({ updatedAt: "2026-07-02T00:00:00Z" });
   mockFetchOptionsSource.mockReset().mockResolvedValue({ options: [{ value: "C1", label: "#general" }, { value: "C2", label: "#sales" }] });
+  mockRequestGuidance.mockReset();
   window.localStorage.clear();
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
@@ -244,5 +286,86 @@ describe("Document visual harness (writes owner-review/html/*.html)", () => {
     fireEvent.click(screen.getByTestId("document-open-map-button"));
     await act(async () => { await Promise.resolve(); });
     dump("08-map");
+  });
+});
+
+/**
+ * DOC-REACT-AGENT-2 — the bottom React Agent workspace states, for the browser
+ * acceptance pass. Rendered from the REAL builder with only the AI network
+ * boundary mocked, then measured in Chromium (dock height cap, internal scroll,
+ * clipping, and whether a referenced sentence ends up under the dock).
+ */
+describe("Document agent workspace states (DOC-REACT-AGENT-2)", () => {
+  it("agent dock collapsed over a long workflow", async () => {
+    renderDocWithAgent(wf("wf-agent-1", longDef));
+    await screen.findByTestId("document-view");
+    await screen.findByTestId("document-agent-workspace");
+    dump("09-agent-collapsed");
+  });
+
+  it("agent dock expanded with a long response", async () => {
+    const long = Array.from(
+      { length: 14 },
+      (_, i) => `Point ${i + 1}: this paragraph explains part of the change in enough detail that the transcript has to scroll inside its own region rather than growing the page.`,
+    ).join("\n\n");
+    mockRequestGuidance.mockResolvedValue({
+      ok: true,
+      guidanceText: long,
+      workflowPlan: null,
+      previewDraft: null,
+    });
+    renderDocWithAgent(wf("wf-agent-2", longDef));
+    await screen.findByTestId("document-view");
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), {
+      target: { value: "Explain this workflow" },
+    });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    await screen.findByText(/Point 14/);
+    dump("10-agent-long-response");
+  });
+
+  it("agent dock expanded with a multi-step proposal", async () => {
+    const proposedDefinition = {
+      nodes: longDef.nodes.map((n) =>
+        n.id === "s2" || n.id === "s9"
+          ? { ...n, config: { ...(n.config as Record<string, unknown>), text: "updated copy" } }
+          : n,
+      ),
+      edges: longDef.edges,
+    };
+    mockRequestGuidance.mockResolvedValue({
+      ok: true,
+      guidanceText: "I will update two of the Slack messages.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Proposed change",
+        summary: "",
+        notApplied: true as const,
+        steps: [
+          { ref: "t", role: "trigger" as const, provider: "hubspot", type: "new_contact", purpose: "" },
+          { ref: "s2", role: "action" as const, provider: "slack", type: "send_channel_message", purpose: "" },
+        ],
+      },
+      previewDraft: {
+        title: "Proposed change",
+        summary: "Update two steps",
+        nodes: [
+          { previewId: "t", role: "trigger", provider: "hubspot", type: "new_contact", label: "hubspot:new_contact", purpose: "", notApplied: true },
+          { previewId: "s2", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "", notApplied: true },
+        ],
+        edges: [{ previewId: "e1", fromPreviewId: "t", toPreviewId: "s2", notApplied: true }],
+        notApplied: true,
+      },
+      proposedDefinition,
+    });
+    renderDocWithAgent(wf("wf-agent-3", longDef));
+    await screen.findByTestId("document-view");
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), {
+      target: { value: "shorten steps 2 and 9" },
+    });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    await screen.findByTestId("document-agent-changes");
+    dump("11-agent-proposal");
   });
 });

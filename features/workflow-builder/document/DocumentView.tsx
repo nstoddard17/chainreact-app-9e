@@ -772,8 +772,10 @@ export function DocumentView({
   // DOC-REACT-AGENT-1 — the sentences a PENDING proposal touches, read from the
   // existing preview projection (never from prose, never a second diff format).
   const proposalChanges = useMemo(
-    () => describeProposalChanges(previewModel, model),
-    [previewModel, model],
+    // DOC-REACT-AGENT-2 — pass the document's own reading-order markers so two
+    // steps of the same action type read as "Step 2 · …" / "Step 9 · …".
+    () => describeProposalChanges(previewModel, model, 12, topLevelMarkers),
+    [previewModel, model, topLevelMarkers],
   );
   const agentStatusMessage = useMemo(() => {
     if (agentBusy === true) return "React is working on your request.";

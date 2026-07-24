@@ -9,6 +9,7 @@ import {
   countBuilderValidationIssues,
 } from "../validation/collectBuilderValidationIssues";
 import { buildDocumentOutline } from "./documentOutline";
+import { computeScrollTarget, measureBottomInset } from "./documentScrollTarget";
 import {
   buildSetupQueue,
   deriveSetupBannerState,
@@ -107,14 +108,39 @@ export function useDocumentSetup(input: {
   });
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // DOC-REACT-AGENT-2 — reveal a step in the region the user can actually SEE.
+  // The sticky bottom agent dock lives in this same scroll container, so plain
+  // `scrollIntoView({block:"center"})` centred a sentence underneath it (measured
+  // fully covered at 1440/1024/820px with the workspace expanded). We centre
+  // within the unoccluded band instead, and fall back to the old behaviour when
+  // the container can't be measured (jsdom) or nothing is docked.
   const scrollToNode = useCallback((nodeId: string) => {
-    const el = scrollRef.current?.querySelector(`[data-node-id="${cssEscape(nodeId)}"]`);
-    if (el && typeof (el as HTMLElement).scrollIntoView === "function") {
-      const reduce =
-        typeof window !== "undefined" &&
-        typeof window.matchMedia === "function" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      (el as HTMLElement).scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    const container = scrollRef.current;
+    const el = container?.querySelector(`[data-node-id="${cssEscape(nodeId)}"]`) as HTMLElement | null;
+    if (!el) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = reduce ? ("auto" as const) : ("smooth" as const);
+
+    if (container && typeof container.scrollTo === "function" && container.clientHeight > 0) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = el.getBoundingClientRect();
+      const top = computeScrollTarget({
+        containerHeight: container.clientHeight,
+        containerScrollTop: container.scrollTop,
+        containerTop: containerRect.top,
+        targetTop: targetRect.top,
+        targetHeight: targetRect.height,
+        bottomInset: measureBottomInset(container),
+        scrollHeight: container.scrollHeight,
+      });
+      container.scrollTo({ top, behavior });
+      return;
+    }
+    if (typeof el.scrollIntoView === "function") {
+      el.scrollIntoView({ block: "center", behavior });
     }
   }, []);
 

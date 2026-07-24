@@ -121,6 +121,38 @@ describe("proposal changes come from the EXISTING preview projection", () => {
     ]);
   });
 
+  it("disambiguates two steps of the SAME action type with their reading-order marker", () => {
+    // DOC-REACT-AGENT-2 — the browser pass showed two identical "Send Channel
+    // Message" chips for a proposal touching two different Slack steps.
+    const markers = new Map([
+      ["t", "When"],
+      ["a", "1"],
+      ["b", "2"],
+    ]);
+    const twoSteps: DocumentPreviewModel = {
+      ...preview,
+      ghosts: [],
+      removed: [],
+      statusByNodeId: new Map([
+        ["a", "modified"],
+        ["b", "modified"],
+      ]),
+    };
+    const changes = describeProposalChanges(twoSteps, model, 12, markers);
+    expect(changes.map((c) => c.title)).toEqual([
+      "Step 1 · Send Channel Message",
+      "Step 2 · Send Channel Message",
+    ]);
+    // The trigger reads as the trigger, not "Step When".
+    const triggerChange = describeProposalChanges(
+      { ...preview, ghosts: [], removed: [], statusByNodeId: new Map([["t", "modified"]]) },
+      model,
+      12,
+      markers,
+    );
+    expect(triggerChange[0]!.title).toBe("Trigger · Scheduled Trigger");
+  });
+
   it("returns nothing without a proposal, and is bounded", () => {
     expect(describeProposalChanges(null, model)).toEqual([]);
     expect(describeProposalChanges(preview, model, 1)).toHaveLength(1);

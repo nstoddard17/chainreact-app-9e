@@ -158,18 +158,31 @@ export function describeProposalChanges(
   preview: DocumentPreviewModel | null | undefined,
   model: DocumentModel,
   limit = 12,
+  /**
+   * DOC-REACT-AGENT-2 — reading-order markers ("When" / "1" / "2") from the
+   * Document. Two steps of the same action type render the SAME title, so a
+   * proposal touching both produced two identical, indistinguishable chips in
+   * the browser review. The marker disambiguates them the way the document
+   * itself does.
+   */
+  markers?: ReadonlyMap<string, string> | undefined,
 ): readonly DocumentAgentChangeRef[] {
   if (!preview) return [];
   const out: DocumentAgentChangeRef[] = [];
   // Titles come from the PROPOSED projection when there is one (an added step
   // has no live sentence yet); focus only ever points at a LIVE node id.
   const titleSource = preview.proposedModel ?? model;
+  const label = (nodeId: string, title: string): string => {
+    const marker = markers?.get(nodeId);
+    if (!marker) return title;
+    return marker === "When" ? `Trigger · ${title}` : `Step ${marker} · ${title}`;
+  };
   for (const [nodeId, status] of preview.statusByNodeId) {
     if (status === "unchanged") continue;
     const live = findBlockByNodeId(model.blocks, nodeId) !== null;
     out.push({
       nodeId: live ? nodeId : null,
-      title: titleForNodeId(titleSource, nodeId),
+      title: label(nodeId, titleForNodeId(titleSource, nodeId)),
       status: status === "added" ? "added" : "changed",
     });
     if (out.length >= limit) return out;
@@ -179,7 +192,7 @@ export function describeProposalChanges(
     if (out.length >= limit) return out;
   }
   for (const removed of preview.removed) {
-    out.push({ nodeId: removed.nodeId, title: removed.title, status: "removed" });
+    out.push({ nodeId: removed.nodeId, title: label(removed.nodeId, removed.title), status: "removed" });
     if (out.length >= limit) return out;
   }
   return out;

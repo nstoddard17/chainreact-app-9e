@@ -392,3 +392,62 @@ describe("agent references reach into the document (DOC-REACT-AGENT-1)", () => {
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
+
+describe("proposal navigation reveals a collapsed group (DOC-REACT-AGENT-2)", () => {
+  it("focusing a reference inside a collapsed group expands it so the sentence is reachable", async () => {
+    const grouped = {
+      ...linear,
+      presentation: {
+        version: 1 as const,
+        sections: [{ id: "sec-1", title: "Notify the team", nodeIds: ["a", "b"], collapsed: true }],
+      },
+    };
+    mockRequestGuidance.mockResolvedValue({
+      ok: true,
+      guidanceText: "I will update the Slack message.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Proposed change",
+        summary: "",
+        notApplied: true as const,
+        steps: [
+          { ref: "t", role: "trigger" as const, provider: "hubspot", type: "new_contact", purpose: "" },
+          { ref: "a", role: "action" as const, provider: "slack", type: "send_channel_message", purpose: "" },
+        ],
+      },
+      previewDraft: {
+        title: "Proposed change",
+        summary: "Update one step",
+        nodes: [
+          { previewId: "t", role: "trigger", provider: "hubspot", type: "new_contact", label: "hubspot:new_contact", purpose: "", notApplied: true },
+          { previewId: "a", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "", notApplied: true },
+        ],
+        edges: [{ previewId: "e1", fromPreviewId: "t", toPreviewId: "a", notApplied: true }],
+        notApplied: true,
+      },
+      proposedDefinition: {
+        nodes: [linear.nodes[0]!, { ...linear.nodes[1]!, config: { text: "updated" } }, linear.nodes[2]!],
+        edges: linear.edges,
+      },
+    });
+    renderBuilder({ definition: grouped, startInDocument: true });
+    // Collapsed group → the sentence is not rendered yet.
+    expect(screen.queryByTestId("document-sentence-a")).toBeNull();
+
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), { target: { value: "shorten it" } });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    const ref = await screen.findByTestId("document-agent-change-a");
+    // The reference names the step by its reading position, not a raw id.
+    expect(ref.textContent).toContain("Step 1");
+    expect(ref.textContent).not.toContain("wf-rail-1");
+
+    fireEvent.click(ref);
+    // The group reveals so the referenced sentence is visible and configurable.
+    expect(screen.getByTestId("document-sentence-a")).toBeInTheDocument();
+    expect(screen.getByTestId("document-configure-step-a")).toBeInTheDocument();
+    // Revealing is transient — it never wrote to the stored presentation.
+    expect(useGraphSlice.getState().pendingPresentation?.sections[0]?.collapsed).toBe(true);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});
