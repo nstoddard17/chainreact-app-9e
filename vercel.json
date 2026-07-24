@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/refresh-oauth-tokens",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-deletion-billing",
+      "schedule": "0 * * * *"
     }
   ]
 }

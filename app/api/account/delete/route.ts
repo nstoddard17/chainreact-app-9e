@@ -6,11 +6,11 @@ import {
   toDeletionStatusResponse,
 } from "@/app/api/account/_shared";
 import { verifyPasswordReauth } from "@/services/accounts/accountDeletionReauth";
-import { requestAccountDeletion } from "@/services/accounts/accountDeletion";
 import {
-  listOwnedTeamOrgAccountSummaries,
-  type OwnedAccountSummary,
-} from "@/repositories/accounts";
+  OwnedAccountsBlockDeletionError,
+  requestAccountDeletion,
+} from "@/services/accounts/accountDeletion";
+import type { OwnedAccountSummary } from "@/repositories/accounts";
 
 /**
  * User-facing label for an owned account type. The internal enum keeps
@@ -45,37 +45,17 @@ function accountTypeLabel(type: OwnedAccountSummary["type"]): string {
  * The 10b freeze remains the enforcement layer: once pending, every operational
  * surface (workflow create/list/run, billing, OAuth, activation, engine) is
  * already blocked — this route does not re-implement that.
+ *
+ * SOLE-OWNER GUARD (ACCOUNT-BILLING-LIFECYCLE-2): the "you still own Team/Business
+ * accounts" precondition is NO LONGER enforced here. It moved into
+ * `requestAccountDeletion`, which is the canonical chokepoint every deletion entry point
+ * shares — this route merely PROJECTS the service's typed refusal into HTTP 409. Do not
+ * re-add a check here: a second copy would drift, and a route-level-only guard is exactly
+ * what let a non-UI caller reach the freeze + Stripe cancellation unguarded.
  */
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireOwnPersonalAccount();
   if (!auth.ok) return auth.response;
-
-  // 4.ACCOUNT-MODEL-13 deletion guard (remediation: TL-4). Deleting the personal
-  // account leads to user deletion (10c purge → auth.admin.deleteUser). The
-  // `accounts.owner_user_id → auth.users ON DELETE RESTRICT` FK blocks that while
-  // the user still owns any team/org account, so refuse up front. Now that owner
-  // transfer (TL-2) and leave (TL-3) exist, return the owned-account summaries so
-  // the user can resolve each — transfer ownership or delete it. The hard block
-  // is preserved: deletion never proceeds while owned team/business accounts
-  // remain, and nothing is auto-transferred or auto-deleted.
-  const ownedTeamOrg = await listOwnedTeamOrgAccountSummaries(auth.userId);
-  if (ownedTeamOrg.length > 0) {
-    return NextResponse.json(
-      {
-        error:
-          "Transfer ownership or delete the Team/Business accounts you own before deleting your personal account.",
-        code: "ACCOUNT_HAS_OWNED_TEAMS",
-        ownedAccountCount: ownedTeamOrg.length,
-        ownedAccounts: ownedTeamOrg.map((a) => ({
-          id: a.id,
-          name: a.name,
-          type: a.type,
-          typeLabel: accountTypeLabel(a.type),
-        })),
-      },
-      { status: 409 },
-    );
-  }
 
   const body = await parseAccountBody(request, RequestDeletionBodySchema);
   if (!body.ok) return body.response;
@@ -96,10 +76,36 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const state = await requestAccountDeletion({
-    accountId: auth.account.id,
-    requestedByUserId: auth.userId,
-  });
+  let state;
+  try {
+    state = await requestAccountDeletion({
+      accountId: auth.account.id,
+      requestedByUserId: auth.userId,
+    });
+  } catch (err) {
+    // The canonical sole-owner precondition refused. Nothing was frozen, no subscription
+    // was touched, no audit row exists — project it as an actionable 409 with the accounts
+    // to resolve. Names are the caller's OWN accounts, so returning them is authorized;
+    // no other account's data, no ids beyond the ones they already navigate by, and no
+    // Stripe/billing detail is disclosed.
+    if (err instanceof OwnedAccountsBlockDeletionError) {
+      return NextResponse.json(
+        {
+          error: err.message,
+          code: err.code,
+          ownedAccountCount: err.ownedAccounts.length,
+          ownedAccounts: err.ownedAccounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            type: a.type,
+            typeLabel: accountTypeLabel(a.type),
+          })),
+        },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 
   const billing = state.billingCancellation;
 

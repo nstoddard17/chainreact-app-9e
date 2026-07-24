@@ -14,11 +14,14 @@
  */
 
 const mockGetDeletionStatus = jest.fn();
+/** ACCOUNT-BILLING-LIFECYCLE-2 sole-owner precondition (no owned Team/Business by default). */
+const mockListOwnedTeamOrg = jest.fn();
 const mockGetByIdServiceRole = jest.fn();
 const mockSetDeletionPending = jest.fn();
 const mockClearDeletion = jest.fn();
 jest.mock("@/repositories/accounts", () => ({
   getDeletionStatusServiceRole: (...a: unknown[]) => mockGetDeletionStatus(...a),
+  listOwnedTeamOrgAccountSummaries: (...a: unknown[]) => mockListOwnedTeamOrg(...a),
   getByIdServiceRole: (...a: unknown[]) => mockGetByIdServiceRole(...a),
   setDeletionPendingServiceRole: (...a: unknown[]) => mockSetDeletionPending(...a),
   clearDeletionServiceRole: (...a: unknown[]) => mockClearDeletion(...a),
@@ -69,18 +72,24 @@ const PERSONAL_SUB = "sub_personal_pro";
 const TEAM_SUB = "sub_team_acme";
 const USER_ID = "user-marcus";
 
-function accountRow(id: string, type: string) {
+function accountRow(id: string, type: string, deletionStatus = "active") {
+  const pending = deletionStatus === "pending_deletion";
   return {
     id,
     type,
     name: id,
     ownerUserId: USER_ID,
-    deletionStatus: "pending_deletion",
-    deletionRequestedAt: "2026-07-24T00:00:00.000Z",
-    purgeAfter: "2026-08-23T00:00:00.000Z",
+    deletionStatus,
+    deletionRequestedAt: pending ? "2026-07-24T00:00:00.000Z" : null,
+    purgeAfter: pending ? "2026-08-23T00:00:00.000Z" : null,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-07-24T00:00:00.000Z",
   };
+}
+
+/** Type for an account id in this fixture (personal unless it is the team account). */
+function typeFor(id: string): string {
+  return id === TEAM_ID ? "team" : "personal";
 }
 
 beforeEach(() => {
@@ -96,15 +105,15 @@ beforeEach(() => {
   ATTACHMENTS[TEAM_ID] = { stripeSubscriptionId: TEAM_SUB };
 
   mockGetDeletionStatus.mockReset().mockResolvedValue("active");
+  mockListOwnedTeamOrg.mockReset().mockResolvedValue([]);
+  // Accounts start ACTIVE so each request exercises the real freeze transition.
   mockGetByIdServiceRole
     .mockReset()
-    .mockImplementation(async (id: string) =>
-      accountRow(id, id === TEAM_ID ? "team" : "personal"),
-    );
+    .mockImplementation(async (id: string) => accountRow(id, typeFor(id), "active"));
   mockSetDeletionPending
     .mockReset()
     .mockImplementation(async (input: { accountId: string }) =>
-      accountRow(input.accountId, input.accountId === TEAM_ID ? "team" : "personal"),
+      accountRow(input.accountId, typeFor(input.accountId), "pending_deletion"),
     );
   mockClearDeletion.mockReset();
   mockInsertPending.mockReset().mockResolvedValue({});
@@ -173,8 +182,11 @@ it("repeating the deletion request cancels at most once more and never fans out 
   await requestAccountDeletion({ accountId: PERSONAL_ID, requestedByUserId: USER_ID });
   stripeCalls.length = 0;
 
-  // Second request: already pending. The retry runs, but the subscription is now gone.
-  mockGetDeletionStatus.mockResolvedValue("pending_deletion");
+  // Second request: the account is now already pending. The retry runs, but the
+  // subscription is gone, so it is a no-op — and no second freeze/audit row occurs.
+  mockGetByIdServiceRole.mockImplementation(async (id: string) =>
+    accountRow(id, typeFor(id), "pending_deletion"),
+  );
   const again = await requestAccountDeletion({
     accountId: PERSONAL_ID,
     requestedByUserId: USER_ID,

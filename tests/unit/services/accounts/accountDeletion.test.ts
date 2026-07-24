@@ -15,11 +15,16 @@ const mockClearDeletion = jest.fn();
 const mockInsertPending = jest.fn();
 const mockMarkPendingCancelled = jest.fn();
 
+// ACCOUNT-BILLING-LIFECYCLE-2 — the canonical sole-owner precondition now lives in this
+// service, so it reads owned Team/Business accounts before any write.
+const mockListOwnedTeamOrg = jest.fn();
+
 jest.mock("@/repositories/accounts", () => ({
   getDeletionStatusServiceRole: (...a: unknown[]) => mockGetDeletionStatus(...a),
   getByIdServiceRole: (...a: unknown[]) => mockGetByIdServiceRole(...a),
   setDeletionPendingServiceRole: (...a: unknown[]) => mockSetDeletionPending(...a),
   clearDeletionServiceRole: (...a: unknown[]) => mockClearDeletion(...a),
+  listOwnedTeamOrgAccountSummaries: (...a: unknown[]) => mockListOwnedTeamOrg(...a),
 }));
 
 jest.mock("@/repositories/accountDeletions", () => ({
@@ -85,6 +90,11 @@ beforeEach(() => {
   mockCancelForDeletion
     .mockReset()
     .mockResolvedValue({ ok: true, outcome: "not_applicable" });
+  // ACCOUNT-BILLING-LIFECYCLE-2: the service now reads the FULL account once (it needs
+  // `type` + `ownerUserId` for the sole-owner precondition and `deletionStatus` for the
+  // idempotency branch). Default to an ACTIVE personal account owning no Team/Business.
+  mockGetByIdServiceRole.mockResolvedValue(activeAccountRecord());
+  mockListOwnedTeamOrg.mockReset().mockResolvedValue([]);
 });
 
 describe("requestAccountDeletion", () => {
@@ -230,7 +240,7 @@ describe("requestAccountDeletion", () => {
   });
 
   it("does not touch billing when the account does not exist", async () => {
-    mockGetDeletionStatus.mockResolvedValueOnce(null);
+    mockGetByIdServiceRole.mockResolvedValueOnce(null);
     await expect(
       requestAccountDeletion({ accountId: "missing", requestedByUserId: OWNER_ID }),
     ).rejects.toThrow(/not found/);
@@ -259,7 +269,7 @@ describe("requestAccountDeletion", () => {
   });
 
   it("throws when the account does not exist", async () => {
-    mockGetDeletionStatus.mockResolvedValueOnce(null);
+    mockGetByIdServiceRole.mockResolvedValueOnce(null);
     await expect(
       requestAccountDeletion({ accountId: "missing", requestedByUserId: OWNER_ID }),
     ).rejects.toThrow(/not found/);

@@ -12,7 +12,7 @@
  *   - a partial failure (frozen, but the subscription could not be cancelled) shows BOTH
  *     facts with a working retry — never a clean success and never a bare error.
  */
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { AccountDeletionCard } from "@/features/account/AccountDeletionCard";
 import { AccountDeletionError } from "@/lib/api/accounts";
 
@@ -240,5 +240,87 @@ describe("pending state copy", () => {
     // The restore route takes no arguments and triggers no subscription request.
     expect(mockCancel).toHaveBeenCalledWith();
     expect(mockRequest).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-2 — the blocked (sole-owner) state.
+ *
+ * Four actions get confused constantly: cancel personal billing, leave a team, transfer team
+ * ownership, delete the personal account. The blocked screen must name all four, must not
+ * imply that cancelling the personal plan touches the team plan, and must not imply that
+ * deleting the personal account deletes team-owned data.
+ */
+describe("blocked: user still owns Team/Business accounts", () => {
+  function blockedError(owned = [
+    { id: "t1", name: "Acme Team", type: "team" as const, typeLabel: "Team" },
+    { id: "o1", name: "Acme Biz", type: "organization" as const, typeLabel: "Business" },
+  ]) {
+    return new AccountDeletionError(
+      "Transfer ownership or delete the Team/Business accounts you own before deleting your personal account.",
+      "ACCOUNT_HAS_OWNED_TEAMS",
+      409,
+      owned,
+    );
+  }
+
+  async function renderBlocked() {
+    mockRequest.mockRejectedValueOnce(blockedError());
+    renderActive();
+    submitDeletion();
+    return screen.findByTestId("account-deletion-blocked");
+  }
+
+  it("lists each owned account with its Business/Team label (never 'Organization')", async () => {
+    const panel = await renderBlocked();
+    expect(within(panel).getByTestId("account-owned-t1")).toHaveTextContent("Acme Team");
+    expect(within(panel).getByTestId("account-owned-o1")).toHaveTextContent("Acme Biz");
+    expect(within(panel).getByTestId("account-owned-o1")).toHaveTextContent("Business");
+    expect(panel).not.toHaveTextContent(/organization/i);
+  });
+
+  it("distinguishes all FOUR actions", async () => {
+    const panel = await renderBlocked();
+    const options = within(panel).getByTestId("account-blocked-options");
+    expect(options).toHaveTextContent(/Cancel your personal subscription/i);
+    expect(options).toHaveTextContent(/Transfer ownership/i);
+    expect(options).toHaveTextContent(/Leave a team/i);
+    expect(options).toHaveTextContent(/Delete your personal account/i);
+  });
+
+  it("never claims cancelling the personal plan cancels the team plan", async () => {
+    const panel = await renderBlocked();
+    expect(within(panel).getByTestId("account-blocked-options")).toHaveTextContent(
+      /does not cancel a Team or Business plan/i,
+    );
+  });
+
+  it("never claims deleting the personal account deletes team-owned data", async () => {
+    const panel = await renderBlocked();
+    expect(within(panel).getByTestId("account-blocked-options")).toHaveTextContent(
+      /never deletes Team or Business data/i,
+    );
+  });
+
+  it("says transferring ownership leaves the team's subscription untouched", async () => {
+    const panel = await renderBlocked();
+    expect(within(panel).getByTestId("account-blocked-options")).toHaveTextContent(
+      /members, and subscription stay exactly as they are/i,
+    );
+  });
+
+  it("offers a route to resolve it and does not present deletion as done", async () => {
+    const panel = await renderBlocked();
+    expect(within(panel).getByTestId("account-blocked-team-link")).toBeInTheDocument();
+    // No pending/frozen state is implied by a blocked attempt.
+    expect(screen.queryByTestId("account-deletion-pending")).toBeNull();
+    expect(screen.queryByTestId("account-deletion-billing-failed")).toBeNull();
+  });
+
+  it("shows no ownership-transfer requirement on a normal (unblocked) deletion form", () => {
+    renderActive();
+    // The plain Danger-Zone card mentions the precondition, but renders no blocked panel.
+    expect(screen.queryByTestId("account-deletion-blocked")).toBeNull();
+    expect(screen.queryByTestId("account-blocked-options")).toBeNull();
   });
 });

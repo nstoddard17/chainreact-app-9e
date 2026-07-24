@@ -198,3 +198,72 @@ describe("/api/cron/purge-pending-deletions — billing reconciliation", () => {
     );
   });
 });
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-2 — the purge route stays SAFE while the destructive flag is off.
+ *
+ * This route is deliberately NOT in `vercel.json` (see the V2-READY-38 tripwire); the
+ * scheduled reconciliation lives on `/api/cron/reconcile-deletion-billing`. These cases pin
+ * the behavior for the manual/enable-later path: with the flag off, an authorized invocation
+ * still reconciles billing but performs no teardown whatsoever.
+ */
+describe("/api/cron/purge-pending-deletions — purge-disabled safety", () => {
+  it("with purge OFF and a failed cancellation pending: reconciles, but never purges", async () => {
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockIsEnabled.mockReturnValueOnce(false);
+    mockReconcileBilling.mockResolvedValueOnce({
+      scanned: 1, canceled: 1, alreadyClear: 0, failed: 0,
+    });
+
+    const body = await (await POST(req())).json();
+
+    expect(body.billingReconcile.canceled).toBe(1);
+    expect(body.enabled).toBe(false);
+    // The destructive sweep is never even invoked.
+    expect(mockPurgeDue).not.toHaveBeenCalled();
+    // No purge counts can appear on a disabled response.
+    expect(body.purged).toBeUndefined();
+    expect(body.scanned).toBeUndefined();
+  });
+
+  it("with purge OFF, an account past purge_after is NOT removed", async () => {
+    // The route cannot reach the teardown path at all when the flag is off — the only work
+    // it performs is the (non-destructive) reconciliation.
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockIsEnabled.mockReturnValueOnce(false);
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(200);
+    expect(mockPurgeDue).not.toHaveBeenCalled();
+  });
+
+  it("with purge ON, the existing destructive sweep still runs unchanged", async () => {
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockIsEnabled.mockReturnValueOnce(true);
+    mockPurgeDue.mockResolvedValueOnce({
+      scanned: 2, purged: 2, recovered: 0, skipped: 0, failed: 0,
+    });
+
+    const body = await (await POST(req())).json();
+
+    expect(mockPurgeDue).toHaveBeenCalledTimes(1);
+    expect(body).toMatchObject({ enabled: true, purged: 2 });
+  });
+
+  it("repeated runs with purge OFF stay idempotent and destructive-free", async () => {
+    mockRequireCronAuth.mockReturnValue({ authorized: true });
+    mockIsEnabled.mockReturnValue(false);
+    mockReconcileBilling
+      .mockResolvedValueOnce({ scanned: 1, canceled: 1, alreadyClear: 0, failed: 0 })
+      .mockResolvedValueOnce({ scanned: 1, canceled: 0, alreadyClear: 1, failed: 0 });
+
+    const first = await (await POST(req())).json();
+    const second = await (await POST(req())).json();
+
+    expect(first.billingReconcile.canceled).toBe(1);
+    expect(second.billingReconcile.canceled).toBe(0);
+    expect(second.billingReconcile.alreadyClear).toBe(1);
+    expect(mockPurgeDue).not.toHaveBeenCalled();
+  });
+});

@@ -263,6 +263,46 @@ export function AccountDeletionCard({
               ))}
             </ul>
           </div>
+
+          {/* Four DIFFERENT actions get confused here constantly. Name each one, say what it
+              does and does not do, and never imply that a cheaper action substitutes for
+              deleting the account. */}
+          <div
+            data-testid="account-blocked-options"
+            className="rounded-xl border border-border bg-background/40 p-4"
+          >
+            <p className="text-xs font-medium text-foreground">
+              These are four different things:
+            </p>
+            <ul className="mt-2 flex flex-col gap-2 text-xs text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">
+                  Cancel your personal subscription
+                </span>{" "}
+                — stops billing for your personal account only. It does not cancel a Team or
+                Business plan, does not delete anything, and does not remove you from these
+                accounts.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Transfer ownership</span> —
+                hands a Team or Business account to another member. Its workflows,
+                integrations, members, and subscription stay exactly as they are.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Leave a team</span> — removes
+                your membership. The account, its data, and its billing continue without you.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">
+                  Delete your personal account
+                </span>{" "}
+                — only available once you no longer own the accounts above. It never deletes
+                Team or Business data, which belongs to those accounts and not to you
+                individually.
+              </li>
+            </ul>
+          </div>
+
           <div className="flex items-center gap-2">
             <Button asChild size="sm" variant="outline">
               <Link href="/team" data-testid="account-blocked-team-link">

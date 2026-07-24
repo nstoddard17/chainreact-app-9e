@@ -42,10 +42,45 @@ import { cancelSubscriptionForAccountDeletion } from "@/services/billing/subscri
  * Account scoping is inherited from the billing service: cancellation is keyed on
  * `account_id`, so deleting a personal account can only ever cancel that personal account's
  * subscription — never a team/organization account the user belongs to.
+ *
+ * ── Sole-owner precondition (ACCOUNT-BILLING-LIFECYCLE-2) ───────────────────────────────
+ * The "you still own Team/Business accounts" guard lives HERE, not in the route. It used to
+ * be enforced only by `app/api/account/delete/route.ts`, which was survivable while the
+ * service merely flipped a status column — but CS-1 made this service cancel a real Stripe
+ * subscription, so any other entry point (an admin/system caller, a script, a future
+ * deletion surface) would have cancelled billing and frozen the account with NO ownership
+ * check at all. It is now the first thing `requestAccountDeletion` does, before any local
+ * write and before any Stripe call, so every entry point inherits it.
+ *
+ * It reads authoritative ownership (`accounts.owner_user_id` via
+ * `listOwnedTeamOrgAccountSummaries`) for the OWNER OF THE ACCOUNT BEING DELETED — never the
+ * caller's active-account selection and never a client-supplied claim — and it examines ALL
+ * of that user's accounts, not just the active one.
  */
 
 export const DEFAULT_GRACE_PERIOD_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Thrown when a personal account cannot be deleted because its owner still owns Team /
+ * Business (organization) accounts that must be transferred or deleted first.
+ *
+ * Carries the owned-account summaries so the caller can render an actionable remediation
+ * list. Deliberately a typed ERROR rather than a result union: it is a hard precondition
+ * failure that must never be mistaken for a successful (or partially successful) deletion by
+ * any caller, present or future.
+ */
+export class OwnedAccountsBlockDeletionError extends Error {
+  readonly code = "ACCOUNT_HAS_OWNED_TEAMS" as const;
+  readonly ownedAccounts: readonly accountsRepo.OwnedAccountSummary[];
+  constructor(ownedAccounts: readonly accountsRepo.OwnedAccountSummary[]) {
+    super(
+      "Transfer ownership or delete the Team/Business accounts you own before deleting your personal account.",
+    );
+    this.name = "OwnedAccountsBlockDeletionError";
+    this.ownedAccounts = ownedAccounts;
+  }
+}
 
 /**
  * Outcome of the billing wind-down attached to a deletion request.
@@ -140,34 +175,77 @@ async function windDownBilling(accountId: string): Promise<BillingCancellationOu
 }
 
 /**
+ * CANONICAL sole-owner precondition (ACCOUNT-BILLING-LIFECYCLE-2).
+ *
+ * Refuses to start deletion of a PERSONAL account while its owner still owns Team /
+ * Business accounts. Applies only to personal accounts: deleting a team/org account IS the
+ * resolution of that ownership, so the guard would be self-contradictory there.
+ *
+ * Ownership comes from `accounts.owner_user_id` for the owner OF THE ACCOUNT BEING DELETED
+ * — not the caller, not the active-account selection, not any client input — and covers all
+ * of that user's accounts. Throws {@link OwnedAccountsBlockDeletionError}; every caller
+ * therefore fails closed.
+ */
+async function assertOwnerMayDeletePersonalAccount(account: {
+  type: string;
+  ownerUserId: string;
+}): Promise<void> {
+  if (account.type !== "personal") return;
+  const owned = await accountsRepo.listOwnedTeamOrgAccountSummaries(account.ownerUserId);
+  if (owned.length > 0) {
+    console.info(
+      JSON.stringify({
+        event: "account.delete.blocked_owned_accounts",
+        // Count only — never the owned account names/ids in a log line.
+        ownedAccountCount: owned.length,
+      }),
+    );
+    throw new OwnedAccountsBlockDeletionError(owned);
+  }
+}
+
+/**
  * Request deletion: freeze the account (`pending_deletion`), stamp the grace
  * deadline, append a `pending` audit row, and cancel the account's ChainReact billing
  * subscription immediately. Idempotent when already pending — and the already-pending path
  * STILL re-attempts the billing cancellation, which is what makes a re-request the
  * user-facing retry for a Stripe outage.
+ *
+ * Refuses outright (throwing {@link OwnedAccountsBlockDeletionError}) while the owner still
+ * owns Team/Business accounts. That check runs FIRST — before the freeze, before the audit
+ * row, and before any Stripe call — so a blocked request leaves the personal account, its
+ * subscription, the owned teams, their subscriptions, and every membership completely
+ * untouched, and creates no retry/purge work item.
  */
 export async function requestAccountDeletion(
   input: RequestAccountDeletionInput,
 ): Promise<AccountDeletionState> {
-  const status = await accountsRepo.getDeletionStatusServiceRole(input.accountId);
-  if (status === null) {
+  // Read the full account once: we need `type` + `ownerUserId` for the precondition, and
+  // `deletionStatus` for the idempotency branch.
+  const account = await accountsRepo.getByIdServiceRole(input.accountId);
+  if (account === null) {
     throw new Error(
       `requestAccountDeletion: account ${input.accountId} not found.`,
     );
   }
-  if (status === "pending_deletion") {
-    const existing = await accountsRepo.getByIdServiceRole(input.accountId);
-    if (!existing) {
-      throw new Error(
-        `requestAccountDeletion: account ${input.accountId} vanished mid-request.`,
-      );
-    }
+
+  if (account.deletionStatus === "pending_deletion") {
     // Already frozen — no second lifecycle write, but retry the cancellation. It is
     // idempotent (a subscription already gone reports `not_applicable`), so this is safe
     // to repeat and is the recovery path when the first attempt hit a Stripe outage.
+    //
+    // The sole-owner guard deliberately does NOT run on this branch: it gates ENTERING
+    // deletion, and the account can only have entered by passing it. Re-checking here would
+    // strand an already-frozen account mid-wind-down (unable to ever finish cancelling its
+    // subscription) if ownership somehow changed after the freeze — the opposite of the
+    // guard's purpose, which is to protect teams, not to keep billing a departing customer.
     const billingCancellation = await windDownBilling(input.accountId);
-    return { ...toState(existing), billingCancellation };
+    return { ...toState(account), billingCancellation };
   }
+
+  // PRECONDITION — before every side effect: no freeze, no audit row, no Stripe call, no
+  // membership change, no worklist entry can happen if this throws.
+  await assertOwnerMayDeletePersonalAccount(account);
 
   const now = input.now ?? new Date();
   const graceDays = input.gracePeriodDays ?? DEFAULT_GRACE_PERIOD_DAYS;
@@ -175,7 +253,7 @@ export async function requestAccountDeletion(
   const purgeAfter = new Date(now.getTime() + graceDays * MS_PER_DAY).toISOString();
 
   // 1. Freeze first — local, durable, reversible, and independent of Stripe.
-  const account = await accountsRepo.setDeletionPendingServiceRole({
+  const frozen = await accountsRepo.setDeletionPendingServiceRole({
     accountId: input.accountId,
     requestedByUserId: input.requestedByUserId,
     requestedAt,
@@ -184,7 +262,7 @@ export async function requestAccountDeletion(
 
   await accountDeletionsRepo.insertPending({
     accountId: input.accountId,
-    ownerUserId: account.ownerUserId,
+    ownerUserId: frozen.ownerUserId,
     requestedByUserId: input.requestedByUserId,
     requestedAt,
     purgeAfter,
@@ -193,7 +271,7 @@ export async function requestAccountDeletion(
   // 2. Then cancel billing, reporting the real outcome (success OR failure) upward.
   const billingCancellation = await windDownBilling(input.accountId);
 
-  return { ...toState(account), billingCancellation };
+  return { ...toState(frozen), billingCancellation };
 }
 
 /**

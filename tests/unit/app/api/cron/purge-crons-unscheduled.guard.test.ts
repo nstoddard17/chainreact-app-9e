@@ -40,3 +40,37 @@ describe("destructive purge crons are NOT scheduled in vercel.json (V2-READY-38)
     },
   );
 });
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-2 — the counterpart guard.
+ *
+ * The durable retry for "we froze the account but Stripe was unreachable" MUST be scheduled,
+ * or a departing customer keeps being charged indefinitely. It deliberately lives on its own
+ * route rather than on `purge-pending-deletions`, precisely so that scheduling it does not
+ * weaken the V2-READY-38 tripwire above: the scheduled route is structurally incapable of
+ * purging (see `reconcile-deletion-billing.route.test.ts` → "structurally non-destructive").
+ */
+const RECONCILE_PATH = "/api/cron/reconcile-deletion-billing";
+
+describe("the non-destructive billing reconciliation cron IS scheduled", () => {
+  it("appears in vercel.json exactly once", () => {
+    const paths = readCronPaths();
+    expect(paths.filter((p) => p === RECONCILE_PATH)).toHaveLength(1);
+  });
+
+  it("runs hourly — the documented cadence", () => {
+    const raw = readFileSync(join(process.cwd(), "vercel.json"), "utf8");
+    const crons =
+      (JSON.parse(raw) as { crons?: Array<{ path: string; schedule: string }> }).crons ?? [];
+    const entry = crons.find((c) => c.path === RECONCILE_PATH);
+    // Hourly bounds "still being billed after a Stripe outage clears" to <= 1 hour, while
+    // costing one indexed query per tick that usually returns zero rows.
+    expect(entry?.schedule).toBe("0 * * * *");
+  });
+
+  it("is a different route from the destructive purge cron", () => {
+    // If these ever collapse into one path, scheduling would re-couple "a schedule exists"
+    // with "someone flipped the purge flag" — the exact risk V2-READY-38 exists to prevent.
+    expect(DESTRUCTIVE_PURGE_PATHS).not.toContain(RECONCILE_PATH);
+  });
+});

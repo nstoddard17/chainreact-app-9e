@@ -28,6 +28,9 @@ jest.mock("@/services/accounts/accountDeletionReauth", () => ({
 
 const mockRequestAccountDeletion = jest.fn();
 jest.mock("@/services/accounts/accountDeletion", () => ({
+  // Keep the REAL error class so `instanceof` identity is shared between the route and
+  // this test — a stubbed class would silently fail the route's typed-refusal branch.
+  ...jest.requireActual("@/services/accounts/accountDeletion"),
   requestAccountDeletion: (...a: unknown[]) => mockRequestAccountDeletion(...a),
 }));
 
@@ -38,6 +41,7 @@ jest.mock("@/repositories/accounts", () => ({
 }));
 
 import { POST } from "@/app/api/account/delete/route";
+import { OwnedAccountsBlockDeletionError } from "@/services/accounts/accountDeletion";
 
 const USER_ID = "user-1";
 const ACCOUNT_ID = "acct-1";
@@ -95,12 +99,19 @@ describe("POST /api/account/delete", () => {
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
 
-  it("409s when the user owns Team/Business accounts — returns owned summaries + transfer-or-delete copy, never reaches re-auth or the service", async () => {
+  it("409s when the SERVICE refuses because the user owns Team/Business accounts", async () => {
+    // ACCOUNT-BILLING-LIFECYCLE-2: the sole-owner precondition moved into
+    // `requestAccountDeletion` (the canonical chokepoint every entry point shares). The route
+    // no longer re-implements it — it PROJECTS the service's typed refusal into HTTP 409.
     signedIn();
-    mockListOwnedTeamOrg.mockResolvedValueOnce([
-      { id: "team-1", name: "Acme Team", type: "team" },
-      { id: "org-1", name: "Acme Biz", type: "organization" },
-    ]);
+    mockVerifyReauth.mockResolvedValueOnce({ ok: true });
+    mockRequestAccountDeletion.mockRejectedValueOnce(
+      new OwnedAccountsBlockDeletionError([
+        { id: "team-1", name: "Acme Team", type: "team" },
+        { id: "org-1", name: "Acme Biz", type: "organization" },
+      ]),
+    );
+
     const res = await POST(req({ password: "pw", confirmText: "delete my account" }));
     expect(res.status).toBe(409);
     const body = await res.json();
@@ -114,9 +125,21 @@ describe("POST /api/account/delete", () => {
     // Copy says transfer or delete, and never surfaces "Organization" as a tier.
     expect(body.error).toMatch(/transfer ownership or delete/i);
     expect(body.error).not.toMatch(/organization/i);
-    // Scoped to the caller's own owned accounts (no other user's accounts).
-    expect(mockListOwnedTeamOrg).toHaveBeenCalledWith(USER_ID);
-    expect(mockVerifyReauth).not.toHaveBeenCalled();
+    // No lifecycle state is implied: the refusal carries no deletionStatus/purgeAfter.
+    expect(body.deletionStatus).toBeUndefined();
+    expect(body.purgeAfter).toBeUndefined();
+    // ...and no fake billing outcome rides along.
+    expect(body.billingCancellation).toBeUndefined();
+  });
+
+  it("only asks the SERVICE for deletion after the step-up passes", async () => {
+    // Re-auth now runs BEFORE the ownership refusal can be observed. That is deliberate:
+    // an unauthenticated-but-session-holding caller can no longer learn the account
+    // structure ("you own 2 teams") without proving the password first.
+    signedIn();
+    mockVerifyReauth.mockResolvedValueOnce({ ok: false, reason: "bad_password" });
+    const res = await POST(req({ password: "wrong", confirmText: "delete my account" }));
+    expect(res.status).toBe(401);
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
 
