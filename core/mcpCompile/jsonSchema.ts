@@ -69,6 +69,16 @@ export function readSchemaNode(raw: unknown): SchemaNode {
 
   let node = raw;
   let nullable = false;
+  // MCP-NULLABLE-DESCRIPTIONS-1 — vendors put the field's documentation on the
+  // WRAPPER of the nullable idiom (`{description, anyOf:[X, {type:"null"}]}`),
+  // not on the inner branch. Replacing `node` with the inner branch used to
+  // silently drop it, shipping fields with no guidance at all (Linear's
+  // nullable params, e.g. assignee). Capture the wrapper's ANNOTATIONS before
+  // unwrapping; the inner branch stays the sole structural/validation source
+  // (no type/enum/bounds/properties are ever copied from the wrapper), and an
+  // inner annotation wins when both declare one.
+  let outerDescription: string | null = null;
+  let outerDefault: unknown = undefined;
 
   // anyOf/oneOf: support ONLY the `[X, {type:"null"}]` nullable idiom.
   const union = node.anyOf ?? node.oneOf;
@@ -78,6 +88,8 @@ export function readSchemaNode(raw: unknown): SchemaNode {
     );
     if (nonNull.length === 1 && union.length !== nonNull.length && isPlainObject(nonNull[0])) {
       nullable = true;
+      outerDescription = typeof node.description === "string" ? node.description : null;
+      outerDefault = node.default;
       node = nonNull[0];
     } else {
       return { ...empty, unsupported: "anyOf/oneOf union (only the nullable idiom is supported)" };
@@ -138,10 +150,11 @@ export function readSchemaNode(raw: unknown): SchemaNode {
   return {
     type,
     nullable,
-    description: typeof node.description === "string" ? node.description : null,
+    description:
+      typeof node.description === "string" ? node.description : outerDescription,
     enumValues,
     format: typeof node.format === "string" ? node.format : null,
-    defaultValue: node.default,
+    defaultValue: node.default !== undefined ? node.default : outerDefault,
     minimum: typeof node.minimum === "number" ? node.minimum : null,
     maximum: typeof node.maximum === "number" ? node.maximum : null,
     maxItems: typeof node.maxItems === "number" ? node.maxItems : null,

@@ -6,7 +6,7 @@
  * classification, output normalization, capability quality, and the
  * provider-level allowlist + integrity rules.
  */
-import { schemaHash } from "@/core/mcpCompile/jsonSchema";
+import { readSchemaNode, schemaHash } from "@/core/mcpCompile/jsonSchema";
 import { compileFields } from "@/core/mcpCompile/compileFields";
 import {
   classifyToolRisk,
@@ -258,6 +258,124 @@ describe("compileFields — mapping table", () => {
       expect(byName.get("team")!.allowManualEntry).toBe(true);
       expect(byName.get("title")!.allowManualEntry).toBeUndefined();
     });
+  });
+});
+
+/**
+ * MCP-NULLABLE-DESCRIPTIONS-1 — vendors document a nullable field on the
+ * WRAPPER (`{description, anyOf:[X, {type:"null"}]}`). Unwrapping must keep
+ * those annotations (description, default) while the inner branch stays the
+ * only structural source. Regression: Linear's nullable params (assignee,
+ * cycle, parentId, …) generated with no description at all.
+ */
+describe("readSchemaNode — nullable unwrap keeps wrapper annotations", () => {
+  const nullable = (inner: Record<string, unknown>, outer: Record<string, unknown> = {}) => ({
+    ...outer,
+    anyOf: [inner, { type: "null" }],
+  });
+
+  it("outer description survives when the inner branch has none", () => {
+    const n = readSchemaNode(nullable({ type: "string" }, { description: "User ID, name, email, or \"me\"" }));
+    expect(n).toMatchObject({
+      type: "string",
+      nullable: true,
+      description: 'User ID, name, email, or "me"',
+    });
+  });
+
+  it("inner description WINS when both are present", () => {
+    const n = readSchemaNode(
+      nullable({ type: "string", description: "inner" }, { description: "outer" }),
+    );
+    expect(n.description).toBe("inner");
+  });
+
+  it("outer default survives; an inner default wins", () => {
+    expect(readSchemaNode(nullable({ type: "string" }, { default: "x" })).defaultValue).toBe("x");
+    expect(
+      readSchemaNode(nullable({ type: "string", default: "in" }, { default: "out" })).defaultValue,
+    ).toBe("in");
+  });
+
+  it("structure/validation still come ONLY from the inner branch", () => {
+    // Bounds live inner; a wrapper stray `maximum` must not leak in.
+    const n = readSchemaNode(
+      nullable({ type: "integer", minimum: 1, maximum: 250 }, { description: "d", maximum: 5 }),
+    );
+    expect(n).toMatchObject({ type: "integer", minimum: 1, maximum: 250, description: "d" });
+  });
+
+  it("nullable string/array/object keep the same type + structure as before", () => {
+    expect(readSchemaNode(nullable({ type: "string" }))).toMatchObject({
+      type: "string",
+      nullable: true,
+    });
+    const arr = readSchemaNode(
+      nullable({ type: "array", items: { type: "string" }, maxItems: 5 }, { description: "tags" }),
+    );
+    expect(arr).toMatchObject({ type: "array", maxItems: 5, description: "tags" });
+    expect(arr.items).toEqual({ type: "string" });
+    const objSchema = nullable(
+      { type: "object", properties: { a: { type: "string" } }, required: ["a"] },
+      { description: "obj" },
+    );
+    const o = readSchemaNode(objSchema);
+    expect(o).toMatchObject({ type: "object", description: "obj", required: ["a"] });
+    expect(o.properties?.get("a")).toEqual({ type: "string" });
+  });
+
+  it("non-nullable nodes are untouched by the change", () => {
+    expect(readSchemaNode({ type: "string", description: "plain" })).toMatchObject({
+      type: "string",
+      nullable: false,
+      description: "plain",
+    });
+    // No description anywhere → still none (nothing invented).
+    expect(readSchemaNode({ type: "string" }).description).toBeNull();
+  });
+
+  it("a real multi-branch anyOf is still refused, not flattened", () => {
+    const n = readSchemaNode({
+      description: "d",
+      anyOf: [{ type: "string" }, { type: "number" }],
+    });
+    expect(n.unsupported).toMatch(/only the nullable idiom/);
+    expect(n.description).toBeNull(); // an unsupported node carries nothing
+  });
+
+  it("reversed order (null first) and oneOf behave identically", () => {
+    const rev = readSchemaNode({
+      description: "d",
+      anyOf: [{ type: "null" }, { type: "string" }],
+    });
+    expect(rev).toMatchObject({ type: "string", nullable: true, description: "d" });
+    const one = readSchemaNode({
+      description: "d",
+      oneOf: [{ type: "string" }, { type: "null" }],
+    });
+    expect(one).toMatchObject({ type: "string", nullable: true, description: "d" });
+  });
+
+  it("does not mutate the source schema and is deterministic", () => {
+    const src = nullable({ type: "string" }, { description: "d" });
+    const frozen = JSON.stringify(src);
+    const a = readSchemaNode(src);
+    const b = readSchemaNode(src);
+    expect(JSON.stringify(src)).toBe(frozen);
+    expect(a).toEqual(b);
+  });
+
+  it("end-to-end: a nullable field compiles to the same widget, now WITH the vendor description", () => {
+    const { fields: f, diagnostics } = fields(
+      obj({ assignee: nullable({ type: "string" }, { description: "User ID, name, email" }) }),
+    );
+    expect(diagnostics).toEqual([]);
+    expect(f[0]!.meta).toMatchObject({
+      type: "text",
+      required: false,
+      description: "User ID, name, email",
+    });
+    expect(f[0]!.nullable).toBe(true);
   });
 });
 

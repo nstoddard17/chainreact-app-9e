@@ -45,6 +45,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "cycle",
       label: "Cycle",
+      description: "Cycle name, number, or ID.",
       type: "text",
       required: false,
       advanced: true,
@@ -122,6 +123,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "delegate",
       label: "Delegate",
+      description: "Agent name or ID.",
       type: "text",
       required: false,
       advanced: true,
@@ -145,6 +147,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "slaBreachesAt",
       label: "SLA breach time",
+      description: "ISO-8601 timestamp when the SLA will breach.",
       type: "datetime-utc",
       required: false,
       advanced: true,
@@ -170,6 +173,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "parentId",
       label: "Parent issue",
+      description: "Parent issue ID or identifier (e.g., LIN-123).",
       type: "text",
       required: false,
       advanced: true,
@@ -177,6 +181,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "estimate",
       label: "Estimate",
+      description: "Issue estimate value. Omit to leave it unchanged.",
       type: "number",
       required: false,
       numeric: {
@@ -257,6 +262,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "duplicateOf",
       label: "Duplicate of",
+      description: "Duplicate of issue ID/identifier.",
       type: "text",
       required: false,
       advanced: true,

@@ -169,17 +169,23 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         removeRelatedTo: { omit: true },
         duplicateOf: { omit: true },
         removeReleases: { omit: true }, // live-only (CS-6): nothing to remove on create.
-        delegate: { advanced: true },
-        cycle: { advanced: true },
+        // MCP-NULLABLE-DESCRIPTIONS-1 — the compiler now preserves the vendor's
+        // wrapper description on nullable fields, but Linear's copy for several
+        // of them says "pass null to remove/clear" — an MCP-client operation the
+        // builder does not expose (schemas are plain .optional(); leaving a
+        // field empty omits it). These overrides keep the vendor's informative
+        // sentence and trim ONLY the null clause (Section-6 quality rule).
+        delegate: { advanced: true, description: "Agent name or ID." },
+        cycle: { advanced: true, description: "Cycle name, number, or ID." },
         milestone: { advanced: true },
-        estimate: { advanced: true, numericMin: 0 }, // estimate points are never negative.
+        estimate: { advanced: true, numericMin: 0, description: "Issue estimate value. Omit for no estimate." }, // estimate points are never negative.
         links: { advanced: true },
         blocks: { advanced: true },
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
-        parentId: { advanced: true, label: "Parent issue" },
+        parentId: { advanced: true, label: "Parent issue", description: "Parent issue ID or identifier (e.g., LIN-123)." },
         // live-only (CS-6) — SLA + release plumbing: power-user, Advanced tab.
-        slaBreachesAt: { advanced: true, label: "SLA breach time" },
+        slaBreachesAt: { advanced: true, label: "SLA breach time", description: "ISO-8601 timestamp when the SLA will breach." },
         slaType: { advanced: true, label: "SLA day counting" },
         addReleases: { advanced: true },
         setReleases: { advanced: true },
@@ -242,21 +248,23 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
           allowManualEntry: true,
           description: "Move the issue to a project — pick from the list or type a project name/ID.",
         },
-        delegate: { advanced: true },
-        cycle: { advanced: true },
+        // MCP-NULLABLE-DESCRIPTIONS-1 — same Section-6 trims as create_issue:
+        // vendor sentence kept, unsupported "pass null" clause dropped.
+        delegate: { advanced: true, description: "Agent name or ID." },
+        cycle: { advanced: true, description: "Cycle name, number, or ID." },
         milestone: { advanced: true },
-        estimate: { advanced: true, numericMin: 0 }, // estimate points are never negative.
+        estimate: { advanced: true, numericMin: 0, description: "Issue estimate value. Omit to leave it unchanged." }, // estimate points are never negative.
         links: { advanced: true },
         blocks: { advanced: true },
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
-        duplicateOf: { advanced: true },
-        parentId: { advanced: true, label: "Parent issue" },
+        duplicateOf: { advanced: true, description: "Duplicate of issue ID/identifier." },
+        parentId: { advanced: true, label: "Parent issue", description: "Parent issue ID or identifier (e.g., LIN-123)." },
         removeBlocks: { advanced: true },
         removeBlockedBy: { advanced: true },
         removeRelatedTo: { advanced: true },
         // live-only (CS-6) — SLA + release plumbing on the Advanced tab.
-        slaBreachesAt: { advanced: true, label: "SLA breach time" },
+        slaBreachesAt: { advanced: true, label: "SLA breach time", description: "ISO-8601 timestamp when the SLA will breach." },
         slaType: { advanced: true, label: "SLA day counting" },
         addReleases: { advanced: true },
         setReleases: { advanced: true },
