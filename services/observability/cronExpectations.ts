@@ -25,4 +25,8 @@ export const MONITORED_CRONS: readonly MonitoredCron[] = [
   { name: "cleanup-workflow-files", expectedIntervalMinutes: 1440 },
   { name: "evaluate-ops-alerts", expectedIntervalMinutes: 5 },
   { name: "refresh-oauth-tokens", expectedIntervalMinutes: 10 },
+  // ACCOUNT-BILLING-LIFECYCLE-2/3 — hourly (vercel.json `0 * * * *`). A missing tick means
+  // departing customers whose Stripe cancellation failed keep being billed with nothing
+  // retrying, so this cron going quiet is itself the alert-worthy condition.
+  { name: "reconcile-deletion-billing", expectedIntervalMinutes: 60 },
 ];

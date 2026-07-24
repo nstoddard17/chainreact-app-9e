@@ -16,6 +16,15 @@ const mockReconcile = jest.fn();
 jest.mock("@/services/cron/auth", () => ({
   requireCronAuth: (...a: unknown[]) => mockRequireCronAuth(...a),
 }));
+// ACCOUNT-BILLING-LIFECYCLE-3 — the canonical ops-signal path (ops_signal_events →
+// evaluate-ops-alerts). Mocked so the failure signal can be asserted without a DB.
+const mockRecordCronRun = jest.fn();
+jest.mock("@/services/observability/signalRecorders", () => ({
+  recordCronRun: (...a: unknown[]) => mockRecordCronRun(...a),
+  // Pass-through wrapper: the heartbeat itself is proven by its own suite.
+  withCronHeartbeat: (_name: string, handler: (r: Request) => Promise<Response>) => handler,
+}));
+
 jest.mock("@/services/accounts/accountPurge", () => ({
   reconcilePendingDeletionBilling: (...a: unknown[]) => mockReconcile(...a),
   // Present in the real module — deliberately NOT imported by this route.
@@ -38,6 +47,7 @@ function req(method = "POST") {
 beforeEach(() => {
   mockRequireCronAuth.mockReset();
   mockReconcile.mockReset().mockResolvedValue(CLEAN);
+  mockRecordCronRun.mockReset().mockResolvedValue(undefined);
 });
 
 describe("auth", () => {
@@ -198,5 +208,80 @@ describe("structurally non-destructive", () => {
     expect(source).not.toMatch(/accountPurgeRepo|repositories\/accountPurge/);
     expect(source).not.toMatch(/ledgerAnonymization/);
     expect(source).not.toMatch(/deleteAuthUser|deleteAccount\b/);
+  });
+});
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-3 — operational visibility.
+ *
+ * A partially-failed sweep still returns HTTP 200 (one account's Stripe outage must not fail
+ * the tick), so the heartbeat alone would record `ok` and nobody would ever learn that
+ * departing customers are still being billed. `failed > 0` therefore emits an explicit
+ * `failed` cron signal through the SAME path every other cron problem uses.
+ */
+describe("failure visibility", () => {
+  it("failed = 0 records no failure signal — just the normal safe summary", async () => {
+    mockRequireCronAuth.mockReturnValue({ authorized: true });
+    mockReconcile.mockResolvedValueOnce({
+      scanned: 3, canceled: 2, alreadyClear: 1, failed: 0,
+    });
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(200);
+    expect(mockRecordCronRun).not.toHaveBeenCalled();
+  });
+
+  it("failed > 0 emits the canonical cron failure signal with a bounded category", async () => {
+    const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRequireCronAuth.mockReturnValue({ authorized: true });
+    mockReconcile.mockResolvedValueOnce({
+      scanned: 5, canceled: 3, alreadyClear: 1, failed: 1,
+    });
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(200);
+    expect(mockRecordCronRun).toHaveBeenCalledWith(
+      "reconcile-deletion-billing",
+      "failed",
+      "billing_cancellation_failed",
+    );
+    errSpy.mockRestore();
+  });
+
+  it("the failure log carries safe aggregates ONLY — no identifiers", async () => {
+    const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRequireCronAuth.mockReturnValue({ authorized: true });
+    mockReconcile.mockResolvedValueOnce({
+      scanned: 4, canceled: 2, alreadyClear: 1, failed: 1,
+    });
+
+    await POST(req());
+
+    const logged = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toMatch(/reconcile_deletion_billing\.failures/);
+    // Required safe fields.
+    for (const field of ["scanned", "attempted", "succeeded", "failed", "errorCategory", "at"]) {
+      expect(logged).toContain(field);
+    }
+    // Forbidden content.
+    expect(logged).not.toMatch(/acct[-_]|user[-_]|cus_|sub_|sk_|@|price_/);
+    errSpy.mockRestore();
+  });
+
+  it("a failing item does not abort the batch — successes are still reported", async () => {
+    const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRequireCronAuth.mockReturnValue({ authorized: true });
+    mockReconcile.mockResolvedValueOnce({
+      scanned: 10, canceled: 7, alreadyClear: 2, failed: 1,
+    });
+
+    const body = await (await POST(req())).json();
+
+    expect(body.canceled).toBe(7);
+    expect(body.failed).toBe(1);
+    expect(body.scanned).toBe(10);
+    errSpy.mockRestore();
   });
 });

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
 import { reconcilePendingDeletionBilling } from "@/services/accounts/accountPurge";
+import {
+  recordCronRun,
+  withCronHeartbeat,
+} from "@/services/observability/signalRecorders";
 
 /**
  * Cron entrypoint for the pending-deletion BILLING RECONCILIATION sweep
@@ -57,6 +61,33 @@ async function handle(request: Request): Promise<Response> {
 
   try {
     const result = await reconcilePendingDeletionBilling();
+
+    // OPERATIONAL SIGNAL (ACCOUNT-BILLING-LIFECYCLE-3). A partially-failed sweep still
+    // returns HTTP 200 — one account's Stripe outage must not fail the tick — so the
+    // heartbeat alone would record `ok` and an operator would never see it. Record an
+    // explicit `failed` cron signal so a persistent inability to cancel subscriptions for
+    // departing customers surfaces through the SAME ops path as every other cron problem
+    // (ops_signal_events → evaluate-ops-alerts), instead of needing a bespoke alert channel.
+    //
+    // `detailCode` is a bounded category, never a count and never an identifier.
+    if (result.failed > 0) {
+      await recordCronRun(CRON_NAME, "failed", "billing_cancellation_failed");
+      console.error(
+        JSON.stringify({
+          event: "cron.reconcile_deletion_billing.failures",
+          // Safe aggregate shape only: counts + a category + when. No account id, user id,
+          // email, Stripe customer/subscription id, team name, or raw Stripe error.
+          scanned: result.scanned,
+          attempted: result.canceled + result.failed,
+          succeeded: result.canceled,
+          failed: result.failed,
+          alreadyClear: result.alreadyClear,
+          errorCategory: "billing_cancellation_failed",
+          at: new Date().toISOString(),
+        }),
+      );
+    }
+
     console.info(
       JSON.stringify({ event: "cron.reconcile_deletion_billing.done", ...result }),
     );
@@ -76,10 +107,20 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
+/**
+ * Registered cron name — matches `services/observability/cronExpectations.ts`, which is what
+ * turns a MISSING tick (the cron silently not running) into an alert.
+ */
+const CRON_NAME = "reconcile-deletion-billing";
+
+// Heartbeat wrapper: every authorized tick records ok/failed into ops_signal_events, so a
+// dead or erroring cron is visible through the standard evaluator rather than only in logs.
+const wrapped = withCronHeartbeat(CRON_NAME, handle);
+
 export async function GET(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
