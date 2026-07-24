@@ -15,7 +15,6 @@ function renderMenu() {
     onStep: jest.fn(),
     onIfThen: jest.fn(),
     onRouter: jest.fn(),
-    onSection: jest.fn(),
     onAskReact: jest.fn(),
   };
   render(
@@ -24,7 +23,6 @@ function renderMenu() {
       onStep={handlers.onStep}
       onIfThen={handlers.onIfThen}
       onRouter={handlers.onRouter}
-      onSection={handlers.onSection}
       onAskReact={handlers.onAskReact}
     />,
   );

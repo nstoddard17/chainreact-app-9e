@@ -5,21 +5,29 @@ import { MAX_SECTION_TITLE } from "@/contracts/workflowPresentation";
 import type { DocumentSection } from "./documentSections";
 
 /**
- * 5.DUAL-BUILDER-1 CS-4 — a manual section's header.
+ * 5.DUAL-BUILDER-1 CS-4 — a manual GROUP's header (stored as a presentation
+ * "section"; DOC-STEP-CONTROLS-1 renamed the user-facing concept to "group"
+ * because the stored data was never anything but visual organization).
  *
  * A named boundary around contiguous top-level Document blocks — a clear
- * grouping, NOT a stacked SaaS card. It offers: an inline-editable title
- * (Enter/blur commits through graphSlice; Escape restores the original), a
- * collapse/expand control, and a plain context action to UNGROUP (remove the
- * wrapper only — the workflow steps stay exactly where they are; deleting steps
- * is the existing, separate action). When collapsed it shows a deterministic
- * summary (steps · apps/paths · unresolved details) generated from the
- * DocumentModel — never persisted, never an LLM.
+ * grouping, NOT a stacked SaaS card. It offers: an explicit "GROUP" eyebrow and
+ * a standing one-line explanation that grouping never changes execution, an
+ * inline-editable name (Enter/blur commits through graphSlice; Escape restores
+ * the original), a collapse/expand control, and a plain context action to
+ * UNGROUP (remove the wrapper only — the workflow steps stay exactly where they
+ * are; deleting steps is the existing, separate action). When collapsed it shows
+ * a deterministic summary (steps · apps/paths · unresolved details) generated
+ * from the DocumentModel — never persisted, never an LLM.
  */
+export const GROUP_ORGANIZATIONAL_NOTE =
+  "Grouping is visual only — it doesn’t change the order your steps run in.";
+
 export function DocumentSectionHeader({
   section,
   collapsed,
   summaryText,
+  autoEditName,
+  onAutoEditNameHandled,
   onRename,
   onToggleCollapse,
   onUngroup,
@@ -29,6 +37,12 @@ export function DocumentSectionHeader({
   /** Effective collapse (false while a Guided Stop / navigation reveals it). */
   collapsed: boolean;
   summaryText: string;
+  /**
+   * DOC-STEP-CONTROLS-1 — true for a group the user JUST created, so it opens
+   * straight into naming instead of presenting an unexplained default card.
+   */
+  autoEditName?: boolean | undefined;
+  onAutoEditNameHandled?: (() => void) | undefined;
   onRename: (title: string) => void;
   onToggleCollapse: () => void;
   onUngroup: () => void;
@@ -41,8 +55,18 @@ export function DocumentSectionHeader({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (editing) inputRef.current?.focus();
+    if (!editing) return;
+    inputRef.current?.focus();
+    inputRef.current?.select(); // a freshly-created group opens ready to be renamed
   }, [editing]);
+
+  useEffect(() => {
+    if (autoEditName !== true) return;
+    setDraft(section.title);
+    setEditing(true);
+    onAutoEditNameHandled?.();
+    // Only ever runs on the create transition (the flag is cleared immediately).
+  }, [autoEditName, section.title, onAutoEditNameHandled]);
 
   const commit = () => {
     setEditing(false);
@@ -68,16 +92,21 @@ export function DocumentSectionHeader({
           data-testid={`document-section-collapse-${section.id}`}
           onClick={onToggleCollapse}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? "Expand section" : "Collapse section"}
+          aria-label={collapsed ? `Expand group ${section.title}` : `Collapse group ${section.title}`}
           className="crv2-section-toggle"
         >
-          {collapsed ? "▸" : "▾"}
+          <span aria-hidden>{collapsed ? "▸" : "▾"}</span>
         </button>
+
+        <span aria-hidden className="crv2-eyebrow">
+          Group
+        </span>
 
         {editing ? (
           <input
             ref={inputRef}
             data-testid={`document-section-title-input-${section.id}`}
+            aria-label="Group name"
             value={draft}
             maxLength={MAX_SECTION_TITLE}
             onChange={(e) => setDraft(e.target.value)}
@@ -108,7 +137,8 @@ export function DocumentSectionHeader({
               setEditing(true);
             }}
             className="crv2-section-title truncate"
-            title="Rename section"
+            title="Rename this group"
+            aria-label={`Rename group ${section.title}`}
           >
             {section.title}
             {section.split ? (
@@ -139,22 +169,13 @@ export function DocumentSectionHeader({
             onClick={() => setMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            aria-label="Section actions"
-            className="inline-flex h-6 items-center rounded-md px-2 text-[13px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/section:opacity-100 motion-reduce:transition-none"
-            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
+            aria-label={`Group actions for ${section.title}`}
+            className="crv2-step-menu-button"
           >
-            ⋯
+            <span aria-hidden>⋯</span>
           </button>
           {menuOpen ? (
-            <div
-              role="menu"
-              className="absolute right-0 top-7 z-20 w-44 rounded-lg py-1 text-[12.5px]"
-              style={{
-                background: "var(--builder-panel)",
-                border: "1px solid var(--builder-border)",
-                boxShadow: "0 14px 34px -18px rgba(0,0,0,.4)",
-              }}
-            >
+            <div role="menu" aria-label="Group actions" className="crv2-menu right-0 top-7 w-52">
               <button
                 type="button"
                 role="menuitem"
@@ -164,10 +185,9 @@ export function DocumentSectionHeader({
                   setDraft(section.title);
                   setEditing(true);
                 }}
-                className="block w-full px-3 py-1.5 text-left"
-                style={{ color: "var(--builder-text)" }}
+                className="crv2-menu-item"
               >
-                Rename
+                Rename group
               </button>
               <button
                 type="button"
@@ -177,15 +197,21 @@ export function DocumentSectionHeader({
                   setMenuOpen(false);
                   onUngroup();
                 }}
-                className="block w-full px-3 py-1.5 text-left"
-                style={{ color: "var(--builder-text)" }}
-                title="Remove the section wrapper — your steps stay exactly where they are"
+                className="crv2-menu-item"
+                title="Remove the group wrapper — your steps stay exactly where they are"
               >
-                Ungroup section
+                Ungroup
               </button>
             </div>
           ) : null}
         </div>
+
+        {/* The standing explanation: a group is organization, never execution. */}
+        {collapsed ? null : (
+          <p data-testid={`document-section-note-${section.id}`} className="crv2-section-note m-0">
+            {GROUP_ORGANIZATIONAL_NOTE}
+          </p>
+        )}
       </div>
       {!collapsed ? children : null}
     </div>

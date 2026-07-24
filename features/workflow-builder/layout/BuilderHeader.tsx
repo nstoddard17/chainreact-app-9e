@@ -195,6 +195,7 @@ export function BuilderHeader({
           status={status}
           saveError={saveError}
           onRetrySave={handleSave}
+          {...(lifecycle ? { workflowState: lifecycle.state } : {})}
         />
         <HeaderCenterMeta workflowId={localOnly ? undefined : workflowId} />
         {localOnly ? (
@@ -235,12 +236,20 @@ function HeaderLeft({
   status,
   saveError,
   onRetrySave,
+  workflowState,
 }: {
   workflowName: string;
   leftRail?: { isCollapsed: boolean; onToggle: () => void };
   status: SaveStatus;
   saveError: string | null;
   onRetrySave?: () => void;
+  /**
+   * DOC-STEP-CONTROLS-1 — the REAL lifecycle state (draft / active / paused /
+   * …). The breadcrumb used to hard-code "draft", which read as a wrong status
+   * for an active or paused workflow. The state is display-only here; the
+   * transitions live in the lifecycle cluster on the right of this same header.
+   */
+  workflowState?: WorkflowState | undefined;
 }) {
   const router = useRouter();
   // Slice 4.WORKFLOWS-PAGE-1 follow-up — wire the header back arrow to the
@@ -285,7 +294,13 @@ function HeaderLeft({
         >
           <span>workflow</span>
           <span style={{ color: "var(--builder-muted-2)" }}>/</span>
-          <span>draft</span>
+          <span
+            data-testid="builder-header-workflow-state"
+            data-workflow-state={workflowState ?? "draft"}
+            title={`This workflow is ${workflowStateLabel(workflowState).toLowerCase()}`}
+          >
+            {workflowStateLabel(workflowState).toLowerCase()}
+          </span>
           <span style={{ color: "var(--builder-muted-2)" }}>/</span>
         </div>
         <div className="flex min-w-0 items-center gap-2">
@@ -597,6 +612,25 @@ function HeaderDivider({ className }: { className?: string }) {
 }
 
 
+
+/** Plain-language name for a workflow lifecycle state (display only). */
+function workflowStateLabel(state: WorkflowState | undefined): string {
+  switch (state) {
+    case "active":
+      return "Active";
+    case "paused":
+      return "Paused";
+    case "disabled":
+      return "Disabled";
+    case "eligible_to_resume":
+      return "Paused";
+    case "deleted":
+      return "Deleted";
+    case "draft":
+    case undefined:
+      return "Draft";
+  }
+}
 
 function deriveStatus(input: {
   isDirty: boolean;

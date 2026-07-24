@@ -186,15 +186,18 @@ describe("persistent Ask React bar", () => {
 });
 
 describe("insertion menu", () => {
-  it("offers Step / Branch / Section / Ask React and NO Loop at the tail", () => {
+  it("offers Step / Branch / Ask React, NO Loop and NO Section at the tail", () => {
     renderBuilder(linear);
     fireEvent.click(screen.getByTestId("document-add-after-b"));
     const menu = screen.getByTestId("document-add-after-b-menu");
     expect(within(menu).getByTestId("document-add-after-b-step")).toBeInTheDocument();
     expect(within(menu).getByTestId("document-add-after-b-branch")).toBeInTheDocument();
-    expect(within(menu).getByTestId("document-add-after-b-section")).toBeInTheDocument();
     expect(within(menu).getByTestId("document-add-after-b-askreact")).toBeInTheDocument();
     expect(within(menu).queryByText(/Loop/)).toBeNull();
+    // DOC-STEP-CONTROLS-1 — grouping is not an insertion action; it moved to
+    // the per-step overflow menu.
+    expect(within(menu).queryByTestId("document-add-after-b-section")).toBeNull();
+    expect(within(menu).queryByText(/Section/)).toBeNull();
   });
 
   it("offers Router at a true tail but NOT between two nodes (locked rule)", () => {
@@ -224,9 +227,16 @@ describe("insertion menu", () => {
 });
 
 describe("top-level multi-selection", () => {
+  // DOC-STEP-CONTROLS-1 — selection is toggled from the step's overflow menu,
+  // not from an unlabeled control on the marker rail.
+  const selectStep = (nodeId: string) => {
+    fireEvent.click(screen.getByTestId(`document-step-menu-${nodeId}`));
+    fireEvent.click(screen.getByTestId(`document-select-${nodeId}`));
+  };
+
   it("selecting a step shows the toolbar; Duplicate copies it through the canonical path", async () => {
     renderBuilder(linear);
-    fireEvent.click(screen.getByTestId("document-select-a"));
+    selectStep("a");
     expect(screen.getByTestId("document-selection-toolbar")).toBeInTheDocument();
     expect(screen.getByTestId("document-selection-count")).toHaveTextContent("1 selected");
 
@@ -236,10 +246,10 @@ describe("top-level multi-selection", () => {
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("wraps a contiguous top-level selection in a section", async () => {
+  it("groups a contiguous top-level selection", async () => {
     renderBuilder(linear);
-    fireEvent.click(screen.getByTestId("document-select-a"));
-    fireEvent.click(screen.getByTestId("document-select-b"));
+    selectStep("a");
+    selectStep("b");
     expect(screen.getByTestId("document-selection-count")).toHaveTextContent("2 selected");
     fireEvent.click(screen.getByTestId("document-selection-wrap"));
     await waitFor(() => {

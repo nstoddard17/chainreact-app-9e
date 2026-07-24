@@ -16,6 +16,7 @@ import { DocumentEmptyState } from "./DocumentEmptyState";
 import { DocumentAskReactBar } from "./DocumentAskReactBar";
 import { DocumentPreview } from "./DocumentPreview";
 import { DocumentInsertMenu } from "./DocumentInsertMenu";
+import type { DocumentStepMenuItem } from "./DocumentStepMenu";
 import { DocumentSelectionToolbar } from "./DocumentSelectionToolbar";
 import { useDocumentGuidedStop } from "./useDocumentGuidedStop";
 import { useDocumentSetup, navRefusalCopy } from "./useDocumentSetup";
@@ -64,6 +65,27 @@ import {
 } from "./projection";
 import { TIER_C_REASONS } from "./projectionTiers";
 import { emitDocumentBuilderEvent } from "./documentTelemetry";
+import { GROUP_ORGANIZATIONAL_NOTE } from "./DocumentSectionHeader";
+
+/**
+ * DOC-STEP-CONTROLS-1 — the default name of a freshly created GROUP. The stored
+ * contract is still `presentation.sections` (unchanged on disk, so existing
+ * workflows keep their data); only the USER-FACING concept is "group", because
+ * that metadata never did anything but organize the document visually.
+ */
+export const NEW_GROUP_TITLE = "New group";
+
+/** Per-render context threaded through `renderBlocks` (never persisted). */
+interface DocumentRenderOptions {
+  readonly dimUnrelated?: boolean;
+  readonly markerMap?: ReadonlyMap<string, string>;
+  /** True for TOP-LEVEL rows: selection + grouping entries are offered. */
+  readonly selectable?: boolean;
+  /** Set when these blocks are rendered INSIDE a group (offers "move out"). */
+  readonly groupId?: string;
+  /** A group immediately adjacent to a loose row (offers "Add to <group>"). */
+  readonly addToGroup?: { readonly id: string; readonly title: string };
+}
 
 /**
  * Document Builder surface (5.DUAL-BUILDER-1; editable in CS-2).
@@ -386,6 +408,11 @@ export function DocumentView({
     [onAskReact],
   );
 
+  // DOC-STEP-CONTROLS-1 — the group a user JUST created opens straight into
+  // naming (no unexplained default card). Session-only UI state.
+  const [namingGroupId, setNamingGroupId] = useState<string | null>(null);
+  const clearNamingGroup = useCallback(() => setNamingGroupId(null), []);
+
   // CS-6 — selection-toolbar command handlers (all typed, non-throwing).
   const handleWrapSelection = useCallback(() => {
     const resolved = resolveWrapSelection(topLevelBlocks, [...selectedIds]);
@@ -393,9 +420,13 @@ export function DocumentView({
       say(describeSectionRefusal(resolved.reason));
       return;
     }
-    const result = useGraphSlice.getState().createSection({ nodeIds: resolved.nodeIds, title: "New section" });
-    if (!result.ok && result.reason !== "no_change") say("This part can't be grouped into a section.");
-    else clearSelection();
+    const result = useGraphSlice.getState().createSection({ nodeIds: resolved.nodeIds, title: NEW_GROUP_TITLE });
+    if (!result.ok) {
+      if (result.reason !== "no_change") say("These steps can't be grouped together.");
+      return;
+    }
+    setNamingGroupId(result.sectionId);
+    clearSelection();
   }, [topLevelBlocks, selectedIds, say, clearSelection]);
 
   const handleDuplicateSelection = useCallback(() => {
@@ -404,6 +435,46 @@ export function DocumentView({
     if (!result.ok) say(describeSelectionRefusal(result.reason));
     else clearSelection();
   }, [selectedIds, say, clearSelection]);
+
+  // DOC-STEP-CONTROLS-1 — the same typed commands, addressed at ONE step from
+  // its overflow menu (no separate command path; selection is no longer a
+  // prerequisite for managing a single step).
+  const handleDuplicateStep = useCallback(
+    (nodeId: string) => {
+      const result = duplicateDocumentAction({ nodeId });
+      if (!result.ok) say(describeSelectionRefusal(result.reason));
+    },
+    [say],
+  );
+
+  const handleMoveStep = useCallback(
+    (nodeId: string, direction: "earlier" | "later") => {
+      const result = moveDocumentAction({ nodeId, direction });
+      if (!result.ok) say(describeSelectionRefusal(result.reason));
+    },
+    [say],
+  );
+
+  const handleDeleteStep = useCallback(
+    (nodeId: string) => {
+      const result = removeDocumentBlock({ nodeId });
+      if (result.ok) {
+        clearSelection();
+        return;
+      }
+      if (result.reason !== "destructive_confirmation_required") {
+        say(describeSelectionRefusal(result.reason));
+        return;
+      }
+      // The Document's own confirm gesture — native confirm keeps the flow simple.
+      if (typeof window === "undefined") return;
+      if (!window.confirm("Delete this step? This changes your workflow.")) return;
+      const retry = removeDocumentBlock({ nodeId, confirmed: true });
+      if (!retry.ok) say(describeSelectionRefusal(retry.reason));
+      else clearSelection();
+    },
+    [say, clearSelection],
+  );
 
   const handleDeleteSelection = useCallback(() => {
     let confirmed = false;
@@ -509,8 +580,9 @@ export function DocumentView({
     [scrollToNode, handleEditField, handleConfigureStep, handoffToVisual, say, revealSectionForNode],
   );
 
-  // ---- CS-4 section commands (thin: resolve block → node ids, delegate to the
-  // shared graphSlice section actions; never mutate nodes/edges/topology). ----
+  // ---- CS-4 group ("section") commands (thin: resolve block → node ids,
+  // delegate to the shared graphSlice section actions; never mutate
+  // nodes/edges/topology). ----
   const handleWrapBlock = useCallback(
     (block: DocumentBlock) => {
       const resolved = resolveBlockNodeIds(block);
@@ -521,11 +593,13 @@ export function DocumentView({
       emitDocumentBuilderEvent("document_insert_used", { kind: "section" });
       const result = useGraphSlice.getState().createSection({
         nodeIds: resolved.nodeIds,
-        title: "New section",
+        title: NEW_GROUP_TITLE,
       });
-      if (!result.ok && result.reason !== "no_change") {
-        say("This part can't be grouped into a section.");
+      if (!result.ok) {
+        if (result.reason !== "no_change") say("This step can't be grouped.");
+        return;
       }
+      setNamingGroupId(result.sectionId);
     },
     [say],
   );
@@ -641,9 +715,103 @@ export function DocumentView({
       />
     ) : null;
 
+  /**
+   * DOC-STEP-CONTROLS-1 — the entries of ONE step's always-visible overflow
+   * menu. Every entry delegates to an EXISTING typed command handler above
+   * (selection commands / section commands / the inspector), so the menu adds
+   * discoverability, not a second command path. Structure-only entries
+   * (group / move out of group) appear only at top level, where grouping is
+   * defined; nested lane steps get the safe subset.
+   */
+  const buildStepMenuItems = (
+    block: DocumentSentenceBlock,
+    opts?: DocumentRenderOptions,
+  ): readonly DocumentStepMenuItem[] => {
+    if (!interactive) return [];
+    const id = block.nodeId;
+    const items: DocumentStepMenuItem[] = [
+      {
+        key: "configure",
+        testId: `document-step-configure-${id}`,
+        label: "Configure step",
+        onSelect: () => handleConfigureStep(id),
+      },
+    ];
+    if (block.nodeKind !== "trigger") {
+      items.push({
+        key: "duplicate",
+        testId: `document-step-duplicate-${id}`,
+        label: "Duplicate step",
+        onSelect: () => handleDuplicateStep(id),
+      });
+    }
+    if (opts?.selectable === true) {
+      if (block.nodeKind !== "trigger") {
+        items.push(
+          {
+            key: "move-earlier",
+            testId: `document-step-move-earlier-${id}`,
+            label: "Move earlier",
+            onSelect: () => handleMoveStep(id, "earlier"),
+          },
+          {
+            key: "move-later",
+            testId: `document-step-move-later-${id}`,
+            label: "Move later",
+            onSelect: () => handleMoveStep(id, "later"),
+          },
+        );
+      }
+      if (opts.groupId) {
+        items.push({
+          key: "ungroup-step",
+          testId: `document-step-remove-from-group-${id}`,
+          label: "Move out of group",
+          title: GROUP_ORGANIZATIONAL_NOTE,
+          onSelect: () => handleRemoveBlockFromSection(block),
+        });
+      } else {
+        items.push({
+          key: "group",
+          // Testid kept from CS-4 — same command, now reached from the menu.
+          testId: `document-wrap-section-${id}`,
+          label: "Group steps",
+          title: GROUP_ORGANIZATIONAL_NOTE,
+          onSelect: () => handleWrapBlock(block),
+        });
+        if (opts.addToGroup) {
+          items.push({
+            key: "add-to-group",
+            testId: `document-add-to-section-${id}`,
+            label: `Add to “${opts.addToGroup.title}”`,
+            title: GROUP_ORGANIZATIONAL_NOTE,
+            onSelect: () => handleAddBlockToSection(block, opts.addToGroup!.id),
+          });
+        }
+      }
+      const selected = selectedIds.has(id);
+      items.push({
+        key: "select",
+        // Testid kept from CS-6 — the selection model is unchanged; only its
+        // entry point moved out of the marker rail.
+        testId: `document-select-${id}`,
+        label: selected ? "Deselect step" : "Select step",
+        checked: selected,
+        onSelect: () => toggleSelect(id),
+      });
+    }
+    items.push({
+      key: "delete",
+      testId: `document-step-delete-${id}`,
+      label: "Delete step",
+      onSelect: () => handleDeleteStep(id),
+    });
+    return items;
+  };
+
   const renderBlocks = (
     blocks: readonly DocumentBlock[],
-    opts?: { dimUnrelated?: boolean; markerMap?: ReadonlyMap<string, string>; selectable?: boolean },
+    opts?: DocumentRenderOptions,
   ): ReactNode => {
     let actionOrdinal = 0;
     const groups: Array<{ block: DocumentBlock; nodes: ReactNode[] }> = [];
@@ -668,12 +836,17 @@ export function DocumentView({
             onEditField={interactive ? handleEditField : undefined}
             onConfigureStep={interactive ? handleConfigureStep : undefined}
             editingFieldName={stop?.nodeId === block.nodeId ? stop.fieldName : null}
+            menuItems={buildStepMenuItems(block, opts)}
           />,
         );
         if (stop?.nodeId === block.nodeId) out.push(renderStopEditor(block.nodeId));
-        // CS-6 — the "+" now opens the Step / Branch / Section / Ask React menu
-        // (no Loop). Router is offered only where placement is valid (tail);
-        // between two nodes it is refused (locked rule) → Router omitted there.
+        // CS-6 — the "+" opens the Step / Branch / Ask React menu (no Loop, and
+        // no grouping — that lives in the per-step overflow menu). Router is
+        // offered only where placement is valid (tail); between two nodes it is
+        // refused (locked rule) → Router omitted there.
+        // DOC-STEP-CONTROLS-1 — the affordance is always painted (quiet), so an
+        // insertion point between the trigger and each action is discoverable
+        // without hovering.
         if (interactive && block.insertAfter && onInsertAtEdge) {
           const loc: BranchInsertLocation = {
             kind: "between",
@@ -682,14 +855,13 @@ export function DocumentView({
             expectedTo: block.insertAfter.toNodeId,
           };
           out.push(
-            <div key={`ins-${block.nodeId}`} className="group flex justify-start pl-14">
+            <div key={`ins-${block.nodeId}`} className="flex justify-start pl-14">
               <DocumentInsertMenu
                 testId={`document-insert-after-${block.nodeId}`}
-                label="＋ Add a step here"
+                label="Add a step here"
                 branchLocked={canUseAdvancedBranching === false}
                 onStep={() => handleInsertBetween(block)}
                 onIfThen={() => handleCreateBranch(loc, "if_then")}
-                onSection={() => handleWrapBlock(block)}
                 onAskReact={() => handleAskReactAt("after this step")}
               />
             </div>,
@@ -698,15 +870,14 @@ export function DocumentView({
         if (interactive && block.isLinearTail && onAppendAfter) {
           const loc: BranchInsertLocation = { kind: "tail", anchorNodeId: block.nodeId };
           out.push(
-            <div key={`tail-${block.nodeId}`} className="group mt-1 pl-14">
+            <div key={`tail-${block.nodeId}`} className="mt-1 pl-14">
               <DocumentInsertMenu
                 testId={`document-add-after-${block.nodeId}`}
-                label="＋ Add a step"
+                label="Add a step"
                 branchLocked={canUseAdvancedBranching === false}
                 onStep={() => handleTailAdd(block.nodeId)}
                 onIfThen={() => handleCreateBranch(loc, "if_then")}
                 onRouter={() => handleCreateBranch(loc, "router")}
-                onSection={() => handleWrapBlock(block)}
                 onAskReact={() => handleAskReactAt("at the end of the workflow")}
               />
             </div>,
@@ -744,8 +915,10 @@ export function DocumentView({
     const dimActive = opts?.dimUnrelated === true && stop !== null;
     return groups.map(({ block, nodes }, i) => {
       const dim = dimActive && !blockContainsNode(block, stop!.nodeId);
-      // CS-6 — a top-level sentence/fork block gets a select control (top-level
-      // selection only — never nested lane steps).
+      // CS-6 — top-level selection (never nested lane steps). DOC-STEP-CONTROLS-1
+      // removed the unlabeled checkbox that used to sit ON the marker rail: the
+      // selection state is now shown as a left spine on the block, and it is
+      // TOGGLED from the step's overflow menu.
       const primary =
         opts?.selectable && interactive && (block.kind === "sentence" || block.kind === "fork")
           ? block.nodeId
@@ -756,88 +929,23 @@ export function DocumentView({
           key={`group-${i}`}
           {...(dim ? { "data-document-dimmed": "true" } : {})}
           {...(selected ? { "data-document-selected": "true" } : {})}
-          className="group/sel relative transition-opacity motion-reduce:transition-none"
+          className="relative transition-opacity motion-reduce:transition-none"
           style={dim ? { opacity: 0.45 } : undefined}
         >
-          {primary !== null ? (
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={selected}
-              aria-label={selected ? "Deselect step" : "Select step"}
-              data-testid={`document-select-${primary}`}
-              onClick={() => toggleSelect(primary)}
-              className={`absolute left-0 top-2 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-opacity motion-reduce:transition-none ${selected ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/sel:opacity-100"}`}
-              style={{
-                border: "1.5px solid var(--builder-border)",
-                background: selected ? "var(--builder-accent)" : "var(--builder-panel)",
-                color: selected ? "var(--builder-panel)" : "transparent",
-              }}
-            >
-              ✓
-            </button>
-          ) : null}
           {nodes}
         </div>
       );
     });
   };
 
-  // CS-4 — a loose top-level block's "group into section" / "add to adjacent
-  // section" affordances. Section grouping only; never changes graph order.
-  const looseSectionAffordance = (
-    block: DocumentBlock,
-    adjacentSection: { id: string; title: string } | null,
-  ): ReactNode => {
-    if (!interactive) return null;
-    const primary = blockPrimaryNodeId(block);
-    if (primary === null) return null;
-    return (
-      <div key={`sec-aff-${primary}`} className="group/sec flex items-center gap-2 pl-14">
-        <button
-          type="button"
-          data-testid={`document-wrap-section-${primary}`}
-          onClick={() => handleWrapBlock(block)}
-          className="inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/sec:opacity-100 motion-reduce:transition-none"
-          style={{ color: "var(--builder-muted)", border: "1.5px dashed var(--builder-border)" }}
-        >
-          ＋ Section
-        </button>
-        {adjacentSection ? (
-          <button
-            type="button"
-            data-testid={`document-add-to-section-${primary}`}
-            onClick={() => handleAddBlockToSection(block, adjacentSection.id)}
-            className="inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/sec:opacity-100 motion-reduce:transition-none"
-            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
-          >
-            Add to “{adjacentSection.title}”
-          </button>
-        ) : null}
-      </div>
-    );
-  };
-
   const renderSectionBody = (section: DocumentSection): ReactNode => (
     <div className="px-3 pb-3 pt-1">
-      {renderBlocks(section.blocks, { dimUnrelated: true, markerMap: topLevelMarkers, selectable: true })}
-      {interactive ? (
-        <div className="pl-11">
-          <button
-            type="button"
-            data-testid={`document-section-remove-last-${section.id}`}
-            onClick={() => {
-              const last = section.blocks[section.blocks.length - 1];
-              if (last) handleRemoveBlockFromSection(last);
-            }}
-            className="mt-1 inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-medium"
-            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
-            title="Move the last step out of this section"
-          >
-            Move step out
-          </button>
-        </div>
-      ) : null}
+      {renderBlocks(section.blocks, {
+        dimUnrelated: true,
+        markerMap: topLevelMarkers,
+        selectable: true,
+        groupId: section.id,
+      })}
     </div>
   );
 
@@ -845,8 +953,8 @@ export function DocumentView({
     stop !== null && section.blocks.some((b) => blockContainsNode(b, stop.nodeId));
 
   const renderSectionedRows = (rows: readonly SectionedRow[]): ReactNode => {
-    // Find, for each loose block, whether a section is immediately adjacent so
-    // the "add to section" affordance can extend a contiguous section.
+    // Find, for each loose block, whether a group is immediately adjacent so the
+    // step menu's "Add to <group>" entry can extend a contiguous group.
     return rows.map((row, i) => {
       if (row.kind === "section") {
         const { section } = row;
@@ -861,6 +969,8 @@ export function DocumentView({
               section={section}
               collapsed={collapsed}
               summaryText={summary.text}
+              autoEditName={namingGroupId === section.id}
+              onAutoEditNameHandled={clearNamingGroup}
               onRename={(title) => handleRenameSection(section.id, title)}
               onToggleCollapse={() => handleToggleCollapse(section)}
               onUngroup={() => handleUngroupSection(section.id)}
@@ -880,8 +990,12 @@ export function DocumentView({
             : null;
       return (
         <Fragment key={`loose-${blockPrimaryNodeId(row.block) ?? i}`}>
-          {renderBlocks([row.block], { dimUnrelated: true, markerMap: topLevelMarkers, selectable: true })}
-          {looseSectionAffordance(row.block, adjacent)}
+          {renderBlocks([row.block], {
+            dimUnrelated: true,
+            markerMap: topLevelMarkers,
+            selectable: true,
+            ...(adjacent ? { addToGroup: adjacent } : {}),
+          })}
         </Fragment>
       );
     });

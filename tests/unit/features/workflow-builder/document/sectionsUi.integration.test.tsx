@@ -7,7 +7,7 @@
  * inside a collapsed section, and that sections survive Visual edits + explicit
  * Save + reload. `updateWorkflow` is only ever called by explicit Save.
  */
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mockUpdateWorkflow = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
@@ -132,24 +132,41 @@ beforeEach(() => {
 const g = () => useGraphSlice.getState();
 const sectionId = () => g().pendingPresentation!.sections[0]!.id;
 
+/**
+ * DOC-STEP-CONTROLS-1 — grouping moved OUT of the hover-only "＋ Section" rail
+ * affordance and INTO the step's always-visible overflow menu. The commands and
+ * testids are the same; only the entry point changed.
+ */
+const stepMenuAction = (nodeId: string, actionTestId: string) => {
+  fireEvent.click(screen.getByTestId(`document-step-menu-${nodeId}`));
+  fireEvent.click(screen.getByTestId(actionTestId));
+};
+const groupStep = (nodeId: string) => {
+  stepMenuAction(nodeId, `document-wrap-section-${nodeId}`);
+  // A new group opens straight into naming; Escape keeps the default name and
+  // returns the header to its normal (title-button) state.
+  const id = sectionId();
+  fireEvent.keyDown(screen.getByTestId(`document-section-title-input-${id}`), { key: "Escape" });
+};
+
 describe("section UI", () => {
   it("wrap a block → section created (dirty, nodes untouched); add adjacent block", () => {
     renderWith(definition);
     const nodesRef = g().pendingNodes;
-    fireEvent.click(screen.getByTestId("document-wrap-section-a"));
+    groupStep("a");
     expect(g().pendingPresentation?.sections[0]!.nodeIds).toEqual(["a"]);
     expect(g().isDirty).toBe(true);
     expect(g().pendingNodes).toBe(nodesRef); // topology untouched
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
 
     // Adjacent loose block b can join the section.
-    fireEvent.click(screen.getByTestId("document-add-to-section-b"));
+    stepMenuAction("b", "document-add-to-section-b");
     expect(g().pendingPresentation?.sections[0]!.nodeIds).toEqual(["a", "b"]);
   });
 
   it("rename via inline title; Escape restores", () => {
     renderWith(definition);
-    fireEvent.click(screen.getByTestId("document-wrap-section-a"));
+    groupStep("a");
     const id = sectionId();
     fireEvent.click(screen.getByTestId(`document-section-title-${id}`));
     const input = screen.getByTestId(`document-section-title-input-${id}`);
@@ -167,7 +184,7 @@ describe("section UI", () => {
 
   it("collapse shows a deterministic summary; ungroup keeps steps", () => {
     renderWith(definition);
-    fireEvent.click(screen.getByTestId("document-wrap-section-a"));
+    groupStep("a");
     const id = sectionId();
     fireEvent.click(screen.getByTestId(`document-section-collapse-${id}`));
     expect(g().pendingPresentation?.sections[0]!.collapsed).toBe(true);
@@ -186,7 +203,7 @@ describe("section UI", () => {
 
   it("Finish Setup reveals a field inside a COLLAPSED section", () => {
     renderWith(definition);
-    fireEvent.click(screen.getByTestId("document-wrap-section-a"));
+    groupStep("a");
     const id = sectionId();
     fireEvent.click(screen.getByTestId(`document-section-collapse-${id}`));
     // Collapsed → the sentence for `a` is not shown.
@@ -202,7 +219,7 @@ describe("section UI", () => {
 
   it("rename + collapse survive a Visual ↔ Document builder switch", () => {
     renderWith(definition);
-    fireEvent.click(screen.getByTestId("document-wrap-section-a"));
+    groupStep("a");
     const id = sectionId();
     g().renameSection(id, "Kept");
     g().setSectionCollapsed(id, true);
@@ -218,9 +235,9 @@ describe("section persistence journey", () => {
     const view = renderWith(definition);
 
     // 2–4: wrap a, add b, rename, collapse.
-    fireEvent.click(screen.getByTestId("document-wrap-section-a"));
+    groupStep("a");
     const id = sectionId();
-    fireEvent.click(screen.getByTestId("document-add-to-section-b"));
+    stepMenuAction("b", "document-add-to-section-b");
     act(() => {
       g().renameSection(id, "Qualify & route");
       g().setSectionCollapsed(id, true);

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 /**
  * Document Builder — top-level multi-selection toolbar (5.DUAL-BUILDER-1 / CS-6).
  *
- * Only SAFE actions surface: wrap-in-section (CS-4), duplicate an ordinary
+ * Only SAFE actions surface: group steps (CS-4 presentation sections), duplicate an ordinary
  * action, confirmed delete, and limited adjacent-linear move. Duplicate/move are
  * single-selection only (they operate on one canonical node); wrap needs a
  * contiguous top-level range. Every action delegates to the injected command
@@ -47,7 +47,7 @@ export function DocumentSelectionToolbar({
         {count} selected
       </span>
       <ToolbarButton testId="document-selection-wrap" onClick={onWrap}>
-        Wrap in section
+        Group steps
       </ToolbarButton>
       <ToolbarButton testId="document-selection-duplicate" onClick={onDuplicate} disabled={!singleActionable}>
         Duplicate

@@ -214,13 +214,17 @@ test.describe("5.DUAL-BUILDER-1 CS-7E — Document Builder authoring (live) @fla
     await toDocument(page);
 
     // Multi-select two contiguous top-level blocks → the selection toolbar.
+    // DOC-STEP-CONTROLS-1 — selection is toggled from the step's always-visible
+    // overflow menu (the unlabeled rail checkbox is gone).
+    await page.getByTestId(`document-step-menu-${fmt1}`).click();
     await page.getByTestId(`document-select-${fmt1}`).click();
+    await page.getByTestId(`document-step-menu-${fmt2}`).click();
     await page.getByTestId(`document-select-${fmt2}`).click();
     await expect(page.getByTestId("document-selection-toolbar")).toBeVisible();
     await expect(page.getByTestId("document-selection-count")).toContainText("2");
     await shot(page, "04-section-selection");
 
-    // Wrap the selection into a section.
+    // Group the selection (presentation-only).
     await page.getByTestId("document-selection-wrap").click();
     const collapseCtl = page.locator('[data-testid^="document-section-collapse-"]').first();
     await expect(collapseCtl).toBeVisible();
@@ -229,8 +233,7 @@ test.describe("5.DUAL-BUILDER-1 CS-7E — Document Builder authoring (live) @fla
       "",
     );
 
-    // Rename via the inline title → input.
-    await page.getByTestId(`document-section-title-${sectionId}`).click();
+    // A new group opens straight into naming — fill the already-focused input.
     const titleInput = page.getByTestId(`document-section-title-input-${sectionId}`);
     await titleInput.fill("Qualify & route");
     await titleInput.press("Enter");
