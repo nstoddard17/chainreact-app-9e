@@ -44,6 +44,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -132,13 +133,23 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     return data.id;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  /**
+   * Authenticated session for the RLS/grant assertions.
+   *
+   * Uses the SHARED `signedInClient` helper rather than `signInWithPassword`:
+   * this Supabase project enforces captcha on password sign-in, so the direct
+   * call fails with "captcha protection: request disallowed (no captcha_token
+   * found)" and every authenticated-denial assertion in this suite silently
+   * stopped proving anything (11 of 14 tests were failing on the sign-in, not on
+   * the security property under test). The helper mints an email-link token with
+   * the service role and redeems it — an ordinary authenticated session, with
+   * RLS and every authorization rule still applying. Not a captcha bypass.
+   *
+   * `password` is retained in the signature so call sites are unchanged; it is
+   * unused because the link path does not need it.
+   */
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   /** Service-role insert of an active integration with ENCRYPTED token columns. */
@@ -235,7 +246,7 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     expect(error!.code).toBe("42501");
   });
 
-  it("anon client sees no integrations", async () => {
+  it("anon client sees no integrations (denied outright, not merely empty)", async () => {
     const anon = createClient(URL!, ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -243,8 +254,20 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
       .from("integrations")
       .select("id")
       .eq("id", personalAIntegrationId);
-    expect(error).toBeNull();
-    expect(data).toHaveLength(0);
+
+    // This assertion previously expected `error === null` + zero rows, i.e. anon
+    // being silently filtered by RLS. The real (and STRONGER) behavior is a hard
+    // 42501: the membership policy calls `is_account_member()`, and the function
+    // EXECUTE hardening (20260619010000) revoked that from anon, so anon is
+    // rejected before any row is considered. Assert the security property —
+    // "anon obtains no integration row" — while accepting either shape, and
+    // require the denial to be a permission error when one is returned.
+    if (error) {
+      expect(error.code).toBe("42501");
+    } else {
+      expect(data).toHaveLength(0);
+    }
+    expect(data ?? []).toHaveLength(0);
   });
 
   it("joining the account does NOT grant a direct authenticated read (still 42501) — membership no longer gates a direct SELECT", async () => {

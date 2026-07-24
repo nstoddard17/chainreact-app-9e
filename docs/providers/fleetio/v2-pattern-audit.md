@@ -31,7 +31,10 @@ be appended when the polling slice lands.
    scope-nonempty exemption (role-based access). Deliberately NOT a widening of `token_ingest`/
    `token_paste` — those contracts and their consumers (Trello, Eden) are byte-identical to before,
    and cross-path calls are rejected by both dispatcher ops (pinned by tests).
-2. **`EncryptedTokens.extraCredentialsEncrypted`** + migration `20260727000000` — an explicit, typed,
+2. **`EncryptedTokens.extraCredentialsEncrypted`** + migration `20260727000000` (**applied +
+   database-validated 2026-07-24**; ciphertext-at-rest, decoder round-trip, blob replacement on
+   re-connect, `NULL` for single-credential providers, and anon/authenticated `42501` all proven live
+   by `tests/integration/security/integrations-extra-credentials-rls.test.ts`) — an explicit, typed,
    encrypted home for a multi-credential provider's non-primary secrets on the `integrations` row.
    Chosen over (a) JSON-in-access_token (contract abuse), (b) secrets in `account_metadata`
    (plaintext — forbidden), (c) a side table (duplicates the row's whole lifecycle/RLS for no gain).

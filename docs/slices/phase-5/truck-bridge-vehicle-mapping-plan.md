@@ -614,8 +614,10 @@ the first slice needing the flag.
 
 ## 11b. CS-1 outcome — Data foundation (SHIPPED, inert)
 
-**Status:** implemented. Migration authored but **NOT applied** — the table does not exist in any
-database yet. Nothing user-visible changed.
+**Status:** implemented, **APPLIED, and DATABASE-VALIDATED** (2026-07-24). Migration
+`20260729000000` is applied to the development Supabase project (`qcepijemjlkssfkvzlio`), and the
+gated live-DB suite passes **15/15** against the real schema. Nothing user-visible changed — the
+table remains inert (no route, no UI, no action reads it yet).
 
 ### Final table shape — `public.account_resource_links`
 
@@ -707,7 +709,28 @@ bounded provider-id and external-id schemas, the `ResourceLinkDTO`, and a `.stri
 | [`tests/unit/migrations/accountResourceLinks.test.ts`](../../../tests/unit/migrations/accountResourceLinks.test.ts) (new, static SQL guards) | **28 passed** |
 | [`tests/unit/repositories/accountResourceLinks.test.ts`](../../../tests/unit/repositories/accountResourceLinks.test.ts) (new) | **35 passed** |
 | Consolidated focused run (+ service-role-import, core-purity, grant guards, node-credentials migration, integrations cross-account isolation) | **8 suites / 106 passed** |
-| [`tests/integration/security/account-resource-links-rls.test.ts`](../../../tests/integration/security/account-resource-links-rls.test.ts) (new, gated) | **DID NOT RUN** — migration intentionally unapplied |
+| [`tests/integration/security/account-resource-links-rls.test.ts`](../../../tests/integration/security/account-resource-links-rls.test.ts) (new, gated) | **15 passed** against the live DB after the migration was applied (2026-07-24) |
+
+**Live-DB validation (2026-07-24).** Migration applied via `npm run db:push`; the suite then proved
+against the real schema: `authenticated` **and** `anon` are both denied `42501` (so the REVOKE took —
+an empty result would have meant the grant survived and only RLS was filtering); user deletion nulls
+provenance while the link survives; account deletion cascades links away; every CHECK rejects its bad
+input (unknown kind/basis, blank ids, self-link); both partial unique indexes hold; archiving frees
+the pair for a replacement on **both** the source and target sides; two accounts may hold identical
+provider ids; a second source provider may target one Fleetio vehicle; and account B never resolves or
+archives account A's link.
+
+Three assertions failed on the first live run and were **test defects, not migration defects** — the
+schema was correct in all three cases:
+1. `signInWithPassword` is captcha-blocked on this project, so the authenticated-denial assertion
+   never reached the security property. Fixed by adopting the existing shared
+   [`tests/helpers/dbSessionClient.ts`](../../../tests/helpers/dbSessionClient.ts) helper (service-role
+   email-link → `verifyOtp`; an ordinary authenticated session, not a captcha bypass).
+2. The user-deletion test deleted a user who still owned their auto-created personal account, which
+   `accounts.owner_user_id ON DELETE RESTRICT` silently refused. Fixed by removing that account first
+   and asserting the deletion actually succeeded.
+3. The cascade test issued a bare `DELETE FROM accounts`, which the RESTRICT children silently
+   refused — so it was proving nothing. Fixed with a checked, purge-ordered delete helper.
 
 The repository suite uses two harnesses: a *recording* client that proves every query carries its
 `account_id` predicate, and a small *in-memory table that actually evaluates predicates*, so
@@ -742,11 +765,19 @@ metadata, exactly as scoped.
 
 ## 12. Hard boundaries — what this slice did NOT change
 
-No source file, test, migration, schema, contract, registry, or UI was modified. No commit other than
-this document. Nothing pushed, nothing deployed, `db:push` not run, the Fleetio credential migration
+*(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,
+migration, schema, contract, registry, or UI was modified. No commit other than this document.
+Nothing pushed, nothing deployed, `db:push` not run, the Fleetio credential migration
 `20260727000000` still unapplied. Fleetio still ships exactly three actions
 (`get_vehicle`, `update_vehicle_status`, `create_meter_entry`) and remains `isExperimental: true`.
 The concurrent destructive-preview/document work was not touched.
+
+**Superseded on 2026-07-24 (migration-application batch):** `db:push` HAS since been run against the
+development Supabase project, applying `20260727000000` (Fleetio credential storage),
+`20260728000000` (concurrent AI-provider CHECK widening), and `20260729000000` (this arc's table).
+Both migrations named in §11b/§11c are now applied and database-validated. Still true and unchanged:
+nothing pushed to the remote branch, nothing deployed, and Fleetio still ships exactly three actions
+as `isExperimental: true`.
 
 ---
 

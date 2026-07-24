@@ -51,6 +51,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 import {
   listLinks,
   findActiveLink,
@@ -111,6 +112,38 @@ describeDb("account_resource_links — RLS, constraints, uniqueness (live DB)", 
   let A: Session;
   let B: Session;
 
+  /**
+   * Real authenticated session via the SHARED helper (`tests/helpers/
+   * dbSessionClient.ts`). This project enforces captcha on password sign-in, so
+   * `signInWithPassword` fails in tests; the helper mints an email-link token
+   * with the service role and redeems it, yielding an ordinary authenticated
+   * session with RLS and every authorization rule still applying. Not a bypass.
+   */
+  const signInAsUser = (email: string): Promise<SupabaseClient> =>
+    signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
+
+  /**
+   * Delete an account the way production's purge path does: clear its ON DELETE
+   * RESTRICT children first, then the account row. `accounts` restricts
+   * workflow_runs / workflows / workflow_folders / integrations /
+   * account_billing (see tests/helpers/dbFixtureCleanup.ts) — a bare
+   * `DELETE FROM accounts` silently fails, which is what made the cascade
+   * assertion below pass vacuously on its first run.
+   */
+  async function deleteAccountCascade(accountId: string): Promise<void> {
+    for (const table of [
+      "workflow_runs",
+      "workflows",
+      "workflow_folders",
+      "integrations",
+      "account_billing",
+    ]) {
+      await admin.from(table).delete().eq("account_id", accountId);
+    }
+    const { error } = await admin.from("accounts").delete().eq("id", accountId);
+    if (error) throw new Error(`deleteAccountCascade(${accountId}): ${error.message}`);
+  }
+
   const link = (accountId: string, over: Record<string, unknown> = {}) => ({
     accountId,
     resourceKind: "vehicle" as const,
@@ -161,22 +194,22 @@ describeDb("account_resource_links — RLS, constraints, uniqueness (live DB)", 
   it("a member's DIRECT authenticated SELECT is denied (42501) — the REVOKE took", async () => {
     await createConfirmedLink(link(A.personalAccountId, { createdByUserId: A.userId }));
 
-    const asUser = createClient(URL!, ANON_KEY!, { auth: { persistSession: false } });
-    const { error: signInErr } = await asUser.auth.signInWithPassword({
-      email: A.email,
-      password: A.password,
-    });
-    expect(signInErr).toBeNull();
-
+    const asUser = await signInAsUser(A.email);
     const probe = await asUser.from("account_resource_links").select("*");
+
+    // 42501 (not "0 rows") is the load-bearing distinction: an empty result would
+    // mean the GRANT survived and only RLS was filtering. `permission denied`
+    // proves the anon/authenticated REVOKE actually took, which matters because
+    // this project's ALTER DEFAULT PRIVILEGES grants ALL on new public tables.
     expect(probe.error?.code).toBe("42501");
     expect(probe.data ?? []).toHaveLength(0);
   });
 
-  it("anon sees nothing", async () => {
+  it("anon is denied at the grant layer too (42501, not merely empty)", async () => {
     await createConfirmedLink(link(A.personalAccountId));
     const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false } });
     const probe = await anon.from("account_resource_links").select("*");
+    expect(probe.error?.code).toBe("42501");
     expect(probe.data ?? []).toHaveLength(0);
   });
 
@@ -190,7 +223,15 @@ describeDb("account_resource_links — RLS, constraints, uniqueness (live DB)", 
         confirmedByUserId: doomed.userId,
       }),
     );
-    await admin.auth.admin.deleteUser(doomed.userId);
+
+    // `accounts.owner_user_id` is ON DELETE RESTRICT, so the user cannot be
+    // deleted while they still own their auto-created personal account. Remove
+    // that first (the link under test belongs to account A, not to theirs), then
+    // assert the deletion actually happened — an unchecked failure here is what
+    // made this test report a false negative on its first run.
+    await deleteAccountCascade(doomed.personalAccountId);
+    const { error: delErr } = await admin.auth.admin.deleteUser(doomed.userId);
+    expect(delErr).toBeNull();
 
     const { data } = await admin
       .from("account_resource_links")
@@ -208,7 +249,11 @@ describeDb("account_resource_links — RLS, constraints, uniqueness (live DB)", 
     await createConfirmedLink(link(doomed.personalAccountId));
     expect(await listLinks(doomed.personalAccountId, "vehicle")).toHaveLength(1);
 
-    await admin.from("accounts").delete().eq("id", doomed.personalAccountId);
+    // Must clear the RESTRICT children first, and the delete must be CHECKED —
+    // a silently-failed account delete would leave the link in place and this
+    // assertion would then be proving nothing about CASCADE at all.
+    await deleteAccountCascade(doomed.personalAccountId);
+
     const { data } = await admin
       .from("account_resource_links")
       .select("id")

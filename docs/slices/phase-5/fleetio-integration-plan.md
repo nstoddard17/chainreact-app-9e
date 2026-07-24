@@ -302,7 +302,22 @@ state consume → user/provider/freeze/membership/role checks → provider verif
 `upsertActive`). Verification uses **`GET /accounts`** (key-only auth; entered Account-Token matched
 against `records[].token`; durable `providerAccountId` = numeric `Account.id`). The API key is the
 primary credential in `access_token_encrypted`; the Account-Token lives encrypted in the new
-provider-neutral `integrations.extra_credentials_encrypted` column (migration `20260727000000`).
+provider-neutral `integrations.extra_credentials_encrypted` column (migration `20260727000000` —
+**applied and database-validated 2026-07-24**, see the validation note below).
+
+> **Migration status (2026-07-24): `20260727000000` is APPLIED and DATABASE-VALIDATED.**
+> Applied to the development Supabase project (`qcepijemjlkssfkvzlio`) via `npm run db:push`.
+> Proven against the live schema by
+> [`tests/integration/security/integrations-extra-credentials-rls.test.ts`](../../../tests/integration/security/integrations-extra-credentials-rls.test.ts)
+> (**6/6 passed**): the Account-Token is stored as ciphertext with neither secret — nor even the JSON
+> key — at rest in cleartext; the real `decryptFleetioCredentials` decoder round-trips BOTH
+> credentials out of a real row; a re-connect REPLACES the blob so no stale Account-Token survives; a
+> single-credential provider (Slack) still stores `NULL` and the decoder refuses that row rather than
+> half-decoding it; the ciphertext is unreachable from the Data API by anon **and** by the owning
+> authenticated member (`42501`); and account B's execution lookup never returns account A's Fleetio
+> row. The table-level posture is separately proven by
+> [`integrations-rls.test.ts`](../../../tests/integration/security/integrations-rls.test.ts)
+> (**14/14 passed**).
 This is the reusable primitive future API-key/PAT/multi-field providers inherit — durable policy in
 `docs/rules/token-ingest-auth.md` §"Credential-paste variant".
 
