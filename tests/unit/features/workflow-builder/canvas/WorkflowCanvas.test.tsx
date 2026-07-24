@@ -132,11 +132,21 @@ describe("WorkflowCanvas — node click dispatches configSlice.openNode", () => 
 });
 
 describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () => {
-  it("renders Builder | Runs | Data Map | Settings — all enabled, Builder active by default (BUILDER-SHELL-TABS-1)", () => {
+  // AGENT-CHANGE-HISTORY-4 added the "History" tab (Agent Change History moved
+  // out of a drawer into a top-level tab). The tab list itself + History's own
+  // selection behavior are owned by CanvasActionBar.test.tsx; this case keeps
+  // asserting the shell-level invariants — no dead tabs, Builder default.
+  it("renders Builder | Runs | Data Map | History | Settings — all enabled, Builder active by default (BUILDER-SHELL-TABS-1)", () => {
     render(<WorkflowCanvas providerLabels={providerLabels} />);
     const bar = screen.getByTestId("canvas-action-bar");
     const tabs = within(bar).getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["Builder", "Runs", "Data Map", "Settings"]);
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      "Builder",
+      "Runs",
+      "Data Map",
+      "History",
+      "Settings",
+    ]);
     // No dead tabs — every tab is interactive (none disabled).
     for (const t of tabs) expect(t).toBeEnabled();
     // Builder is selected by default and shows the canvas (no placeholder).

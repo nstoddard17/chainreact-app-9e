@@ -53,7 +53,7 @@ jest.mock("@/lib/api/discovery", () => ({
 }));
 
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -202,8 +202,15 @@ it("end-to-end: picker on a file-array field appends a canonical token chip + pe
   //    the trigger under the `"trigger"` alias.
   await user.click(screen.getByLabelText("Insert {{trigger.file}}"));
 
-  // 6. The chip appears — token-typed, NOT a FileRef literal.
-  expect(screen.getByText("{{trigger.file}}")).toBeInTheDocument();
+  // 6. The chip appears — token-typed, NOT a FileRef literal. Scoped to the
+  //    field's own chip list: CONFIG-UX-NODE-SUMMARY-1 added the read-only
+  //    "What this step will do" overview, which legitimately renders the same
+  //    configured value a second time in the panel.
+  expect(
+    within(screen.getByTestId("field-attachments-chips")).getByText(
+      "{{trigger.file}}",
+    ),
+  ).toBeInTheDocument();
   // Popover closes after insert (VariablePickerButton contract).
   expect(
     screen.queryByTestId("file-array-attachments-picker-popover"),
@@ -350,16 +357,30 @@ it("file-array picker hides itself when there are no upstream sources (parity wi
     screen.getByTestId("file-array-attachments-picker-trigger"),
   ).toBeInTheDocument();
 
-  // Now flip the assertion direction — verify that a HIDDEN picker
-  // hides when there are zero upstream sources. The simplest way to
-  // reach that state inside this test setup is to override the picker
-  // sources via the configSlice's `activeNodeId`: when the trigger is
-  // the active node, the picker has no ancestors. Open the trigger
-  // config (it has no fields, so no UI to drive — assert via slice).
-  await user.click(within(screen.getByRole("complementary", { name: /node configuration/i })).getByLabelText(/close/i));
-  // Trigger has empty fields[] so its config rail renders no fields
-  // and no picker — covered by hook contract `EMPTY_RESULT` in
-  // useUpstreamVariables when sources are empty.
+  // Now flip the assertion direction — the picker must disappear when the
+  // active node has zero upstream sources. Selecting the TRIGGER reaches that
+  // state: it is the first node, so it has no ancestors.
+  //
+  // The panel's inner `×` was removed in BUILDER-DATA-MAP-MVP-1 (one close
+  // control, in the drawer header) — close through that.
+  await user.click(screen.getByLabelText("Close drawer"));
+  const trigger = useGraphSlice
+    .getState()
+    .pendingNodes.find((n) => n.kind === "trigger")!;
+  act(() => {
+    useConfigSlice
+      .getState()
+      .openNode({ nodeId: trigger.id, initialValues: {} });
+  });
+
+  // No upstream sources ⇒ no picker anywhere in the panel (`EMPTY_RESULT` in
+  // useUpstreamVariables). Same rule TextField's picker follows.
+  await waitFor(() =>
+    expect(useConfigSlice.getState().activeNodeId).toBe(trigger.id),
+  );
+  expect(
+    screen.queryByTestId("file-array-attachments-picker-trigger"),
+  ).not.toBeInTheDocument();
 });
 
 it("existing text-field picker behavior is unchanged: variable insertion still text-inserts into a text field", async () => {

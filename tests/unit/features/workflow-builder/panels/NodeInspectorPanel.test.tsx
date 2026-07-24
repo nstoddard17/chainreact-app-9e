@@ -226,7 +226,13 @@ describe("NodeInspectorPanel — delete affordance", () => {
     expect(cfg.activeNodeId).toBeNull();
   });
 
-  it("blocked multi-edge node shows the blocked dialog and does NOT mutate state on Close", async () => {
+  // The blocking rule is "≥1 incoming AND ≥2 OUTGOING" — there is no single
+  // successor to heal to, and a router's outgoing edges carry route labels.
+  // RECONV-1 S2 deliberately UNBLOCKED the fan-in shape this test used to
+  // build (2 in / 1 out: a reconverged shared step), because a single
+  // successor makes the heal unambiguous. The blocked dialog itself is
+  // unchanged, so this exercises it with a graph that is genuinely blocked.
+  it("blocked multi-out node shows the blocked dialog and does NOT mutate state on Close", async () => {
     const user = userEvent.setup();
     useGraphSlice.getState().hydrate("wf-1", {
       nodes: [
@@ -263,9 +269,11 @@ describe("NodeInspectorPanel — delete affordance", () => {
           position: { x: 200, y: 200 },
         },
       ],
+      // `mid` fans OUT to both `alt` and `c` — two successors, no unambiguous
+      // rewire target.
       edges: [
         { id: "e-trig-mid", from: "trig", to: "mid" },
-        { id: "e-alt-mid", from: "alt", to: "mid" },
+        { id: "e-mid-alt", from: "mid", to: "alt" },
         { id: "e-mid-c", from: "mid", to: "c" },
       ],
     });

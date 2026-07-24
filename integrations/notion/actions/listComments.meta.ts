@@ -30,11 +30,17 @@ export const notionListCommentsMeta: ActionMeta = {
       name: "blockId",
       label: "Block / page",
       description:
-        "Notion page (or block) to list comments for. Pick from accessible pages, or wire a block/page id from upstream. Accepts both block ids and page ids.",
+        "Notion page (or block) to list comments for. Pick a page, paste an id, or wire `{{...}}` from an upstream step. Accepts both block ids and page ids (pages are blocks in Notion).",
       type: "combobox",
       optionsSource: "notion:pages",
+      // The `notion:pages` resolver enumerates PAGES via search, so a raw BLOCK
+      // id — and any page search can't reach — must stay reachable. This also
+      // enables the variable picker (ComboboxField gates it on the same flag),
+      // which is what makes the description's "wire `{{...}}` from an upstream
+      // step" true. Matches every sibling `notion:pages` field.
+      allowManualEntry: true,
       required: true,
-      placeholder: "Select a page",
+      placeholder: "Select a page, or paste an id",
     },
     {
       name: "pageSize",
