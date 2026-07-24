@@ -55,8 +55,20 @@ describe("TL-3 — leave-team stays in scope (structural)", () => {
     }
   });
 
-  it("the account-deletion route's ACCOUNT_HAS_OWNED_TEAMS guard is untouched (TL-4 owns remediation)", () => {
+  it("the ACCOUNT_HAS_OWNED_TEAMS deletion guard still exists (TL-4 owns its remediation)", () => {
+    // ACCOUNT-BILLING-LIFECYCLE-2 moved ENFORCEMENT from the route into the deletion
+    // SERVICE, so the route no longer carries the literal — it projects the service's typed
+    // refusal. The guarantee this tripwire protects is unchanged ("TL-3 did not remove the
+    // deletion guard"), so it now checks the guard's canonical home plus the route's
+    // projection of it. Both must hold; a future slice deleting either still fails here.
+    const service = readFileSync(
+      resolve(ROOT, "services/accounts/accountDeletion.ts"),
+      "utf8",
+    );
+    expect(service).toMatch(/ACCOUNT_HAS_OWNED_TEAMS/);
+    expect(service).toMatch(/listOwnedTeamOrgAccountSummaries/);
+
     const del = readFileSync(resolve(ROOT, "app/api/account/delete/route.ts"), "utf8");
-    expect(del).toMatch(/ACCOUNT_HAS_OWNED_TEAMS/);
+    expect(del).toMatch(/OwnedAccountsBlockDeletionError/);
   });
 });
