@@ -77,10 +77,31 @@ Outputs: `serviceEntryId, vehicleId, completedAt, totalCost, taskCount`.
 Vehicle (resource, req) · New status (`fleetio:vehicle_statuses`, req) — Setup. Comment, effective
 date — Advanced. Outputs: `vehicleId, vehicleStatusId, statusName, changedAt`.
 
-### Get Vehicle (Must — enrichment read)
-Vehicle (resource with manual entry — commonly `{{trigger.vehicleId}}`) — Setup.
-Outputs: `vehicleId, name, number, licensePlate, vin, make, model, year, statusName,
-primaryMeterValue, primaryMeterUnit`. No bytes; photos deferred to a FileRef action later.
+### Get Vehicle (Must — enrichment read) — ✅ IMPLEMENTED (FLEETIO-2)
+Vehicle (resource with manual entry — commonly `{{trigger.vehicleId}}`) — Setup, required
+(`fleetio:vehicles` combobox, `allowManualEntry`). Readiness: connected + non-empty vehicleId
+(a mapped `{{...}}` satisfies it; the resolver need not load).
+Bounded output (implemented): `vehicleId, name, vin, licensePlate, make, model, year, statusId,
+statusName, primaryMeterValue, primaryMeterUnit, archived, createdAt, updatedAt`.
+**Schema discrepancy (resolved honestly):** Fleetio has NO vehicle `number` field — the human
+identifier IS `name` (e.g. "Truck 104"), so the plan's `number` output was OMITTED, not invented.
+`primaryMeterValue`/`primaryMeterUnit` map to `current_meter_value` + `meter_unit`; `statusId` is the
+numeric `vehicle_status_id`; `archived` is derived from `archived_at`. Q5 explicit `0`/`false`/`""`
+preserved via typed presence checks. No bytes; vehicle photos deferred to a later FileRef action.
+
+### `fleetio:vehicles` resolver — ✅ IMPLEMENTED (FLEETIO-2)
+`GET /vehicles`, one keyset page (per_page 100), archived excluded by the endpoint default, search
+passed server-side as `filter[name][like]`. Values = stable numeric vehicle ids (as strings). Label =
+vehicle `name` (fallback `Vehicle <id>` — never "undefined"), optional `description` = status name.
+`hasMore` mirrors the opaque `next_cursor` (the provider cursor/link is never surfaced). Account-scoped
+via `ctx.integration` (Fleetio is an ACCOUNT credential; the shared route resolves the workflow-account
+row). NOTE: the list `VehicleSummary` carries no plate/VIN, so the plan's "name · plate" label
+degrades to name-only on the list — full plate/VIN are available on the single-vehicle read.
+
+### `fleetio:vehicle_statuses` resolver — ✅ IMPLEMENTED (FLEETIO-2, ahead of its consumer)
+`GET /vehicle_statuses`, one bounded page. Values = status ids; labels = status names; deterministic
+order by provider `position` then id. Registered + tested now as platform surface; its first consumer,
+**Update Vehicle Status**, ships in Slice 3 (NOT this slice).
 
 ### Triggers (Must set — polling; mirror Motive's `newFuelPurchase` shape)
 | Field | Class | Notes |

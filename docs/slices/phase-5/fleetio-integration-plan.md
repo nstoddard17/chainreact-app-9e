@@ -338,12 +338,17 @@ Complexity: **S** ≈ ½–1 day, **M** ≈ 1–2 days, **L** ≈ 2–4 days (si
 - **Certification:** live end-to-end connect against a real Fleetio sandbox remains for the
   Phase-13 pass (no credentials yet).
 
-### Slice 2 — Must-Have read + enrichment (Get Vehicle) + `fleetio:vehicles` resolver · **M**
-- **Scope:** `Get Vehicle` action + `.strict()` schema + `.meta.ts`, bounded outputs; `fleetio:vehicles`
-  and `fleetio:vehicle_statuses` resolvers; discovery metadata file. Flip manifest `actions: true`.
-- **Dependencies:** Slice 1.
-- **Testing:** runtime handler, resolver, builder-metadata tests; smoke fixture from OpenAPI.
-- **Certification:** resolve real vehicles from sandbox; read a real vehicle.
+### Slice 2 — Must-Have read + enrichment (Get Vehicle) + vehicle resolvers · **M** — ✅ DONE (FLEETIO-2)
+- Delivered:
+  - **API primitives:** `api/vehicles.ts` (`fleetioGetVehicle` → `GET /vehicles/{id}`, path-encoded, 404→`FleetioNotFoundError`; `fleetioListVehicles` → `GET /vehicles`, one keyset page, search server-side via `filter[name][like]`, archived excluded by endpoint default, opaque `next_cursor`→`hasMore`), `api/vehicleStatuses.ts` (`GET /vehicle_statuses`), and a `FleetioNotFoundError` + 404 mapping added to `api/_request.ts`.
+  - **Execution seam:** `execute.ts` `runFleetioApiCall` — canonical `getActiveForExecution` (account-scoped, never `connected_by_user_id`) + two-credential decode at the call boundary + non-refreshable **401→mark-reconnect + `IntegrationActionRequiredError(refresh_not_supported)`**. (Fleetio can't use `refreshAndRetry`: it decrypts ONE token and its value is the refresh cycle Fleetio lacks.)
+  - **Action `fleetio:get_vehicle`:** `.strict()` schema (`{vehicleId}`), bounded output projection (`getVehicle.output.ts`), handler (throws `FleetioNotFoundError` on a bad id — no `{found:false}` envelope), `.meta.ts` (combobox bound to `fleetio:vehicles`, `allowManualEntry`, low-risk read).
+  - **Resolvers:** `fleetio:vehicles` (backs Get Vehicle + later fleet nodes) + `fleetio:vehicle_statuses` (platform surface for a later Update Vehicle Status), account-scoped via `ctx.integration`, sanitized `OptionsResolverError` mapping.
+  - **Registration:** handler inventory, discovery `providers/fleetio.ts` + `_metaInventory` + `COVERED_PROVIDERS` (1:1 handler↔meta), options `_registry`, regenerated `option-source-manifest.json`, manifest `actions:true` (honest — handler registered). Stays experimental; no triggers.
+- **Output contract (verified against the 2025-05-05 `Vehicle` schema):** `vehicleId, name, vin, licensePlate, make, model, year, statusId, statusName, primaryMeterValue, primaryMeterUnit, archived, createdAt, updatedAt`. **OpenAPI discrepancy:** Fleetio has NO vehicle `number` field (the human identifier IS `name`), so the plan's `number` output was intentionally omitted rather than invented; `primaryMeter*` maps to `current_meter_value` + `meter_unit`.
+- **Tests:** 94 Fleetio unit tests pass (api wire + 404/401/403/429/5xx/malformed, execution seam incl. account isolation + reconnect, handler incl. Q5 preservation + bounded output + not-found + cross-account, both resolvers incl. labels/search/empty/typed-errors, meta/manifest/registry honesty, readiness, ComboboxField UI, and a mock-boundary walkthrough driving the real resolver + real handler registry with a mocked Fleetio boundary).
+- **Deferred to Slice 3:** write actions (Meter/Issue/Fuel/Service, Update Vehicle Status — the status resolver is ready), and multi-Fleetio-account node-level selection.
+- **Live certification (Phase 13):** unchanged — read a real vehicle + resolve real vehicles/statuses from a Fleetio sandbox once credentials exist.
 
 ### Slice 3 — Must-Have writes (Meter, Issue, Fuel, Service, Vehicle Status) · **L**
 - **Scope:** 5 typed write actions + schemas + `.meta.ts` + resolvers (`issue_labels`, `contacts`,

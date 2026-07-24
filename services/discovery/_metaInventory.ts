@@ -402,6 +402,10 @@ import {
 // providers/motive.ts header + docs/providers/motive/.
 import { MOTIVE_ACTION_METAS, MOTIVE_TRIGGER_METAS } from "./providers/motive";
 
+// Fleetio (FLEETIO-2 — fleet maintenance, credential_paste auth) — 1 action
+// (get_vehicle) this slice; no triggers yet. See providers/fleetio.ts.
+import { FLEETIO_ACTION_METAS } from "./providers/fleetio";
+
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { newDirectMessageTriggerMeta } from "@/integrations/slack/triggers/newDirectMessage/newDirectMessage.meta";
@@ -675,6 +679,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...TYPEFORM_ACTION_METAS, // Typeform (TYPEFORM-2) — 2 read actions, displayOrder 10..20.
   ...QUICKBOOKS_ACTION_METAS, // QuickBooks (QUICKBOOKS-1) — 7 actions, displayOrder 10..70.
   ...MOTIVE_ACTION_METAS, // Motive (MOTIVE-1) — 10 fleet actions, displayOrder 10..90.
+  ...FLEETIO_ACTION_METAS, // Fleetio (FLEETIO-2) — 1 action (get_vehicle).
 ];
 
 export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

@@ -32,9 +32,11 @@ describe("fleetio manifest (FLEETIO-1 — connect-only slice)", () => {
     expect(fleetioManifest.apiVersion).toBe("2025-05-05");
   });
 
-  it("is capability-honest: connect exists, no actions or triggers yet", () => {
+  it("is capability-honest: connect + actions exist (FLEETIO-2 get_vehicle), no triggers yet", () => {
     expect(fleetioManifest.capabilities.oauth).toBe(true);
-    expect(fleetioManifest.capabilities.actions).toBe(false);
+    // FLEETIO-2 registered the first real handler (get_vehicle), so actions is
+    // now honestly true; triggers stay false until a later slice ships them.
+    expect(fleetioManifest.capabilities.actions).toBe(true);
     expect(fleetioManifest.capabilities.webhookTrigger).toBe(false);
     expect(fleetioManifest.capabilities.pollingTrigger).toBe(false);
   });

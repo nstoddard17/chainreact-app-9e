@@ -457,6 +457,7 @@ import { sendMessage as motiveSendMessage } from "@/integrations/motive/actions/
 import { createVehicle as motiveCreateVehicle } from "@/integrations/motive/actions/createVehicle";
 import { updateVehicle as motiveUpdateVehicle } from "@/integrations/motive/actions/updateVehicle";
 import { updateDriver as motiveUpdateDriver } from "@/integrations/motive/actions/updateDriver";
+import { getVehicle as fleetioGetVehicle } from "@/integrations/fleetio/actions/getVehicle";
 import type { ActionHandler } from "./types";
 
 /**
@@ -1047,5 +1048,7 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "motive", type: "create_vehicle", handler: motiveCreateVehicle },
   { provider: "motive", type: "update_vehicle", handler: motiveUpdateVehicle },
   { provider: "motive", type: "update_driver", handler: motiveUpdateDriver },
+  // Fleetio (FLEETIO-2) — first real action: read one vehicle by id.
+  { provider: "fleetio", type: "get_vehicle", handler: fleetioGetVehicle },
 ];
 

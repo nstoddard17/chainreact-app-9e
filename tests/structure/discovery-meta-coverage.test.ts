@@ -319,6 +319,10 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // (10 fleet actions, 7 company-webhook triggers + 1 fuel-purchase polling
   // trigger).
   "motive",
+  // Fleetio (FLEETIO-2) — fleet maintenance (credential_paste auth). Slice 2
+  // ships the first action (get_vehicle) with its meta, so 1:1 handler↔meta
+  // drift is enforced from here. Triggers land in a later slice.
+  "fleetio",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

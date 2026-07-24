@@ -536,6 +536,8 @@ import { quickbooksInvoicesResolver } from "@/integrations/quickbooks/options/in
 // MOTIVE-1 — vehicle + driver pickers (account credential class).
 import { motiveVehiclesResolver } from "@/integrations/motive/options/vehicles";
 import { motiveDriversResolver } from "@/integrations/motive/options/drivers";
+import { fleetioVehiclesResolver } from "@/integrations/fleetio/options/vehicles";
+import { fleetioVehicleStatusesResolver } from "@/integrations/fleetio/options/vehicleStatuses";
 // Linear (CS-6B) — first MCP-CATALOG option resolvers. Call the official Linear
 // MCP server's read-only list tools through the shared resolver seam
 // (refreshAndRetry + MCP client); value/label mappings come from REAL captured
@@ -914,6 +916,10 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // MOTIVE-1 — vehicle + driver pickers (account-shared; local q filter).
   motiveVehiclesResolver,
   motiveDriversResolver,
+  // FLEETIO-2 — account-aware vehicle picker (backs get_vehicle + later fleet
+  // nodes) + vehicle-status catalog (platform surface for Update Vehicle Status).
+  fleetioVehiclesResolver,
+  fleetioVehicleStatusesResolver,
   // RESOLVERS-1 — 3 Stripe resolvers (all root, no deps). Values are the
   // raw cus_/sub_/price_ ids the handler schemas already store; labels
   // are customer names, "customer — status", and "product — amount/

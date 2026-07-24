@@ -220,6 +220,18 @@
       ]
     },
     {
+      "source": "fleetio:vehicle_statuses",
+      "provider": "fleetio",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "fleetio:vehicles",
+      "provider": "fleetio",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "github:assignees",
       "provider": "github",
       "requiresIntegration": true,
@@ -505,6 +517,38 @@
     {
       "source": "hubspot:tickets",
       "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "linear:assignees",
+      "provider": "linear",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "linear:issue_statuses",
+      "provider": "linear",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "team"
+      ]
+    },
+    {
+      "source": "linear:labels",
+      "provider": "linear",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "linear:projects",
+      "provider": "linear",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "linear:teams",
+      "provider": "linear",
       "requiresIntegration": true,
       "requiredDeps": null
     },
@@ -919,6 +963,18 @@
     {
       "source": "monday:users",
       "provider": "monday",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "motive:drivers",
+      "provider": "motive",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "motive:vehicles",
+      "provider": "motive",
       "requiresIntegration": true,
       "requiredDeps": null
     },

@@ -21,11 +21,13 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  *
  * **Error mapping:**
  *
- *   - 401 → `Unauthorized401Error` (Fleetio is non-refreshable, so
- *     `refreshAndRetry` surfaces "reconnect Fleetio" when actions land).
+ *   - 401 → `Unauthorized401Error` (Fleetio is non-refreshable, so the
+ *     execution helper surfaces "reconnect Fleetio" when actions land).
  *   - 403 → `FleetioForbiddenError` — the integration user's Fleetio ROLE
  *     lacks the permission (distinct from a dead key; the fix is a role
  *     change in Fleetio, not a reconnect).
+ *   - 404 → `FleetioNotFoundError(resource)` so handlers can surface a stable
+ *     "not found" UX for a bad/removed id (FLEETIO-2).
  *   - 429 → honors `Retry-After`: waits and retries ONCE when the advertised
  *     delay is ≤ `MAX_RETRY_AFTER_SECONDS`; otherwise (or on a second 429)
  *     throws `FleetioRateLimitError` carrying the parsed delay.
@@ -54,6 +56,20 @@ export class FleetioForbiddenError extends Error {
       `Fleetio ${method} ${path} returned HTTP 403 — the connected Fleetio user's role does not allow this.`,
     );
     this.name = "FleetioForbiddenError";
+  }
+}
+
+/**
+ * 404 — the addressed resource does not exist (bad / removed id). Carries a
+ * caller-supplied stable resource label ONLY (e.g. "vehicle 42") — never the
+ * request URL or any credential.
+ */
+export class FleetioNotFoundError extends Error {
+  readonly resource: string;
+  constructor(resource: string) {
+    super(`Fleetio resource not found: ${resource}.`);
+    this.name = "FleetioNotFoundError";
+    this.resource = resource;
   }
 }
 
@@ -86,6 +102,13 @@ export interface FleetioRequestInput {
   query?: URLSearchParams;
   /** Optional JSON body. */
   body?: Readonly<Record<string, unknown>>;
+  /**
+   * Optional stable resource label for `FleetioNotFoundError` (e.g.
+   * "vehicle 42"). When set, a 404 throws that typed error; when omitted a
+   * 404 falls through to the generic non-OK path. Used in the thrown error's
+   * message ONLY — never placed in the request URL or body.
+   */
+  resourceForNotFound?: string;
 }
 
 /** Parse a Retry-After header value (seconds form only) to a non-negative int. */
@@ -161,6 +184,11 @@ async function fleetioRequestAttempt<T>(
   }
   if (res.status === 403) {
     throw new FleetioForbiddenError(input.method, input.path);
+  }
+  if (res.status === 404 && input.resourceForNotFound !== undefined) {
+    // Drain the body (no leak — we surface only the caller's stable label).
+    await res.text().catch(() => "");
+    throw new FleetioNotFoundError(input.resourceForNotFound);
   }
   if (res.status === 429) {
     const retryAfter = parseRetryAfterSeconds(res.headers.get("Retry-After"));

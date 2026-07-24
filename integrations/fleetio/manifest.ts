@@ -30,9 +30,9 @@ import {
  *     — a fleet is a shared company resource, so connect/disconnect are
  *     owner/admin actions (same posture as Motive / QuickBooks).
  *
- * Capability honesty (rule 15): ONLY `oauth` (a real connect dance exists —
- * the credential form IS the connect). `actions` / triggers stay `false`
- * until Slice 2+ registers real handlers.
+ * Capability honesty (rule 15): `oauth` (the credential form IS the connect) +
+ * `actions` (FLEETIO-2 registered the first real handler, `get_vehicle`).
+ * Triggers stay `false` until a later slice registers them.
  *
  * `isExperimental: true` — hidden from the production Apps catalog until the
  * post-owner-setup live certification pass (same arc Linear/Eden followed).
@@ -51,7 +51,9 @@ export const fleetioManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    actions: false,
+    // FLEETIO-2 — the `get_vehicle` handler is registered in
+    // services/execution/handlers/_handlerInventory.ts. Honest per rule 15.
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000,
   refreshable: false,
