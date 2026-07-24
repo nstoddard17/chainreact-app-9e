@@ -11,6 +11,7 @@ import type {
 } from "@/core/workflows/checkWorkflowReview";
 import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import type { ComposerSeed } from "@/features/workflows/composerSeed";
 import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
 
 /**
@@ -94,11 +95,12 @@ export interface BuilderGuidanceRailProps {
    */
   readonly renderCheckSetup?: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
   /**
-   * ANON-BUILDER-2 — one-shot composer seed (e.g. the prompt restored from an
-   * anonymous draft after sign-up). Forwarded to the conversational panel, which
-   * fills only an empty, untouched composer and never auto-sends.
+   * 5.DUAL-BUILDER-1 CS-7 — the keyed/versioned composer seed. Forwarded to the
+   * conversational panel: a `restore` seed fills only an empty composer; an
+   * explicit Document Ask React seed replaces it and a later version supersedes
+   * an earlier unsent one. Never auto-sends.
    */
-  readonly initialComposerValue?: string;
+  readonly composerSeed?: ComposerSeed;
   /**
    * AI-TEMPLATE-APPLY-CURRENT — apply a React-Agent-suggested official template to the CURRENTLY-OPEN
    * workflow in place (overwrites the current draft via replace-from-template, with a pre-replace
@@ -123,7 +125,7 @@ export function BuilderGuidanceRail({
   getCheckReviewContext,
   getCurrentGraphShape,
   renderCheckSetup,
-  initialComposerValue,
+  composerSeed,
   onTemplateApplyToCurrent,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
@@ -157,7 +159,7 @@ export function BuilderGuidanceRail({
             {...(getCurrentGraphShape ? { getCurrentGraphShape } : {})}
             {...(getCurrentDraft ? { getCurrentDraft } : {})}
             {...(renderCheckSetup ? { renderCheckSetup } : {})}
-            {...(initialComposerValue ? { initialComposerValue } : {})}
+            {...(composerSeed ? { composerSeed } : {})}
             {...(onTemplateApplyToCurrent ? { onTemplateApplyToCurrent } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview

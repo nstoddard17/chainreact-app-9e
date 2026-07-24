@@ -305,3 +305,46 @@ describe("Document view — flag on", () => {
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
+
+describe("CS-2 — shared drafts and dirty state across surfaces", () => {
+  it("an uncommitted Guided Stop draft survives switching Visual ↔ Document", () => {
+    renderBuilder({ documentBuilderEnabled: true });
+    fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
+
+    // Open a stop and type without committing (simulated at the store level,
+    // which is exactly what the editor does through configSlice.updateField).
+    act(() => {
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === "a")!;
+      useConfigSlice.getState().openNode({ nodeId: "a", initialValues: node.config });
+      useConfigSlice.getState().updateField({ nodeId: "a", name: "text", value: "in-progress" });
+    });
+
+    fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
+    // The SHARED draft is preserved (never silently discarded).
+    expect(useConfigSlice.getState().drafts["a"]?.values.text).toBe("in-progress");
+    expect(useConfigSlice.getState().drafts["a"]?.isDirty).toBe(true);
+
+    fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
+    expect(useConfigSlice.getState().drafts["a"]?.values.text).toBe("in-progress");
+    // Uncommitted field input never touches the graph.
+    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a")?.config.text).toBeUndefined();
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("dirty status is identical in both views after a Document-side commit", () => {
+    renderBuilder({ documentBuilderEnabled: true });
+    fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
+
+    act(() => {
+      useGraphSlice.getState().updateNodeConfig("a", { text: "committed" });
+    });
+    const dirtyInDocument = useGraphSlice.getState().isDirty;
+    const historyInDocument = useGraphSlice.getState().past.length;
+    expect(screen.getByTestId("builder-header-save-button")).toBeEnabled();
+
+    fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
+    expect(useGraphSlice.getState().isDirty).toBe(dirtyInDocument);
+    expect(useGraphSlice.getState().past.length).toBe(historyInDocument);
+    expect(screen.getByTestId("builder-header-save-button")).toBeEnabled();
+  });
+});

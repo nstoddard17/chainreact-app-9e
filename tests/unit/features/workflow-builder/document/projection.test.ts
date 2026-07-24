@@ -307,17 +307,24 @@ describe("projectDefinitionToDocument — fixtures", () => {
     expectEveryNodeOnce(model, nodes);
   });
 
-  it("missing branch edge → honest complex region, not fake lanes", () => {
+  // CS-2 — transient wiring gaps keep the fork READABLE with a lane warning
+  // (CS-1 collapsed the whole fork into a complex region).
+  it("missing branch edge keeps the fork visible with a warning lane", () => {
     const nodes = [trigger("t"), ifNode("if"), node("a")];
     const edges = [edge("t", "if"), edge("if", "a", "true")]; // "false" unwired
     const model = project({ nodes, edges });
-    expect(model.tier).toBe("B");
-    const complex = model.blocks.find((b) => b.kind === "complex");
-    expect(complex).toMatchObject({ kind: "complex", reason: "branch_wiring" });
+    expect(model.tier).toBe("A");
+    const fork = model.blocks[1];
+    if (fork?.kind !== "fork") throw new Error("expected fork");
+    expect(fork.lanes.map((l) => l.label)).toEqual(["true", "false"]);
+    expect(fork.lanes[0]!.warning).toBeNull();
+    expect(fork.lanes[1]!.warning).toMatchObject({ code: "missing_branch_edge" });
+    expect(fork.lanes[1]!.blocks).toEqual([]);
+    expect(fork.lanes[1]!.terminal).toBe(false);
     expectEveryNodeOnce(model, nodes);
   });
 
-  it("stale branch edge → honest complex region", () => {
+  it("stale branch edge keeps the fork visible with a warning lane", () => {
     const nodes = [
       trigger("t"),
       ifNode("if", { config: { input: "x", operator: "equals", value: "1", onFalse: "skip" } }),
@@ -330,10 +337,16 @@ describe("projectDefinitionToDocument — fixtures", () => {
       edge("if", "b", "false"), // stale: skip-mode never returns "false"
     ];
     const model = project({ nodes, edges });
-    expect(model.tier).toBe("B");
-    expect(model.blocks.find((b) => b.kind === "complex")).toMatchObject({
-      reason: "branch_wiring",
-    });
+    expect(model.tier).toBe("A");
+    const fork = model.blocks[1];
+    if (fork?.kind !== "fork") throw new Error("expected fork");
+    // The vocabulary lane renders first; the stale lane follows, flagged.
+    expect(fork.lanes.map((l) => l.label)).toEqual(["true", "false"]);
+    expect(fork.lanes[0]!.warning).toBeNull();
+    expect(fork.lanes[1]!.warning).toMatchObject({ code: "stale_branch_edge" });
+    // The stale lane still SHOWS its steps (they exist in the graph) but never
+    // votes on the rejoin — it is a dead path at runtime.
+    expect(fork.lanes[1]!.blocks[0]).toMatchObject({ kind: "sentence", nodeId: "b" });
     expectEveryNodeOnce(model, nodes);
   });
 
@@ -495,7 +508,7 @@ describe("projectDefinitionToDocument — metadata chips", () => {
     if (sentence?.kind !== "sentence") throw new Error("expected sentence");
     expect(sentence.title).toBe("Send Channel Message");
     expect(sentence.valueChips).toEqual([
-      { label: "Message", display: "from the trigger", kind: "dynamic" },
+      { name: "text", label: "Message", display: "from the trigger", kind: "dynamic" },
     ]);
     expect(sentence.blankChips).toEqual([{ name: "channel", label: "Channel" }]);
   });

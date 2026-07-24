@@ -3,9 +3,25 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
+import {
+  normalizePresentation,
+  type WorkflowPresentation,
+} from "@/contracts/workflowPresentation";
 import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
-import { isAdvancedBranchingNode } from "@/core/workflows/advancedBranching";
+import {
+  addNodesToSectionCommand,
+  createSectionCommand,
+  removeNodesFromSectionCommand,
+  renameSectionCommand,
+  setSectionCollapsedCommand,
+  ungroupSectionCommand,
+  type SectionCommandOutcome,
+  type SectionMutationRefusal,
+  type SectionMutationResult,
+} from "./presentationCommands";
+import { isAdvancedBranchingNode, nodeTypeKey } from "@/core/workflows/advancedBranching";
 import { returnableBranchLabels } from "@/core/workflows/branchWiring";
+import { classifyRouteLabelEdit, type RouteLike } from "@/core/workflows/routeLabelDiff";
 import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import {
   WorkflowApiError,
@@ -56,6 +72,17 @@ export interface GraphSliceState {
   pendingNodes: readonly WorkflowNode[];
   pendingEdges: readonly WorkflowEdge[];
 
+  /**
+   * 5.DUAL-BUILDER-1 CS-4 — presentation-only manual section metadata, part of
+   * the SAME canonical draft as nodes/edges (never a separate store that could
+   * drift). `null` = no sections. Reconciled to `savedPresentation` on save,
+   * captured in undo/redo snapshots, and pruned to the live node set on every
+   * node-set change (so removing a node prunes its membership atomically). The
+   * engine, readiness, and entitlement never read it.
+   */
+  savedPresentation: WorkflowPresentation | null;
+  pendingPresentation: WorkflowPresentation | null;
+
   isDirty: boolean;
   isSaving: boolean;
   saveError: string | null;
@@ -85,6 +112,8 @@ export interface GraphSliceState {
 export interface GraphSnapshot {
   readonly nodes: readonly WorkflowNode[];
   readonly edges: readonly WorkflowEdge[];
+  /** CS-4 — presentation is part of the same undoable draft snapshot. */
+  readonly presentation: WorkflowPresentation | null;
 }
 
 export interface AddNodeInput {
@@ -264,7 +293,91 @@ export interface GraphSliceActions {
   undo(): void;
   /** BUILDER-TOPBAR-UNDO-REDO — re-apply the most recently undone edit (`future` → pending). No-op when empty. Same pure-local guarantees as `undo()`. */
   redo(): void;
+
+  /**
+   * 5.DUAL-BUILDER-1 CS-4 — presentation SECTION commands. All operate on
+   * canonical node ids, mutate ONLY the presentation block (never nodes, edges,
+   * config, positions, labels, or topology), mark the SAME workflow dirty, are
+   * captured by undo/redo, and return a typed non-throwing result. The Document
+   * command layer validates block contiguity/structural safety before calling
+   * these; the store re-validates node existence and refuses (without mutation)
+   * on a stale/empty selection.
+   */
+  createSection(input: {
+    nodeIds: readonly string[];
+    title: string;
+    collapsed?: boolean;
+  }): SectionMutationResult;
+  /** Rename a section (trimmed, capped). No-op (still ok) when unchanged. */
+  renameSection(sectionId: string, title: string): SectionMutationResult;
+  /** Collapse/expand a section. No-op (still ok) when unchanged. */
+  setSectionCollapsed(sectionId: string, collapsed: boolean): SectionMutationResult;
+  /** Move node ids INTO a section (atomically removed from any prior section). */
+  addNodesToSection(sectionId: string, nodeIds: readonly string[]): SectionMutationResult;
+  /** Remove node ids from whatever section owns them; drop any emptied section. */
+  removeNodesFromSection(nodeIds: readonly string[]): SectionMutationResult;
+  /** Remove the section WRAPPER only — its member nodes stay exactly where they were. */
+  ungroupSection(sectionId: string): SectionMutationResult;
+
+  /**
+   * 5.DUAL-BUILDER-1 CS-5 — rename a Router route label, DELIBERATELY preserving
+   * its wiring (route-identity decision "approach 2"): in ONE history-captured
+   * edit, rewrite the route's `config.routes[].label` from the exact old label
+   * to the new one AND relabel every outgoing edge of THIS node that carried the
+   * old label. This is the SAME canonical config + `edge.label` model the engine
+   * reads — no new route id, no runtime shape change, no engine behavior change.
+   *
+   * Refuses (without mutation) when identity can't be proven safe: the old label
+   * must be exactly ONE current route label (present + unambiguous), the new
+   * label must be non-empty and must not collide with another route label or an
+   * existing outgoing edge label of this node. Renaming to the same label is a
+   * no-op success. The Document command layer additionally enforces the
+   * `ROUTE_LABEL_MAX` length cap before calling.
+   */
+  renameBranchRouteLabel(
+    nodeId: string,
+    oldLabel: string,
+    newLabel: string,
+  ): BranchRouteRenameResult;
+
+  /**
+   * 5.DUAL-BUILDER-1 CS-6 — swap an ordinary action with its adjacent LINEAR
+   * neighbor (one unambiguous unlabeled path), in ONE history-captured edit.
+   * `later` swaps the node with its single unlabeled successor; `earlier` swaps
+   * it with its single unlabeled predecessor. Refuses (without mutation) any
+   * non-linear boundary — a fork/rejoin (indegree/outdegree ≠ 1), a labeled
+   * (branch-lane) edge, a trigger neighbor, or a missing neighbor — so a move
+   * can never silently cross a lane, reorder a branch, or displace the trigger.
+   * Pure edge-endpoint rewrite: node ids, config, and positions are untouched.
+   */
+  swapAdjacentLinearActions(
+    nodeId: string,
+    direction: "earlier" | "later",
+  ): LinearSwapResult;
 }
+
+/** Outcome of {@link GraphSliceActions.renameBranchRouteLabel}. */
+export type BranchRouteRenameResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly reason:
+        | "node_missing"
+        | "not_router"
+        | "invalid_label"
+        | "invalid_route_config"
+        | "stale_route_label"
+        | "duplicate_route_label";
+    };
+
+/** Outcome of {@link GraphSliceActions.swapAdjacentLinearActions}. */
+export type LinearSwapResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: "node_missing" | "no_target" | "not_linear" };
+
+// CS-4 — section command result types live in ./presentationCommands; re-exported
+// so existing importers keep resolving them from the store module.
+export type { SectionMutationResult, SectionMutationRefusal };
 
 /** Outcome of {@link GraphSliceActions.applyAdditivePatch}. */
 export type ApplyAdditivePatchOutcome =
@@ -374,6 +487,8 @@ const INITIAL_STATE: GraphSliceState = Object.freeze({
   savedEdges: [],
   pendingNodes: [],
   pendingEdges: [],
+  savedPresentation: null,
+  pendingPresentation: null,
   isDirty: false,
   isSaving: false,
   saveError: null,
@@ -433,6 +548,15 @@ function newEdgeId(): string {
   return `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** CS-4 — stable id for a manual presentation section. */
+function newSectionId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `section-${globalThis.crypto.randomUUID()}`;
+  }
+  return `section-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+
 /**
  * BRANCH-ENT-1 C4 — after a branching node's config changes, drop its outgoing
  * labeled edges whose label the node can no longer return (stale routes).
@@ -454,6 +578,57 @@ function reconcileBranchEdgesForNode(
   return next.length === edges.length ? null : next;
 }
 
+/**
+ * 5.DUAL-BUILDER-1 CS-7 — read the classifier-shaped route list from a router
+ * node's config. Returns null for non-router nodes or a malformed `routes`
+ * array so callers fall through to the generic reconcile path.
+ */
+function readRouterRoutes(config: Record<string, unknown> | undefined): RouteLike[] | null {
+  const routes = config?.routes;
+  if (!Array.isArray(routes)) return null;
+  const out: RouteLike[] = [];
+  for (const r of routes) {
+    const label = (r as { label?: unknown } | null)?.label;
+    if (typeof label !== "string") return null;
+    out.push({ label, condition: (r as { condition?: unknown } | null)?.condition });
+  }
+  return out;
+}
+
+/**
+ * 5.DUAL-BUILDER-1 CS-7 — when a router config commit is an EXACT one-to-one
+ * label rename, produce the edge set that RELABELS the matching lane edge(s)
+ * old→new (wiring preserved) instead of dropping them via vocabulary reconcile.
+ * Returns null when the edit is not an exact rename (caller uses the generic
+ * conservative reconcile). Never invents or reattaches an unrelated lane.
+ */
+function relabelEdgesForExactRouterRename(
+  nodeId: string,
+  priorConfig: Record<string, unknown>,
+  nextConfig: Record<string, unknown>,
+  edges: readonly WorkflowEdge[],
+): WorkflowEdge[] | null {
+  const prior = readRouterRoutes(priorConfig);
+  const next = readRouterRoutes(nextConfig);
+  if (prior === null || next === null) return null;
+  const diff = classifyRouteLabelEdit(prior, next);
+  if (diff.kind !== "exact_rename") return null;
+  const { oldLabel, newLabel } = diff;
+  const trimmedNew = newLabel.trim();
+  // Defensive: never create an ambiguous duplicate by relabeling onto a label
+  // an existing edge from this node already carries.
+  if (edges.some((e) => e.from === nodeId && e.label === trimmedNew)) return null;
+  let changed = false;
+  const relabeled = edges.map((e) => {
+    if (e.from === nodeId && e.label === oldLabel) {
+      changed = true;
+      return { ...e, label: trimmedNew };
+    }
+    return e;
+  });
+  return changed ? relabeled : null;
+}
+
 export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   // BUILDER-TOPBAR-UNDO-REDO — history-capturing wrapper around the store setter. Every existing edit
   // action funnels through this `set`. An EDIT is an OBJECT partial that flips the graph DIRTY *and*
@@ -467,19 +642,43 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     partial: Parameters<typeof rawSet>[0],
     replace?: boolean,
   ): void => {
+    // CS-4 — a presentation-only edit (rename/collapse/wrap/ungroup) is also an
+    // edit that history must capture, so it counts alongside node/edge edits.
     const isEdit =
       partial !== null &&
       typeof partial === "object" &&
       (partial as Partial<GraphSliceState>).isDirty === true &&
-      ("pendingNodes" in partial || "pendingEdges" in partial);
+      ("pendingNodes" in partial ||
+        "pendingEdges" in partial ||
+        "pendingPresentation" in partial);
     if (isEdit) {
       // Edits are always partial updates (never a full replace), so a plain partial set is correct.
       const before = get();
+      const p = partial as Partial<GraphSlice>;
+      // CS-4 — when an edit changes the NODE SET but doesn't itself set
+      // presentation (removeNode, deleteNodeAndRewire, replaceGraphLocal, an AI
+      // patch), prune section membership to the surviving nodes atomically in
+      // the SAME set. Empty sections drop out; `normalizePresentation` returns
+      // the same reference when nothing changed, so a position/config edit keeps
+      // presentation byte-identical.
+      let applied = p;
+      if ("pendingNodes" in p && !("pendingPresentation" in p) && before.pendingPresentation) {
+        const ids = new Set((p.pendingNodes as readonly WorkflowNode[]).map((n) => n.id));
+        const reconciled = normalizePresentation(before.pendingPresentation, ids);
+        if (reconciled !== before.pendingPresentation) {
+          applied = { ...p, pendingPresentation: reconciled };
+        }
+      }
       rawSet({
-        ...(partial as Partial<GraphSlice>),
-        past: [...before.past, { nodes: before.pendingNodes, edges: before.pendingEdges }].slice(
-          -MAX_HISTORY,
-        ),
+        ...applied,
+        past: [
+          ...before.past,
+          {
+            nodes: before.pendingNodes,
+            edges: before.pendingEdges,
+            presentation: before.pendingPresentation,
+          },
+        ].slice(-MAX_HISTORY),
         future: [],
       });
       return;
@@ -516,6 +715,16 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     const nextRevision = sameWorkflow
       ? revision ?? state.hydratedRevision ?? null
       : revision ?? null;
+    // CS-4 — hydrate presentation DEFENSIVELY: the repository read path casts
+    // stored jsonb rather than parsing it, so `def.presentation` may be
+    // malformed. `normalizePresentation` accepts unknown, prunes stale
+    // membership against the hydrated nodes, and degrades to null on garbage —
+    // it never crashes the builder. saved === pending by reference so the
+    // dirty/undo checks match after a clean hydrate.
+    const presentation = normalizePresentation(
+      def.presentation,
+      new Set(def.nodes.map((n) => n.id)),
+    );
     set({
       workflowId,
       isHydrated: true,
@@ -523,6 +732,8 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
       savedEdges: def.edges,
       pendingNodes: def.nodes,
       pendingEdges: def.edges,
+      savedPresentation: presentation,
+      pendingPresentation: presentation,
       isDirty: false,
       isSaving: false,
       saveError: null,
@@ -699,12 +910,24 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     const updated: WorkflowNode = { ...current, config: { ...config } };
     const nextNodes = [...pendingNodes];
     nextNodes[idx] = updated;
+    const currentEdges = get().pendingEdges;
+    // 5.DUAL-BUILDER-1 CS-7 — a router routes edit that is an EXACT one-to-one
+    // label rename preserves each renamed lane's wiring by RELABELING its edge
+    // old→new (identity-preserving), rather than dropping it in the generic
+    // vocabulary reconcile below. Only the single unambiguous rename case takes
+    // this path (classifyRouteLabelEdit); any bulk / ambiguous / add / remove
+    // edit falls through to conservative reconcile so a re-enabled or renamed
+    // route never silently reconnects to an unrelated old lane.
+    const relabeled =
+      nodeTypeKey(current) === "native:router"
+        ? relabelEdgesForExactRouterRename(nodeId, current.config, updated.config, currentEdges)
+        : null;
     // BRANCH-ENT-1 C4 — reconcile branch edges with the new config so a
     // route the node can no longer return never survives as an invisible
     // stale edge: switching If/Then to onFalse="skip" drops its False
     // edge(s); removing/renaming a Router route drops that route's edges.
     // Re-enabling a route later starts UNWIRED (never silently reconnected).
-    const nextEdges = reconcileBranchEdgesForNode(updated, get().pendingEdges);
+    const nextEdges = relabeled ?? reconcileBranchEdgesForNode(updated, currentEdges);
     set({
       pendingNodes: nextNodes,
       ...(nextEdges !== null ? { pendingEdges: nextEdges } : {}),
@@ -975,22 +1198,38 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   },
 
   async save() {
-    const { workflowId, pendingNodes, pendingEdges, isSaving } = get();
+    const { workflowId, pendingNodes, pendingEdges, pendingPresentation, isSaving } = get();
     if (!workflowId) {
       throw new Error("graphSlice.save() called before hydrate().");
     }
     if (isSaving) return; // single-flight
     set({ isSaving: true, saveError: null });
     try {
+      // CS-4 — include presentation ONLY when non-empty (normalized against the
+      // nodes being saved), so a workflow with no sections sends the exact same
+      // `{ nodes, edges }` payload as before. Save stays the SAME explicit PATCH
+      // funnel; readiness/entitlement/engine ignore presentation server-side.
+      const outboundPresentation = normalizePresentation(
+        pendingPresentation,
+        new Set(pendingNodes.map((n) => n.id)),
+      );
       const updated = await updateWorkflow(workflowId, {
         draftDefinition: {
           nodes: [...pendingNodes],
           edges: [...pendingEdges],
+          ...(outboundPresentation ? { presentation: outboundPresentation } : {}),
         },
       });
+      // CS-4 — reconcile saved presentation from the server-echoed definition,
+      // re-normalized against the echoed nodes (defensive; the read path casts).
+      const savedPresentation = normalizePresentation(
+        updated.draftDefinition.presentation,
+        new Set(updated.draftDefinition.nodes.map((n) => n.id)),
+      );
       set({
         savedNodes: updated.draftDefinition.nodes,
         savedEdges: updated.draftDefinition.edges,
+        savedPresentation,
         // BUILDER-SAVE-WIPE-1 — track the server revision the save advanced to,
         // so a post-save RSC re-render at the SAME revision can't clobber any
         // further edits the user makes (the hydrate guard keys off this).
@@ -998,8 +1237,15 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
         // The user could keep editing during save; the pending* values they
         // see should not snap back to the server payload. Reconcile only
         // when pending == what we just sent, otherwise leave dirty.
-        ...(pendingNodes === get().pendingNodes && pendingEdges === get().pendingEdges
-          ? { pendingNodes: updated.draftDefinition.nodes, pendingEdges: updated.draftDefinition.edges, isDirty: false }
+        ...(pendingNodes === get().pendingNodes &&
+        pendingEdges === get().pendingEdges &&
+        pendingPresentation === get().pendingPresentation
+          ? {
+              pendingNodes: updated.draftDefinition.nodes,
+              pendingEdges: updated.draftDefinition.edges,
+              pendingPresentation: savedPresentation,
+              isDirty: false,
+            }
           : { isDirty: true }),
         isSaving: false,
       });
@@ -1013,34 +1259,235 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   },
 
   undo() {
-    const { past, future, pendingNodes, pendingEdges, savedNodes, savedEdges } = get();
+    const {
+      past,
+      future,
+      pendingNodes,
+      pendingEdges,
+      pendingPresentation,
+      savedNodes,
+      savedEdges,
+      savedPresentation,
+    } = get();
     if (past.length === 0) return;
     const prev = past[past.length - 1]!;
     // Restore via rawSet so navigating history never records new history. Dirty is recomputed against
-    // the saved baseline BY REFERENCE: history keeps the exact array refs, and hydrate/save set
-    // `saved* === pending*`, so undoing back to the saved state matches by ref (isDirty:false).
+    // the saved baseline BY REFERENCE (nodes + edges + presentation): history keeps the exact refs,
+    // and hydrate/save set `saved* === pending*`, so undoing back to the saved state matches by ref.
     rawSet({
       pendingNodes: prev.nodes,
       pendingEdges: prev.edges,
+      pendingPresentation: prev.presentation,
       past: past.slice(0, -1),
-      future: [{ nodes: pendingNodes, edges: pendingEdges }, ...future].slice(0, MAX_HISTORY),
-      isDirty: !(prev.nodes === savedNodes && prev.edges === savedEdges),
+      future: [
+        { nodes: pendingNodes, edges: pendingEdges, presentation: pendingPresentation },
+        ...future,
+      ].slice(0, MAX_HISTORY),
+      isDirty: !(
+        prev.nodes === savedNodes &&
+        prev.edges === savedEdges &&
+        prev.presentation === savedPresentation
+      ),
       saveError: null,
     });
   },
 
   redo() {
-    const { past, future, pendingNodes, pendingEdges, savedNodes, savedEdges } = get();
+    const {
+      past,
+      future,
+      pendingNodes,
+      pendingEdges,
+      pendingPresentation,
+      savedNodes,
+      savedEdges,
+      savedPresentation,
+    } = get();
     if (future.length === 0) return;
     const next = future[0]!;
     rawSet({
       pendingNodes: next.nodes,
       pendingEdges: next.edges,
-      past: [...past, { nodes: pendingNodes, edges: pendingEdges }].slice(-MAX_HISTORY),
+      pendingPresentation: next.presentation,
+      past: [
+        ...past,
+        { nodes: pendingNodes, edges: pendingEdges, presentation: pendingPresentation },
+      ].slice(-MAX_HISTORY),
       future: future.slice(1),
-      isDirty: !(next.nodes === savedNodes && next.edges === savedEdges),
+      isDirty: !(
+        next.nodes === savedNodes &&
+        next.edges === savedEdges &&
+        next.presentation === savedPresentation
+      ),
       saveError: null,
     });
   },
+
+  // ---- CS-4 presentation section commands ---------------------------------
+  // Each re-validates against LIVE pending state, mutates ONLY presentation,
+  // marks dirty via `set` (history-captured), and refuses without mutation on a
+  // stale/empty selection. `normalizePresentation` finalizes membership so a
+  // node is never in two sections and no empty section persists.
+
+  createSection(input) {
+    return runSectionCommand(
+      createSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, input, newSectionId),
+    );
+  },
+  renameSection(sectionId, title) {
+    return runSectionCommand(
+      renameSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId, title),
+    );
+  },
+  setSectionCollapsed(sectionId, collapsed) {
+    return runSectionCommand(
+      setSectionCollapsedCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId, collapsed),
+    );
+  },
+  addNodesToSection(sectionId, nodeIds) {
+    return runSectionCommand(
+      addNodesToSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId, nodeIds),
+    );
+  },
+  removeNodesFromSection(nodeIds) {
+    return runSectionCommand(
+      removeNodesFromSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, nodeIds),
+    );
+  },
+  ungroupSection(sectionId) {
+    return runSectionCommand(
+      ungroupSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId),
+    );
+  },
+
+  renameBranchRouteLabel(nodeId, oldLabel, newLabel) {
+    const { pendingNodes, pendingEdges } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return { ok: false, reason: "node_missing" };
+    const node = pendingNodes[idx]!;
+    if (nodeTypeKey(node) !== "native:router") return { ok: false, reason: "not_router" };
+
+    const trimmedNew = newLabel.trim();
+    if (trimmedNew.length === 0) return { ok: false, reason: "invalid_label" };
+
+    const config = (node.config ?? {}) as Record<string, unknown>;
+    const routes = config.routes;
+    if (!Array.isArray(routes)) return { ok: false, reason: "invalid_route_config" };
+    const labels = routes.map((r) => (r as { label?: unknown } | null)?.label);
+
+    // The old label must name EXACTLY ONE current route — absent or ambiguous
+    // (schema forbids dup route labels, but stay defensive) refuses.
+    if (labels.filter((l) => l === oldLabel).length !== 1) {
+      return { ok: false, reason: "stale_route_label" };
+    }
+    if (trimmedNew === oldLabel) return { ok: true }; // no-op success
+    // New label must not collide with another route label…
+    if (labels.includes(trimmedNew)) return { ok: false, reason: "duplicate_route_label" };
+    // …nor with any existing outgoing edge label of this node (a stale edge with
+    // the new label would become an ambiguous duplicate after the relabel).
+    if (pendingEdges.some((e) => e.from === nodeId && e.label === trimmedNew)) {
+      return { ok: false, reason: "duplicate_route_label" };
+    }
+
+    const nextRoutes = routes.map((r) =>
+      (r as { label?: unknown } | null)?.label === oldLabel
+        ? { ...(r as Record<string, unknown>), label: trimmedNew }
+        : r,
+    );
+    const nextConfig: Record<string, unknown> = { ...config, routes: nextRoutes };
+    // Keep an optional defaultRoute pointing at the renamed route.
+    if (typeof config.defaultRoute === "string" && config.defaultRoute === oldLabel) {
+      nextConfig.defaultRoute = trimmedNew;
+    }
+    const updatedNode: WorkflowNode = { ...node, config: nextConfig };
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updatedNode;
+    // Deliberate edge-relabel: this node's edges carrying the old label become
+    // the new label, preserving each lane's destination.
+    const nextEdges = pendingEdges.map((e) =>
+      e.from === nodeId && e.label === oldLabel ? { ...e, label: trimmedNew } : e,
+    );
+    set({ pendingNodes: nextNodes, pendingEdges: nextEdges, isDirty: true, saveError: null });
+    return { ok: true };
+  },
+
+  swapAdjacentLinearActions(nodeId, direction) {
+    const { pendingNodes, pendingEdges } = get();
+    const node = pendingNodes.find((n) => n.id === nodeId);
+    if (!node) return { ok: false, reason: "node_missing" };
+
+    // Resolve the ORDERED linear pair (X → S) to swap. For `later`, X is the
+    // node; for `earlier`, the node is S and X is its predecessor.
+    const soleUnlabeled = (
+      pred: (e: WorkflowEdge) => boolean,
+    ): WorkflowEdge | "none" | "ambiguous" => {
+      const matches = pendingEdges.filter(pred);
+      if (matches.length === 0) return "none";
+      if (matches.length > 1 || matches[0]!.label !== undefined) return "ambiguous";
+      return matches[0]!;
+    };
+
+    let xId: string;
+    let sId: string;
+    if (direction === "later") {
+      const out = soleUnlabeled((e) => e.from === nodeId);
+      if (out === "none") return { ok: false, reason: "no_target" };
+      if (out === "ambiguous") return { ok: false, reason: "not_linear" };
+      xId = nodeId;
+      sId = out.to;
+    } else {
+      const inc = soleUnlabeled((e) => e.to === nodeId);
+      if (inc === "none") return { ok: false, reason: "no_target" };
+      if (inc === "ambiguous") return { ok: false, reason: "not_linear" };
+      xId = inc.from;
+      sId = nodeId;
+    }
+
+    const xNode = pendingNodes.find((n) => n.id === xId);
+    const sNode = pendingNodes.find((n) => n.id === sId);
+    if (!xNode || !sNode) return { ok: false, reason: "not_linear" };
+    // Neither end of the swap may be the trigger or a branching node.
+    if (xNode.kind === "trigger" || sNode.kind === "trigger") return { ok: false, reason: "not_linear" };
+    if (isAdvancedBranchingNode(xNode) || isAdvancedBranchingNode(sNode)) {
+      return { ok: false, reason: "not_linear" };
+    }
+
+    // The pair must be a clean linear segment: X has ≤1 unlabeled in (P→X), the
+    // single X→S edge, and S has indegree 1 + ≤1 unlabeled out (S→T). Any labeled
+    // edge or extra fan-in/out makes the swap ambiguous → refuse.
+    const pEdge = soleUnlabeled((e) => e.to === xId);
+    if (pEdge === "ambiguous") return { ok: false, reason: "not_linear" };
+    const xsEdge = pendingEdges.filter((e) => e.from === xId && e.to === sId);
+    if (xsEdge.length !== 1 || xsEdge[0]!.label !== undefined) return { ok: false, reason: "not_linear" };
+    // S must not be a rejoin (indegree 1 = only the X→S edge).
+    if (pendingEdges.filter((e) => e.to === sId).length !== 1) return { ok: false, reason: "not_linear" };
+    const tEdge = soleUnlabeled((e) => e.from === sId);
+    if (tEdge === "ambiguous") return { ok: false, reason: "not_linear" };
+    const pId = pEdge === "none" ? null : pEdge.from;
+    const tId = tEdge === "none" ? null : tEdge.to;
+    // Guard against a degenerate loop (P===S / T===X would self-loop after swap).
+    if (pId === sId || tId === xId) return { ok: false, reason: "not_linear" };
+
+    // Rewrite endpoints: P→X becomes P→S; X→S reverses to S→X; S→T becomes X→T.
+    const xsId = xsEdge[0]!.id;
+    const pEdgeId = pEdge === "none" ? null : pEdge.id;
+    const tEdgeId = tEdge === "none" ? null : tEdge.id;
+    const nextEdges = pendingEdges.map((e) => {
+      if (pEdgeId && e.id === pEdgeId) return { ...e, to: sId };
+      if (e.id === xsId) return { ...e, from: sId, to: xId };
+      if (tEdgeId && e.id === tEdgeId) return { ...e, from: xId };
+      return e;
+    });
+    set({ pendingEdges: nextEdges, isDirty: true, saveError: null });
+    return { ok: true };
+  },
   };
+
+  /** Commit a pure section-command outcome: on success, set + mark dirty (history-captured). */
+  function runSectionCommand(outcome: SectionCommandOutcome): SectionMutationResult {
+    if (outcome.result.ok) {
+      set({ pendingPresentation: outcome.presentation, isDirty: true, saveError: null });
+    }
+    return outcome.result;
+  }
 });

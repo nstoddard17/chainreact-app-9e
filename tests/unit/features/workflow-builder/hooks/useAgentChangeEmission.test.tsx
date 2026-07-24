@@ -26,7 +26,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useAgentChangeEmission } from "@/features/workflow-builder/hooks/useAgentChangeEmission";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
-const SNAP = { nodes: [], edges: [] } as const;
+const SNAP = { nodes: [], edges: [], presentation: null } as const;
 
 type RecordCall = [string, { status: string; agentChangeId: string; [k: string]: unknown }];
 

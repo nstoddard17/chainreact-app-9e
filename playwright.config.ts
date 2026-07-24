@@ -1,4 +1,35 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadTestEnv } from "./tests/e2e/helpers/testEnv";
+import { resolveMockHermesPort } from "./tests/e2e/helpers/reservePort";
+
+/**
+ * 5.DUAL-BUILDER-1 CS-7D — load the LOCAL test environment (.env.test.local:
+ * loopback Supabase + throwaway local app secrets) into this config process, so
+ * the dev webServer below talks to local Supabase and NEVER to `.env.local`
+ * (which is not even present in the e2e worktree). Non-fatal here so `--list`
+ * still works without the env; when the env is absent the dev server simply
+ * fails to boot and the tests fail loudly (fail-closed), never silently against
+ * production. Values are surfaced by NAME only — never logged.
+ */
+try {
+  loadTestEnv();
+} catch (err) {
+  console.warn(`[e2e] .env.test.local not fully loaded: ${(err as Error).message}`);
+}
+
+/** Local Supabase + local app secrets to hand the dev server (names only in logs). */
+const TEST_APP_ENV: Record<string, string> = Object.fromEntries(
+  [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TOKEN_ENCRYPTION_KEY",
+    "OAUTH_STATE_SIGNING_KEY",
+    "CRON_SECRET",
+  ]
+    .filter((k) => process.env[k])
+    .map((k) => [k, process.env[k] as string]),
+);
 
 /**
  * Slack mock server runs on this port (started by global-setup.ts). The
@@ -138,6 +169,21 @@ const TRELLO_MOCK_BASE = `http://127.0.0.1:${TRELLO_MOCK_PORT}`;
 const E2E_PORT = Number(process.env.E2E_PORT ?? "3001");
 const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
 
+/**
+ * CS-7G — reserve the per-run mock-Hermes loopback port HERE, at config-load time, before the
+ * webServer.env below is interpolated. This bakes the resolved port into the app process's
+ * CHAINREACT_AI_GATEWAY_URL AND records it on process.env so global-setup binds the mock to the
+ * SAME port — no two runs share one mock server, and the app always points at this run's mock.
+ * An operator can still pin MOCK_HERMES_PORT to force a specific port (resolveMockHermesPort
+ * honors it). `--list` and other non-run invocations tolerate a reservation failure gracefully.
+ */
+let MOCK_HERMES_PORT = Number(process.env.MOCK_HERMES_PORT ?? "0");
+try {
+  MOCK_HERMES_PORT = resolveMockHermesPort(process.env);
+} catch (err) {
+  console.warn(`[e2e] could not reserve a mock-Hermes port at config load: ${(err as Error).message}`);
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -168,6 +214,31 @@ export default defineConfig({
       // Different port from the typical dev server (3000) so a developer
       // can keep a dev server running for manual testing without colliding.
       PORT: String(E2E_PORT),
+      // CS-7D — hand the dev server the LOCAL Supabase URL/keys + throwaway local
+      // app secrets from .env.test.local. The e2e worktree has no `.env.local`, so
+      // this is the only Supabase config the app receives; it can never be the
+      // production project. Spread first so the explicit provider/test overrides
+      // below still win where they intentionally set a value.
+      ...TEST_APP_ENV,
+      // CS-7F — point the Hermes AI gateway at the LOOPBACK mock started by
+      // global-setup (never a real model provider). E2E-only: this is not in any
+      // checked-in .env and never becomes a production default. The production
+      // client still resolves through the same canonical getHermesAgentGatewayConfig().
+      HERMES_AGENT_ENABLED: "true",
+      // Per-run loopback mock port reserved above (never a real model provider). E2E-only.
+      CHAINREACT_AI_GATEWAY_URL: `http://127.0.0.1:${MOCK_HERMES_PORT}`,
+      CHAINREACT_AI_GATEWAY_TOKEN: "e2e-mock-hermes-token",
+      // 5.DUAL-BUILDER-1 CS-7 — the Document Builder stays flag-gated (default
+      // OFF) here too, so every OTHER e2e spec runs exactly production's Visual
+      // builder. The dual-builder journey is run by explicitly setting
+      // `ENABLE_DOCUMENT_BUILDER=true` in the COMMAND ENVIRONMENT
+      // (e.g. `ENABLE_DOCUMENT_BUILDER=true npx playwright test dual-builder-document-journey`).
+      // This forwards that command-env value into the isolated test server WITHOUT
+      // hardcoding an always-on flag in the checked-in config — checked-in default
+      // remains unset/OFF. No shared .env file is touched.
+      ...(process.env.ENABLE_DOCUMENT_BUILDER
+        ? { ENABLE_DOCUMENT_BUILDER: process.env.ENABLE_DOCUMENT_BUILDER }
+        : {}),
       // 5.ONBOARD-4 — NO onboarding feature flags here any more. Both the
       // first-workflow checklist and the role-specific collaboration checklists
       // are on by default, so the e2e journey exercises exactly what production

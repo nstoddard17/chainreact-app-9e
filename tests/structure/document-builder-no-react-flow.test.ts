@@ -43,6 +43,30 @@ describe("document builder — no React Flow / canvas coupling", () => {
       "documentViewPref.ts",
       "DocumentView.tsx",
       "index.ts",
+      // CS-3 — Finish Setup queue + Whole Workflow map.
+      "documentOutline.ts",
+      "setupQueueModel.ts",
+      "wholeWorkflowMapModel.ts",
+      "documentNavigation.ts",
+      "FinishSetupBanner.tsx",
+      "FinishSetupControls.tsx",
+      "WholeWorkflowMap.tsx",
+      "useFinishSetupQueue.ts",
+      // CS-4 — persistent manual sections.
+      "documentSections.ts",
+      "documentSectionCommands.ts",
+      "DocumentSectionHeader.tsx",
+      // CS-5 — branch authoring commands + lane context.
+      "documentBranchCommands.ts",
+      "documentBranchContext.ts",
+      // CS-6 — creation layer + agent re-host.
+      "documentPreviewProjection.ts",
+      "documentSelectionCommands.ts",
+      "DocumentEmptyState.tsx",
+      "DocumentAskReactBar.tsx",
+      "DocumentPreview.tsx",
+      "DocumentInsertMenu.tsx",
+      "DocumentSelectionToolbar.tsx",
     ]) {
       expect(files).toContain(expected);
     }
@@ -62,6 +86,18 @@ describe("document builder — no React Flow / canvas coupling", () => {
     "projectionText.ts",
     "documentModel.ts",
     "documentViewPref.ts",
+    // CS-3 pure derivations — queue/map/navigation models are React-free data.
+    "documentOutline.ts",
+    "setupQueueModel.ts",
+    "wholeWorkflowMapModel.ts",
+    "documentNavigation.ts",
+    // CS-4 pure section grouping/summary + command resolution.
+    "documentSections.ts",
+    "documentSectionCommands.ts",
+    // CS-5 pure lane-context derivation (breadcrumbs / sibling lanes / depth).
+    "documentBranchContext.ts",
+    // CS-6 pure agent-preview projection.
+    "documentPreviewProjection.ts",
   ])(
     "%s is pure (no React, no store, no fetch)",
     (file) => {

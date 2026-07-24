@@ -345,15 +345,20 @@ export default [
   // features/workflow-builder/WorkflowBuilder.tsx — the central builder orchestrator (canvas/rail/drawer
   // composition + the add-node and right-drawer state machines). The AI-preview lifecycle + checkpoint
   // orchestration + "Review changes" config diff were extracted into the useBuilderPreview hook, which
-  // dropped this file from 585 → 452 counted lines. Capped at 460 (snug, modest headroom) to keep
-  // further drift visible; still over the 400 default because of the canvas/rail/drawer wiring. Next
-  // extraction candidates if it grows again: the right-drawer and add-node state machines.
+  // dropped this file from 585 → 452 counted lines. 5.DUAL-BUILDER-1 CS-5 routes Document branch
+  // authoring through the SAME picker state machine (the pick handler now classifies a branch pick into
+  // a create-command location + wires empty-lane adds), which is cohesive to the add-node machine here.
+  // Capped at 780 to keep further drift visible; still over the 400 default because of the
+  // canvas/rail/drawer wiring. 5.DUAL-BUILDER-1 CS-7 adds the keyed/VERSIONED composer-seed channel
+  // (replacing the one-shot seed) + the Document-surface telemetry wiring (flag-gated emit calls +
+  // preview apply/reject wrappers), both cohesive to the orchestration here. Next extraction
+  // candidates if it grows again: the right-drawer and add-node state machines.
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 460, skipBlankLines: true, skipComments: true },
+        { max: 780, skipBlankLines: true, skipComments: true },
       ],
     },
   },
@@ -394,15 +399,60 @@ export default [
   // nodes/edges/dirty/save state. It was already over the default cap (a long-standing, accepted
   // pre-existing warning); BUILDER-TOPBAR-UNDO-REDO added the intrinsic draft-edit history (the
   // history-capturing `set` wrapper + undo/redo, which must live ON the store's mutation surface to
-  // stay correct). Splitting the store is a real refactor (every action shares `set`/`get` + the
-  // hydrate/save reconciliation), not a top-bar cleanup commit. Capped at 650 to make further drift
-  // visible. Mirrors the engine.ts / WorkflowBuilder.tsx precedent above.
+  // stay correct). 5.DUAL-BUILDER-1 CS-4 added the presentation (manual sections) dimension to the
+  // SAME canonical draft — state fields + snapshots + hydrate/save/undo-redo reconciliation + the
+  // node-set membership-prune choke point, all of which must live on the mutation surface. The pure
+  // section-command LOGIC was already extracted to `presentationCommands.ts` (only thin store
+  // wrappers remain here). 5.DUAL-BUILDER-1 CS-5 added the `renameBranchRouteLabel` transaction (the
+  // route-identity "approach 2": config route-label + this node's matching outgoing edge labels
+  // rewritten atomically in one history-captured `set`) — it must live on the mutation surface to stay
+  // undo/redo-correct. Splitting the store further is a real refactor (every action shares `set`/`get`).
+  // 5.DUAL-BUILDER-1 CS-6 added the atomic `swapAdjacentLinearActions` transaction
+  // (the adjacent-linear move used by the Document selection toolbar) — like the
+  // CS-5 rename transaction it must live on the mutation surface to stay
+  // undo/redo-correct. 5.DUAL-BUILDER-1 CS-7 adds the router exact-rename
+  // wiring-preservation (readRouterRoutes + relabelEdgesForExactRouterRename +
+  // the updateNodeConfig branch that relabels the matching lane edge instead of
+  // dropping it) — it must live on the mutation surface to stay undo/redo-correct;
+  // the pure classifier itself lives in core/workflows/routeLabelDiff.ts. Capped
+  // at 980 to make further drift visible. Mirrors the precedent above.
   {
     files: ["features/workflow-builder/state/graphSlice.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 650, skipBlankLines: true, skipComments: true },
+        { max: 980, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
+  // features/workflow-builder/document/DocumentView.tsx — the Document Builder surface. It composes
+  // the projection render (sentences/forks/complex regions), the CS-2 Guided Stop editing, the CS-3
+  // Finish Setup banner/controls + Whole Workflow map wiring, and the CS-4 manual-section rendering
+  // (section headers + collapsed summaries + wrap/add/remove affordances). Pure logic already lives
+  // in sibling modules (projection, documentSections, documentSectionCommands, useDocumentSetup);
+  // what remains is the render composition + the thin store-command handlers, which are cohesive to
+  // the surface. Capped at 620 to keep further drift visible; the section render helpers are the next
+  // extraction candidate if it grows again. Mirrors the WorkflowBuilder.tsx precedent above.
+  {
+    files: ["features/workflow-builder/document/DocumentView.tsx"],
+    rules: {
+      "max-lines": [
+        // 5.DUAL-BUILDER-1 CS-6 adds the creation-layer wiring (empty-state,
+        // persistent Ask React bar, non-mutating ghost preview render, the
+        // Step/Branch/Section/Ask React insertion menu, and top-level
+        // multi-selection). The heavy pieces are extracted into sibling
+        // components (DocumentEmptyState / DocumentAskReactBar / DocumentPreview
+        // / DocumentInsertMenu / DocumentSelectionToolbar) and pure command
+        // modules; what remains here is the cohesive render composition + thin
+        // store-command handlers. 5.DUAL-BUILDER-1 CS-7 adds the flag-gated
+        // Document telemetry emits (map/insert/guided-stop/handoff/finish-setup/
+        // complex-region) + the centralized Visual-handoff wrapper + source-tagged
+        // Ask React wrappers, all thin and cohesive to the surface. Bumped to 880
+        // to keep further drift visible; the telemetry effects are the next
+        // extraction candidate (a `useDocumentTelemetry` hook) if it grows again.
+        "warn",
+        { max: 880, skipBlankLines: true, skipComments: true },
       ],
     },
   },

@@ -135,6 +135,19 @@ export interface ConfigSliceActions {
     config: Readonly<Record<string, unknown>>;
   }): void;
   /**
+   * 5.DUAL-BUILDER-1 CS-2 — restore a draft's VALUES to a caller-held
+   * snapshot (the Document Guided Stop's Cancel/Escape path). Replaces
+   * `values` wholesale, recomputes `isDirty` against the UNCHANGED
+   * `initialValues` baseline, and clears inline errors — so abandoning an
+   * inline edit returns the draft to exactly what it was when the stop
+   * opened, without touching the graph or the committed baseline. No-op
+   * when no draft exists for `nodeId`.
+   */
+  restoreDraftValues(input: {
+    nodeId: string;
+    values: Readonly<Record<string, unknown>>;
+  }): void;
+  /**
    * Set / clear inline errors for one field on the active node. Pass
    * `undefined` to clear.
    */
@@ -325,6 +338,23 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
         },
       },
       // activeNodeId + focusFieldKey intentionally preserved.
+    });
+  },
+
+  restoreDraftValues({ nodeId, values }) {
+    const draft = get().drafts[nodeId];
+    if (!draft) return;
+    set({
+      drafts: {
+        ...get().drafts,
+        [nodeId]: {
+          ...draft,
+          values: { ...values },
+          errors: {},
+          isDirty: !shallowEqual(values, draft.initialValues),
+          lastUpdatedAt: Date.now(),
+        },
+      },
     });
   },
 

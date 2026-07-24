@@ -53,6 +53,10 @@ export function sentenceBlocksFor(
   meta: ProjectionMeta,
   byId: ReadonlyMap<string, WorkflowNode>,
   node: WorkflowNode,
+  linear: {
+    readonly insertAfter: { readonly edgeId: string; readonly toNodeId: string } | null;
+    readonly isLinearTail: boolean;
+  },
 ): DocumentBlock[] {
   const key = requirementLookupKey(node);
   const summary = meta.summaryFieldsByType?.[key];
@@ -70,6 +74,7 @@ export function sentenceBlocksFor(
         fields: summary.fields,
         config: node.config ?? {},
       }).segments.map((s) => ({
+        name: s.name,
         label: s.label,
         display: s.display,
         kind: s.kind,
@@ -88,6 +93,8 @@ export function sentenceBlocksFor(
       untyped: node.type === "",
       valueChips,
       blankChips: blankChipsFor(meta, node),
+      insertAfter: linear.insertAfter,
+      isLinearTail: linear.isLinearTail,
     },
   ];
 }

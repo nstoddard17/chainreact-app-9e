@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WorkflowPresentationSchema } from "./workflowPresentation";
 
 /**
  * Contracts for account-owned workflow templates
@@ -50,6 +51,15 @@ export const TemplateDefinitionSchema = z
   .object({
     nodes: z.array(TemplateNodeSchema).default([]),
     edges: z.array(TemplateEdgeSchema).default([]),
+    /**
+     * 5.DUAL-BUILDER-1 CS-4 — optional presentation-only manual section
+     * metadata (section titles + node-id membership + collapse). Whitelisted
+     * here so a template retains its author's sections; carries no credentials
+     * (membership is node ids only). Template use/replace re-validates the
+     * definition through `WorkflowDefinitionSchema`, which re-normalizes
+     * membership against the created workflow's nodes.
+     */
+    presentation: WorkflowPresentationSchema.optional(),
   })
   .strict();
 export type TemplateDefinition = z.infer<typeof TemplateDefinitionSchema>;

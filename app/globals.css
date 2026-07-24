@@ -145,6 +145,418 @@
     --builder-shadow-md: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 12px -2px rgba(0, 0, 0, 0.5);
     --builder-shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
   }
+
+  /* 5.DUAL-BUILDER-1 CS-7B — Document Builder "paper" surface.
+     The approved ChainV2 Document mock is a warm, calm, editorial document:
+     warm paper background, terracotta (clay) accent, olive/amber/blue status,
+     and serif prose for the sentences + title. This block REMAPS the --builder-*
+     tokens for everything inside the Document surface, so the existing
+     var(--builder-*) usages across the CS-1..CS-7 Document components pick up the
+     warm document vocabulary automatically — while the surrounding app shell
+     (header, rails, canvas) keeps the neutral builder palette. Scoped by the
+     [data-document-surface] attribute; higher-specificity than :root/.dark, so it
+     also wins inside dark mode (the Document is a deliberate light "paper" pane).
+     No network font is added — Newsreader is the design intent; Georgia is the
+     shipped serif fallback. */
+  [data-document-surface] {
+    --builder-bg: #f6f3ec;
+    --builder-panel: #fffdf8;
+    --builder-panel-2: #f4efe4;
+    --builder-border: #e8e2d5;
+    --builder-border-strong: #d9d1bf;
+    --builder-text: #211f1b;
+    --builder-text-2: #4a463d;
+    --builder-muted: #8a8474;
+    --builder-muted-2: #a89a80;
+    --builder-accent: #b0532b;
+    --builder-accent-soft: #f3e2d6;
+    --builder-accent-strong: #9c481f;
+    --builder-success: #4b7a4e;
+    --builder-success-soft: #e3efe1;
+    --builder-warn: #b8801f;
+    --builder-warn-soft: #f7ecd6;
+    --builder-shadow-md: 0 2px 12px -5px rgba(60, 40, 20, 0.14);
+    --builder-shadow-lg: 0 30px 70px -24px rgba(40, 26, 10, 0.4),
+      0 8px 20px -8px rgba(40, 26, 10, 0.22);
+    /* Document-only vocabulary (referenced by Document components). */
+    --doc-serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --doc-blue: #3f6d8c;
+    --doc-blue-soft: #e0ebf1;
+    --doc-clay: #b0532b;
+    --doc-clay-soft: #f3e2d6;
+    --doc-clay-border: #e3c3af;
+    --doc-amber: #b8801f;
+    --doc-amber-soft: #f7ecd6;
+    --doc-amber-border: #d9b877;
+    --doc-olive: #4b7a4e;
+    --doc-olive-soft: #e3efe1;
+    --doc-scrim: rgba(34, 26, 14, 0.3);
+    --doc-line-strong: #d9d1bf;
+  }
+  /* Editorial serif prose for Document sentences + workflow title. */
+  .crv2-doc-prose {
+    font-family: var(--doc-serif);
+    letter-spacing: -0.003em;
+  }
+  /* An unresolved (blank) value chip breathes gently to read as intentionally
+     unfinished — disabled under prefers-reduced-motion. */
+  @keyframes crv2DocGlow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(184, 128, 31, 0);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgba(184, 128, 31, 0.16);
+    }
+  }
+  [data-document-surface] .crv2-doc-blank {
+    animation: crv2DocGlow 2.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-document-surface] .crv2-doc-blank {
+      animation: none;
+    }
+  }
+
+  /* ---- Document component vocabulary (5.DUAL-BUILDER-1 CS-7B) ---------------
+     Signature Document visuals as scoped CSS classes (not scattered inline
+     var() styles) so they read as one design system, are theme-token-driven,
+     and render faithfully. All live under [data-document-surface]. */
+
+  /* Provider identity chip inside a sentence. */
+  [data-document-surface] .crv2-provider {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 7px;
+    padding: 1px 8px;
+    vertical-align: baseline;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--builder-panel-2);
+    color: var(--builder-text-2);
+    border: 1px solid var(--builder-border);
+  }
+
+  /* Editable value chip / unresolved blank chip / active-editing state. */
+  [data-document-surface] .crv2-chip {
+    display: inline-flex;
+    align-items: baseline;
+    max-width: 280px;
+    border-radius: 8px;
+    padding: 1px 9px;
+    vertical-align: baseline;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+  }
+  [data-document-surface] .crv2-chip:disabled {
+    cursor: default;
+  }
+  [data-document-surface] .crv2-chip--value {
+    background: var(--doc-clay-soft);
+    color: var(--doc-clay);
+    border: 1px solid var(--doc-clay-border);
+  }
+  [data-document-surface] .crv2-chip--value:hover:not(:disabled) {
+    background: #eed3c3;
+  }
+  [data-document-surface] .crv2-chip--blank {
+    background: var(--doc-amber-soft);
+    color: var(--doc-amber);
+    border: 1.5px dashed var(--doc-amber-border);
+  }
+  [data-document-surface] .crv2-chip--blank:hover:not(:disabled) {
+    background: #f2e2c4;
+  }
+  [data-document-surface] .crv2-chip--editing {
+    background: var(--doc-clay) !important;
+    color: #fff !important;
+    border: 1px solid var(--doc-clay) !important;
+    box-shadow: 0 0 0 4px var(--doc-clay-soft);
+    animation: none !important;
+  }
+
+  /* Setup banner — a calm framed card, not a bare status line. */
+  [data-document-surface] .crv2-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    border-radius: 16px;
+    padding: 15px 18px;
+    margin-bottom: 26px;
+    background: var(--builder-panel-2);
+    border: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-banner--attention {
+    background: linear-gradient(100deg, #fbf1e2, var(--builder-panel));
+    border-color: #ecd9c4;
+  }
+  [data-document-surface] .crv2-banner--done {
+    background: var(--doc-olive-soft);
+    border-color: #bcd8bd;
+  }
+  [data-document-surface] .crv2-banner-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    flex: none;
+    color: #fff;
+    background: linear-gradient(135deg, var(--doc-clay), #d98a3c);
+  }
+  [data-document-surface] .crv2-banner--done .crv2-banner-mark {
+    background: var(--doc-olive);
+  }
+  [data-document-surface] .crv2-banner-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 15px;
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--doc-clay);
+    box-shadow: 0 8px 16px -8px rgba(176, 83, 43, 0.55);
+  }
+  [data-document-surface] .crv2-banner-primary:hover {
+    background: var(--builder-accent-strong);
+  }
+  [data-document-surface] .crv2-banner-secondary {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 13px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--builder-text-2);
+    background: var(--builder-panel);
+    border: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-banner-secondary:hover {
+    background: var(--builder-panel-2);
+  }
+
+  /* Fork block — a compact "you read it in a second" visual, not a node canvas. */
+  [data-document-surface] .crv2-fork {
+    margin: 20px 0;
+    border: 1px solid var(--builder-border);
+    border-radius: 16px;
+    background: var(--builder-panel);
+    overflow: hidden;
+    box-shadow: var(--builder-shadow-md);
+  }
+  [data-document-surface] .crv2-fork-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    background: var(--builder-panel-2);
+    border-bottom: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-fork-eyebrow {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--builder-muted);
+    flex: none;
+  }
+  [data-document-surface] .crv2-fork-cond {
+    font-family: var(--font-sans, sans-serif);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--builder-text);
+  }
+  [data-document-surface] .crv2-fork-lane {
+    padding: 15px 18px 16px;
+  }
+  [data-document-surface] .crv2-fork-lane + .crv2-fork-lane,
+  [data-document-surface] .crv2-fork-lane--rest {
+    border-top: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-lane-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 4px 11px;
+  }
+  [data-document-surface] .crv2-lane-label--yes {
+    background: var(--doc-olive-soft);
+    color: var(--doc-olive);
+  }
+  [data-document-surface] .crv2-lane-label--no {
+    background: var(--doc-blue-soft);
+    color: var(--doc-blue);
+  }
+  [data-document-surface] .crv2-lane-label--route {
+    background: var(--doc-clay-soft);
+    color: var(--doc-clay);
+  }
+  [data-document-surface] .crv2-lane-label--always {
+    background: var(--builder-panel-2);
+    color: var(--builder-muted);
+    border: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-fork-rejoin {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    border-top: 1px dashed var(--doc-line-strong);
+    background: var(--builder-panel-2);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--builder-muted);
+  }
+  [data-document-surface] .crv2-terminal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--builder-panel-2);
+    color: var(--builder-muted);
+    border: 1px solid var(--builder-border);
+  }
+
+  /* Section — document organization, NOT a heavy dashboard card. A calm named
+     boundary: a subtle header rule + a left accent spine, light fill. */
+  [data-document-surface] .crv2-section {
+    margin: 14px 0;
+    border: 1px solid var(--builder-border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--builder-panel) 55%, transparent);
+    overflow: hidden;
+  }
+  [data-document-surface] .crv2-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--builder-panel-2);
+  }
+  [data-document-surface] .crv2-section-head--open {
+    border-bottom: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-section-toggle {
+    display: inline-flex;
+    height: 22px;
+    width: 22px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--builder-muted);
+    border: 1px solid var(--builder-border);
+    background: var(--builder-panel);
+  }
+  [data-document-surface] .crv2-section-title {
+    min-width: 0;
+    flex: 1;
+    text-align: left;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    color: var(--builder-text);
+  }
+  [data-document-surface] .crv2-section-summary {
+    font-size: 12px;
+    color: var(--builder-muted);
+  }
+
+  /* Reusable Document controls (empty-state, Ask React, etc.). */
+  [data-document-surface] .crv2-eyebrow {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--builder-muted);
+  }
+  [data-document-surface] .crv2-composer {
+    width: 100%;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--builder-text);
+    background: var(--builder-panel);
+    border: 1.5px solid var(--builder-border);
+    outline: none;
+    resize: vertical;
+  }
+  [data-document-surface] .crv2-composer:focus {
+    border-color: var(--doc-clay);
+    box-shadow: 0 0 0 3px var(--doc-clay-soft);
+  }
+  [data-document-surface] .crv2-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 18px;
+    border-radius: 11px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--doc-clay);
+    box-shadow: 0 8px 18px -8px rgba(176, 83, 43, 0.55);
+  }
+  [data-document-surface] .crv2-btn-primary:hover {
+    background: var(--builder-accent-strong);
+  }
+  [data-document-surface] .crv2-btn-primary:disabled {
+    opacity: 0.45;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  [data-document-surface] .crv2-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--builder-text);
+    background: var(--builder-panel);
+    border: 1.5px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-btn-secondary:hover {
+    border-color: var(--doc-clay-border);
+  }
 }
 
 @layer base {

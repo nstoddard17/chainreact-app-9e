@@ -1,6 +1,12 @@
 import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { loadTestEnv } from "./helpers/testEnv";
+import {
+  startMockHermesServer,
+  waitForMockHermesHealth,
+  type MockHermesHandle,
+} from "./helpers/mockHermesServer";
+import { resolveMockHermesPort, mockHermesGatewayUrl } from "./helpers/reservePort";
 import {
   startMockSlackServer,
   type MockSlackHandle,
@@ -76,6 +82,7 @@ let hubspotHandle: MockHubSpotHandle | null = null;
 let githubHandle: MockGitHubHandle | null = null;
 let mailchimpHandle: MockMailchimpHandle | null = null;
 let trelloHandle: MockTrelloHandle | null = null;
+let hermesHandle: MockHermesHandle | null = null;
 
 export const STATE_FILE = resolve(__dirname, ".state/mock-slack.json");
 export const GOOGLE_STATE_FILE = resolve(
@@ -121,6 +128,10 @@ export const TRELLO_STATE_FILE = resolve(
 
 export function getMockHandle(): MockSlackHandle | null {
   return slackHandle;
+}
+
+export function getHermesMockHandle(): MockHermesHandle | null {
+  return hermesHandle;
 }
 
 export function getGoogleMockHandle(): MockGoogleHandle | null {
@@ -176,33 +187,6 @@ export function getTrelloMockHandle(): MockTrelloHandle | null {
  * overwritten so a CI environment can still override.
  */
 /**
- * Vars that the test spec / helpers explicitly need from .env.local but
- * that aren't picked up automatically (Playwright workers don't share the
- * Next.js dev-server env). Listed here so we don't blindly lift everything
- * from .env.local — most importantly, NEXT_PUBLIC_APP_URL stays whatever
- * it was (or undefined), because the user may have it pointing at an ngrok
- * tunnel for manual testing and we don't want that URL leaking into the
- * spec process.
- */
-const SPEC_PROCESS_ENV_KEYS = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SLACK_SIGNING_SECRET",
-  // Slice 2f: the spec POSTs to /api/cron/poll-triggers with
-  // `Authorization: Bearer $CRON_SECRET`. The dev server reads
-  // CRON_SECRET from .env.local automatically; the spec process needs
-  // it lifted explicitly.
-  "CRON_SECRET",
-  // Slice 3b: the Calendar walkthrough hand-crafts the inbound webhook
-  // POST to /api/webhooks/google-calendar with an X-Goog-Channel-Token
-  // computed via buildChannelToken (HMAC-SHA256 over channelId, keyed
-  // on WATCH_CHANNEL_SECRET). The dev server has it from .env.local;
-  // the spec needs the same secret to produce a token the receive
-  // route's verifyChannelToken accepts.
-  "WATCH_CHANNEL_SECRET",
-];
-
-/**
  * Slice 12: Shopify webhook signing key. The mock server signs webhook
  * deliveries with this exact secret so V2's `verifyShopifySignature` (which
  * reads `SHOPIFY_CLIENT_SECRET` from the dev server env) accepts them.
@@ -243,29 +227,11 @@ const GITHUB_E2E_WEBHOOK_SECRET_DEFAULT = "e2e-github-webhook-secret";
  */
 const TRELLO_E2E_CLIENT_SECRET_DEFAULT = "e2e-trello-client-secret";
 
-function loadDotEnvLocal(): void {
-  const envPath = resolve(__dirname, "../../.env.local");
-  if (!existsSync(envPath)) return;
-  const content = readFileSync(envPath, "utf8");
-  for (const line of content.split(/\r?\n/)) {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (!m) continue;
-    const key = m[1]!;
-    if (!SPEC_PROCESS_ENV_KEYS.includes(key)) continue;
-    if (process.env[key] !== undefined) continue;
-    let value = m[2]!.trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    process.env[key] = value;
-  }
-}
-
 export default async function globalSetup(): Promise<void> {
-  loadDotEnvLocal();
+  // CS-7D — the Playwright spec/worker process gets its Supabase + secret env
+  // from `.env.test.local` (loopback local Supabase), NEVER from `.env.local`.
+  // Fail-closed if the required local vars are missing (see loadTestEnv).
+  loadTestEnv();
   // Slice 3b: if neither process.env nor .env.local set WATCH_CHANNEL_SECRET,
   // fall back to the fixed test value the playwright.config.ts webServer.env
   // also defaults to. Keeps the spec process and the dev server in sync
@@ -277,6 +243,40 @@ export default async function globalSetup(): Promise<void> {
   // Match playwright.config.ts E2E_PORT default.
   const e2ePort = Number(process.env.E2E_PORT ?? "3001");
   const appBaseUrl = `http://localhost:${e2ePort}`;
+
+  // CS-7F/CS-7G — mock Hermes AI gateway (loopback) for the Ask React journey. The dev
+  // server's CHAINREACT_AI_GATEWAY_URL (playwright.config webServer.env) points at this
+  // exact PER-RUN loopback port (reserved at config-load, see reservePort.ts), so all real
+  // guidance calls land here — NEVER on a real model provider. SAFETY: the app's gateway URL
+  // MUST be loopback in E2E; a missing/colliding mock fails LOUD, never silently.
+  const hermesPort = resolveMockHermesPort(process.env);
+  const configuredGatewayUrl = process.env.CHAINREACT_AI_GATEWAY_URL ?? mockHermesGatewayUrl(hermesPort);
+  const gatewayHost = new URL(configuredGatewayUrl).hostname;
+  if (!(gatewayHost === "127.0.0.1" || gatewayHost === "localhost")) {
+    throw new Error(
+      `[e2e safety] CHAINREACT_AI_GATEWAY_URL host "${gatewayHost}" is not loopback — refusing to run the Ask React journey against a non-local model gateway.`,
+    );
+  }
+  try {
+    hermesHandle = await startMockHermesServer({ port: hermesPort });
+  } catch (err) {
+    if ((err as { code?: string }).code === "EADDRINUSE") {
+      throw new Error(
+        `[e2e] mock Hermes port ${hermesPort} is already in use — another CS-7G run may be active. ` +
+          `Let this run pick its own port (unset MOCK_HERMES_PORT) or set a free MOCK_HERMES_PORT.`,
+      );
+    }
+    throw err;
+  }
+  // Await health BEFORE the Next.js journey starts (no request can race the mock's boot).
+  try {
+    await waitForMockHermesHealth(hermesHandle.baseUrl);
+  } catch (err) {
+    await hermesHandle.close(); // clean up the already-started mock on a startup failure
+    hermesHandle = null;
+    throw err;
+  }
+  console.log(`[e2e] mock Hermes gateway listening + healthy at ${hermesHandle.baseUrl}`);
 
   const slackPort = Number(process.env.SLACK_MOCK_PORT ?? "9876");
   slackHandle = await startMockSlackServer({ appBaseUrl, port: slackPort });

@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  WorkflowPresentationSchema,
+  normalizePresentation,
+  type WorkflowPresentation,
+} from "./workflowPresentation";
 
 /**
  * Structured contract for the workflow definition (nodes + edges).
@@ -86,6 +91,17 @@ export const WorkflowDefinitionSchema = z
   .object({
     nodes: z.array(WorkflowNodeSchema).default([]),
     edges: z.array(WorkflowEdgeSchema).default([]),
+    /**
+     * 5.DUAL-BUILDER-1 CS-4 — optional, presentation-only manual SECTION
+     * metadata. Display-only: the execution engine, readiness, and entitlement
+     * never read it (they consume only nodes/edges). Old definitions with only
+     * `{ nodes, edges }` parse unchanged. Structural abuse (unknown version,
+     * over-length titles, over-cap sections, duplicate section ids) is rejected
+     * here; stale/overlapping MEMBERSHIP is normalized (not rejected) by the
+     * transform below against the definition's own node ids, so a node deletion
+     * can never make a workflow unsaveable.
+     */
+    presentation: WorkflowPresentationSchema.optional(),
   })
   .superRefine((def, ctx) => {
     const triggerCount = def.nodes.filter((n) => n.kind === "trigger").length;
@@ -152,8 +168,31 @@ export const WorkflowDefinitionSchema = z
       }
       ids.add(id);
     }
+  })
+  // 5.DUAL-BUILDER-1 CS-4 — normalize presentation membership against the
+  // definition's OWN node ids at the type boundary (the single shared cleanup
+  // rule): prune stale ids, enforce one-section-per-node, drop empty sections.
+  // Presentation is omitted entirely when nothing survives, so the persisted /
+  // API shape never carries an empty block. Nodes/edges are untouched.
+  .transform((def): WorkflowDefinitionShape => {
+    const ids = new Set(def.nodes.map((n) => n.id));
+    const presentation = normalizePresentation(def.presentation, ids);
+    if (presentation === null) {
+      if (def.presentation === undefined) return def;
+      const { presentation: _dropped, ...rest } = def;
+      return rest;
+    }
+    return { ...def, presentation };
   });
+
+/** The normalized definition shape (post-transform). */
+export interface WorkflowDefinitionShape {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  presentation?: WorkflowPresentation;
+}
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>;
+export type { WorkflowPresentation };
 
 /** Empty definition — the default for newly-created drafts. */
 export const EMPTY_WORKFLOW_DEFINITION: WorkflowDefinition = {

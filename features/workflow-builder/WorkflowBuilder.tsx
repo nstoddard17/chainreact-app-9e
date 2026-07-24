@@ -39,6 +39,11 @@ import {
   isAdvancedBranchingTypeKey,
 } from "@/core/workflows/advancedBranching";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
+import type { ComposerSeed } from "@/features/workflows/composerSeed";
+import {
+  emitDocumentBuilderEvent,
+  setDocumentBuilderTelemetryEnabled,
+} from "./document/documentTelemetry";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { AgentChangeDiffDrawer } from "./panels/AgentChangeDiffDrawer";
 import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
@@ -67,8 +72,43 @@ import {
   DocumentView,
   readBuilderViewPref,
   writeBuilderViewPref,
+  addDocumentActionToEmptyLane,
+  createDocumentIfThenBranch,
+  createDocumentRouterBranch,
+  describeBranchRefusal,
+  type BranchInsertLocation,
   type BuilderViewMode,
 } from "./document";
+
+/**
+ * 5.DUAL-BUILDER-1 CS-5 — classify a Document insertion context into a
+ * branch-creation location: a labeled edge from a branching node → laneStart
+ * (nested fork), an unlabeled edge → between, otherwise a tail anchor → tail.
+ * Returns null when no safe location is known (the branch command would refuse).
+ */
+function documentBranchLocation(
+  insertContext: { edgeId: string } | null,
+  appendAfter: string | null,
+): BranchInsertLocation | null {
+  if (insertContext) {
+    const edge = useGraphSlice
+      .getState()
+      .pendingEdges.find((e) => e.id === insertContext.edgeId);
+    if (!edge) return null;
+    if (edge.label !== undefined) {
+      return {
+        kind: "laneStart",
+        edgeId: edge.id,
+        expectedFrom: edge.from,
+        expectedTo: edge.to,
+        expectedLabel: edge.label,
+      };
+    }
+    return { kind: "between", edgeId: edge.id, expectedFrom: edge.from, expectedTo: edge.to };
+  }
+  if (appendAfter) return { kind: "tail", anchorNodeId: appendAfter };
+  return null;
+}
 
 interface Props {
   workflow: WorkflowDetail;
@@ -240,6 +280,7 @@ export function WorkflowBuilder({
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const closeNode = useConfigSlice((s) => s.closeNode);
   const revealNode = useConfigSlice((s) => s.revealNode);
+  const openNodeConfig = useConfigSlice((s) => s.openNode);
   const runId = useRunSlice((s) => s.runId);
 
   // Slice 4.BUILDER-SETTINGS-2 — the workflow name lives in local state so a
@@ -261,10 +302,30 @@ export function WorkflowBuilder({
     (view: BuilderViewMode) => {
       setBuilderView(view);
       writeBuilderViewPref(view, workflow.id);
+      // CS-7 telemetry — categorical only (target view), never workflow content.
+      emitDocumentBuilderEvent("builder_view_switched", { to: view });
     },
     [workflow.id],
   );
   const documentViewActive = documentBuilderEnabled === true && builderView === "document";
+  // CS-7 telemetry — gate emission on the server-resolved flag so flag OFF emits
+  // NOTHING, then record when the Document surface is actually shown.
+  useEffect(() => {
+    setDocumentBuilderTelemetryEnabled(documentBuilderEnabled === true);
+  }, [documentBuilderEnabled]);
+  useEffect(() => {
+    if (documentViewActive) emitDocumentBuilderEvent("document_builder_view_opened");
+  }, [documentViewActive]);
+  // 5.DUAL-BUILDER-1 CS-2 — the node whose configSlice selection is driven by
+  // an OPEN Document Guided Stop. The stop IS the editor for that selection,
+  // so the drawer's auto-open transition is suppressed for it (a ref, read by
+  // the existing transition effect without re-running it).
+  const guidedStopNodeRef = useRef<string | null>(null);
+  const handleGuidedStopActive = useCallback((nodeId: string | null) => {
+    guidedStopNodeRef.current = nodeId;
+  }, []);
+  // Transient Document notice (typed refusals, e.g. branching-in-CS-2).
+  const [documentNotice, setDocumentNotice] = useState<string | null>(null);
 
   // ANON-BUILDER-2/3 — when this builder was just opened by the anonymous-draft
   // restore flow, a one-shot { prompt, reason } is parked under the new workflow
@@ -371,6 +432,10 @@ export function WorkflowBuilder({
     const activeCleared = activeNodeId === null && prevActive !== null;
     prevActiveNodeId.current = activeNodeId;
     if (activeSet) {
+      // CS-2 — a Guided-Stop-driven selection edits inline in the Document;
+      // opening the inspector drawer on top of it would be two editors for
+      // one field. Every other selection path is unchanged.
+      if (guidedStopNodeRef.current === activeNodeId) return;
       openDrawer("inspector");
     } else if (activeCleared && mode === "inspector") {
       closeDrawer();
@@ -421,15 +486,69 @@ export function WorkflowBuilder({
   // (not state) so the picker's pick handler reads the latest target without
   // re-creating the callback. Read in `handlePickAction`, then cleared on close.
   const appendAfterRef = useRef<string | null>(null);
+  // CS-5 — when the picker was opened by an empty branch lane's "Add a step",
+  // this names the fork + route label the pick should be wired into.
+  const branchLaneRef = useRef<{ forkNodeId: string; label: string } | null>(null);
+  // 5.DUAL-BUILDER-1 CS-6/CS-7 — the Document's empty-state composer, persistent
+  // Ask React bar, and insertion "Ask React" all prefill the ONE existing agent
+  // conversation (the left rail's WorkflowGuidancePanel) and expand the rail. They
+  // NEVER open a second conversation or send on their own — the rail's composer
+  // owns submit. CS-7: a keyed/VERSIONED seed (composerSeed.ts) so a second rapid
+  // Document request reliably supersedes the first unsent seed instead of being
+  // dropped, while an unrelated re-render never clobbers manually-typed text. The
+  // restored anonymous-draft prompt (ANON-BUILDER-2) is folded into the SAME
+  // channel as a `restore` seed (fill-if-empty only).
+  const [documentComposerSeed, setDocumentComposerSeed] = useState<ComposerSeed | undefined>(
+    undefined,
+  );
+  const seedVersionRef = useRef(0);
+  const handleDocumentAskReact = useCallback(
+    (prompt: string, source: "document-empty" | "document-bar" | "document-insert") => {
+      setDocumentComposerSeed({ value: prompt, version: ++seedVersionRef.current, source });
+      leftRail.expand();
+      // CS-7 telemetry — the SOURCE token only (never the prompt text).
+      if (source === "document-empty") {
+        emitDocumentBuilderEvent("document_empty_react_started");
+      }
+    },
+    [leftRail],
+  );
+  // Fold the restored anonymous prompt into the versioned channel the first time
+  // it arrives, only if no explicit Document seed has been minted yet.
+  useEffect(() => {
+    const restored = (restoredComposerValue ?? "").trim();
+    if (restored.length === 0) return;
+    setDocumentComposerSeed((current) =>
+      current
+        ? current
+        : { value: restored, version: ++seedVersionRef.current, source: "restore" },
+    );
+  }, [restoredComposerValue]);
   const openTriggerPicker = useCallback(() => {
+    setAddPanelMode({ kind: "trigger" });
+  }, []);
+  // CS-7 — the Document empty-state "Start with a trigger" path: record a manual
+  // start (categorical, no content), then open the SAME shared trigger picker.
+  const handleDocumentManualStart = useCallback(() => {
+    emitDocumentBuilderEvent("document_manual_start");
     setAddPanelMode({ kind: "trigger" });
   }, []);
   const openActionPicker = useCallback(() => {
     appendAfterRef.current = null;
+    branchLaneRef.current = null;
     setAddPanelMode({ kind: "action" });
   }, []);
   const handleAppendAfter = useCallback((nodeId: string) => {
     appendAfterRef.current = nodeId;
+    branchLaneRef.current = null;
+    setAddPanelMode({ kind: "action" });
+  }, []);
+  // 5.DUAL-BUILDER-1 CS-5 — an empty branch lane's "Add a step" opens the SAME
+  // picker; the pick is wired into that lane (fork --[label]--> new) via the
+  // Document branch command rather than the linear insert path.
+  const handleAddToEmptyLane = useCallback((forkNodeId: string, label: string) => {
+    branchLaneRef.current = { forkNodeId, label };
+    appendAfterRef.current = null;
     setAddPanelMode({ kind: "action" });
   }, []);
   // Slice 4.BUILDER-CANVAS-LAYOUT-1 — re-arrange the whole graph into a clean,
@@ -439,9 +558,11 @@ export function WorkflowBuilder({
   }, []);
   const closeAddPanel = useCallback(() => {
     appendAfterRef.current = null;
+    branchLaneRef.current = null;
     setAddPanelMode(null);
   }, []);
   const handleEdgePlusClick = useCallback((edgeId: string) => {
+    branchLaneRef.current = null;
     setAddPanelMode({ kind: "insertAction", edgeId });
   }, []);
 
@@ -455,6 +576,29 @@ export function WorkflowBuilder({
     [branchingLocked],
   );
 
+  // 5.DUAL-BUILDER-1 CS-1 — complex-region handoff: switch to the Visual
+  // surface and reveal the region's anchor node via the EXISTING focus API
+  // (configSlice.revealNode — navigation only, never a write/save/mutation).
+  // CS-2 — "Configure step" from the Document: clear the Guided-Stop
+  // suppression so the EXISTING transition effect opens the inspector drawer,
+  // then select through the same configSlice.openNode the canvas uses. CS-5 —
+  // also used to open the router-routes renderer right after a Router branch is
+  // created, so routes are configured through the EXISTING inspector.
+  const handleOpenStepInspector = useCallback(
+    (nodeId: string) => {
+      guidedStopNodeRef.current = null;
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      // Re-select: when the stop already had this node selected, openNode is a
+      // no-op for the transition effect, so nudge it through a clear first.
+      if (useConfigSlice.getState().activeNodeId === nodeId) {
+        useConfigSlice.getState().closeNode();
+      }
+      openNodeConfig({ nodeId, initialValues: node.config ?? {} });
+    },
+    [openNodeConfig],
+  );
+
   const handlePickTrigger = useCallback((meta: TriggerMeta) => {
     useGraphSlice.getState().addTriggerFromMeta(meta);
   }, []);
@@ -465,6 +609,41 @@ export function WorkflowBuilder({
       // (search, keyboard, future callers) may ever add a locked node.
       if (branchingLocked && isAdvancedBranchingTypeKey(meta.key)) return;
       const slice = useGraphSlice.getState();
+
+      // 5.DUAL-BUILDER-1 CS-5 — Document branch authoring. The SAME picker (with
+      // its existing Pro locking) drives it; branch picks route through the
+      // typed Document branch commands, which validate live store state and
+      // refuse (never partially mutate) rather than dropping an unconfigured
+      // node. Non-branch picks fall through to the shared linear paths below.
+      if (documentViewActive) {
+        const emptyLane = branchLaneRef.current;
+        const isBranch = isAdvancedBranchingTypeKey(meta.key);
+        if (emptyLane) {
+          // Add a step (ordinary OR nested branch) into an empty lane.
+          const result = addDocumentActionToEmptyLane({
+            forkNodeId: emptyLane.forkNodeId,
+            label: emptyLane.label,
+            meta,
+          });
+          if (!result.ok) setDocumentNotice(describeBranchRefusal(result.reason));
+          else if (isBranch && result.nodeId) handleOpenStepInspector(result.nodeId);
+          return;
+        }
+        if (isBranch) {
+          const location = documentBranchLocation(insertContext, appendAfterRef.current);
+          if (!location) {
+            setDocumentNotice(describeBranchRefusal("branching_not_supported_here"));
+            return;
+          }
+          const result =
+            meta.type === "router"
+              ? createDocumentRouterBranch({ location, canUseAdvancedBranching })
+              : createDocumentIfThenBranch({ location, canUseAdvancedBranching });
+          if (!result.ok) setDocumentNotice(describeBranchRefusal(result.reason));
+          else if (meta.type === "router" && result.nodeId) handleOpenStepInspector(result.nodeId);
+          return;
+        }
+      }
       if (insertContext) {
         insertActionAtEdge(insertContext.edgeId, meta);
         return;
@@ -478,15 +657,12 @@ export function WorkflowBuilder({
       }
       slice.addActionFromMeta(meta);
     },
-    [branchingLocked],
+    [branchingLocked, documentViewActive, canUseAdvancedBranching, handleOpenStepInspector],
   );
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
 
-  // 5.DUAL-BUILDER-1 CS-1 — complex-region handoff: switch to the Visual
-  // surface and reveal the region's anchor node via the EXISTING focus API
-  // (configSlice.revealNode — navigation only, never a write/save/mutation).
   const handleOpenInVisual = useCallback(
     (nodeId: string | null) => {
       setBuilderView("visual");
@@ -558,6 +734,18 @@ export function WorkflowBuilder({
     pendingEdges,
     runTestAfterApply: builderRunControls.handleTestWorkflow,
   });
+
+  // CS-7 telemetry — Document-surface preview apply/reject. Emitted only while the
+  // Document is the active surface (categorical, no workflow content); delegates
+  // to the SAME canonical apply/discard handlers the rail uses.
+  const handleDocumentApplyPreview = useCallback(() => {
+    emitDocumentBuilderEvent("document_agent_preview_applied");
+    handleApplyPreview();
+  }, [handleApplyPreview]);
+  const handleDocumentDiscardPreview = useCallback(() => {
+    emitDocumentBuilderEvent("document_agent_preview_rejected");
+    handleDiscardPreview();
+  }, [handleDiscardPreview]);
 
   // REACT-AGENT-APPLY-MODES-1 — deterministic availability of the three apply modes for the active
   // edit preview (readiness vs the proposed end-state, risk from the rationale, trigger/active
@@ -784,7 +972,7 @@ export function WorkflowBuilder({
             getCurrentGraphShape={getCurrentGraphShape}
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
-            {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
+            {...(documentComposerSeed ? { composerSeed: documentComposerSeed } : {})}
             onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
           />
           )}
@@ -850,7 +1038,26 @@ export function WorkflowBuilder({
             summaryFieldsByType={summaryFieldsByType}
             providerLabels={providerLabels}
             providerIcons={providerIcons}
+            workflowTitle={workflowName}
             onOpenInVisual={handleOpenInVisual}
+            // CS-2 — Document gestures reuse the EXACT canvas paths: the same
+            // action picker (tail append / edge insert) and the same inspector.
+            onAppendAfter={handleAppendAfter}
+            onInsertAtEdge={memoizedEdgePlusClick}
+            onOpenStepInspector={handleOpenStepInspector}
+            onGuidedStopActive={handleGuidedStopActive}
+            onAddToEmptyLane={handleAddToEmptyLane}
+            // CS-6 — empty-state manual creation + single-agent Ask React.
+            onStartWithTrigger={handleDocumentManualStart}
+            onAskReact={handleDocumentAskReact}
+            {...(canUseAdvancedBranching !== undefined ? { canUseAdvancedBranching } : {})}
+            // CS-6 — the ephemeral agent preview (owned by useBuilderPreview) +
+            // the canonical apply/discard handlers, rendered as a ghost Document.
+            previewOverlay={previewOverlay}
+            onApplyPreview={handleDocumentApplyPreview}
+            onDiscardPreview={handleDocumentDiscardPreview}
+            notice={documentNotice}
+            onNotice={setDocumentNotice}
           />
         ) : (
         <WorkflowCanvas
