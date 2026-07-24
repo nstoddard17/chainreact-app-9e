@@ -1,4 +1,5 @@
 import type { RunListItem } from "@/contracts/workflow";
+import { filterVehicleLinksCta } from "@/services/resourceLinks/flags";
 import type { WorkflowRunDisplayRecord } from "@/repositories/workflowRuns";
 
 /**
@@ -45,8 +46,11 @@ export function toRunListItem(
           ...(record.errorClassification.hint !== undefined && {
             hint: record.errorClassification.hint,
           }),
-          ...(record.errorClassification.action !== undefined && {
-            action: record.errorClassification.action,
+          // CS-6 — a `link_vehicles` CTA is stripped when the Vehicle Links
+          // surface is disabled, so the runs list never renders a button
+          // pointing at a 404. Every other action passes through unchanged.
+          ...(filterVehicleLinksCta(record.errorClassification.action) !== undefined && {
+            action: filterVehicleLinksCta(record.errorClassification.action),
           }),
           severity: record.errorClassification.severity,
         }

@@ -61,6 +61,13 @@ export function failedRunCta(
         label: "Fix workflow setup",
         href: `/workflows/${encodeURIComponent(ctx.workflowId)}`,
       };
+    // 5.TRUCK-BRIDGE-1 CS-6 — a vehicle-link setup gap. The destination is the
+    // management screen, NOT the builder: the workflow is correct and the
+    // connection is fine, a mapping is simply missing. Serving layers strip
+    // this action when the Vehicle Links feature is disabled, so this arm is
+    // only ever reached when /apps/vehicle-links actually exists.
+    case "link_vehicles":
+      return { label: "Link vehicles", href: "/apps/vehicle-links" };
     case "retry_later":
       return { label: "Try again later", href: null };
     case "review_pending":

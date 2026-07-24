@@ -54,7 +54,16 @@ export interface WorkflowRunErrorClassification {
   // `contact_support`, and `review_pending` (CS-4 — a connected app changed and
   // ChainReact is reviewing it). Persisted as JSONB, so existing rows (earlier
   // values / none) still satisfy this widened type — no migration needed.
-  action?: "reconnect" | "open_node" | "retry_later" | "upgrade_plan" | "review_pending" | "contact_support";
+  // CS-6 added `link_vehicles`. Persisted as JSONB, so existing rows (earlier
+  // values / none) still satisfy this widened type — no migration needed.
+  action?:
+    | "reconnect"
+    | "open_node"
+    | "retry_later"
+    | "upgrade_plan"
+    | "review_pending"
+    | "link_vehicles"
+    | "contact_support";
   severity: "warning" | "error";
 }
 

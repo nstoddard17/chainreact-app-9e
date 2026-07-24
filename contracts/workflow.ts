@@ -205,8 +205,19 @@ export const HumanizedErrorSchema = z.object({
   // only). Back-compat: every previously-persisted row uses one of the earlier
   // values (or none), all of which remain valid here, so old
   // `error_classification` JSONB still parses.
+  // CS-6 added `link_vehicles` (open /apps/vehicle-links after an
+  // UNMAPPED_VEHICLE failure). Back-compat unchanged: every previously
+  // persisted value remains valid, so old rows still parse.
   action: z
-    .enum(["reconnect", "open_node", "retry_later", "upgrade_plan", "review_pending", "contact_support"])
+    .enum([
+      "reconnect",
+      "open_node",
+      "retry_later",
+      "upgrade_plan",
+      "review_pending",
+      "link_vehicles",
+      "contact_support",
+    ])
     .optional(),
   severity: z.enum(["warning", "error"]),
 });

@@ -35,6 +35,8 @@ export interface AiRepairFailureSummary {
       | "open_node"
       | "retry_later"
       | "upgrade_plan"
+      | "review_pending"
+      | "link_vehicles"
       | "contact_support";
     readonly severity: "warning" | "error";
   } | null;

@@ -173,8 +173,10 @@ afterEach(() => {
 });
 
 describe("feature flag", () => {
-  it("flag OFF ⇒ notFound() before any auth or account-scoped read", async () => {
-    delete process.env[RESOURCE_LINKS_UI_FLAG];
+  it("flag explicitly OFF ⇒ notFound() before any auth or account-scoped read", async () => {
+    // CS-6 launched the feature ON by default, so "off" is now an EXPLICIT
+    // `=false` kill switch rather than an absent variable.
+    process.env[RESOURCE_LINKS_UI_FLAG] = "false";
     await expect(renderPage()).rejects.toBe(notFoundError);
     expect(mockGetUser).not.toHaveBeenCalled();
     expect(mockListLinks).not.toHaveBeenCalled();
@@ -182,11 +184,24 @@ describe("feature flag", () => {
     expect(mockListSuggestions).not.toHaveBeenCalled();
   });
 
-  it('only the exact string "true" enables the page', async () => {
-    for (const value of ["1", "TRUE", "yes", ""]) {
+  it('only the exact string "false" disables the page (CS-6 launch default)', async () => {
+    // Fail-visible in the launched direction: a typo or an unrelated value must
+    // not silently take a shipped feature away from every account.
+    for (const value of ["1", "TRUE", "yes", "", "FALSE", "no"]) {
       process.env[RESOURCE_LINKS_UI_FLAG] = value;
-      await expect(renderPage()).rejects.toBe(notFoundError);
+      await renderPage();
+      expect(dashboardProps).not.toBeNull();
+      dashboardProps = null;
     }
+    delete process.env[RESOURCE_LINKS_UI_FLAG];
+    await renderPage();
+    expect(dashboardProps).not.toBeNull();
+  });
+
+  it("renders the dashboard by DEFAULT, with no env var set at all", async () => {
+    delete process.env[RESOURCE_LINKS_UI_FLAG];
+    await renderPage();
+    expect(dashboardProps).not.toBeNull();
   });
 
   it("flag ON renders the dashboard", async () => {
@@ -221,6 +236,83 @@ describe("auth + membership gating", () => {
       accountId: ACCOUNT,
       actingUserId: USER,
     });
+  });
+});
+
+/**
+ * 5.TRUCK-BRIDGE-1 CS-6 — the ordinary personal-account path.
+ *
+ * A personal account is just an account: `resolveActiveAccount` returns it,
+ * `getRole` reports `owner` on it, and every read is scoped to it. Nothing in
+ * this page filters for `type === "team"`, and these tests exist so a future
+ * change cannot quietly introduce such a filter.
+ */
+describe("personal-account access (CS-6)", () => {
+  const PERSONAL_ACCOUNT = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+  it("opens for a personal-account OWNER with full management rights", async () => {
+    mockResolveActive.mockResolvedValueOnce({
+      ok: true,
+      account: { id: PERSONAL_ACCOUNT, type: "personal" },
+    });
+    mockGetRole.mockResolvedValueOnce("owner");
+    await renderPage();
+    expect(dashboardProps).not.toBeNull();
+    expect(dashboardProps!.canManage).toBe(true);
+    expect(dashboardProps!.accountId).toBe(PERSONAL_ACCOUNT);
+  });
+
+  it("scopes every read to the personal account — no team membership needed", async () => {
+    mockResolveActive.mockResolvedValueOnce({
+      ok: true,
+      account: { id: PERSONAL_ACCOUNT, type: "personal" },
+    });
+    await renderPage();
+    expect(mockListLinks).toHaveBeenCalledWith({
+      accountId: PERSONAL_ACCOUNT,
+      actingUserId: USER,
+    });
+    expect(mockMotiveInventory).toHaveBeenCalledWith({ accountId: PERSONAL_ACCOUNT });
+    expect(mockFleetioInventory).toHaveBeenCalledWith({ accountId: PERSONAL_ACCOUNT });
+    expect(mockListSuggestions).toHaveBeenCalledWith({
+      accountId: PERSONAL_ACCOUNT,
+      actingUserId: USER,
+    });
+  });
+
+  it("falls back to the personal account when the active account cannot resolve", async () => {
+    // `ensurePersonalAccount` is the floor — the page must still render, scoped
+    // to that personal account, rather than 404ing a user out of the feature.
+    mockResolveActive.mockResolvedValueOnce({ ok: false, reason: "account_frozen" });
+    mockGetRole.mockResolvedValueOnce("owner");
+    await renderPage();
+    expect(dashboardProps!.accountId).toBe("personal-account");
+  });
+
+  it("switching the ACTIVE account switches which mappings are read", async () => {
+    mockResolveActive.mockResolvedValueOnce({
+      ok: true,
+      account: { id: PERSONAL_ACCOUNT, type: "personal" },
+    });
+    await renderPage();
+    expect(mockListLinks).toHaveBeenLastCalledWith({
+      accountId: PERSONAL_ACCOUNT,
+      actingUserId: USER,
+    });
+
+    // Same user, team account now active → the team's mappings, not the personal ones.
+    mockResolveActive.mockResolvedValueOnce({ ok: true, account: { id: ACCOUNT, type: "team" } });
+    await renderPage();
+    expect(mockListLinks).toHaveBeenLastCalledWith({ accountId: ACCOUNT, actingUserId: USER });
+  });
+
+  it("never filters the page by account type", async () => {
+    for (const type of ["personal", "team", "organization"]) {
+      mockResolveActive.mockResolvedValueOnce({ ok: true, account: { id: ACCOUNT, type } });
+      dashboardProps = null;
+      await renderPage();
+      expect(dashboardProps).not.toBeNull();
+    }
   });
 });
 

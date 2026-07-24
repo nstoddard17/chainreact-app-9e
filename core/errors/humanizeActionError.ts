@@ -36,6 +36,10 @@ export interface HumanizedError {
     | "retry_later"
     | "upgrade_plan"
     | "review_pending"
+    // 5.TRUCK-BRIDGE-1 CS-6 — open the Vehicle Links screen. Its own action
+    // because the fix is neither a reconnect nor a node edit: the workflow and
+    // the connection are both fine, a mapping is simply missing.
+    | "link_vehicles"
     | "contact_support";
   severity: "warning" | "error";
 }
@@ -212,17 +216,19 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
       // step is the same, and distinguishing them would reveal that a mapping
       // once existed.
       //
-      // No `action` on purpose. The right destination is /apps/vehicle-links,
-      // but that surface is behind the default-OFF RESOURCE_LINKS_UI flag — a
-      // CTA linking to a 404 would be worse than no CTA, and the taxonomy rule
-      // is "never a misleading action". The description names the destination
-      // in plain words instead. Adding a `link_vehicles` action is a clean
-      // follow-up once the flag flips.
+      // CS-6 — `link_vehicles` now points straight at /apps/vehicle-links.
+      // CS-4 deliberately emitted NO action because that surface was behind a
+      // default-OFF flag and a CTA linking to a 404 is worse than no CTA. CS-6
+      // enabled the flag by default, so the destination exists; the serving
+      // layer still strips this action if an operator turns the flag back off
+      // (see `filterVehicleLinksCta`), which keeps "never a misleading action"
+      // true in both configurations.
       return {
         title: "Vehicle isn't linked yet",
         description:
           "This Motive vehicle is not linked to Fleetio yet. Link it in Apps → Vehicle Links, then run the workflow again.",
         hint: "Vehicle links are set up once per truck and reused by every workflow.",
+        action: "link_vehicles",
         severity: "error",
       };
     case "INTEGRATION_REAUTH_REQUIRED":

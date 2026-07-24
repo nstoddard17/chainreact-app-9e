@@ -149,8 +149,8 @@ afterEach(() => {
 });
 
 describe("feature flag gates the whole surface", () => {
-  it("flag OFF ⇒ 404 on every route, BEFORE auth or any role check", async () => {
-    delete process.env[RESOURCE_LINKS_UI_FLAG];
+  it("flag explicitly OFF ⇒ 404 on every route, BEFORE auth or any role check", async () => {
+    process.env[RESOURCE_LINKS_UI_FLAG] = "false";
     signedInAs(OWNER_A);
 
     for (const res of [
@@ -166,12 +166,16 @@ describe("feature flag gates the whole surface", () => {
     expect(store).toHaveLength(0);
   });
 
-  it('flag set to anything other than the string "true" stays OFF', async () => {
-    for (const value of ["1", "TRUE", "yes", ""]) {
+  it('only the exact string "false" closes the surface (CS-6 launch default)', async () => {
+    for (const value of ["1", "TRUE", "yes", "", "FALSE"]) {
       process.env[RESOURCE_LINKS_UI_FLAG] = value;
       signedInAs(OWNER_A);
-      expect((await listLinksRoute(getReq(), params())).status).toBe(404);
+      expect((await listLinksRoute(getReq(), params())).status).toBe(200);
     }
+    // ...and with no env var at all, the launched default applies.
+    delete process.env[RESOURCE_LINKS_UI_FLAG];
+    signedInAs(OWNER_A);
+    expect((await listLinksRoute(getReq(), params())).status).toBe(200);
   });
 
   it("flag ON exposes the surface to a member", async () => {

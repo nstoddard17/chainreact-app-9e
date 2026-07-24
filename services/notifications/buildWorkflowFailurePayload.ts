@@ -63,6 +63,10 @@ function ctaUrlFor(
   switch (action) {
     case "reconnect":
       return "/apps";
+    // 5.TRUCK-BRIDGE-1 CS-6 — the vehicle-link setup gap has a REAL
+    // destination, so the notification links there rather than at the run.
+    case "link_vehicles":
+      return "/apps/vehicle-links";
     case "upgrade_plan":
       // CR-FAILREASON-2 — the billing/plan surface is /account (there is no
       // /subscription route). Matches the in-app failedRunCta destination.
@@ -85,6 +89,8 @@ function ctaLabelFor(action: HumanizedError["action"]): string {
   switch (action) {
     case "reconnect":
       return "Reconnect";
+    case "link_vehicles":
+      return "Link vehicles";
     case "upgrade_plan":
       return "Upgrade plan";
     case "open_node":

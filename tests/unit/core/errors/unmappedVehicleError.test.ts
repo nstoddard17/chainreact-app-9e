@@ -71,9 +71,22 @@ describe("humanized copy", () => {
     expect(blob).not.toContain(err.message);
   });
 
-  it("emits NO action, so no CTA links at a flag-gated 404", () => {
-    expect(humanized.action).toBeUndefined();
-    expect(failedRunCta(humanized.action, { workflowId: "wf-1" })).toBeNull();
+  it("emits the link_vehicles action, which routes to the Vehicle Links screen", () => {
+    // CS-6 — CS-4 deliberately emitted no action while /apps/vehicle-links was
+    // behind a default-OFF flag. The flag launched, so the CTA now points at a
+    // destination that exists; the serving layer strips it if an operator turns
+    // the feature back off (see the flags suite).
+    expect(humanized.action).toBe("link_vehicles");
+    expect(failedRunCta(humanized.action, { workflowId: "wf-1" })).toEqual({
+      label: "Link vehicles",
+      href: "/apps/vehicle-links",
+    });
+  });
+
+  it("routes to the MANAGEMENT screen, not the builder — the workflow is fine", () => {
+    const cta = failedRunCta(humanized.action, { workflowId: "wf-1" })!;
+    expect(cta.href).not.toContain("/workflows/");
+    expect(cta.href).not.toBe("/apps");
   });
 
   it("still parses against the persisted classification schema", () => {

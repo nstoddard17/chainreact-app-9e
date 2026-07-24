@@ -39,6 +39,29 @@ than the intended row (identity-match guard).
 
 ## Node matrices (binding design — Slices 2–5)
 
+### Find Linked Fleetio Vehicle — **SHIPPED (5.TRUCK-BRIDGE-1 CS-3; arc launched CS-6)**
+The bridge that made Create Meter Entry usable fleet-wide. It reads ChainReact's own
+`account_resource_links` table and makes **zero provider calls** — which is why it is the ONE
+Fleetio action with `requiresIntegration: false`, why the real `testModeGate` ALLOWS it, and why a
+disconnected Fleetio breaks the later write rather than the lookup.
+
+| Field | Class | Setup/Advanced | UI |
+|---|---|---|---|
+| Telematics system (`sourceProvider`) | core user decision | Setup, required (Q11 — **no** default) | static one-option `select` (Motive). Qualifies the id NAMESPACE; it never routes to a different system or output shape, so this is not a rule-1 dispatcher |
+| Vehicle (`sourceVehicleId`) | dynamic upstream value | Setup, required | mappable `text`, placeholder `{{trigger.vehicleId}}`. **No picker on purpose:** the value arrives at RUNTIME from the trigger, and a design-time list would restate the one-workflow-per-truck problem this action removes. Carries a documented UPSTREAM exemption in `tests/structure/resource-field-discovery-coverage.test.ts` |
+
+Output (bounded): `{ vehicleId, vehicleName, sourceVehicleId, linkedAt }` — `vehicleId` is the
+Fleetio id, shaped to drop straight into Create Meter Entry's Vehicle field. The repository DTO is
+never spread, so the DB row id, `accountId`, `matchBasis` and both provenance user ids stay
+server-side. No `found` flag: an unmapped truck is a SETUP GAP, not branchable data, so the
+handler throws typed `UNMAPPED_VEHICLE` (archived links take the identical path) and run history
+offers a **"Link vehicles"** CTA to `/apps/vehicle-links`.
+
+Mappings are managed at `/apps/vehicle-links` (`ENABLE_RESOURCE_LINKS_UI`, default **ON** since
+CS-6) — manual pairing plus evidence-explained suggestions, every one requiring human
+confirmation. Full arc:
+[`truck-bridge-vehicle-mapping-plan.md`](../../slices/phase-5/truck-bridge-vehicle-mapping-plan.md).
+
 ### Create Meter Entry — **SHIPPED (FLEETIO-4)**; matrix re-verified against the live 2025-05-05 schema
 `POST /meter_entries` (top-level; `vehicle_id` in the **body**, not the path). Required by Fleetio:
 `vehicle_id`, `value`, `date`. Optional: `void`, `meter_type` (sole enum member `"secondary"`).

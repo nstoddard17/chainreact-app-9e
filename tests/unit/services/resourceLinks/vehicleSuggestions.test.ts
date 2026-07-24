@@ -748,8 +748,8 @@ describe("bulk confirm — gated, and safe when open", () => {
     expect(links).toHaveLength(0);
   });
 
-  it("stays refused when the surface flag is off even if the bulk flag is on", async () => {
-    delete process.env[RESOURCE_LINKS_UI_FLAG];
+  it("stays refused when the surface flag is explicitly off, even with the bulk flag on", async () => {
+    process.env[RESOURCE_LINKS_UI_FLAG] = "false";
     process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "true";
     expect(
       await bulkConfirmVinMatches({ accountId: ACCOUNT_A, actingUserId: OWNER_A, now: NOW }),

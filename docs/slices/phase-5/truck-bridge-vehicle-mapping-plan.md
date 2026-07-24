@@ -1389,6 +1389,165 @@ change to Create Meter Entry, and no change to `OptionsResolverContext`.
 
 ---
 
+## 11g. CS-6 outcome — Flagship walkthrough + LAUNCH (ARC CLOSED)
+
+**Status:** the arc is complete and the feature is **LAUNCHED** —
+`ENABLE_RESOURCE_LINKS_UI` now defaults **ON**. Exact-VIN **bulk** confirm remains OFF,
+deliberately and for a named reason (below).
+
+### The flagship workflow, proven through the REAL engine
+
+[`tests/unit/services/execution/truckBridgeFlagshipWalkthrough.test.ts`](../../../tests/unit/services/execution/truckBridgeFlagshipWalkthrough.test.ts)
+runs the four-node workflow of §4.7 through `WorkflowEngine.runWorkflow`:
+
+```
+motive:new_fuel_purchase  (trigger)
+  → motive:get_fuel_purchase       {{trigger.payload.fuelPurchaseId}}  → odometer
+    → fleetio:find_linked_vehicle  {{trigger.payload.vehicleId}}       → Fleetio id
+      → fleetio:create_meter_entry vehicle = {{find_linked.vehicleId}}
+                                   value   = {{get_fuel.odometer}}
+```
+
+**Real:** the engine and its BFS traversal, the pre-dispatch readiness gate driven by the real
+discovery registry, the real `resolveStrict`, the real handler registry, all three real handlers,
+the real account-scoped link lookup, real credential decryption, real bounded output shaping, and
+real error classification. **Mocked:** the database and the Motive/Fleetio HTTP boundary only.
+`handlers/_registry` and `discovery/_registry` are deliberately NOT mocked, so a registration or
+readiness regression fails in this suite.
+
+| # | Proven | Evidence |
+|---|---|---|
+| 1 | Trigger supplies the fuel-purchase + Motive vehicle ids | `{{trigger.payload.*}}` resolves through the engine's own seeding |
+| 2 | Get Fuel Purchase returns the odometer | step output `{ found: true, odometer: 152340.5 }` |
+| 3 | The bridge resolves with **zero** HTTP | exactly 2 provider calls in the whole run — one Motive read, one Fleetio write |
+| 4 | Create Meter Entry gets the **Fleetio** id | outbound body asserted to contain `vehicle_id: 42`, and asserted NOT to contain the Motive id |
+| 5 | Exactly ONE meter-entry write | `POST /meter_entries` counted |
+| 6 | Only approved fields go out | body is exactly `{ vehicle_id, value, date }` |
+| 7 | A and B share a Motive id, resolve to 42 vs 907 | two full runs, two different outbound bodies |
+| 8 | A never sees B's link/labels/credentials | run blobs asserted free of the other side |
+| 9 | Missing **and** archived link stop before the write | `UNMAPPED_VEHICLE`, meter node never succeeds, zero writes |
+| 10 | Disconnected Fleetio: lookup succeeds, **write** fails with reconnect guidance | `find_linked` succeeded; `meter` failed `INTEGRATION_REAUTH_REQUIRED`, row marked once |
+| 11 | No credential / row id / account id / user id in run output, errors, or the persisted run | asserted across both providers' secrets and the link row's `id` |
+| 12 | A failed write is never replayed | 422 / 500 / 429 each produce exactly one POST |
+
+### Personal-account behavior
+
+A personal account is just an account — nothing in the page, the routes, the service, or the
+engine path filters on `account.type`, and CS-6 added tests so a future change cannot quietly
+introduce such a filter.
+
+- **Page:** a personal-account owner opens `/apps/vehicle-links` with full management rights
+  (`canManage: true`); every read is scoped to that account; the `ensurePersonalAccount` floor
+  still renders the page when the active account cannot resolve; the page renders for
+  `personal` / `team` / `organization` alike.
+- **Switching:** the same user with a team account active reads the TEAM's mappings, and with the
+  personal account active reads the personal ones — proven by asserting the account id threaded
+  into every service call across two renders.
+- **Execution:** a personal-account workflow resolves the mapping from that personal account only,
+  and **never** resolves a team account's mapping (asserted in the engine walkthrough).
+- **No team membership is required anywhere** on the personal path.
+
+Team behavior is unchanged from CS-4/CS-5: owner/admin manage (create, replace, archive,
+confirm, dismiss, bulk); members view and use links in workflows but cannot mutate; non-members
+get 403 and learn nothing.
+
+### Feature-flag decision
+
+| Flag | Default | Rationale |
+|---|---|---|
+| `ENABLE_RESOURCE_LINKS_UI` | **ON** (launched) | The arc is complete and covered end to end. The feature is **inert for anyone who has not connected Motive AND Fleetio** — the screen renders its "connect both apps" state, no suggestion is computed, and no workflow behavior changes — so defaulting it on cannot disturb an existing user. |
+| `ENABLE_VEHICLE_VIN_BULK_CONFIRM` | **OFF** | See below. |
+
+The launched flag is **fail-visible in the launched direction**: only the exact string `"false"`
+disables it, so a typo cannot silently remove a shipped feature. Setting it to `false` is a real
+kill switch — page 404s, routes 404, the Apps entry link disappears, and the `link_vehicles` CTA
+is stripped — **but CS-3's runtime lookup keeps working**, so turning the surface off never breaks
+a workflow that is already running.
+
+### Bulk VIN confirmation stays OFF — and why
+
+Unchanged from the CS-5 finding, re-stated because it is the one deliberate gap at close:
+**the development database contains zero connected Fleetio integrations**, so `GET /vehicles` has
+never been observed and "VIN is populated" is **unverified**. Bulk confirm writes N mappings from
+one click and its entire safety argument rests on that premise, so it stays gated.
+
+Individual confirmation of a VIN-tier suggestion is unaffected and available — a human reading one
+row's evidence and clicking once is safe regardless of how well-populated VIN is across a fleet.
+With the gate closed the UI renders no bulk button and explains the alternative; the route answers
+`403 NOT_ENABLED`. **To lift it:** connect a real Fleetio account, confirm `vin` is populated on
+`GET /vehicles`, record it here, then set the env var. This is plan **Q1**, still open.
+
+### Unmapped-error CTA
+
+`UNMAPPED_VEHICLE` now carries `action: "link_vehicles"` → **"Link vehicles" → `/apps/vehicle-links`**.
+
+- The typed failure code is preserved end to end (`UnmappedVehicleError` → `classifyHandlerError`
+  → `UNMAPPED_VEHICLE`).
+- The CTA routes to the MANAGEMENT screen, not the builder — the workflow and the connection are
+  both fine; a mapping is simply missing.
+- **The persisted copy never names the source vehicle id.** The thrown message does (for
+  server-side diagnostics); the classification is code-derived and identifier-free, which matters
+  because it is persisted on the run row and fans out to notifications.
+- **Missing and archived produce identical copy**, asserted by comparing two real engine runs.
+- Works for personal and team accounts alike — the destination is account-agnostic.
+- **Shown only when the feature is enabled.** `filterVehicleLinksCta` is applied at the two run-DTO
+  serialization points, which covers every failed-run surface (runs list, run detail, builder run
+  panel) without threading a server flag into three client components. The persisted row keeps the
+  action as history; only what is *served* is gated. Every other action passes through untouched.
+
+The taxonomy widening touched seven declarations that must stay in lockstep — the humanizer, the
+CTA mapper, `HumanizedErrorSchema`, `WorkflowRunErrorClassification`, the AI repair types (two
+copies), `runDiagnosis`, and the notification payload builder. TypeScript found every one; the
+notification builder now deep-links to `/apps/vehicle-links` rather than the run.
+
+### Final security + account-isolation evidence
+
+- Cross-account isolation is proven **on the mapping itself**, through the real engine, not merely
+  inherited from credential scoping: identical Motive ids in two accounts produce two different
+  outbound Fleetio writes, and B's link does not satisfy A's lookup.
+- No credential, database row id, account id, or confirmer user id appears in run output, step
+  errors, or the persisted run row.
+- A cross-account link id is indistinguishable from one that never existed (CS-4/CS-5 route + repo
+  suites); dismissals are equally isolated and were database-validated in CS-5.
+- The two tables are service-role-only at the Data API layer with membership-gated SELECT policies
+  as defense-in-depth, both REVOKE-verified against the live database.
+
+### Tests run (focused — full suite intentionally NOT run, per owner instruction)
+
+| Suite | Result |
+|---|---|
+| [`truckBridgeFlagshipWalkthrough.test.ts`](../../../tests/unit/services/execution/truckBridgeFlagshipWalkthrough.test.ts) (new) — the 12 flagship proofs + personal-account path | 17 passed |
+| [`launchFlags.test.ts`](../../../tests/unit/services/resourceLinks/launchFlags.test.ts) (new) — both flag defaults, opposite directions, CTA gate | 12 passed |
+| [`runDtoVehicleLinksCta.test.ts`](../../../tests/unit/app/api/workflows/runDtoVehicleLinksCta.test.ts) (new) — the CTA gate at both serving layers | 10 passed |
+| `vehicleLinksPage.test.tsx` (+6 personal-account tests) | 19 passed |
+| Consolidated focused run — CS-1→CS-5 regressions, all execution suites, all Fleetio + Motive suites, error humanization + CTA + classification contract, run DTOs, runs list | **87 suites / 1400 passed** |
+| `npm run typecheck` · `lint:structure` · `lint:migrations` | clean |
+| `npm run lint` | 0 errors **from CS-6**; direct ESLint on all 19 touched files clean |
+
+**One pre-existing failure, reported not absorbed:**
+`tests/unit/services/execution/staleWorkflowRunSweep.test.ts` — "stamps an EXECUTION_INTERRUPTED
+fatal + humanized classification" asserts `action` is `undefined` but the humanizer returns
+`retry_later`. The test (`f2d27e48a`, COST-15F) predates the humanizer change that added that
+action (`668005efa`, CR-FAILREASON-1); neither file is touched by CS-6. Two `npm run lint` errors
+also sit outside this arc (`services/oauth/dispatcher.ts` require-imports;
+`tests/unit/services/billing/crossAccountBillingIsolation.test.ts` — concurrent billing work).
+
+### No migration
+
+CS-6 created none and needed none. `db:push` was not run.
+
+### Remaining live-certification items
+
+1. **Q1 — Fleetio VIN/plate population.** Connect a real Fleetio account, observe `GET /vehicles`,
+   then decide on `ENABLE_VEHICLE_VIN_BULK_CONFIRM`. The only named blocker at close.
+2. **Live end-to-end on real credentials.** The walkthrough proves the wiring against a mocked
+   provider boundary; a real Motive fuel purchase driving a real Fleetio meter entry is Phase-13
+   work for both providers and is not claimed here.
+3. **Q7 — multi-Fleetio-account discriminator.** Still deferred, still documented in the CS-1
+   migration header; it must land in the same slice that lifts the single-provider-account limit.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 *(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,

@@ -1,4 +1,5 @@
 import { redactOutput } from "@/core/security/redactOutput";
+import { filterVehicleLinksCta } from "@/services/resourceLinks/flags";
 import {
   humanizeActionError,
   GENERIC_ACTION_ERROR_TITLE,
@@ -21,6 +22,24 @@ import type { WorkflowNode } from "@/contracts/workflowDefinition";
  * (directly or via the `_shared` re-export).
  */
 
+/**
+ * CS-6 — apply the Vehicle Links CTA gate to a persisted classification.
+ *
+ * Returns the classification unchanged except that a `link_vehicles` action is
+ * dropped when the feature is disabled. Everything else — title, description,
+ * hint, severity, and every other action — passes through untouched, so this
+ * cannot alter how any pre-existing failure is presented.
+ */
+function gateErrorClassificationCta(
+  classification: WorkflowRunRecord["errorClassification"],
+): WorkflowRunRecord["errorClassification"] {
+  if (!classification?.action) return classification;
+  const action = filterVehicleLinksCta(classification.action);
+  if (action === classification.action) return classification;
+  const { action: _dropped, ...rest } = classification;
+  return rest;
+}
+
 export function toWorkflowRunSummary(
   record: WorkflowRunRecord,
 ): WorkflowRunSummary {
@@ -31,7 +50,10 @@ export function toWorkflowRunSummary(
     triggerNodeId: record.triggerNodeId,
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
-    errorClassification: record.errorClassification,
+    // CS-6 — strip a `link_vehicles` CTA when the Vehicle Links surface is
+    // disabled, so no UI renders a button pointing at a 404. The persisted row
+    // keeps the action as history; only what is SERVED is gated.
+    errorClassification: gateErrorClassificationCta(record.errorClassification),
     // Slice 4.BUILDER-RUNS-TAB-1 — safe source/test provenance for the
     // workflow-scoped Runs tab. Non-secret operational metadata, identical
     // provenance to the account-wide `RunListItem`; no raw payload exposure.

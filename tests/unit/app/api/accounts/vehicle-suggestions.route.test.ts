@@ -171,8 +171,8 @@ afterEach(() => {
 });
 
 describe("feature flag gates every suggestion route", () => {
-  it("flag OFF ⇒ 404 everywhere, and nothing is written", async () => {
-    delete process.env[RESOURCE_LINKS_UI_FLAG];
+  it("flag explicitly OFF ⇒ 404 everywhere, and nothing is written", async () => {
+    process.env[RESOURCE_LINKS_UI_FLAG] = "false";
     signedInAs(OWNER_A);
     for (const res of [
       await confirmRoute(postReq({ sourceVehicleId: "motive-1", targetVehicleId: "42" }), params()),
