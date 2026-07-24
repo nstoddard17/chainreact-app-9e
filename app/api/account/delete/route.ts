@@ -101,13 +101,38 @@ export async function POST(request: Request): Promise<Response> {
     requestedByUserId: auth.userId,
   });
 
+  const billing = state.billingCancellation;
+
   console.info(
     JSON.stringify({
       event: "account.delete.request.ok",
       // No user content — lifecycle bookkeeping only.
       deletionStatus: state.deletionStatus,
+      billingCancellation: billing?.status ?? "not_applicable",
     }),
   );
 
-  return NextResponse.json(toDeletionStatusResponse(state));
+  // Partial-failure honesty (ACCOUNT-BILLING-LIFECYCLE-1): the freeze committed, but the
+  // subscription could not be cancelled. We must NOT return a clean 200 that reads as
+  // "deletion and billing cancellation are complete" — the subscription may still renew.
+  // The response reports both facts and tells the user exactly what to do; retrying the
+  // deletion request re-attempts the cancellation (the service's already-pending path is
+  // idempotent). The purge additionally refuses to run while a live subscription remains.
+  if (billing?.status === "failed") {
+    return NextResponse.json(
+      {
+        ...toDeletionStatusResponse(state),
+        billingCancellation: "failed",
+        error:
+          "Your account is frozen and scheduled for deletion, but we couldn't cancel your subscription. Try again — your account will not be permanently deleted while a subscription is still active.",
+        code: "BILLING_CANCELLATION_FAILED",
+      },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({
+    ...toDeletionStatusResponse(state),
+    billingCancellation: billing?.status ?? "not_applicable",
+  });
 }

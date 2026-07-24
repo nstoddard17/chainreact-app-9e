@@ -175,6 +175,28 @@ export interface DuePendingAccount {
  * still-in-grace pending accounts are never returned — the core correctness
  * guard for "never purge an account that shouldn't be purged."
  */
+/**
+ * Every account currently in `pending_deletion`, regardless of whether its grace window has
+ * elapsed (ACCOUNT-BILLING-LIFECYCLE-1). The billing-reconciliation sweep's worklist: an
+ * account that asked to be deleted must stop being billed NOW, not in 30 days, so this
+ * deliberately has no `purge_after` filter. Ids only — the sweep performs no data teardown.
+ */
+export async function listPendingDeletionAccounts(): Promise<readonly string[]> {
+  const supabase = getServiceRoleClient(
+    "account billing reconcile: list pending-deletion accounts",
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("deletion_status", "pending_deletion");
+  if (error) {
+    throw new Error(
+      `accountPurge.listPendingDeletionAccounts failed: ${error.message}`,
+    );
+  }
+  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+}
+
 export async function listDuePendingAccounts(
   now: string,
 ): Promise<readonly DuePendingAccount[]> {

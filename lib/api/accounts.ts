@@ -372,6 +372,13 @@ export type AccountDeletionErrorCode =
   | "REAUTH_FAILED"
   | "INVALID_CONFIRMATION"
   | "ACCOUNT_PENDING_DELETION"
+  /**
+   * ACCOUNT-BILLING-LIFECYCLE-1 — the deletion request DID freeze the account, but the
+   * ChainReact subscription could not be cancelled. A partial success, deliberately
+   * surfaced as an error so the UI can never render a clean "done": the caller must retry.
+   * `deletionState` carries the (real) frozen lifecycle state that accompanied it.
+   */
+  | "BILLING_CANCELLATION_FAILED"
   | "UNKNOWN";
 
 /** An owned Team/Business account blocking personal deletion (TL-4 shape). */
@@ -388,17 +395,24 @@ export class AccountDeletionError extends Error {
   readonly status: number;
   /** Present only for `ACCOUNT_HAS_OWNED_TEAMS` — the accounts to resolve first. */
   readonly ownedAccounts?: readonly OwnedAccountSummary[];
+  /**
+   * Present only for `BILLING_CANCELLATION_FAILED` — the account IS frozen, so the UI must
+   * still move to the pending state while showing the billing-retry warning.
+   */
+  readonly deletionState?: DeletionStatusResult;
   constructor(
     message: string,
     code: AccountDeletionErrorCode,
     status: number,
     ownedAccounts?: readonly OwnedAccountSummary[],
+    deletionState?: DeletionStatusResult,
   ) {
     super(message);
     this.name = "AccountDeletionError";
     this.code = code;
     this.status = status;
     this.ownedAccounts = ownedAccounts;
+    this.deletionState = deletionState;
   }
 }
 
@@ -407,6 +421,12 @@ export interface DeletionStatusResult {
   deletionStatus: "active" | "pending_deletion";
   requestedAt: string | null;
   purgeAfter: string | null;
+  /**
+   * Outcome of cancelling the account's ChainReact subscription as part of the request
+   * (ACCOUNT-BILLING-LIFECYCLE-1). Absent on the cancel/restore route, which performs no
+   * billing action by design.
+   */
+  billingCancellation?: "not_applicable" | "canceled" | "failed";
 }
 
 /**
@@ -446,6 +466,9 @@ async function parseDeletionError(res: Response): Promise<AccountDeletionError> 
     error?: string;
     code?: string;
     ownedAccounts?: OwnedAccountSummary[];
+    deletionStatus?: string;
+    requestedAt?: string | null;
+    purgeAfter?: string | null;
   } = {};
   try {
     body = (await res.json()) as typeof body;
@@ -460,7 +483,24 @@ async function parseDeletionError(res: Response): Promise<AccountDeletionError> 
   const ownedAccounts = Array.isArray(body.ownedAccounts)
     ? body.ownedAccounts
     : undefined;
-  return new AccountDeletionError(message, code, res.status, ownedAccounts);
+  // The billing-partial-failure response carries the REAL (frozen) lifecycle state alongside
+  // the error, so the card can show the pending state and the retry warning together.
+  const deletionState =
+    code === "BILLING_CANCELLATION_FAILED" && body.deletionStatus === "pending_deletion"
+      ? {
+          deletionStatus: "pending_deletion" as const,
+          requestedAt: body.requestedAt ?? null,
+          purgeAfter: body.purgeAfter ?? null,
+          billingCancellation: "failed" as const,
+        }
+      : undefined;
+  return new AccountDeletionError(
+    message,
+    code,
+    res.status,
+    ownedAccounts,
+    deletionState,
+  );
 }
 
 /**
@@ -475,6 +515,9 @@ function deletionCodeFor(
   if (serverCode === "ACCOUNT_HAS_OWNED_TEAMS") return "ACCOUNT_HAS_OWNED_TEAMS";
   if (serverCode === "REAUTH_FAILED") return "REAUTH_FAILED";
   if (serverCode === "ACCOUNT_PENDING_DELETION") return "ACCOUNT_PENDING_DELETION";
+  if (serverCode === "BILLING_CANCELLATION_FAILED") {
+    return "BILLING_CANCELLATION_FAILED";
+  }
   if (status === 409) return "ACCOUNT_HAS_OWNED_TEAMS";
   if (status === 400) return "INVALID_CONFIRMATION";
   if (status === 401) return "REAUTH_FAILED";

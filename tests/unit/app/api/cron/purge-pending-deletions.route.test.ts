@@ -9,6 +9,7 @@
 const mockRequireCronAuth = jest.fn();
 const mockIsEnabled = jest.fn();
 const mockPurgeDue = jest.fn();
+const mockReconcileBilling = jest.fn();
 
 jest.mock("@/services/cron/auth", () => ({
   requireCronAuth: (...a: unknown[]) => mockRequireCronAuth(...a),
@@ -18,14 +19,25 @@ jest.mock("@/services/accounts/accountDeletionFlags", () => ({
 }));
 jest.mock("@/services/accounts/accountPurge", () => ({
   purgeDuePendingAccounts: (...a: unknown[]) => mockPurgeDue(...a),
+  reconcilePendingDeletionBilling: (...a: unknown[]) => mockReconcileBilling(...a),
 }));
 
 import { GET, POST } from "@/app/api/cron/purge-pending-deletions/route";
+
+const NO_RECONCILE = { scanned: 0, canceled: 0, alreadyClear: 0, failed: 0 };
+
+/** Invocation order of a mock's FIRST call — fails loudly if it was never called. */
+function firstCallOrder(m: jest.Mock): number {
+  const order = m.mock.invocationCallOrder[0];
+  if (order === undefined) throw new Error("expected the mock to have been called");
+  return order;
+}
 
 beforeEach(() => {
   mockRequireCronAuth.mockReset();
   mockIsEnabled.mockReset();
   mockPurgeDue.mockReset();
+  mockReconcileBilling.mockReset().mockResolvedValue(NO_RECONCILE);
 });
 
 function req(method = "POST") {
@@ -59,7 +71,11 @@ describe("/api/cron/purge-pending-deletions route", () => {
     mockIsEnabled.mockReturnValueOnce(false);
     const res = await POST(req());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, enabled: false });
+    expect(await res.json()).toEqual({
+      ok: true,
+      enabled: false,
+      billingReconcile: NO_RECONCILE,
+    });
     expect(mockPurgeDue).not.toHaveBeenCalled();
   });
 
@@ -73,6 +89,7 @@ describe("/api/cron/purge-pending-deletions route", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true, enabled: true, scanned: 3, purged: 2, recovered: 0, skipped: 1, failed: 0,
+      billingReconcile: NO_RECONCILE,
     });
     expect(mockPurgeDue).toHaveBeenCalledTimes(1);
   });
@@ -103,7 +120,81 @@ describe("/api/cron/purge-pending-deletions route", () => {
     const res = await POST(req());
     const body = (await res.json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(
-      ["enabled", "failed", "ok", "purged", "recovered", "scanned", "skipped"].sort(),
+      [
+        "billingReconcile", "enabled", "failed", "ok", "purged", "recovered",
+        "scanned", "skipped",
+      ].sort(),
+    );
+    // The reconcile report is counts only too.
+    expect(Object.keys(body.billingReconcile as object).sort()).toEqual(
+      ["alreadyClear", "canceled", "failed", "scanned"].sort(),
+    );
+  });
+});
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-1 — the billing-reconciliation sweep. It is the durable retry
+ * for "we froze the account but Stripe was unreachable", so it must run even while the
+ * destructive purge flag is OFF, and it must never take the purge down with it.
+ */
+describe("/api/cron/purge-pending-deletions — billing reconciliation", () => {
+  it("runs the reconciliation even when the destructive purge flag is OFF", async () => {
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockIsEnabled.mockReturnValueOnce(false);
+    mockReconcileBilling.mockResolvedValueOnce({
+      scanned: 2, canceled: 1, alreadyClear: 1, failed: 0,
+    });
+
+    const res = await POST(req());
+    const body = await res.json();
+
+    expect(mockReconcileBilling).toHaveBeenCalledTimes(1);
+    expect(body.enabled).toBe(false);
+    expect(body.billingReconcile).toEqual({
+      scanned: 2, canceled: 1, alreadyClear: 1, failed: 0,
+    });
+    // Still no destructive teardown.
+    expect(mockPurgeDue).not.toHaveBeenCalled();
+  });
+
+  it("never runs before cron auth passes", async () => {
+    mockRequireCronAuth.mockReturnValueOnce({
+      authorized: false, message: "Unauthorized", status: 401,
+    });
+    await POST(req());
+    expect(mockReconcileBilling).not.toHaveBeenCalled();
+  });
+
+  it("a reconciliation failure does NOT fail the request or block the purge sweep", async () => {
+    const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockIsEnabled.mockReturnValueOnce(true);
+    mockReconcileBilling.mockRejectedValueOnce(new Error("stripe down"));
+    mockPurgeDue.mockResolvedValueOnce({
+      scanned: 1, purged: 1, recovered: 0, skipped: 0, failed: 0,
+    });
+
+    const res = await POST(req());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.billingReconcile).toBeNull();
+    expect(mockPurgeDue).toHaveBeenCalledTimes(1);
+    expect(body.purged).toBe(1);
+    errSpy.mockRestore();
+  });
+
+  it("reconciles BEFORE the purge sweep so a fresh cancel is visible to the guard", async () => {
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockIsEnabled.mockReturnValueOnce(true);
+    mockPurgeDue.mockResolvedValueOnce({
+      scanned: 0, purged: 0, recovered: 0, skipped: 0, failed: 0,
+    });
+
+    await POST(req());
+
+    expect(firstCallOrder(mockReconcileBilling)).toBeLessThan(
+      firstCallOrder(mockPurgeDue),
     );
   });
 });

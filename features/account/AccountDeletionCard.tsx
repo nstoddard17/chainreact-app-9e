@@ -11,15 +11,28 @@ import {
 } from "@/lib/api/accounts";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/features/team/Panel";
+import { AccountDeletionBillingRetry } from "./AccountDeletionBillingRetry";
 
 /**
  * Personal-account danger zone (Slice 4.ACCOUNT-SETTINGS-1; relocated under the
- * Danger-zone settings section in 4.ACCOUNT-SETTINGS-2 — behavior unchanged).
+ * Danger-zone settings section in 4.ACCOUNT-SETTINGS-2; billing consequences added in
+ * 4.ACCOUNT-BILLING-LIFECYCLE-1).
  *
  * Explains the freeze/grace/purge flow, then either (a) the request form behind
  * a typed phrase + password, (b) the owned-Team/Business blocker, or (c) the
  * pending/scheduled state with a cancel. Deletion always targets the caller's
  * OWN personal account; the shell only renders this when that account is active.
+ *
+ * This is DELETE MY ACCOUNT — deliberately distinct from "Cancel subscription", which lives
+ * in Plan & billing and keeps the account. The confirmation here states every consequence
+ * up front, including that the personal account's ChainReact subscription is cancelled, that
+ * Team/Business data is not the individual's to delete, and that cancelling the deletion
+ * restores the account on Free rather than silently restarting a paid plan.
+ *
+ * Partial-failure honesty: if the freeze succeeded but the subscription could not be
+ * cancelled, the route answers 502 `BILLING_CANCELLATION_FAILED`. The card must then show
+ * BOTH facts — deletion is scheduled AND billing cancellation needs a retry — instead of a
+ * plain success or a plain error.
  */
 
 /** Typed confirmation phrase — mirrors the backend `DELETION_CONFIRM_PHRASE`. */
@@ -46,6 +59,9 @@ export function AccountDeletionCard({
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [purgeAfter, setPurgeAfter] = useState(initialPurgeAfter);
+  // True when the freeze committed but the subscription cancellation did not. Shown ON TOP
+  // of the pending state — both facts are true and the user must be told both.
+  const [billingFailed, setBillingFailed] = useState(false);
 
   // request-form state
   const [formOpen, setFormOpen] = useState(false);
@@ -56,6 +72,7 @@ export function AccountDeletionCard({
   const [blocked, setBlocked] = useState<readonly OwnedAccountSummary[] | null>(
     null,
   );
+  const [retryOpen, setRetryOpen] = useState(false);
 
   const phraseOK = confirmText.trim().toLowerCase() === CONFIRM_PHRASE;
   const purgeDate = formatPurgeDate(purgeAfter);
@@ -63,6 +80,7 @@ export function AccountDeletionCard({
   function applyResult(result: DeletionStatusResult) {
     setStatus(result.deletionStatus);
     setPurgeAfter(result.purgeAfter);
+    setBillingFailed(result.billingCancellation === "failed");
   }
 
   function openForm() {
@@ -92,11 +110,54 @@ export function AccountDeletionCard({
         if (err.code === "ACCOUNT_HAS_OWNED_TEAMS") {
           setFormOpen(false);
           setBlocked(err.ownedAccounts ?? []);
+        } else if (err.code === "BILLING_CANCELLATION_FAILED" && err.deletionState) {
+          // Partial success: the account IS frozen. Move to the pending state so the user
+          // sees the truth, and keep the billing warning + retry visible there.
+          setFormOpen(false);
+          applyResult(err.deletionState);
+          setError(err.message);
         } else {
           setError(err.message);
         }
       } else {
         setError("Couldn't request deletion. Try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Retry ONLY the subscription cancellation after a partial failure.
+   *
+   * Re-POSTs the deletion request: the account is already `pending_deletion`, so the
+   * service's idempotent path performs NO second lifecycle transition and simply re-attempts
+   * the (idempotent) Stripe cancellation. The password step-up is still required — it is the
+   * real security control. The typed phrase is supplied programmatically because the user
+   * already typed it to reach this state and this call cannot cause a new destructive
+   * transition; re-typing it would only add friction to recovering from OUR failure.
+   */
+  async function retryBillingCancellation() {
+    if (password.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await requestAccountDeletion({
+        password,
+        confirmText: CONFIRM_PHRASE,
+      });
+      applyResult(result);
+      setRetryOpen(false);
+      setPassword("");
+    } catch (err) {
+      if (err instanceof AccountDeletionError) {
+        if (err.code === "BILLING_CANCELLATION_FAILED" && err.deletionState) {
+          // Still failing — keep the honest banner up rather than clearing it.
+          applyResult(err.deletionState);
+        }
+        setError(err.message);
+      } else {
+        setError("Couldn't cancel the subscription. Try again.");
       }
     } finally {
       setBusy(false);
@@ -131,10 +192,27 @@ export function AccountDeletionCard({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {purgeDate
-                ? `It stays recoverable until ${purgeDate}. Cancel any time before then to restore full access.`
-                : "It stays recoverable during the grace window. Cancel any time before then to restore full access."}
+                ? `It stays recoverable until ${purgeDate}. Cancel any time before then to restore your data — your account comes back on the Free plan.`
+                : "It stays recoverable during the grace window. Cancel any time before then to restore your data — your account comes back on the Free plan."}
             </p>
           </div>
+
+          {/* Partial-failure banner: the freeze is real, the cancellation is not (yet). */}
+          {billingFailed && (
+            <AccountDeletionBillingRetry
+              retryOpen={retryOpen}
+              password={password}
+              busy={busy}
+              onOpen={() => {
+                setPassword("");
+                setError(null);
+                setRetryOpen(true);
+              }}
+              onPasswordChange={setPassword}
+              onRetry={retryBillingCancellation}
+              onDismiss={() => setRetryOpen(false)}
+            />
+          )}
 
           {error && (
             <p role="alert" data-testid="account-deletion-error" className="text-xs text-destructive">
@@ -210,14 +288,47 @@ export function AccountDeletionCard({
   return (
     <Panel title="Danger zone" desc="Irreversible once the grace window ends. Please be certain.">
       <div data-testid="account-deletion-card" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">Delete personal account</p>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-foreground">Delete my ChainReact account</p>
           <p className="max-w-xl text-xs text-muted-foreground">
-            Deleting your account starts a 30-day grace period — your account is
-            frozen immediately and your automations stop running. It stays
-            reversible during that window; the final, permanent purge happens
-            after it ends.
+            This deletes your personal account and its information. It is not the same as
+            cancelling your plan — if you only want to stop paying,{" "}
+            <span className="font-medium text-foreground">
+              use &ldquo;Cancel subscription&rdquo; under Plan &amp; billing
+            </span>{" "}
+            and keep your account.
           </p>
+          <ul
+            data-testid="account-delete-consequences"
+            className="max-w-xl list-disc space-y-1 pl-4 text-xs text-muted-foreground"
+          >
+            <li>Your access is frozen immediately and your automations stop running.</li>
+            <li>
+              Your personal account&apos;s ChainReact subscription is cancelled and will not
+              renew.
+            </li>
+            <li>
+              Your personal workflows, runs, integrations, files, AI conversations, and
+              account information are scheduled for permanent deletion after a 30-day grace
+              period.
+            </li>
+            <li>
+              Some anonymized billing and security records are kept for the period required
+              for accounting, fraud prevention, and legal purposes.
+            </li>
+            <li>
+              Team and Business information does not belong to you individually — those
+              accounts, their data, and their subscriptions stay with them.
+            </li>
+            <li>
+              Any Team or Business account you own must be transferred or deleted first.
+            </li>
+            <li>
+              Cancelling the deletion restores your account on the{" "}
+              <span className="font-medium text-foreground">Free plan</span> — it does not
+              restart billing. You can subscribe again whenever you want.
+            </li>
+          </ul>
         </div>
 
         {!formOpen ? (
@@ -268,8 +379,9 @@ export function AccountDeletionCard({
             </label>
 
             <p className="text-xs text-muted-foreground">
-              Your account stays recoverable for 30 days. Sign in any time before
-              then to cancel.
+              Your data stays recoverable for 30 days — sign in any time before then to
+              cancel. Your subscription is cancelled right away and is not restored by
+              cancelling the deletion.
             </p>
 
             {error && (

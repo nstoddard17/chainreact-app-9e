@@ -151,6 +151,7 @@ describe("POST /api/account/delete", () => {
       deletionStatus: "pending_deletion",
       deletionRequestedAt: "2026-05-31T00:00:00.000Z",
       purgeAfter: "2026-06-30T00:00:00.000Z",
+      billingCancellation: { status: "canceled", reason: null },
     });
 
     const res = await POST(req({ password: "pw", confirmText: "delete my account" }));
@@ -159,6 +160,7 @@ describe("POST /api/account/delete", () => {
       deletionStatus: "pending_deletion",
       requestedAt: "2026-05-31T00:00:00.000Z",
       purgeAfter: "2026-06-30T00:00:00.000Z",
+      billingCancellation: "canceled",
     });
     expect(mockVerifyReauth).toHaveBeenCalledWith("owner@example.com", "pw");
     expect(mockRequestAccountDeletion).toHaveBeenCalledWith({
@@ -203,5 +205,57 @@ describe("POST /api/account/delete", () => {
       accountId: ACCOUNT_ID,
       requestedByUserId: USER_ID,
     });
+  });
+});
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-1 — partial-failure honesty. The route must never return a
+ * clean 200 that reads as "deletion and billing cancellation are complete" when the
+ * subscription is still able to renew.
+ */
+describe("POST /api/account/delete — billing cancellation outcome", () => {
+  function happyPath(billingCancellation: unknown) {
+    signedIn("owner@example.com");
+    mockVerifyReauth.mockResolvedValueOnce({ ok: true });
+    mockRequestAccountDeletion.mockResolvedValueOnce({
+      deletionStatus: "pending_deletion",
+      deletionRequestedAt: "2026-05-31T00:00:00.000Z",
+      purgeAfter: "2026-06-30T00:00:00.000Z",
+      billingCancellation,
+    });
+    return POST(req({ password: "pw", confirmText: "delete my account" }));
+  }
+
+  it("200s a FREE account with billingCancellation=not_applicable", async () => {
+    const res = await happyPath({ status: "not_applicable", reason: null });
+    expect(res.status).toBe(200);
+    expect((await res.json()).billingCancellation).toBe("not_applicable");
+  });
+
+  it("502s when the subscription could not be cancelled — never a fake success", async () => {
+    const res = await happyPath({ status: "failed", reason: "stripe_unavailable" });
+
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.code).toBe("BILLING_CANCELLATION_FAILED");
+    expect(body.billingCancellation).toBe("failed");
+    // ...while still reporting the REAL lifecycle state: the freeze DID happen.
+    expect(body.deletionStatus).toBe("pending_deletion");
+    expect(body.purgeAfter).toBe("2026-06-30T00:00:00.000Z");
+    // The message tells the user what to do and what protects them meanwhile.
+    expect(body.error).toMatch(/couldn't cancel your subscription/i);
+    expect(body.error).toMatch(/try again/i);
+  });
+
+  it("leaks no Stripe id, customer, or secret in the failure response", async () => {
+    const res = await happyPath({ status: "failed", reason: "stripe_unavailable" });
+    const text = JSON.stringify(await res.json());
+    expect(text).not.toMatch(/sub_|cus_|sk_|price_/);
+  });
+
+  it("treats an absent billing outcome as not_applicable (backward compatible)", async () => {
+    const res = await happyPath(undefined);
+    expect(res.status).toBe(200);
+    expect((await res.json()).billingCancellation).toBe("not_applicable");
   });
 });

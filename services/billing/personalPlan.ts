@@ -2,11 +2,12 @@ import type { PlanStatus, PlanTier } from "@/core/billing/planPolicy";
 import type { DowngradeBlocker } from "@/core/billing/downgradeRules";
 import { getByIdServiceRole } from "@/repositories/accounts";
 import { getUsage, getStripeAttachmentServiceRole } from "@/repositories/accountBilling";
-import {
-  PlatformStripeConfigError,
-  getPlatformStripeClient,
-} from "@/services/billing/platformStripeClient";
 import { previewDowngrade } from "@/services/billing/downgradePreview";
+import {
+  resumeSubscription,
+  scheduleSubscriptionCancellation,
+  type SubscriptionOpReason,
+} from "@/services/billing/subscriptionCancellation";
 
 /**
  * Personal-plan read + cancel-at-period-end (Slice 4.BILLING-PERSONAL-PRO-TEAM-CHOICE-2 /
@@ -81,21 +82,22 @@ export async function getPersonalPlanState(
 // ─── Cancel at period end (set / undo) ───────────────────────────────────────
 
 export type SetPersonalCancelReason =
-  | "account_not_found"
   | "not_personal"
-  | "account_frozen"
-  | "no_subscription"
-  | "stripe_not_configured";
+  | SubscriptionOpReason;
 
 export type SetPersonalCancelResult =
-  | { ok: true; cancelAtPeriodEnd: boolean }
+  | { ok: true; cancelAtPeriodEnd: boolean; effectiveAt: string | null }
   | { ok: false; reason: SetPersonalCancelReason };
 
 /**
  * Set (or undo) `cancel_at_period_end` on the personal account's existing Stripe
- * subscription. Idempotent — Stripe accepts setting the same value. Does NOT mutate
- * account_billing.plan/plan_status (webhook authority); the synced flag arrives via the
- * subsequent subscription.updated event.
+ * subscription.
+ *
+ * This keeps the personal-only product gate (the Pro→Free choice flow is personal-account
+ * UX) but DELEGATES the Stripe work to the canonical account-scoped operation in
+ * `subscriptionCancellation.ts` — there is exactly one cancellation contract in the
+ * codebase, so personal and shared accounts cannot drift apart. Idempotent; still never
+ * mutates account_billing.plan/plan_status (webhook authority).
  */
 export async function setPersonalCancelAtPeriodEnd(
   accountId: string,
@@ -104,29 +106,14 @@ export async function setPersonalCancelAtPeriodEnd(
   const account = await getByIdServiceRole(accountId);
   if (!account) return { ok: false, reason: "account_not_found" };
   if (account.type !== "personal") return { ok: false, reason: "not_personal" };
-  if (account.deletionStatus === "pending_deletion") {
-    return { ok: false, reason: "account_frozen" };
-  }
 
-  const attachment = await getStripeAttachmentServiceRole(accountId);
-  const subscriptionId = attachment?.stripeSubscriptionId;
-  if (!subscriptionId) return { ok: false, reason: "no_subscription" };
-
-  let client;
-  try {
-    client = getPlatformStripeClient();
-  } catch (e) {
-    if (e instanceof PlatformStripeConfigError) {
-      return { ok: false, reason: "stripe_not_configured" };
-    }
-    throw e;
-  }
-
-  await client.request({
-    method: "POST",
-    path: `/v1/subscriptions/${subscriptionId}`,
-    body: { cancel_at_period_end: cancel },
-  });
-
-  return { ok: true, cancelAtPeriodEnd: cancel };
+  const result = cancel
+    ? await scheduleSubscriptionCancellation(accountId)
+    : await resumeSubscription(accountId);
+  if (!result.ok) return { ok: false, reason: result.reason };
+  return {
+    ok: true,
+    cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+    effectiveAt: result.effectiveAt,
+  };
 }

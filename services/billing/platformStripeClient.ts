@@ -66,6 +66,39 @@ export function getPlatformStripeSecretKey(): string {
   return key;
 }
 
+/**
+ * Thrown when a platform Stripe REST call returns a non-2xx response. Carries the HTTP
+ * status and (when Stripe supplied one) the machine-readable `error.code` so callers can
+ * branch on the CONDITION rather than string-matching a human message — which is what
+ * makes the billing-lifecycle operations honestly idempotent (a 404 `resource_missing`
+ * on a subscription means "already gone", not "failed").
+ *
+ * The `message` is unchanged from the pre-existing generic surface (Stripe's envelope
+ * message only) — it never echoes the secret key or the request body.
+ */
+export class PlatformStripeApiError extends Error {
+  readonly status: number;
+  /** Stripe's `error.code` (e.g. `resource_missing`), when present. */
+  readonly stripeCode: string | null;
+  constructor(message: string, status: number, stripeCode: string | null) {
+    super(message);
+    this.name = "PlatformStripeApiError";
+    this.status = status;
+    this.stripeCode = stripeCode;
+  }
+}
+
+/** Extract Stripe's machine-readable `error.code` from a raw error body, if present. */
+function stripeErrorCode(text: string): string | null {
+  try {
+    const parsed = JSON.parse(text) as { error?: { code?: unknown } };
+    const code = parsed?.error?.code;
+    return typeof code === "string" && code.length > 0 ? code : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface PlatformStripeRequest {
   method: "GET" | "POST" | "DELETE";
   /** Path relative to the Stripe API base, e.g. `/v1/checkout/sessions`. */
@@ -132,8 +165,10 @@ export function getPlatformStripeClient(): PlatformStripeClient {
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new Error(
+        throw new PlatformStripeApiError(
           `Platform Stripe ${input.method} ${input.path} failed: ${surfaceStripeError(text, res.status)}`,
+          res.status,
+          stripeErrorCode(text),
         );
       }
 

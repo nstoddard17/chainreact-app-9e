@@ -85,7 +85,10 @@ export async function POST(
   try {
     const result = await setPersonalCancelAtPeriodEnd(accountId, body.data.cancelAtPeriodEnd);
     if (!result.ok) return cancelFailure(result.reason);
-    return NextResponse.json({ cancelAtPeriodEnd: result.cancelAtPeriodEnd });
+    return NextResponse.json({
+      cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+      effectiveAt: result.effectiveAt,
+    });
   } catch {
     return NextResponse.json(
       { error: "Could not update the subscription.", code: "CANCEL_FAILED" },
@@ -108,6 +111,22 @@ function cancelFailure(reason: SetPersonalCancelReason): NextResponse {
     case "no_subscription":
       return NextResponse.json(
         { error: "No active subscription to change.", code: "NO_SUBSCRIPTION" },
+        { status: 409 },
+      );
+    case "subscription_already_ended":
+      return NextResponse.json(
+        {
+          error: "This subscription has already ended.",
+          code: "SUBSCRIPTION_ALREADY_ENDED",
+        },
+        { status: 409 },
+      );
+    case "internal_account":
+      return NextResponse.json(
+        {
+          error: "This account uses internal billing and has no subscription.",
+          code: "INTERNAL_BILLING_ACCOUNT",
+        },
         { status: 409 },
       );
     case "stripe_not_configured":

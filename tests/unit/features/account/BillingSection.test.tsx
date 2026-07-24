@@ -604,3 +604,66 @@ describe("BillingSection — frozen account", () => {
     );
   });
 });
+
+/**
+ * ACCOUNT-BILLING-LIFECYCLE-1 — where the "Cancel subscription" control lives. Exactly ONE
+ * cancel surface renders per account type (Team/Business → SubscriptionCancelPanel;
+ * personal → PersonalPlanPanel), and it always sits in Plan & billing, never the Danger Zone.
+ */
+describe("BillingSection — subscription cancellation surface", () => {
+  function renderWithAccount(
+    acct: ReturnType<typeof active>,
+    billing: Partial<AccountBillingView> = {},
+  ) {
+    return render(
+      <BillingSection
+        active={acct}
+        accountId="acct-1"
+        billing={{ ...baseBilling, ...billing }}
+        now={NOW}
+      />,
+    );
+  }
+
+  it("renders the cancel panel for a TEAM owner", () => {
+    renderWithAccount(active("team", "Acme", "owner"), { memberLimit: 5, memberCount: 2 });
+    expect(screen.getByTestId("subscription-cancel-panel")).toBeInTheDocument();
+    // ...and describes it as keeping the account.
+    expect(screen.getByTestId("account-section-billing")).toHaveTextContent(
+      /Your account and data stay/i,
+    );
+  });
+
+  it("renders the cancel panel for a BUSINESS owner", () => {
+    renderWithAccount(active("organization", "Acme", "owner"), {
+      memberLimit: 25,
+      memberCount: 4,
+    });
+    expect(screen.getByTestId("subscription-cancel-panel")).toBeInTheDocument();
+  });
+
+  it("renders it for an admin too (the panel itself is read-only for them)", () => {
+    renderWithAccount(active("team", "Acme", "admin"), { memberLimit: 5, memberCount: 2 });
+    expect(screen.getByTestId("subscription-cancel-panel")).toBeInTheDocument();
+  });
+
+  it("hides it from a plain member", () => {
+    renderWithAccount(active("team", "Acme", "member"), { memberLimit: 5, memberCount: 2 });
+    expect(screen.queryByTestId("subscription-cancel-panel")).toBeNull();
+  });
+
+  it("does NOT render it on a personal account — PersonalPlanPanel owns that surface", () => {
+    renderWithAccount(active("personal", "Personal", "owner"));
+    expect(screen.queryByTestId("subscription-cancel-panel")).toBeNull();
+    expect(screen.getByTestId("personal-plan-panel")).toBeInTheDocument();
+  });
+
+  it("never renders a delete-account control in the billing section", () => {
+    renderWithAccount(active("team", "Acme", "owner"), { memberLimit: 5, memberCount: 2 });
+    // Cancel and delete must never be confusable — deletion lives only in the Danger Zone.
+    expect(screen.queryByTestId("account-delete-open")).toBeNull();
+    expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(
+      /delete (my )?(chainreact )?account/i,
+    );
+  });
+});

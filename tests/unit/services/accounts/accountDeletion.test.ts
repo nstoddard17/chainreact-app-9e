@@ -27,6 +27,14 @@ jest.mock("@/repositories/accountDeletions", () => ({
   markPendingCancelled: (...a: unknown[]) => mockMarkPendingCancelled(...a),
 }));
 
+// ACCOUNT-BILLING-LIFECYCLE-1 — the deletion request cancels the account's ChainReact
+// subscription. Mocked at the canonical service boundary (its own Stripe behavior is proven
+// in tests/unit/services/billing/subscriptionCancellation.test.ts).
+const mockCancelForDeletion = jest.fn();
+jest.mock("@/services/billing/subscriptionCancellation", () => ({
+  cancelSubscriptionForAccountDeletion: (...a: unknown[]) => mockCancelForDeletion(...a),
+}));
+
 import {
   DEFAULT_GRACE_PERIOD_DAYS,
   requestAccountDeletion,
@@ -35,6 +43,13 @@ import {
 
 const ACCOUNT_ID = "acct-1";
 const OWNER_ID = "user-1";
+
+/** Invocation order of a mock's FIRST call — fails loudly if it was never called. */
+function firstCallOrder(m: jest.Mock): number {
+  const order = m.mock.invocationCallOrder[0];
+  if (order === undefined) throw new Error("expected the mock to have been called");
+  return order;
+}
 
 function pendingAccountRecord(overrides: Record<string, unknown> = {}) {
   return {
@@ -67,6 +82,9 @@ beforeEach(() => {
   mockClearDeletion.mockReset();
   mockInsertPending.mockReset();
   mockMarkPendingCancelled.mockReset();
+  mockCancelForDeletion
+    .mockReset()
+    .mockResolvedValue({ ok: true, outcome: "not_applicable" });
 });
 
 describe("requestAccountDeletion", () => {
@@ -116,6 +134,109 @@ describe("requestAccountDeletion", () => {
     expect(mockInsertPending).not.toHaveBeenCalled();
   });
 
+  // ── Billing wind-down (ACCOUNT-BILLING-LIFECYCLE-1) ────────────────────────
+
+  it("cancels the ChainReact subscription for the SAME account, AFTER the freeze committed", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("active");
+    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
+    mockInsertPending.mockResolvedValueOnce({});
+    mockCancelForDeletion.mockResolvedValueOnce({ ok: true, outcome: "canceled" });
+
+    const state = await requestAccountDeletion({
+      accountId: ACCOUNT_ID,
+      requestedByUserId: OWNER_ID,
+    });
+
+    expect(mockCancelForDeletion).toHaveBeenCalledTimes(1);
+    // Account-scoped: only this account's subscription is ever named.
+    expect(mockCancelForDeletion).toHaveBeenCalledWith(ACCOUNT_ID);
+    expect(state.billingCancellation).toEqual({ status: "canceled", reason: null });
+    // Freeze-first ordering: the lifecycle writes happened before the Stripe call.
+    expect(firstCallOrder(mockSetDeletionPending)).toBeLessThan(
+      firstCallOrder(mockCancelForDeletion),
+    );
+  });
+
+  it("a FREE account needs no Stripe cancellation and still reports success", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("active");
+    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
+    mockInsertPending.mockResolvedValueOnce({});
+    mockCancelForDeletion.mockResolvedValueOnce({ ok: true, outcome: "not_applicable" });
+
+    const state = await requestAccountDeletion({
+      accountId: ACCOUNT_ID,
+      requestedByUserId: OWNER_ID,
+    });
+
+    expect(state.deletionStatus).toBe("pending_deletion");
+    expect(state.billingCancellation).toEqual({ status: "not_applicable", reason: null });
+  });
+
+  it("reports a Stripe failure as FAILED while still freezing the account", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("active");
+    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
+    mockInsertPending.mockResolvedValueOnce({});
+    mockCancelForDeletion.mockResolvedValueOnce({
+      ok: false,
+      reason: "stripe_unavailable",
+    });
+
+    const state = await requestAccountDeletion({
+      accountId: ACCOUNT_ID,
+      requestedByUserId: OWNER_ID,
+    });
+
+    // The freeze is REAL — the safety property committed regardless of Stripe.
+    expect(state.deletionStatus).toBe("pending_deletion");
+    expect(mockSetDeletionPending).toHaveBeenCalled();
+    // ...and the billing failure is reported, not swallowed.
+    expect(state.billingCancellation).toEqual({
+      status: "failed",
+      reason: "stripe_unavailable",
+    });
+  });
+
+  it("never throws out of the billing step — a thrown Stripe error becomes a FAILED outcome", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("active");
+    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
+    mockInsertPending.mockResolvedValueOnce({});
+    mockCancelForDeletion.mockRejectedValueOnce(new Error("network down"));
+
+    const state = await requestAccountDeletion({
+      accountId: ACCOUNT_ID,
+      requestedByUserId: OWNER_ID,
+    });
+
+    expect(state.deletionStatus).toBe("pending_deletion");
+    expect(state.billingCancellation?.status).toBe("failed");
+  });
+
+  it("RETRIES the cancellation on a repeated request, without a second lifecycle write", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("pending_deletion");
+    mockGetByIdServiceRole.mockResolvedValueOnce(pendingAccountRecord());
+    mockCancelForDeletion.mockResolvedValueOnce({ ok: true, outcome: "canceled" });
+
+    const state = await requestAccountDeletion({
+      accountId: ACCOUNT_ID,
+      requestedByUserId: OWNER_ID,
+    });
+
+    // This is the user-facing retry path for a Stripe outage.
+    expect(mockCancelForDeletion).toHaveBeenCalledWith(ACCOUNT_ID);
+    expect(state.billingCancellation).toEqual({ status: "canceled", reason: null });
+    // No duplicate freeze / duplicate audit row.
+    expect(mockSetDeletionPending).not.toHaveBeenCalled();
+    expect(mockInsertPending).not.toHaveBeenCalled();
+  });
+
+  it("does not touch billing when the account does not exist", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce(null);
+    await expect(
+      requestAccountDeletion({ accountId: "missing", requestedByUserId: OWNER_ID }),
+    ).rejects.toThrow(/not found/);
+    expect(mockCancelForDeletion).not.toHaveBeenCalled();
+  });
+
   it("honors a custom grace period", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
     mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
@@ -161,6 +282,20 @@ describe("cancelAccountDeletion", () => {
       ACCOUNT_ID,
       now.toISOString(),
     );
+  });
+
+  it("restores DATA but never silently restarts billing (ACCOUNT-BILLING-LIFECYCLE-1)", async () => {
+    mockGetDeletionStatus.mockResolvedValueOnce("pending_deletion");
+    mockClearDeletion.mockResolvedValueOnce(activeAccountRecord());
+    mockMarkPendingCancelled.mockResolvedValueOnce(undefined);
+
+    const state = await cancelAccountDeletion({ accountId: ACCOUNT_ID });
+
+    expect(state.deletionStatus).toBe("active");
+    // No billing operation of ANY kind runs on restore — the user must deliberately
+    // subscribe again; we never re-create a charge they didn't re-authorize.
+    expect(mockCancelForDeletion).not.toHaveBeenCalled();
+    expect(state.billingCancellation).toBeUndefined();
   });
 
   it("is idempotent: cancelling an already-active account does not write", async () => {

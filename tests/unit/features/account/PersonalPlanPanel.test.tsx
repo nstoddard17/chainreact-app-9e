@@ -41,24 +41,32 @@ it("renders the Personal Pro card when paid Pro + active", async () => {
   expect(screen.getByTestId("personal-plan-status")).toHaveTextContent(/Active/i);
 });
 
-it("shows 'Downgrade to Free at period end' when not canceling, and confirms with POST true", async () => {
+it("shows 'Cancel subscription' when not canceling, and confirms with POST true", async () => {
   mockGetState.mockResolvedValueOnce(state()).mockResolvedValueOnce(state({ cancelAtPeriodEnd: true }));
   render(<PersonalPlanPanel accountId={ACCOUNT} frozen={false} />);
-  fireEvent.click(await screen.findByTestId("personal-downgrade-open"));
-  // Conservative copy in the confirm row.
+  const open = await screen.findByTestId("personal-downgrade-open");
+  // ACCOUNT-BILLING-LIFECYCLE-1 — the action is named for what it does: cancel the paid
+  // subscription. It is NOT the account-deletion action.
+  expect(open).toHaveTextContent(/Cancel subscription/i);
+  fireEvent.click(open);
+  // Conservative copy in the confirm row: data AND the account both stay.
   const confirmRow = screen.getByTestId("personal-downgrade-confirm-row");
-  expect(confirmRow).toHaveTextContent(/No data is deleted/i);
+  expect(confirmRow).toHaveTextContent(/Your account is not deleted/i);
+  expect(confirmRow).toHaveTextContent(/no data is deleted/i);
   expect(confirmRow).toHaveTextContent(/period/i);
   fireEvent.click(screen.getByTestId("personal-downgrade-confirm"));
   await waitFor(() => expect(mockSetCancel).toHaveBeenCalledWith(ACCOUNT, true));
 });
 
-it("shows 'Keep Pro' undo when cancel_at_period_end is true, and undo POSTs false", async () => {
+it("shows 'Keep plan' undo when cancel_at_period_end is true, and undo POSTs false", async () => {
   mockGetState.mockResolvedValueOnce(state({ cancelAtPeriodEnd: true })).mockResolvedValueOnce(state());
   render(<PersonalPlanPanel accountId={ACCOUNT} frozen={false} />);
   const undo = await screen.findByTestId("personal-undo");
-  expect(undo).toHaveTextContent(/Keep Pro/i);
-  expect(screen.getByTestId("personal-plan-status")).toHaveTextContent(/Canceling/i);
+  expect(undo).toHaveTextContent(/Keep plan/i);
+  const status = screen.getByTestId("personal-plan-status");
+  expect(status).toHaveTextContent(/Canceling/i);
+  // The canceling state reassures that nothing is being deleted.
+  expect(status).toHaveTextContent(/account and data are kept/i);
   fireEvent.click(undo);
   await waitFor(() => expect(mockSetCancel).toHaveBeenCalledWith(ACCOUNT, false));
 });

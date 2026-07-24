@@ -9,6 +9,7 @@ import { PersonalUpgradePanel } from "./PersonalUpgradePanel";
 import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
 import { BusinessDowngradePanel } from "./BusinessDowngradePanel";
 import { ManageBillingButton } from "./ManageBillingButton";
+import { SubscriptionCancelPanel } from "./SubscriptionCancelPanel";
 import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRows";
 
 /**
@@ -133,6 +134,17 @@ export function BillingSection({
     !billing.frozen &&
     (active?.role === "owner" || active?.role === "admin") &&
     billing.currentPeriodEnd != null;
+  // ACCOUNT-BILLING-LIFECYCLE-1: in-app "Cancel subscription" / "Keep plan" for a SHARED
+  // (Team / Business) account, which previously had no cancel path except the Stripe-hosted
+  // portal. Personal accounts keep `PersonalPlanPanel` (the Pro→Free choice flow, which also
+  // carries the over-Free-limit blockers) — the two never render together, so there is
+  // exactly one cancel control per account. Shown to owner AND admin: the panel itself
+  // renders read-only for an admin using the server-decided `canManage`, so an admin can see
+  // billing state (their existing permission) without gaining the ability to cancel.
+  const showSubscriptionCancel =
+    Boolean(accountId) &&
+    (active?.type === "team" || active?.type === "organization") &&
+    (active.role === "owner" || active.role === "admin");
   // CS-BD-3: the destructive Business → Team downgrade. OWNER-only (admins/members never see it),
   // on a non-frozen organization (Business) account, gated on the ENABLE_BUSINESS_DOWNGRADE
   // dark-launch flag (still flag-gated — destructive). The backend route is itself owner-only.
@@ -426,8 +438,18 @@ export function BillingSection({
           </SettingRow>
         )}
 
+        {showSubscriptionCancel && accountId && (
+          <SettingRow
+            label="Subscription"
+            desc="Cancel your plan at the end of the current billing period. Your account and data stay."
+            stacked
+          >
+            <SubscriptionCancelPanel accountId={accountId} frozen={billing.frozen} />
+          </SettingRow>
+        )}
+
         {showManageBilling && accountId && (
-          <SettingRow label="Billing" desc="Update payment method, view invoices, or cancel.">
+          <SettingRow label="Billing" desc="Update payment method or view invoices.">
             <ManageBillingButton accountId={accountId} frozen={billing.frozen} />
           </SettingRow>
         )}

@@ -142,7 +142,7 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
         <span className="text-sm font-semibold text-foreground">Personal Pro</span>
         <span data-testid="personal-plan-status" className="text-xs text-muted-foreground">
           {state.cancelAtPeriodEnd
-            ? `Canceling — Pro access continues until ${ends}, then your account returns to Free.`
+            ? `Canceling — Pro access continues until ${ends}, then your account returns to Free. Your account and data are kept.`
             : `Active${state.currentPeriodEnd ? ` — renews ${ends}` : ""}.`}
         </span>
       </div>
@@ -161,7 +161,7 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
             disabled={busy}
             onClick={() => void applyCancel(false)}
           >
-            {busy ? "Updating…" : "Keep Pro"}
+            {busy ? "Updating…" : "Keep plan"}
           </Button>
         </div>
       ) : state.downgrade.allowed ? (
@@ -179,7 +179,7 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
                   setActionError(null);
                 }}
               >
-                Downgrade to Free at period end
+                Cancel subscription
               </Button>
             </div>
           ) : (
@@ -188,11 +188,14 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
               className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 dark:border-amber-400/30 dark:bg-amber-400/10"
             >
               <p className="text-xs text-muted-foreground">
-                Your personal account will downgrade to Free at the end of the current period
-                ({ends}). <span className="font-medium text-foreground">No data is deleted</span> —
-                your workflows, folders, and keys stay. Pro access continues until then. Once
-                confirmed, this cancellation stands even if you don&apos;t finish a Team/Business
-                checkout.
+                Your Pro subscription stops renewing and your personal account returns to Free
+                at the end of the current period ({ends}).{" "}
+                <span className="font-medium text-foreground">
+                  Your account is not deleted and no data is deleted
+                </span>{" "}
+                — your workflows, folders, integrations, and keys stay. Pro access continues
+                until then. Once confirmed, this cancellation stands even if you don&apos;t
+                finish a Team/Business checkout.
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -202,7 +205,7 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
                   disabled={busy}
                   onClick={() => void applyCancel(true)}
                 >
-                  {busy ? "Scheduling…" : "Confirm downgrade"}
+                  {busy ? "Canceling…" : "Cancel subscription"}
                 </Button>
                 <Button
                   type="button"
@@ -212,7 +215,7 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
                   disabled={busy}
                   onClick={() => setConfirming(false)}
                 >
-                  Keep Pro
+                  Keep plan
                 </Button>
               </div>
             </div>

@@ -5,6 +5,10 @@ import * as accountsRepo from "@/repositories/accounts";
 import * as accountDeletionsRepo from "@/repositories/accountDeletions";
 import * as accountPurgeRepo from "@/repositories/accountPurge";
 import * as ledgerAnonymizationRepo from "@/repositories/ledgerAnonymization";
+import {
+  accountHasRenewableSubscription,
+  cancelSubscriptionForAccountDeletion,
+} from "@/services/billing/subscriptionCancellation";
 
 /**
  * Account purge service (4.ACCOUNT-MODEL-10c).
@@ -36,7 +40,14 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export type PurgeSkipReason =
   | "account_not_found"
   | "not_pending_deletion"
-  | "grace_not_elapsed";
+  | "grace_not_elapsed"
+  /**
+   * ACCOUNT-BILLING-LIFECYCLE-1 fail-closed: the account still has a live ChainReact
+   * subscription (or we could not prove it doesn't). Purge destroys the account row — and
+   * with it the only handle to that subscription — so it must not proceed. The next cron
+   * tick retries: the purge re-attempts the cancellation before re-checking.
+   */
+  | "renewable_subscription";
 
 export interface PurgeCounts {
   ledgerRowsAnonymized: number;
@@ -138,6 +149,26 @@ export async function purgeAccount(
   }
   if (!account.purgeAfter || new Date(account.purgeAfter) > now) {
     return { status: "skipped", reason: "grace_not_elapsed" };
+  }
+
+  // BILLING FAIL-CLOSED (ACCOUNT-BILLING-LIFECYCLE-1). The deletion request already
+  // cancelled the subscription immediately, so by now there should be nothing live. If
+  // there is (a Stripe outage at request time, a subscription re-created out of band), we
+  // must not destroy the account: `deleteAccountBilling` below removes the
+  // `stripe_subscription_id` row, which is the ONLY handle we have to that subscription —
+  // purging first would leave a customer being billed with no way for us to find it.
+  //
+  // Retry-then-verify, in that order: re-attempt the (idempotent) cancellation, then ask
+  // Stripe authoritatively. An UNVERIFIABLE answer skips too — "we couldn't check" is
+  // never treated as "it's safe".
+  await cancelSubscriptionForAccountDeletion(input.accountId);
+  const renewable = await accountHasRenewableSubscription(input.accountId);
+  if (!renewable.ok || renewable.renewable) {
+    log("account.purge.blocked_renewable_subscription", {
+      accountId: input.accountId,
+      verified: renewable.ok,
+    });
+    return { status: "skipped", reason: "renewable_subscription" };
   }
 
   const ownerUserId = account.ownerUserId;
@@ -260,5 +291,62 @@ export async function purgeDuePendingAccounts(now?: Date): Promise<PurgeDueResul
   }
 
   log("account.purge.sweep_done", { ...result });
+  return result;
+}
+
+export interface BillingReconcileResult {
+  /** Frozen (`pending_deletion`) accounts examined. */
+  scanned: number;
+  /** Accounts where a live subscription was found and cancelled by this sweep. */
+  canceled: number;
+  /** Accounts that already had nothing to cancel. */
+  alreadyClear: number;
+  /** Accounts whose cancellation could not be completed — retried on the next tick. */
+  failed: number;
+}
+
+/**
+ * Billing reconciliation sweep for accounts already in `pending_deletion`
+ * (ACCOUNT-BILLING-LIFECYCLE-1).
+ *
+ * This is the DURABLE retry for the one partial-failure case that matters: the deletion
+ * request froze the account but Stripe was unreachable, so the subscription can still
+ * renew. Nothing is held in memory — the worklist is derived every tick from durable state
+ * (`accounts.deletion_status='pending_deletion'`), and the operation it performs is
+ * idempotent, so an account that is already clear costs one status read and reports
+ * `alreadyClear`.
+ *
+ * Deliberately NON-DESTRUCTIVE to data: it only cancels billing for accounts the user has
+ * already asked to delete. That is why it is not gated behind the destructive-purge flag —
+ * leaving it off would keep charging customers who asked to leave. It ignores the grace
+ * window entirely (waiting 30 days to stop billing would defeat the purpose) and never
+ * deletes, freezes, or unfreezes anything.
+ */
+export async function reconcilePendingDeletionBilling(): Promise<BillingReconcileResult> {
+  const pending = await accountPurgeRepo.listPendingDeletionAccounts();
+  const result: BillingReconcileResult = {
+    scanned: pending.length,
+    canceled: 0,
+    alreadyClear: 0,
+    failed: 0,
+  };
+
+  for (const accountId of pending) {
+    try {
+      const outcome = await cancelSubscriptionForAccountDeletion(accountId);
+      if (!outcome.ok) result.failed += 1;
+      else if (outcome.outcome === "canceled") result.canceled += 1;
+      else result.alreadyClear += 1;
+    } catch (err) {
+      // Per-account isolation: one bad account never strands the rest.
+      result.failed += 1;
+      log("account.billing_reconcile.account_failed", {
+        accountId,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  log("account.billing_reconcile.sweep_done", { ...result });
   return result;
 }

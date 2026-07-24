@@ -70,9 +70,10 @@ what actually shipped.
 
 | Surface | Path | Guard | Effect |
 |---------|------|-------|--------|
-| Request | `POST /api/account/delete` | session + typed phrase + password re-auth | `active → pending_deletion` (freeze). Soft-only; reversible. |
+| Request | `POST /api/account/delete` | session + typed phrase + password re-auth | `active → pending_deletion` (freeze) **+ immediate cancellation of the account's ChainReact subscription** (BILLING-LIFECYCLE-1). Returns 502 `BILLING_CANCELLATION_FAILED` if the freeze committed but Stripe did not. Soft-only; reversible. |
 | Cancel | `POST /api/account/delete/cancel` | session + ownership | `pending_deletion → active` (restore). |
-| Purge cron | `GET\|POST /api/cron/purge-pending-deletions` | cron-auth + `ENABLE_ACCOUNT_PURGE_CRON` | Tears down due `pending_deletion` accounts (anonymize → revoke+delete → ... → `auth.users`). |
+| Purge cron | `GET\|POST /api/cron/purge-pending-deletions` | cron-auth + `ENABLE_ACCOUNT_PURGE_CRON` | Tears down due `pending_deletion` accounts (anonymize → revoke+delete → ... → `auth.users`). **Fails closed while a live subscription remains** (BILLING-LIFECYCLE-1). |
+| Billing reconcile | same route, **ungated** | cron-auth only | Retries the subscription cancellation for every `pending_deletion` account. Non-destructive; runs even with the purge flag OFF. |
 | Ledger-purge cron | `GET\|POST /api/cron/purge-anonymized-ledgers` | cron-auth + `ENABLE_LEDGER_PURGE_CRON` | Hard-deletes retention-elapsed anonymized ledger rows. |
 
 Key modules: `services/accounts/accountDeletion.ts` (request/cancel),
@@ -124,10 +125,16 @@ registered in `vercel.json` yet.
   transfer. Personal accounts are exempt (purged with the user). Lifecycle
   columns + `account_deletions` are forward-compatible.
 - **Account switcher / `active_account_id`** — not built.
-- **Payment / Stripe retention expansion** — no payment data exists today, so the
-  90-day ledger retention is short by design. The retention window is the product
-  seam where future paid-account/financial-audit retention attaches without
-  redesign.
+- ~~**Payment / Stripe retention expansion** — no payment data exists today~~
+  **SUPERSEDED (2026-07-24) by 4.ACCOUNT-BILLING-LIFECYCLE-1.** Platform billing
+  shipped after this arc. A deletion request now **cancels the account's ChainReact
+  subscription immediately**, the purge **fails closed** while any live subscription
+  remains, and a reconciliation sweep retries a failed cancellation. Cancelling a
+  deletion restores the account on **Free** and never restarts billing. See
+  [`account-billing-lifecycle-closeout.md`](../account-settings/account-billing-lifecycle-closeout.md)
+  — that doc is authoritative for anything cancel-vs-delete. The 90-day ledger
+  retention window is unchanged and is still the seam for future financial-audit
+  retention.
 - **SSO / OAuth-only re-auth** — password re-auth only today; OAuth-only users
   must use the (deferred) admin path until a provider-reauth/OTP branch is added.
 
