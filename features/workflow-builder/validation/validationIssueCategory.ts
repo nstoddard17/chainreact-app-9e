@@ -35,9 +35,13 @@ export function categorizeValidationIssue(
   code: BuilderValidationIssueCode,
 ): ValidationIssueCategory {
   switch (code) {
+    // AI-PROVIDER-4 — `schema_fields_invalid` (a malformed user-defined
+    // schema: duplicate / blank / invalid field names) is an author-input
+    // problem, the same class as invalid router routes.
     case "missing_required_field":
     case "unconfigured_node":
     case "router_routes_invalid":
+    case "schema_fields_invalid":
       return "needs_input";
     case "no_trigger":
     case "multiple_triggers":

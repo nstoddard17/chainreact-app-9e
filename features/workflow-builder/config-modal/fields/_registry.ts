@@ -19,6 +19,7 @@ import { ObjectField } from "./ObjectField";
 import { KeyValueListField } from "./KeyValueListField";
 import { JsonField } from "./JsonField";
 import { SpreadsheetRowsField } from "./spreadsheet/SpreadsheetRowsField";
+import { SchemaFieldsField } from "./SchemaFieldsField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -68,6 +69,10 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     // SPREADSHEET-CONFIG-REDESIGN-1 — column-aware composite row editor
     // (one-row positional XOR batch header-keyed via `batchRowsField`).
     "spreadsheet-rows": SpreadsheetRowsField,
+    // AI-PROVIDER-4 — user-defined schema rows (name · type · required ·
+    // description) for the ChainReact AI provider's extraction / destination
+    // schemas. Structured editor, never JSON.
+    "schema-fields": SchemaFieldsField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

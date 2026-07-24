@@ -31,6 +31,12 @@ import {
   type ConfigNodeTab,
 } from "./ConfigNodeTabs";
 import { validateRoutesValue } from "./fields/_routesValidator";
+import { collectSchemaFieldsBlockingError } from "./fields/_schemaFieldsBlocking";
+import {
+  AI_PROVIDER_ID,
+  isConnectionlessProvider,
+} from "@/core/integrations/connectionlessProviders";
+import { findAiActionByKey, useAiActions } from "../hooks/useAiActions";
 import { collectJsonFieldBlockingError } from "./fields/_jsonFieldValue";
 import { NodeConfigReadinessBanner } from "./NodeConfigReadinessBanner";
 import { NodeConfigOverview } from "./NodeConfigOverview";
@@ -67,7 +73,6 @@ import type { WorkflowDefinition } from "@/contracts/workflow";
  */
 
 const ROUTER_KEY = "native:router";
-const NATIVE_PROVIDER = "native";
 
 /**
  * Common subset of ActionMeta + TriggerMeta needed by the rail. Avoids
@@ -119,6 +124,10 @@ export function ConfigModalShell() {
     [pendingNodes, activeNodeId],
   );
 
+  // AI catalog loads only when the selected node is an AI node (mirrors the
+  // provider-catalog hooks' null short-circuit — no fetch otherwise).
+  const aiActions = useAiActions(activeNode?.provider === AI_PROVIDER_ID);
+
   // Provider-action source: only loads when the active node is a non-
   // native action with a type. `null` means "no provider-action lookup
   // needed right now" — the hook short-circuits to an idle state, no
@@ -126,7 +135,7 @@ export function ConfigModalShell() {
   const providerActionSourceProvider: string | null = useMemo(() => {
     if (!activeNode) return null;
     if (activeNode.kind !== "action") return null;
-    if (activeNode.provider === NATIVE_PROVIDER) return null;
+    if (isConnectionlessProvider(activeNode.provider)) return null;
     if (!activeNode.type) return null;
     return activeNode.provider;
   }, [activeNode]);
@@ -140,7 +149,7 @@ export function ConfigModalShell() {
   const providerTriggerSourceProvider: string | null = useMemo(() => {
     if (!activeNode) return null;
     if (activeNode.kind !== "trigger") return null;
-    if (activeNode.provider === NATIVE_PROVIDER) return null;
+    if (isConnectionlessProvider(activeNode.provider)) return null;
     if (!activeNode.type) return null;
     return activeNode.provider;
   }, [activeNode]);
@@ -149,7 +158,12 @@ export function ConfigModalShell() {
   const activeMeta: ConfigurableMeta | undefined = useMemo(() => {
     if (!activeNode || !activeNode.type) return undefined;
     const key = `${activeNode.provider}:${activeNode.type}`;
-    if (activeNode.provider === NATIVE_PROVIDER) {
+    if (activeNode.provider === AI_PROVIDER_ID) {
+      return activeNode.kind === "action"
+        ? findAiActionByKey(aiActions.actions, key)
+        : undefined;
+    }
+    if (isConnectionlessProvider(activeNode.provider)) {
       return activeNode.kind === "trigger"
         ? findNativeTriggerByKey(nativeTriggers.triggers, key)
         : findNativeActionByKey(nativeActions.actions, key);
@@ -180,7 +194,7 @@ export function ConfigModalShell() {
   );
   const nodeRequiresConnection =
     activeNode !== undefined &&
-    activeNode.provider !== NATIVE_PROVIDER &&
+    !isConnectionlessProvider(activeNode.provider) &&
     activeMeta?.requiresIntegration === true;
   // Without a workflow id there is no account to resolve against — the
   // hook stays disabled and the mapper renders an honest "unknown"
@@ -235,7 +249,7 @@ export function ConfigModalShell() {
     setPendingClose(false);
   }
 
-  const isNative = activeNode.provider === NATIVE_PROVIDER;
+  const isNative = isConnectionlessProvider(activeNode.provider);
   const isProviderAction =
     !isNative && activeNode.kind === "action";
   const isProviderTrigger =
@@ -277,8 +291,16 @@ export function ConfigModalShell() {
   const jsonBlockingError = activeMeta
     ? collectJsonFieldBlockingError(activeMeta.fields, values)
     : null;
+  // AI-PROVIDER-4 — a `schema-fields` editor with duplicate / unnamed /
+  // invalid rows blocks Save the same way invalid router routes and
+  // unparseable JSON do. Same shared validator the drawer uses.
+  const schemaFieldsBlockingError = activeMeta
+    ? collectSchemaFieldsBlockingError(activeMeta.fields, values)
+    : null;
   const hasBlockingValidationError =
-    routerBlockingError || jsonBlockingError !== null;
+    routerBlockingError ||
+    jsonBlockingError !== null ||
+    schemaFieldsBlockingError !== null;
 
   // SPREADSHEET-CONFIG-REDESIGN-1 — readiness banner shown at the top of
   // the Setup tab for EVERY node. Pure derivation from the metadata's

@@ -9,6 +9,7 @@ const mockListNativeActions = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
+  listAiActions: () => Promise.resolve([]),
   DiscoveryApiError: class DiscoveryApiError extends Error {
     code = "UNKNOWN";
     status = 500;

@@ -147,6 +147,21 @@ export const FieldTypeSchema = z.enum([
   // provider headers — never invented); when none can be detected the
   // renderer says so honestly and falls back to manual entry.
   "spreadsheet-rows",
+  // AI-PROVIDER-4 (CS-4) — `schema-fields`: a user-defined extraction /
+  // destination SCHEMA, edited as structured rows (name · type · required ·
+  // description), never as JSON. Commits a real
+  // `{ fields: Array<{name, type, required?, description?}> }` matching the
+  // committed `UserDefinedSchemaSchema` (contracts/aiProcessing.ts), which
+  // the AI processor compiles into the model's output contract.
+  //
+  // A dedicated FieldType rather than `object-list` + `itemFields` because a
+  // schema editor needs behavior a generic row editor cannot express:
+  // case-insensitive unique names, normalization into safe workflow-variable
+  // identifiers (`Employee Name` → `employee_name`, so `{{node.fields.x}}`
+  // stays a clean path segment), reserved-name rejection, and a Save gate.
+  // Same precedent as `router-routes` (a bespoke editor for a bespoke
+  // contract). Renderer: SchemaFieldsField; validator: _schemaFieldsValidator.
+  "schema-fields",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
@@ -1172,6 +1187,12 @@ export const ActionCategorySchema = z.enum([
   "http",
   "transform",
   "scheduling",
+  // AI-PROVIDER-4 (CS-4) — the ChainReact AI provider's capabilities
+  // (Analyze Document, Transform Data). A first-class category rather than
+  // `transform`/`other`: these nodes are metered (AI credits), model-backed,
+  // and grouped under their own picker section, so lumping them in with
+  // deterministic transforms would misdescribe both cost and behavior.
+  "ai",
   "other",
 ]);
 export type ActionCategory = z.infer<typeof ActionCategorySchema>;
@@ -1202,6 +1223,136 @@ export type ActionCategory = z.infer<typeof ActionCategorySchema>;
  */
 export const RiskLevelSchema = z.enum(["low", "medium", "high"]);
 export type RiskLevel = z.infer<typeof RiskLevelSchema>;
+
+/**
+ * Config-derived output declaration (AI-PROVIDER-4 CS-4).
+ *
+ * Outputs are otherwise STATIC per action type: `OutputMeta[]` is
+ * hand-declared and the variable picker reads only that. Some actions,
+ * though, produce a shape the AUTHOR defines — `ai:analyze_document` in
+ * "extract fields" mode returns exactly the fields the user listed in its
+ * `schema-fields` config. Without a declaration the picker cannot offer
+ * `{{node.fields.employee_name}}` (the runtime resolver already walks
+ * arbitrary paths, so hand-typed references work; only discovery is blind).
+ *
+ * This declaration is the CONTRACT half: it says "the child fields of the
+ * output named `attachUnder` come from the config field named
+ * `configField`". It is inert metadata in CS-4 — CS-8 owns the builder-side
+ * synthesis that reads it. Shipping the declaration now keeps action metas
+ * (CS-5/CS-6) authored once, and leaves a forward path to server-side
+ * evaluation without another contract change.
+ *
+ * Validation (meta-level superRefine):
+ *   - `configField` must name a declared field, and that field MUST be
+ *     `schema-fields` (the only shape whose rows describe an output schema);
+ *   - `attachUnder` must name a declared output of type `object` or `array`
+ *     (a scalar output has no children to attach);
+ *   - `whenField` must name a declared field; `whenValueIn` requires
+ *     `whenField` (a value list with nothing to test is a contradiction);
+ *   - one declaration per `attachUnder` (two sources for the same output's
+ *     children is ambiguous), and no duplicate (configField, attachUnder) pair.
+ */
+export const DynamicOutputsDeclarationSchema = z
+  .object({
+    /** Name of the `schema-fields` config field describing the shape. */
+    configField: z.string().min(1).max(64),
+    /** Name of the static output whose children are synthesized. */
+    attachUnder: z.string().min(1).max(64),
+    /** Optional gate: only applies when this sibling field matches. */
+    whenField: z.string().min(1).max(64).optional(),
+    /** Values of `whenField` that activate this declaration. */
+    whenValueIn: z.array(z.string().min(1).max(128)).min(1).max(16).optional(),
+  })
+  .strict()
+  .superRefine((decl, ctx) => {
+    if (decl.whenValueIn !== undefined && decl.whenField === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["whenValueIn"],
+        message: "`whenValueIn` requires `whenField`.",
+      });
+    }
+  });
+export type DynamicOutputsDeclaration = z.infer<
+  typeof DynamicOutputsDeclarationSchema
+>;
+
+/**
+ * Shared meta-level validation for `dynamicOutputs` (used by ActionMetaSchema;
+ * exported so a future TriggerMeta equivalent reuses one implementation).
+ */
+export function checkDynamicOutputsReferences(
+  fields: readonly { name: string; type: FieldType }[],
+  outputs: readonly { name: string; type: OutputType }[],
+  declarations: readonly DynamicOutputsDeclaration[] | undefined,
+  ctx: z.RefinementCtx,
+): void {
+  if (!declarations || declarations.length === 0) return;
+  const fieldByName = new Map(fields.map((f) => [f.name, f]));
+  const outputByName = new Map(outputs.map((o) => [o.name, o]));
+  const seenAttachUnder = new Set<string>();
+  const seenPairs = new Set<string>();
+
+  for (let i = 0; i < declarations.length; i++) {
+    const decl = declarations[i]!;
+    const source = fieldByName.get(decl.configField);
+    if (!source) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i, "configField"],
+        message: `dynamicOutputs references unknown config field '${decl.configField}'.`,
+      });
+    } else if (source.type !== "schema-fields") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i, "configField"],
+        message: `dynamicOutputs source '${decl.configField}' must be a 'schema-fields' field (got '${source.type}').`,
+      });
+    }
+
+    const target = outputByName.get(decl.attachUnder);
+    if (!target) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i, "attachUnder"],
+        message: `dynamicOutputs references unknown output '${decl.attachUnder}'.`,
+      });
+    } else if (target.type !== "object" && target.type !== "array") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i, "attachUnder"],
+        message: `dynamicOutputs target '${decl.attachUnder}' must be an 'object' or 'array' output (got '${target.type}').`,
+      });
+    }
+
+    if (decl.whenField !== undefined && !fieldByName.has(decl.whenField)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i, "whenField"],
+        message: `dynamicOutputs references unknown config field '${decl.whenField}'.`,
+      });
+    }
+
+    if (seenAttachUnder.has(decl.attachUnder)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i, "attachUnder"],
+        message: `Output '${decl.attachUnder}' already has a dynamicOutputs declaration (one source per output).`,
+      });
+    }
+    seenAttachUnder.add(decl.attachUnder);
+
+    const pair = `${decl.configField}→${decl.attachUnder}`;
+    if (seenPairs.has(pair)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dynamicOutputs", i],
+        message: `Duplicate dynamicOutputs declaration '${pair}'.`,
+      });
+    }
+    seenPairs.add(pair);
+  }
+}
 
 export const ActionMetaSchema = z
   .object({
@@ -1249,6 +1400,13 @@ export const ActionMetaSchema = z
     requiresConfirmation: z.boolean().default(false),
     riskLevel: RiskLevelSchema.default("low"),
     riskDescription: z.string().max(512).optional(),
+    /**
+     * AI-PROVIDER-4 (CS-4) — optional config-derived output declarations.
+     * Additive and default-free: every existing meta parses unchanged.
+     * Inert metadata until CS-8 wires the builder-side synthesis. See
+     * `DynamicOutputsDeclarationSchema`.
+     */
+    dynamicOutputs: z.array(DynamicOutputsDeclarationSchema).min(1).max(4).optional(),
   })
   .strict()
   .superRefine((meta, ctx) => {
@@ -1321,6 +1479,15 @@ export const ActionMetaSchema = z
         }
       }
     }
+
+    // AI-PROVIDER-4 — config-derived output declarations must resolve to a
+    // real `schema-fields` config field and a real object/array output.
+    checkDynamicOutputsReferences(
+      meta.fields,
+      meta.outputs,
+      meta.dynamicOutputs,
+      ctx,
+    );
 
     // Slice 3.SEC-2A — risk-flag consistency. `isDestructive` and
     // `requiresConfirmation` are both stronger claims than mere

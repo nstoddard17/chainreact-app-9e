@@ -11,6 +11,7 @@ import { findGraphIssues } from "@/core/workflows/executionReadiness";
 import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { validateRoutesValue } from "../config-modal/fields/_routesValidator";
+import { validateSchemaFieldsValue } from "../config-modal/fields/_schemaFieldsValidator";
 
 /**
  * Builder-level validation issue collection (Slice 4.BUILDER-VALIDATION-1;
@@ -59,6 +60,7 @@ export type BuilderValidationIssueCode =
   | "multiple_triggers"
   | "unconfigured_node"
   | "router_routes_invalid"
+  | "schema_fields_invalid"
   | "missing_required_field"
   | "unreachable_node"
   | "stale_edge"
@@ -89,6 +91,21 @@ export interface CollectBuilderValidationIssuesInput {
    * don't pass it keep their behavior (no `missing_required_field` issues).
    */
   readonly requiredFieldsByType?: RequiredFieldsByType;
+  /**
+   * AI-PROVIDER-4 — `schema-fields` field definitions per node type
+   * (`${provider}:${type}` → the node's schema-fields FieldMetas). Optional:
+   * callers that don't pass it get no `schema_fields_invalid` issues, so
+   * existing behavior is unchanged. Metadata-driven rather than hardcoded to
+   * one action key, because BOTH AI actions (CS-5/CS-6) carry schema editors.
+   */
+  readonly schemaFieldsByType?: Readonly<Record<string, readonly SchemaFieldsFieldRef[]>>;
+}
+
+/** Minimal shape needed to validate one `schema-fields` config value. */
+export interface SchemaFieldsFieldRef {
+  readonly name: string;
+  readonly label: string;
+  readonly required?: boolean;
 }
 
 const ROUTER_NODE_TYPE = "native:router";
@@ -137,6 +154,28 @@ export function collectBuilderValidationIssues(
         });
       }
       continue;
+    }
+
+    // AI-PROVIDER-4 — structural check for `schema-fields` editors (the AI
+    // provider's user-defined schemas). Same shape as the router check: a
+    // structurally invalid schema is an error the drawer can point at.
+    const schemaFields = input.schemaFieldsByType?.[requirementLookupKey(node)];
+    if (schemaFields) {
+      for (const field of schemaFields) {
+        const result = validateSchemaFieldsValue((node.config ?? {})[field.name], {
+          required: field.required === true,
+        });
+        if (result.error !== null) {
+          issues.push({
+            id: `schema_fields_invalid:${node.id}:${field.name}`,
+            code: "schema_fields_invalid",
+            severity: "error",
+            message: `${field.label}: ${result.error}`,
+            nodeId: node.id,
+            fieldName: field.name,
+          });
+        }
+      }
     }
 
     // BUILDER-READINESS — required fields empty (shared rule). Display name

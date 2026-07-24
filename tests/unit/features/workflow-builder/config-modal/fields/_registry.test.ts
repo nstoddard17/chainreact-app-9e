@@ -15,6 +15,7 @@ import {
   FIELD_RENDERERS,
   getFieldRenderer,
 } from "@/features/workflow-builder/config-modal/fields/_registry";
+import { SchemaFieldsField } from "@/features/workflow-builder/config-modal/fields/SchemaFieldsField";
 import { StringArrayField } from "@/features/workflow-builder/config-modal/fields/StringArrayField";
 import { FileRefArrayField } from "@/features/workflow-builder/config-modal/fields/FileRefArrayField";
 import { TemporalField } from "@/features/workflow-builder/config-modal/fields/TemporalField";
@@ -32,9 +33,13 @@ describe("field-renderer registry", () => {
     expect(Object.keys(FIELD_RENDERERS).sort()).toEqual([...types].sort());
   });
 
-  it("covers all 23 FieldType variants (CS-1 temporal family; SWEEP-3 datetime-utc + location; AUDIT-1 object-list + keyvalue-list; AUDIT-2 json; SPREADSHEET-CONFIG-REDESIGN-1 spreadsheet-rows; CONFIG-UX-SETUP-ADVANCED-1 object)", () => {
-    expect(FieldTypeSchema.options).toHaveLength(23);
-    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(23);
+  it("covers all 24 FieldType variants (CS-1 temporal family; SWEEP-3 datetime-utc + location; AUDIT-1 object-list + keyvalue-list; AUDIT-2 json; SPREADSHEET-CONFIG-REDESIGN-1 spreadsheet-rows; CONFIG-UX-SETUP-ADVANCED-1 object; AI-PROVIDER-4 schema-fields)", () => {
+    expect(FieldTypeSchema.options).toHaveLength(24);
+    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(24);
+  });
+
+  it("FIELD_RENDERERS['schema-fields'] resolves to SchemaFieldsField (AI-PROVIDER-4)", () => {
+    expect(FIELD_RENDERERS["schema-fields"]).toBe(SchemaFieldsField);
   });
 
   it("FIELD_RENDERERS['string-array'] resolves to StringArrayField", () => {

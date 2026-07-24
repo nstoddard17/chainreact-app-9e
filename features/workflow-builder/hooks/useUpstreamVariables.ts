@@ -5,8 +5,13 @@ import type { ActionMeta, OutputMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { buildLatestValuesBySource } from "@/core/workflows/latestRunValues";
 import { findUpstreamNodes } from "@/core/workflows/upstreamVariables";
+import {
+  AI_PROVIDER_ID,
+  isConnectionlessProvider,
+} from "@/core/integrations/connectionlessProviders";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
+import { findAiActionByKey, useAiActions } from "./useAiActions";
 import {
   findNativeActionByKey,
   useNativeActions,
@@ -92,7 +97,6 @@ const EMPTY_RESULT: UseUpstreamVariablesResult = Object.freeze({
   latestValuesBySource: EMPTY_LATEST_VALUES,
 });
 
-const NATIVE_PROVIDER = "native";
 const TRIGGER_ALIAS = "trigger";
 
 export function useUpstreamVariables(
@@ -126,10 +130,19 @@ export function useUpstreamVariables(
     return pendingNodes.filter((n) => set.has(n.id));
   }, [ancestorIds, pendingNodes]);
 
+  // AI catalog loads only when an ANCESTOR is an AI node — a workflow with
+  // no AI step never calls the endpoint (same posture as the provider
+  // catalogs' empty-id short-circuit).
+  const hasAiAncestor = useMemo(
+    () => ancestorNodes.some((n) => n.provider === AI_PROVIDER_ID),
+    [ancestorNodes],
+  );
+  const aiActions = useAiActions(hasAiAncestor);
+
   const upstreamProviderIds = useMemo(() => {
     const set = new Set<string>();
     for (const node of ancestorNodes) {
-      if (node.kind === "action" && node.provider !== NATIVE_PROVIDER) {
+      if (node.kind === "action" && !isConnectionlessProvider(node.provider)) {
         set.add(node.provider);
       }
     }
@@ -151,7 +164,7 @@ export function useUpstreamVariables(
   // hook short-circuits to an idle state and never fetches.
   const upstreamTriggerProvider = useMemo<string | null>(() => {
     for (const node of ancestorNodes) {
-      if (node.kind === "trigger" && node.provider !== NATIVE_PROVIDER) {
+      if (node.kind === "trigger" && !isConnectionlessProvider(node.provider)) {
         return node.provider;
       }
     }
@@ -191,6 +204,7 @@ export function useUpstreamVariables(
       const meta = resolveMeta(node, {
         nativeActions: nativeActions.actions,
         nativeTriggers: nativeTriggers.triggers,
+        aiActions: aiActions.actions,
         providerCatalogs: providerCatalogs.byProvider,
         providerTriggers: providerTriggers.triggers,
       });
@@ -213,6 +227,7 @@ export function useUpstreamVariables(
       loading:
         nativeActions.loading ||
         nativeTriggers.loading ||
+        aiActions.loading ||
         providerCatalogs.loading ||
         providerTriggers.loading,
       latestValuesBySource,
@@ -224,6 +239,8 @@ export function useUpstreamVariables(
     nativeActions.loading,
     nativeTriggers.triggers,
     nativeTriggers.loading,
+    aiActions.actions,
+    aiActions.loading,
     providerCatalogs.byProvider,
     providerCatalogs.loading,
     providerTriggers.triggers,
@@ -240,6 +257,7 @@ interface ResolvedMeta {
 interface ResolveCtx {
   nativeActions: readonly ActionMeta[];
   nativeTriggers: readonly TriggerMeta[];
+  aiActions: readonly ActionMeta[];
   providerCatalogs: Readonly<Record<string, readonly ActionMeta[]>>;
   /**
    * Slice 3.10 — provider trigger catalog for the (at-most-one) upstream
@@ -256,7 +274,7 @@ function resolveMeta(
   if (!node.type) return undefined;
   const key = `${node.provider}:${node.type}`;
   if (node.kind === "trigger") {
-    if (node.provider === NATIVE_PROVIDER) {
+    if (isConnectionlessProvider(node.provider)) {
       const trigMeta = findNativeTriggerByKey(ctx.nativeTriggers, key);
       if (!trigMeta) return undefined;
       return {
@@ -275,7 +293,14 @@ function resolveMeta(
       outputs: trigMeta.payloadShape,
     };
   }
-  if (node.provider === NATIVE_PROVIDER) {
+  if (node.provider === AI_PROVIDER_ID) {
+    // AI actions land in CS-5/CS-6; their catalog is resolved by the config
+    // rail (useNodeMeta). Until an AI action exists there is nothing to
+    // resolve here, and CS-8 owns config-derived (dynamicOutputs) synthesis.
+    const m = findAiActionByKey(ctx.aiActions, key);
+    return m ? { displayName: m.displayName, outputs: m.outputs } : undefined;
+  }
+  if (isConnectionlessProvider(node.provider)) {
     const m = findNativeActionByKey(ctx.nativeActions, key);
     return m ? { displayName: m.displayName, outputs: m.outputs } : undefined;
   }

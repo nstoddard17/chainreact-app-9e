@@ -112,6 +112,18 @@ export async function listNativeActions(): Promise<readonly ActionMeta[]> {
   return body.actions;
 }
 
+/**
+ * ChainReact AI action catalog (AI-PROVIDER-4 CS-4). Returns an empty list
+ * while the AI processor is disabled server-side — visibility is decided by
+ * the server, never by a client-visible env var.
+ */
+export async function listAiActions(): Promise<readonly ActionMeta[]> {
+  const res = await fetch("/api/ai/actions");
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { actions: ActionMeta[] };
+  return body.actions;
+}
+
 export async function listNativeTriggers(): Promise<readonly TriggerMeta[]> {
   const res = await fetch("/api/native/triggers");
   if (!res.ok) throw await parseError(res);

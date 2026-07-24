@@ -39,6 +39,7 @@ const slack = {
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: async () => [],
+  listAiActions: () => Promise.resolve([]),
   listNativeTriggers: async () => [],
   listProviderActions: async (p: string) => (p === "slack" ? [slack] : []),
   listProviderTriggers: async () => [],

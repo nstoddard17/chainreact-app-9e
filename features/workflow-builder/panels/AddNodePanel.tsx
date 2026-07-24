@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
+import { useAiActions } from "../hooks/useAiActions";
 import { useNativeActions } from "../hooks/useNativeActions";
 import { useNativeTriggers } from "../hooks/useNativeTriggers";
 import { ActionPicker } from "./ActionPicker";
@@ -119,6 +120,11 @@ export function AddNodePanel({
   // satisfies Rules of Hooks regardless of mode.
   const nativeTriggers = useNativeTriggers();
   const nativeActions = useNativeActions();
+  // AI-PROVIDER-4 — the AI catalog backing the picker's ChainReact AI
+  // section. Fetched ONLY while an action picker is actually on screen
+  // (there are no AI triggers), and server-gated on top of that: the route
+  // returns an empty list while the AI processor is disabled.
+  const aiActions = useAiActions(mode.kind !== "trigger");
 
   const title =
     mode.kind === "trigger"
@@ -252,6 +258,7 @@ export function AddNodePanel({
               nativeActions={nativeActions.actions}
               nativeLoading={nativeActions.loading}
               nativeError={nativeActions.error}
+              aiActions={aiActions.actions}
               actionProviders={actionProviders}
               onPickAction={handlePickAction}
               searchQuery={searchQuery}

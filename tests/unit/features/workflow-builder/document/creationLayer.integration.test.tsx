@@ -41,6 +41,7 @@ const hubspotTrigger = {
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: async () => [ifThenMeta],
+  listAiActions: () => Promise.resolve([]),
   listNativeTriggers: async () => [],
   listProviderActions: async (provider: string) => (provider === "slack" ? [slackAction] : []),
   listProviderTriggers: async (provider: string) => (provider === "hubspot" ? [hubspotTrigger] : []),

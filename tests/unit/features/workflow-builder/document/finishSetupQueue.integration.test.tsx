@@ -71,6 +71,7 @@ const ifThen = {
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: async () => [ifThen],
+  listAiActions: () => Promise.resolve([]),
   listNativeTriggers: async () => [],
   listProviderActions: async (provider: string) => (provider === "slack" ? [slackSendMessage] : []),
   listProviderTriggers: async () => [],

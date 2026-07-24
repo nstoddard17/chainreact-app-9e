@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
+import { AI_PROVIDER_DISPLAY_NAME } from "@/core/integrations/connectionlessProviders";
 import { useProviderActions } from "../hooks/useProviderActions";
 import type { ProviderOption } from "./AddNodePanel";
 import {
@@ -31,6 +32,13 @@ import {
 
 export interface ActionPickerProps {
   nativeActions: readonly ActionMeta[];
+  /**
+   * AI-PROVIDER-4 — ChainReact AI actions, fetched by the parent panel
+   * (same prop-drilled contract as `nativeActions`; the picker stays
+   * presentational). Defaults to none, in which case the AI section is
+   * not rendered at all.
+   */
+  aiActions?: readonly ActionMeta[];
   nativeLoading: boolean;
   nativeError: string | null;
   actionProviders: readonly ProviderOption[];
@@ -48,6 +56,7 @@ export interface ActionPickerProps {
 
 export function ActionPicker({
   nativeActions,
+  aiActions,
   nativeLoading,
   nativeError,
   actionProviders,
@@ -78,6 +87,11 @@ export function ActionPicker({
 
   return (
     <div className="flex flex-col gap-3">
+      <AiActionsSection
+        actions={aiActions}
+        searchQuery={searchQuery}
+        onPickAction={onPickAction}
+      />
       <section aria-label="Native actions" className="flex flex-col gap-1.5">
         <PickerSectionHeader label="Native actions" count={filteredNative.length} />
         {nativeLoading ? (
@@ -321,6 +335,74 @@ function ProviderActionsView({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/**
+ * ChainReact AI section (AI-PROVIDER-4 CS-4).
+ *
+ * A first-class provider section rather than a "Providers" grid card: the
+ * AI provider is connectionless, so a card that drills into a Connect flow
+ * would be wrong. It renders as a named list exactly like Native actions.
+ *
+ * Visibility is entirely SERVER-driven — the catalog route returns an empty
+ * list while the AI processor is disabled (or, in CS-4, before any AI
+ * action is registered). An empty catalog renders NOTHING: no
+ * heading, no empty state, no "coming soon" placeholder. A section that
+ * cannot be acted on is noise, and an always-visible heading would promise
+ * a capability that is not there.
+ */
+function AiActionsSection({
+  actions,
+  searchQuery,
+  onPickAction,
+}: {
+  actions?: readonly ActionMeta[];
+  searchQuery?: string;
+  onPickAction: (meta: ActionMeta) => void;
+}) {
+  if (!actions || actions.length === 0) return null;
+
+  const filtered = filterMetasBySearch(actions, searchQuery);
+  // Hide the whole section when a search excludes every AI action — the
+  // native/provider sections already tell the user their search matched
+  // nothing here.
+  if (filtered.length === 0) return null;
+
+  return (
+    <section
+      aria-label={`${AI_PROVIDER_DISPLAY_NAME} actions`}
+      className="flex flex-col gap-1.5"
+    >
+      <PickerSectionHeader
+        label={AI_PROVIDER_DISPLAY_NAME}
+        count={filtered.length}
+      />
+      <ul
+        aria-label={`${AI_PROVIDER_DISPLAY_NAME} actions list`}
+        className="flex flex-col overflow-hidden rounded-[5px]"
+        style={{ border: "1px solid var(--builder-border)" }}
+      >
+        {filtered.map((meta, i) => (
+          <li
+            key={meta.key}
+            style={{
+              borderBottom:
+                i === filtered.length - 1
+                  ? "0"
+                  : "1px solid var(--builder-border)",
+            }}
+          >
+            <PickerRow
+              title={meta.displayName}
+              description={meta.description}
+              metaKey={meta.key}
+              onClick={() => onPickAction(meta)}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

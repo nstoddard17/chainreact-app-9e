@@ -42,6 +42,7 @@ const mockListProviderTriggers = jest.fn();
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: () => mockListNativeActions(),
+  listAiActions: () => Promise.resolve([]),
   listNativeTriggers: () => mockListNativeTriggers(),
   listProviderActions: (p: string) => mockListProviderActions(p),
   listProviderTriggers: (p: string) => mockListProviderTriggers(p),

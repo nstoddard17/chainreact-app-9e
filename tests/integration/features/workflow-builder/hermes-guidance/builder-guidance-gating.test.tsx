@@ -16,6 +16,7 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: async () => [],
+  listAiActions: () => Promise.resolve([]),
   listNativeTriggers: async () => [],
   listProviderActions: async () => [],
   listProviderTriggers: async () => [],

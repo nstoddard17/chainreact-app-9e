@@ -3,6 +3,11 @@
 import { useMemo } from "react";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import type { WorkflowNode } from "@/contracts/workflow";
+import {
+  AI_PROVIDER_ID,
+  isConnectionlessProvider,
+} from "@/core/integrations/connectionlessProviders";
+import { findAiActionByKey, useAiActions } from "./useAiActions";
 import { findNativeActionByKey, useNativeActions } from "./useNativeActions";
 import { findNativeTriggerByKey, useNativeTriggers } from "./useNativeTriggers";
 import { findProviderActionByKey, useProviderActions } from "./useProviderActions";
@@ -19,8 +24,6 @@ import { findProviderTriggerByKey, useProviderTriggers } from "./useProviderTrig
  * helpers; per-branch loading/error so one slow source never blocks another
  * node's lookup.
  */
-
-const NATIVE_PROVIDER = "native";
 
 export interface NodeMetaResult {
   readonly meta:
@@ -39,15 +42,26 @@ export interface NodeMetaResult {
 export function useNodeMeta(node: WorkflowNode | undefined): NodeMetaResult {
   const nativeActions = useNativeActions();
   const nativeTriggers = useNativeTriggers();
+  // Only fetch the AI catalog when THIS node is an AI node (mirrors the
+  // provider-catalog hooks' null short-circuit — no fetch otherwise).
+  const aiActions = useAiActions(node?.provider === AI_PROVIDER_ID);
 
+  // Connectionless providers (native, ai) serve their metadata from their own
+  // catalogs — the provider-catalog hooks are for connection-backed apps only.
   const providerActionSource =
-    node && node.kind === "action" && node.provider !== NATIVE_PROVIDER && node.type
+    node &&
+    node.kind === "action" &&
+    !isConnectionlessProvider(node.provider) &&
+    node.type
       ? node.provider
       : null;
   const providerActions = useProviderActions(providerActionSource);
 
   const providerTriggerSource =
-    node && node.kind === "trigger" && node.provider !== NATIVE_PROVIDER && node.type
+    node &&
+    node.kind === "trigger" &&
+    !isConnectionlessProvider(node.provider) &&
+    node.type
       ? node.provider
       : null;
   const providerTriggers = useProviderTriggers(providerTriggerSource);
@@ -55,7 +69,18 @@ export function useNodeMeta(node: WorkflowNode | undefined): NodeMetaResult {
   return useMemo<NodeMetaResult>(() => {
     if (!node || !node.type) return { meta: undefined, loading: false, error: null };
     const key = `${node.provider}:${node.type}`;
-    if (node.provider === NATIVE_PROVIDER) {
+    // The AI provider ships actions only (no AI triggers exist).
+    if (node.provider === AI_PROVIDER_ID) {
+      return {
+        meta:
+          node.kind === "action"
+            ? findAiActionByKey(aiActions.actions, key)
+            : undefined,
+        loading: aiActions.loading,
+        error: aiActions.error,
+      };
+    }
+    if (isConnectionlessProvider(node.provider)) {
       const source = node.kind === "trigger" ? nativeTriggers : nativeActions;
       const meta =
         node.kind === "trigger"
@@ -75,5 +100,5 @@ export function useNodeMeta(node: WorkflowNode | undefined): NodeMetaResult {
       loading: providerTriggers.loading,
       error: providerTriggers.error,
     };
-  }, [node, nativeActions, nativeTriggers, providerActions, providerTriggers]);
+  }, [node, nativeActions, nativeTriggers, aiActions, providerActions, providerTriggers]);
 }
