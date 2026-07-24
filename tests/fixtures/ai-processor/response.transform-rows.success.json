@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "result": {
+    "rows": [
+      { "vehicle_name": "Truck 12", "vin": "1FTSW21R08EB12345", "_confidence": 0.97 }
+    ],
+    "overallConfidence": 0.97
+  },
+  "usage": { "prompt_tokens": 900, "completion_tokens": 60, "total_tokens": 960 },
+  "modelTag": "hermes-doc-v1"
+}

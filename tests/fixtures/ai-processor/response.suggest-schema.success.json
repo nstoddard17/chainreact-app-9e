@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "result": {
+    "fields": [
+      { "name": "employee_name", "type": "string", "required": true, "description": "Employee full name" },
+      { "name": "overtime_hours", "type": "number", "description": "Overtime hours for the period" },
+      { "name": "gross_pay", "type": "currency", "description": "Gross pay in dollars" }
+    ]
+  },
+  "usage": { "prompt_tokens": 1500, "completion_tokens": 80, "total_tokens": 1580 },
+  "modelTag": "hermes-doc-v1"
+}

@@ -1,0 +1,6 @@
+{
+  "ok": true,
+  "result": { "summary": "fine", "keyPoints": [], "overallConfidence": 0.8 },
+  "modelTag": "hermes-doc-v1",
+  "debugPromptEcho": "should never be accepted"
+}

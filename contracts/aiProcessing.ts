@@ -203,3 +203,24 @@ export type AnswerQuestionsResult = z.infer<typeof AnswerQuestionsResultSchema>;
 /** `suggest_schema` proposes a user-editable schema — same contract shape. */
 export const SuggestSchemaResultSchema = UserDefinedSchemaSchema;
 export type SuggestSchemaResult = z.infer<typeof SuggestSchemaResultSchema>;
+
+/**
+ * `transform_data` result envelopes — one per declared output shape. The
+ * caller picks the envelope from its `outputShape` config; the model is
+ * asked for exactly one of the two (never both).
+ */
+export const TransformRowsResultSchema = z
+  .object({
+    rows: z.array(z.record(z.string(), z.unknown())),
+    overallConfidence: ConfidenceSchema,
+  })
+  .strict();
+export type TransformRowsResult = z.infer<typeof TransformRowsResultSchema>;
+
+export const TransformRecordResultSchema = z
+  .object({
+    record: z.record(z.string(), z.unknown()),
+    overallConfidence: ConfidenceSchema,
+  })
+  .strict();
+export type TransformRecordResult = z.infer<typeof TransformRecordResultSchema>;

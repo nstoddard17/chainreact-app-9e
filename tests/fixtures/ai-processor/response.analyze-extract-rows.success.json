@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "result": {
+    "rows": [
+      { "employee_name": "Alice Johnson", "overtime_hours": 2, "_confidence": 0.95 },
+      { "employee_name": "Carol Diaz", "overtime_hours": 6, "_confidence": 0.9 }
+    ],
+    "overallConfidence": 0.9
+  },
+  "usage": { "prompt_tokens": 2100, "completion_tokens": 140, "total_tokens": 2240 },
+  "modelTag": "hermes-doc-v1"
+}
