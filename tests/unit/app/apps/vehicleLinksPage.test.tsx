@@ -113,6 +113,11 @@ async function renderPage(): Promise<void> {
   renderToStaticMarkup(await VehicleLinksPage());
 }
 
+/** Same, but returns the HTML so page-level chrome (the back link) can be asserted. */
+async function renderPageToMarkup(): Promise<string> {
+  return renderToStaticMarkup(await VehicleLinksPage());
+}
+
 const ACCOUNT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const USER = "11111111-1111-4111-8111-111111111111";
 
@@ -247,6 +252,22 @@ describe("auth + membership gating", () => {
  * this page filters for `type === "team"`, and these tests exist so a future
  * change cannot quietly introduce such a filter.
  */
+describe("back navigation", () => {
+  it("renders a 'Back to Apps' link pointing at /apps", async () => {
+    const html = await renderPageToMarkup();
+    expect(html).toContain('href="/apps"');
+    expect(html).toContain("Back to Apps");
+  });
+
+  it("the back link is server-rendered, so a deep-link still has a way out", async () => {
+    // No env var, default-ON: the page renders and the link is present without
+    // relying on browser history.
+    delete process.env[RESOURCE_LINKS_UI_FLAG];
+    const html = await renderPageToMarkup();
+    expect(html).toContain('href="/apps"');
+  });
+});
+
 describe("personal-account access (CS-6)", () => {
   const PERSONAL_ACCOUNT = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 

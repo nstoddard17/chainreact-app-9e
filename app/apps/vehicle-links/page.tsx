@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
@@ -108,6 +109,19 @@ export default async function VehicleLinksPage() {
       recentNotifications={bell.recentNotifications}
     >
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
+        {/*
+         * Back to the Apps page. Server-rendered plain link (no client JS) so it
+         * always points at a real destination rather than depending on browser
+         * history — a user who deep-links straight here still has a way back.
+         * Mirrors the "‹ All workflows" affordance on the builder header.
+         */}
+        <Link
+          href="/apps"
+          data-testid="back-to-apps"
+          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
+        >
+          <span aria-hidden>←</span> Back to Apps
+        </Link>
         <VehicleLinksDashboard
           accountId={account.id}
           canManage={callerRole === "owner" || callerRole === "admin"}
