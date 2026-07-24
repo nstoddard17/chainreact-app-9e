@@ -16,6 +16,7 @@
 
 import type { OutputMeta, OutputType } from "@/contracts/actionMeta";
 import type { WorkflowNode } from "@/contracts/workflow";
+import { applyDynamicOutputs } from "@/core/workflows/dynamicOutputs";
 import { formatReference } from "@/core/workflows/variableReferences";
 import { findUpstreamNodes } from "@/core/workflows/upstreamVariables";
 import {
@@ -107,7 +108,11 @@ function outputsForNode(node: WorkflowNode): readonly OutputMeta[] | null {
     return meta ? meta.payloadShape : null;
   }
   const meta = lookupActionMeta(key);
-  return meta ? meta.outputs : null;
+  // CS-8 — same synthesis the builder's variable picker applies: an
+  // action whose meta declares `dynamicOutputs` exposes the author's
+  // committed schema fields as child paths. Identity return for every
+  // meta without a declaration.
+  return meta ? applyDynamicOutputs(meta, node.config) : null;
 }
 
 export async function getAvailableVariablesForAI(

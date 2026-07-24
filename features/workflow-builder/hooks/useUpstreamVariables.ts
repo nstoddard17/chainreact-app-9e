@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { ActionMeta, OutputMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
+import { applyDynamicOutputs } from "@/core/workflows/dynamicOutputs";
 import { buildLatestValuesBySource } from "@/core/workflows/latestRunValues";
 import { findUpstreamNodes } from "@/core/workflows/upstreamVariables";
 import {
@@ -268,7 +269,12 @@ interface ResolveCtx {
 }
 
 function resolveMeta(
-  node: { kind: "trigger" | "action"; provider: string; type: string },
+  node: {
+    kind: "trigger" | "action";
+    provider: string;
+    type: string;
+    config: Record<string, unknown>;
+  },
   ctx: ResolveCtx,
 ): ResolvedMeta | undefined {
   if (!node.type) return undefined;
@@ -293,18 +299,30 @@ function resolveMeta(
       outputs: trigMeta.payloadShape,
     };
   }
+  // CS-8 — every action branch resolves through `applyDynamicOutputs`:
+  // metas without a `dynamicOutputs` declaration return `meta.outputs` by
+  // reference (zero cost), metas WITH one get the author's committed
+  // schema fields attached as child outputs. Metadata-driven — no
+  // provider special-case.
   if (node.provider === AI_PROVIDER_ID) {
-    // AI actions land in CS-5/CS-6; their catalog is resolved by the config
-    // rail (useNodeMeta). Until an AI action exists there is nothing to
-    // resolve here, and CS-8 owns config-derived (dynamicOutputs) synthesis.
     const m = findAiActionByKey(ctx.aiActions, key);
-    return m ? { displayName: m.displayName, outputs: m.outputs } : undefined;
+    return m ? resolveActionOutputs(m, node.config) : undefined;
   }
   if (isConnectionlessProvider(node.provider)) {
     const m = findNativeActionByKey(ctx.nativeActions, key);
-    return m ? { displayName: m.displayName, outputs: m.outputs } : undefined;
+    return m ? resolveActionOutputs(m, node.config) : undefined;
   }
   const providerActions = ctx.providerCatalogs[node.provider] ?? [];
   const m = findProviderActionByKey(providerActions, key);
-  return m ? { displayName: m.displayName, outputs: m.outputs } : undefined;
+  return m ? resolveActionOutputs(m, node.config) : undefined;
+}
+
+function resolveActionOutputs(
+  meta: ActionMeta,
+  config: Record<string, unknown>,
+): ResolvedMeta {
+  return {
+    displayName: meta.displayName,
+    outputs: applyDynamicOutputs(meta, config),
+  };
 }

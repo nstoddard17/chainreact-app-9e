@@ -132,6 +132,73 @@ describe("getAvailableVariablesForAI", () => {
     expect(entry!.sensitive).toBe(true);
   });
 
+  // CS-8 (AI-PROVIDER-8) — the tool applies the same dynamic-output
+  // synthesis the builder's variable picker uses, so the planner sees the
+  // author's committed schema fields as real paths. Real registry meta
+  // (`ai:analyze_document`), real synthesis helper.
+  it("exposes synthesized dynamic outputs from an upstream AI node's committed schema", async () => {
+    mockGetById.mockResolvedValue(
+      makeRecord({
+        nodes: [
+          {
+            id: "n1",
+            kind: "action",
+            provider: "ai",
+            type: "analyze_document",
+            config: {
+              mode: "extract_fields",
+              expectedFields: {
+                fields: [
+                  { name: "employee_name", type: "string" },
+                  { name: "gross_pay", type: "currency" },
+                ],
+              },
+            },
+            position: { x: 0, y: 0 },
+          },
+          { id: "n2", kind: "action", provider: actionWithOutputs.provider, type: actionWithOutputs.type, config: {}, position: { x: 0, y: 1 } },
+        ],
+        edges: [{ id: "e1", from: "n1", to: "n2" }],
+      }),
+    );
+
+    const result = await getAvailableVariablesForAI("owner-1", "wf-1", "n2");
+    if (!result.ok) throw new Error("expected ok");
+    const employeeName = result.data.variables.find(
+      (v) => v.nodeId === "n1" && v.path === "fields.employee_name",
+    );
+    expect(employeeName).toBeDefined();
+    expect(employeeName!.reference).toBe("{{n1.fields.employee_name}}");
+    expect(employeeName!.type).toBe("string");
+    const grossPay = result.data.variables.find(
+      (v) => v.nodeId === "n1" && v.path === "fields.gross_pay",
+    );
+    expect(grossPay!.type).toBe("number");
+  });
+
+  it("exposes no synthesized paths when the AI node has no committed schema", async () => {
+    mockGetById.mockResolvedValue(
+      makeRecord({
+        nodes: [
+          { id: "n1", kind: "action", provider: "ai", type: "analyze_document", config: { mode: "summarize" }, position: { x: 0, y: 0 } },
+          { id: "n2", kind: "action", provider: actionWithOutputs.provider, type: actionWithOutputs.type, config: {}, position: { x: 0, y: 1 } },
+        ],
+        edges: [{ id: "e1", from: "n1", to: "n2" }],
+      }),
+    );
+    const result = await getAvailableVariablesForAI("owner-1", "wf-1", "n2");
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.data.variables.some(
+        (v) => v.nodeId === "n1" && v.path.startsWith("fields."),
+      ),
+    ).toBe(false);
+    // The static `fields` output itself is still listed.
+    expect(
+      result.data.variables.some((v) => v.nodeId === "n1" && v.path === "fields"),
+    ).toBe(true);
+  });
+
   it("returns NOT_FOUND for an unknown node id", async () => {
     mockGetById.mockResolvedValue(makeRecord({ nodes: [], edges: [] }));
     const result = await getAvailableVariablesForAI("owner-1", "wf-1", "ghost");

@@ -29,8 +29,10 @@ import { AI_PROVIDER_ID } from "@/core/integrations/connectionlessProviders";
  * `dynamicOutputs` covers the custom-schema mode only — the declaration
  * contract sources child outputs from a `schema-fields` config field, and in
  * destination-action mode there is no such field (the shape comes from the
- * registry). CS-8 owns synthesis; that asymmetry is recorded in the CS-6
- * outcome doc.
+ * registry), so that mode's children stay discovery-blind (runtime
+ * resolution of hand-typed paths still works). Synthesis is
+ * `applyDynamicOutputs` (CS-8); the asymmetry is recorded in the CS-6 and
+ * CS-8 outcome docs.
  */
 export const transformDataMeta: ActionMeta = {
   key: "ai:transform_data",

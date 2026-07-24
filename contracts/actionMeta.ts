@@ -1269,10 +1269,11 @@ export type RiskLevel = z.infer<typeof RiskLevelSchema>;
  *
  * This declaration is the CONTRACT half: it says "the child fields of the
  * output named `attachUnder` come from the config field named
- * `configField`". It is inert metadata in CS-4 — CS-8 owns the builder-side
- * synthesis that reads it. Shipping the declaration now keeps action metas
- * (CS-5/CS-6) authored once, and leaves a forward path to server-side
- * evaluation without another contract change.
+ * `configField`". The synthesis half is `applyDynamicOutputs`
+ * (core/workflows/dynamicOutputs.ts, CS-8), consumed by the builder's
+ * variable-source resolution (`useUpstreamVariables`) and the AI planner's
+ * variables tool. Keeping the halves separate leaves a forward path to
+ * server-side evaluation without another contract change.
  *
  * Validation (meta-level superRefine):
  *   - `configField` must name a declared field, and that field MUST be
@@ -1435,8 +1436,8 @@ export const ActionMetaSchema = z
     /**
      * AI-PROVIDER-4 (CS-4) — optional config-derived output declarations.
      * Additive and default-free: every existing meta parses unchanged.
-     * Inert metadata until CS-8 wires the builder-side synthesis. See
-     * `DynamicOutputsDeclarationSchema`.
+     * Synthesized into the effective output tree by `applyDynamicOutputs`
+     * (CS-8). See `DynamicOutputsDeclarationSchema`.
      */
     dynamicOutputs: z.array(DynamicOutputsDeclarationSchema).min(1).max(4).optional(),
   })

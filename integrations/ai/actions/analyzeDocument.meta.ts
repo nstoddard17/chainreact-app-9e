@@ -29,9 +29,10 @@ import { AI_PROVIDER_ID } from "@/core/integrations/connectionlessProviders";
  * "Suggest fields" reads the SAME document this step will analyze.
  *
  * `dynamicOutputs` declares where the author's own field names attach in
- * the variable picker. It is inert until CS-8 implements synthesis; the
- * runtime resolver already walks those paths, so hand-typed references
- * work today and discovery catches up without a metadata rewrite.
+ * the variable picker; `applyDynamicOutputs` (CS-8) synthesizes the child
+ * outputs from the committed schema, so the picker and the soft reference
+ * validator see `fields.<name>` / `rows.<name>` without any manual
+ * variable registration.
  */
 export const analyzeDocumentMeta: ActionMeta = {
   key: "ai:analyze_document",
