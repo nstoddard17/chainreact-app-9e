@@ -56,15 +56,20 @@ export { outputJsonSchemaFor, resultValidatorFor } from "./responseSchemas";
 // validator both actions share.
 export {
   AiActionRefusedError,
+  AiCreditsExhaustedError,
   AiTransientError,
+  DestinationResolutionError,
   DocumentInputError,
   ExtractionValidationError,
+  refusalError,
+  TransformInputError,
 } from "./analysisErrors";
 export {
   blankLowConfidenceRows,
   coerceSchemaValue,
   validateExtractedFields,
   validateExtractedRows,
+  validateTransformedRecord,
   type ExtractionValidation,
   type ExtractionValidatorOptions,
   type ValidatedFields,
@@ -77,6 +82,23 @@ export {
   type ResolveAnalysisDocumentInput,
   type ResolvedAnalysisDocument,
 } from "./resolveAnalysisDocument";
+// AI-PROVIDER-6 (CS-6) — Transform Data orchestration + destination resolution.
+export {
+  DESTINATION_EXCLUDED_WARNING_PREFIX,
+  destinationWarnings,
+  resolveTransformDestination,
+  type ResolvedTransformDestination,
+  type ResolveTransformDestinationDeps,
+  type ResolveTransformDestinationInput,
+} from "./resolveTransformDestination";
+export {
+  runDataTransform,
+  TRANSFORM_DATA_ACTION_KEY,
+  type DataTransformOutput,
+  type RunDataTransformConfig,
+  type RunDataTransformDeps,
+  type RunDataTransformInput,
+} from "./runDataTransform";
 export {
   ANALYZE_DOCUMENT_ACTION_KEY,
   runDocumentAnalysis,

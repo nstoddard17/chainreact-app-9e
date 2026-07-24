@@ -756,12 +756,24 @@ export class WorkflowEngine {
               ? "INTEGRATION_SCOPE_REQUIRED"
               : errName === "AbortError" || errName === "TimeoutError"
                 ? "TRANSIENT_PROVIDER_ERROR"
-                : // CS-4 MCP-DRIFT — the engine refused to execute against a changed,
+                : // TRUCK-BRIDGE-1 CS-4 — the step asked for a vehicle link this
+                  // account has not confirmed (or has removed). A setup gap with a
+                  // specific fix, not a handler bug → its own classification, so the
+                  // humanizer can point at Apps → Vehicle Links instead of falling
+                  // through to the identifier-free generic branch.
+                  errName === "UnmappedVehicleError"
+                  ? "UNMAPPED_VEHICLE"
+                  : // CS-4 MCP-DRIFT — the engine refused to execute against a changed,
                   // unreviewed integration interface (certified-schema drift). Safe
                   // stop, not a handler bug → its own first-class classification.
                   errName === "McpSchemaDriftError"
                   ? "INTEGRATION_CHANGED"
-                  : "HANDLER_FAILED";
+                  : // AI-PROVIDER-6 — a ChainReact AI step refused for lack of
+                    // AI credits. Its own code so run history points at billing
+                    // rather than at the step's configuration.
+                    errName === "AiCreditsExhaustedError"
+                    ? "AI_CREDITS_EXHAUSTED"
+                    : "HANDLER_FAILED";
         steps.push({
           nodeId: node.id,
           status: "failed",

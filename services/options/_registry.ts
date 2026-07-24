@@ -7,6 +7,11 @@ import {
 // integration tests have a provider-mock-free baseline.
 import { nativeExamplesResolver } from "./fixtures/nativeExamples";
 
+// AI-PROVIDER-6 (CS-6) — `ai:destination_actions` backs the Transform Data
+// destination picker. Connectionless (registry metadata only, no provider
+// call), so it needs no integration row.
+import { aiDestinationActionsResolver } from "@/integrations/ai/options/destinationActions";
+
 // First real provider resolver — Slice 3.32 (Slack channels picker for
 // `slack:upload_file.channel`).
 import { slackChannelsResolver } from "@/integrations/slack/options/channels";
@@ -1008,6 +1013,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   shopifyOrdersResolver,
   shopifyVariantsResolver,
   shopifyLocationsResolver,
+  // AI-PROVIDER-6 — destination picker for ai:transform_data.
+  aiDestinationActionsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

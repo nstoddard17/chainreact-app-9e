@@ -270,6 +270,24 @@ describe("humanizeActionError — CR-FAILREASON-1 provider-agnostic codes", () =
     expect(r.severity).toBe("warning");
   });
 
+  // AI-PROVIDER-6 (CS-6) — the AI-credit meter is its own story: the plan
+  // includes AI, the balance ran out. Distinct from BILLING_EXHAUSTED (task
+  // quota) and PLAN_FEATURE_REQUIRED (feature not in the plan).
+  it("AI_CREDITS_EXHAUSTED → upgrade_plan, warning, points at credits not config", () => {
+    const r = humanizeActionError({
+      code: "AI_CREDITS_EXHAUSTED",
+      message: "Not enough AI credits for this step.",
+    });
+    expect(r.action).toBe("upgrade_plan");
+    expect(r.severity).toBe("warning");
+    expect(r.title.toLowerCase()).toMatch(/ai credits/);
+    expect(r.hint?.toLowerCase()).toMatch(/upgrade|reset/);
+    // Never blames the step's setup — the config is fine, the balance isn't.
+    expect(`${r.title} ${r.description} ${r.hint}`.toLowerCase()).not.toMatch(
+      /reconnect|fix (the )?(field|step|config)/,
+    );
+  });
+
   it("INTEGRATION_CHANGED → review_pending, warning, reassuring plain-language copy", () => {
     const r = humanizeActionError({
       code: "INTEGRATION_CHANGED",

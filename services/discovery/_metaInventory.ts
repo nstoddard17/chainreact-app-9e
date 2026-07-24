@@ -26,6 +26,7 @@ import { routerMeta } from "@/integrations/native/actions/router.meta";
 // native — served to the builder by /api/ai/actions, which additionally
 // gates the whole catalog on AI_PROCESSOR_ENABLED.
 import { analyzeDocumentMeta } from "@/integrations/ai/actions/analyzeDocument.meta";
+import { transformDataMeta } from "@/integrations/ai/actions/transformData.meta";
 
 // Native trigger metadata.
 import { manualTriggerMeta } from "@/integrations/native/triggers/manualTrigger.meta";
@@ -457,8 +458,9 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   delayMeta,
   ifThenConditionMeta,
   routerMeta,
-  // ChainReact AI (AI-PROVIDER-5 CS-5).
+  // ChainReact AI (AI-PROVIDER-5 CS-5 · AI-PROVIDER-6 CS-6).
   analyzeDocumentMeta,
+  transformDataMeta,
   // GitHub (Slice 3.0b).
   createIssueMeta,
   createRepositoryMeta,

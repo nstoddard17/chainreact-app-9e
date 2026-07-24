@@ -74,6 +74,20 @@ export type RunFailureCode =
    */
   | "TRANSIENT_PROVIDER_ERROR"
   /**
+   * 5.TRUCK-BRIDGE-1 CS-4 — a step needed the Fleetio vehicle linked to a
+   * telematics vehicle, and this account has no ACTIVE link for it (never
+   * linked, or the link was removed). Normalized from `UnmappedVehicleError`
+   * (`fleetio:find_linked_vehicle`) at the handler boundary.
+   *
+   * A first-class code because this is a SETUP GAP with a specific, safe fix —
+   * "link the vehicle in Apps → Vehicle Links" — and the generic
+   * `HANDLER_FAILED` branch deliberately refuses to echo raw handler text, so
+   * without this code the user would only ever see "This step failed for an
+   * unexpected reason." The humanized copy is code-derived and identifier-free:
+   * it never names the vehicle, the account, or another account's mapping.
+   */
+  | "UNMAPPED_VEHICLE"
+  /**
    * CS-4 MCP-DRIFT — a connected app changed its interface in a way ChainReact
    * hasn't reviewed, so the engine refused to execute the step BEFORE sending
    * data (normalized from `McpSchemaDriftError` at the handler boundary). This
@@ -81,7 +95,16 @@ export type RunFailureCode =
    * integration is under review. Humanizer maps it to the `review_pending`
    * action. Provider-agnostic on purpose (reusable for any certified provider).
    */
-  | "INTEGRATION_CHANGED";
+  | "INTEGRATION_CHANGED"
+  /**
+   * AI-PROVIDER-6 (CS-6) — the workflow-owning account ran out of AI credits,
+   * so a ChainReact AI step was refused BEFORE any model call (normalized from
+   * `AiCreditsExhaustedError` at the handler boundary). Deliberately distinct
+   * from `PLAN_FEATURE_REQUIRED` (the plan doesn't include the feature) and
+   * from `BILLING_EXHAUSTED` (task quota, a different meter): here the feature
+   * is included and the meter is AI credits. Humanizes to `upgrade_plan`.
+   */
+  | "AI_CREDITS_EXHAUSTED";
 
 export interface RunStepResult {
   nodeId: string;

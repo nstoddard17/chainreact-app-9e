@@ -896,6 +896,39 @@ describe("WorkflowEngine — failure modes (rule §Engine pre-resolution)", () =
     });
   });
 
+  // AI-PROVIDER-6 (CS-6) — a ChainReact AI step refused for lack of AI credits
+  // gets its OWN code, so run history points at billing rather than at the
+  // step's configuration. The engine classifies on `err.name` (no import cycle
+  // into the AI layer), so this test pins that wire.
+  it("AI_CREDITS_EXHAUSTED when an AI step throws AiCreditsExhaustedError", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    mockGetActionHandler.mockReturnValueOnce(async () => {
+      const err = new Error("Not enough AI credits for this step.");
+      err.name = "AiCreditsExhaustedError";
+      throw err;
+    });
+
+    const result = await new WorkflowEngine({
+      resolveStrict: (v) => v,
+    }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.steps[1]).toMatchObject({
+      status: "failed",
+      error: { code: "AI_CREDITS_EXHAUSTED" },
+    });
+  });
+
   it("stops on first failure — downstream steps are not executed", async () => {
     mockGetByIdServiceRole.mockResolvedValueOnce({
       ...baseWorkflow,

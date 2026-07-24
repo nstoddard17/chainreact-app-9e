@@ -424,6 +424,7 @@ import { router as nativeRouter } from "@/integrations/native/actions/router";
 // manifest, no integration row); billing / gating / routing / ledger all live
 // in services/ai/processor/executeAiAction, never in the handler.
 import { analyzeDocument as aiAnalyzeDocument } from "@/integrations/ai/actions/analyzeDocument";
+import { transformData as aiTransformData } from "@/integrations/ai/actions/transformData";
 // Slice 5.ASANA-1 — 5 Asana task/comment actions (first net-new provider,
 // no V1 code). REST via _shared/asana/api; all writes wrapped in
 // refreshAndRetry (hourly-expiring tokens).
@@ -1028,6 +1029,10 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // pipeline (registry -> flag -> tier -> price -> credit gate -> route ->
   // model -> strict validation -> ai_cost_events).
   { provider: "ai", type: "analyze_document", handler: aiAnalyzeDocument },
+  // AI-PROVIDER-6 (CS-6) — ChainReact AI: Transform Data. Destination-action
+  // mode derives the output contract from the destination's OWN metadata,
+  // re-derived server-side at run time (never trusted from the client).
+  { provider: "ai", type: "transform_data", handler: aiTransformData },
   // Slice 5.ASANA-1 — Asana first slice (5 actions).
   { provider: "asana", type: "create_task", handler: asanaCreateTask },
   { provider: "asana", type: "update_task", handler: asanaUpdateTask },

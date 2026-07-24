@@ -307,6 +307,42 @@ export function validateExtractedRows(
   };
 }
 
+export interface ValidatedRecord {
+  /** One entry per declared field, in declaration order. Never partial. */
+  readonly values: Record<string, unknown>;
+  readonly overallConfidence: number;
+}
+
+/**
+ * Validate a single transformed `record` against the destination schema
+ * (AI-PROVIDER-6 CS-6).
+ *
+ * Same rules as `validateExtractedFields`, minus per-field confidence: the
+ * transform contract carries one `overallConfidence` for the record because a
+ * mapping is judged as a whole, not cell by cell. Declared keys are always
+ * present; undeclared keys are stripped.
+ */
+export function validateTransformedRecord(
+  payload: { record: Record<string, unknown>; overallConfidence: number },
+  options: ExtractionValidatorOptions,
+): ExtractionValidation<ValidatedRecord> {
+  const issues: string[] = [];
+  const values: Record<string, unknown> = {};
+
+  for (const field of options.schema.fields) {
+    const raw = Object.prototype.hasOwnProperty.call(payload.record, field.name)
+      ? payload.record[field.name]
+      : undefined;
+    coerceInto(values, field, raw, options.strict, issues, "");
+  }
+
+  if (issues.length > 0) return { ok: false, issues };
+  return {
+    ok: true,
+    value: { values, overallConfidence: clampConfidence(payload.overallConfidence) },
+  };
+}
+
 /**
  * Blank the declared values of the rows/fields the low-confidence policy
  * flagged (`onLowConfidence: "blank"`). The reserved `_confidence` key is

@@ -56,7 +56,8 @@ describe("registration", () => {
 
   it("is discoverable as a ChainReact AI action and has a registered handler", () => {
     expect(getActionMeta(KEY)).toBeDefined();
-    expect(listActionMetasForProvider(AI_PROVIDER_ID).map((m) => m.key)).toEqual([KEY]);
+    // AI-PROVIDER-6 added Transform Data alongside it; both are ChainReact AI.
+    expect(listActionMetasForProvider(AI_PROVIDER_ID).map((m) => m.key)).toContain(KEY);
     expect(getActionHandler(AI_PROVIDER_ID, "analyze_document")).toBeDefined();
   });
 

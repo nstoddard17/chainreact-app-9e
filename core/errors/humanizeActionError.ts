@@ -141,6 +141,18 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
         action: "upgrade_plan",
         severity: "warning",
       };
+    // AI-PROVIDER-6 — the AI-credit meter, not the task meter. Same CTA,
+    // different story: the plan includes AI, the balance ran out.
+    case "AI_CREDITS_EXHAUSTED":
+      return {
+        title: "Out of AI credits",
+        description:
+          input.message ||
+          "This workflow uses a ChainReact AI step, and the account has no AI credits left for this billing period.",
+        hint: "Upgrade your plan or wait for your credits to reset, then re-run this workflow.",
+        action: "upgrade_plan",
+        severity: "warning",
+      };
     case "PLAN_FEATURE_REQUIRED":
       return {
         title: "Upgrade required for If/Else routing",
@@ -185,6 +197,32 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
           "This workflow has a step with missing required configuration, or its steps aren't fully connected.",
         hint: "Open the workflow and finish setting up the flagged step, then run it again.",
         action: "open_node",
+        severity: "error",
+      };
+    case "UNMAPPED_VEHICLE":
+      // 5.TRUCK-BRIDGE-1 CS-4 — `fleetio:find_linked_vehicle` found no ACTIVE
+      // link for the telematics vehicle this run supplied. A SETUP gap with a
+      // specific, safe fix.
+      //
+      // Code-derived copy ONLY. The thrown message names the vehicle id the
+      // run supplied; it is deliberately NOT echoed here, because this string
+      // is persisted on the run row and fans out to notifications, and it must
+      // stay identifier-free like every other classified branch. An ARCHIVED
+      // link and a never-created link produce identical copy — the user's next
+      // step is the same, and distinguishing them would reveal that a mapping
+      // once existed.
+      //
+      // No `action` on purpose. The right destination is /apps/vehicle-links,
+      // but that surface is behind the default-OFF RESOURCE_LINKS_UI flag — a
+      // CTA linking to a 404 would be worse than no CTA, and the taxonomy rule
+      // is "never a misleading action". The description names the destination
+      // in plain words instead. Adding a `link_vehicles` action is a clean
+      // follow-up once the flag flips.
+      return {
+        title: "Vehicle isn't linked yet",
+        description:
+          "This Motive vehicle is not linked to Fleetio yet. Link it in Apps → Vehicle Links, then run the workflow again.",
+        hint: "Vehicle links are set up once per truck and reused by every workflow.",
         severity: "error",
       };
     case "INTEGRATION_REAUTH_REQUIRED":

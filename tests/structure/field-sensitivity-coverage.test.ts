@@ -50,6 +50,15 @@ import type { FieldSensitivity } from "@/contracts/actionMeta";
  * metadata category for it (mislabeling would be inventing metadata).
  */
 const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
+  // AI-PROVIDER-6 — `destination*` on `ai:transform_data` matches the
+  // recipient/destination heuristic on the word "destination", but nothing is
+  // SENT anywhere: this action returns transformed data into the workflow, and
+  // these three fields choose the SHAPE of that data (which step's fields to
+  // match, or the author's own field list). Labeling them `recipient` would
+  // claim a delivery target that does not exist. Still heuristic-blocked at the
+  // apply gate, which is the behavior we want — an AI repair should not silently
+  // re-point a transform at a different destination.
+  "ai:transform_data": ["destinationMode", "destinationAction", "destinationSchema"],
   // `emailId` — the RECORD ID of the email being acted on (not a recipient; the "email"
   // token is incidental). These actions target an existing message; they don't send.
   "microsoft-outlook:add_categories": ["emailId"],

@@ -9,9 +9,9 @@ import {
 } from "@/contracts/aiProcessing";
 import type { ModelTier } from "@/core/ai/modelTypes";
 import {
-  AiActionRefusedError,
   AiTransientError,
   ExtractionValidationError,
+  refusalError,
 } from "./analysisErrors";
 import { executeAiAction } from "./executeAiAction";
 import {
@@ -301,7 +301,7 @@ export async function runDocumentAnalysis(
   });
 
   if (outcome.status === "preflight_refused") {
-    throw new AiActionRefusedError(outcome.reason, outcome.message);
+    throw refusalError(outcome);
   }
   if (outcome.status === "provider_failed") {
     if (outcome.retryable) throw new AiTransientError(outcome.message);
