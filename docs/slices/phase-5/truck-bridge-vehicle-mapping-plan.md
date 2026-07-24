@@ -612,6 +612,134 @@ the first slice needing the flag.
 
 ---
 
+## 11b. CS-1 outcome — Data foundation (SHIPPED, inert)
+
+**Status:** implemented. Migration authored but **NOT applied** — the table does not exist in any
+database yet. Nothing user-visible changed.
+
+### Final table shape — `public.account_resource_links`
+
+[`supabase/migrations/20260729000000_account_resource_links.sql`](../../../supabase/migrations/20260729000000_account_resource_links.sql).
+Columns exactly as planned in §4.1: `id`, `account_id`, `resource_kind`, `source_provider`,
+`source_external_id`, `target_provider`, `target_external_id`, `source_label`, `target_label`,
+`match_basis`, `created_by_user_id`, `confirmed_by_user_id`, `confirmed_at`, `archived_at`,
+`created_at`, `updated_at`. No column was added or dropped versus the plan.
+
+### Final constraints
+
+| Constraint | Behavior |
+|---|---|
+| `account_id` FK | `REFERENCES public.accounts(id) ON DELETE CASCADE` — sole ownership column |
+| `created_by_user_id` / `confirmed_by_user_id` FKs | `REFERENCES auth.users(id) ON DELETE SET NULL` — provenance survives as `NULL`; the link stays with the account |
+| `resource_kind` CHECK | `IN ('vehicle')` — v1 only |
+| `match_basis` CHECK | `IN ('manual','suggested_vin','suggested_plate','suggested_number','suggested_name')` |
+| provider ids | `btrim(x) <> '' AND length(x) <= 64` (both sides) |
+| external ids | `btrim(x) <> '' AND length(x) <= 256` (both sides) |
+| labels | nullable, `length(x) <= 256` |
+| `confirmed_at` | `NOT NULL`, **no DEFAULT** — the writer must state when confirmation happened |
+| `account_resource_links_distinct_sides` | `source_provider <> target_provider OR source_external_id <> target_external_id` — blocks a self-link while keeping two providers that coincidentally issue the same id string legal |
+
+### Final indexes
+
+- `account_resource_links_source_unique` — UNIQUE `(account_id, resource_kind, source_provider,
+  source_external_id, target_provider) WHERE archived_at IS NULL`.
+- `account_resource_links_target_unique` — UNIQUE `(account_id, resource_kind, source_provider,
+  target_provider, target_external_id) WHERE archived_at IS NULL`.
+- `account_resource_links_account_idx` — `(account_id, resource_kind, created_at DESC)` for listing.
+
+Both unique indexes are keyed on `source_provider`, so `Motive A → Fleetio X` **and**
+`Samsara B → Fleetio X` remain legal while two Motive vehicles claiming Fleetio X is blocked. Both are
+partial, so archiving frees the pair for a replacement.
+
+### RLS / GRANT posture — and what actually protects what
+
+`ENABLE ROW LEVEL SECURITY`; `REVOKE ALL FROM anon` **and** `FROM authenticated` before any grant;
+`GRANT SELECT, INSERT, UPDATE, DELETE TO service_role` only; one membership-gated, freeze-aware
+`FOR SELECT` policy; the canonical `set_updated_at` trigger.
+
+**The REVOKEs are not boilerplate.** This project carries
+`ALTER DEFAULT PRIVILEGES … GRANT ALL ON TABLES TO anon, authenticated, service_role`, discovered by
+post-apply verification in [`20260725000000`](../../../supabase/migrations/20260725000000_revoke_default_privileges_onboarding_and_machine_credentials.sql).
+A new `public` table therefore arrives with FULL anon + authenticated privileges **regardless of its
+own GRANT statements** — granting narrowly does not end up narrow. Without the two REVOKEs this table
+would ship world-readable and world-writable through the Data API. A static test asserts both REVOKEs
+exist *and* that they precede the GRANT.
+
+**Service role bypasses RLS.** Being precise, because it is easy to state this wrongly:
+
+- The repository uses the service-role client, so **the RLS policy does not constrain it at all**.
+- What enforces tenant isolation on every repository call is the **mandatory `account_id` predicate**
+  on every read and write. That is why `accountId` is the first parameter of every exported function
+  and why no function can address a link by id alone. These predicates *are* the runtime tenant
+  boundary, and the cross-account tests are what prove them.
+- The RLS policy constrains **authenticated/anon direct Data API access**. Today that access is
+  revoked outright, so the policy is defense-in-depth — it is what keeps the table safe if a future
+  slice grants `authenticated` a direct SELECT.
+- Writes have **no policy at all**. RLS denies any command with no matching policy, so even a future
+  authenticated grant could not INSERT/UPDATE/DELETE.
+
+### Repository API
+
+[`repositories/resourceLinks/accountResourceLinks.ts`](../../../repositories/resourceLinks/accountResourceLinks.ts)
+— four operations, all account-scoped:
+
+- `listLinks(accountId, resourceKind)` — newest first, **including archived** rows (history).
+- `findActiveLink(accountId, resourceKind, sourceProvider, sourceExternalId, targetProvider)` — the
+  CS-3 runtime lookup; excludes archived rows; `null` when unmapped.
+- `createConfirmedLink(input)` — validates the strict contract first, then inserts.
+- `archiveLink(accountId, linkId, archivedAt)` — soft archive; `null` when no *active* link with that
+  id exists **for that account** (which deliberately collapses "already archived" and "belongs to
+  another account" into one uninformative answer).
+
+**Folder note:** it lives in `repositories/resourceLinks/` rather than at the top level because
+`repositories/` sat at exactly the 50-file leaf cap; a 51st top-level file trips
+`npm run lint:structure`. CS-2+ resource-link repositories belong in the same folder. (`repositories/`
+is back at exactly 50 — the next top-level repository file anyone adds will trip the cap again.)
+
+Contracts: [`contracts/resourceLinks.ts`](../../../contracts/resourceLinks.ts) — kind/basis enums,
+bounded provider-id and external-id schemas, the `ResourceLinkDTO`, and a `.strict()`
+`CreateConfirmedResourceLinkInputSchema` whose `.refine` mirrors the `distinct_sides` CHECK.
+
+### Tests run
+
+| Suite | Result |
+|---|---|
+| [`tests/unit/migrations/accountResourceLinks.test.ts`](../../../tests/unit/migrations/accountResourceLinks.test.ts) (new, static SQL guards) | **28 passed** |
+| [`tests/unit/repositories/accountResourceLinks.test.ts`](../../../tests/unit/repositories/accountResourceLinks.test.ts) (new) | **35 passed** |
+| Consolidated focused run (+ service-role-import, core-purity, grant guards, node-credentials migration, integrations cross-account isolation) | **8 suites / 106 passed** |
+| [`tests/integration/security/account-resource-links-rls.test.ts`](../../../tests/integration/security/account-resource-links-rls.test.ts) (new, gated) | **DID NOT RUN** — migration intentionally unapplied |
+
+The repository suite uses two harnesses: a *recording* client that proves every query carries its
+`account_id` predicate, and a small *in-memory table that actually evaluates predicates*, so
+cross-account isolation, archival exclusion, and re-link-after-archive are proven as **semantics**,
+not merely as recorded filter calls.
+
+**The gated DB suite gained a migration preflight.** `ALLOW_DB_INTEGRATION_TESTS` is a standing
+developer setting, so the suite ran against a database lacking the table: every table-dependent test
+failed for the wrong reason, the anon test **passed vacuously** ("anon sees nothing" is trivially true
+when the table doesn't exist), and throwaway fixture users had already been created. `beforeAll` now
+probes for the table **before** creating any fixture and fails fast with one precise message. Fixture
+residue from that run was verified to be zero.
+
+### Deferred limitation — provider-account discriminator (stated, not implied away)
+
+The schema carries **no** `source_provider_account_id` / `target_provider_account_id`. It identifies a
+target as *"Fleetio vehicle 42 for this ChainReact account"*, **not** *"Fleetio vehicle 42 in Fleetio
+account 7211"*. If one ChainReact account ever connects two Fleetio accounts, the target-uniqueness
+index cannot tell those two vehicle 42s apart. This is acceptable only because multiple provider
+accounts per ChainReact account are already unsupported end-to-end (the Fleetio execution seam
+resolves the account's single active row). **The discriminator columns must land in the same slice
+that lifts that restriction.** Documented in the migration header and asserted by a test.
+
+### What remains for CS-2
+
+Unchanged from §9: `core/resourceLinks/matchSignals.ts` (pure evidence tiers) plus widening
+`FleetioVehicleSummary` with `vin` / `license_plate` / `make` / `model` / `year` (§2.4). Still inert —
+no UI, no action, no route. CS-1 added no service, no route, no option resolver, and no workflow
+metadata, exactly as scoped.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 No source file, test, migration, schema, contract, registry, or UI was modified. No commit other than
