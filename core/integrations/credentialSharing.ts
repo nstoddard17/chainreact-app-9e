@@ -67,6 +67,13 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // operates, not one person's private data. Same posture as Stripe / QuickBooks /
   // Motive. (Provider ships disabled; classification required for registry coverage.)
   adp: "account",
+  // Fleetio (FLEETIO-1, credential_paste): the API key + Account-Token pair
+  // represents a COMPANY's fleet-maintenance account — work orders, DVIRs,
+  // service costs the whole operations team jointly manages. Same posture as
+  // Motive / QuickBooks. Connecting/overwriting it is an account-management
+  // action (owner/admin), enforced at connect-start AND re-checked at
+  // credential-ingest completion.
+  fleetio: "account",
 
   // ── Personal: acts AS the connecting human; must not auto-share in a Team. ──
   gmail: "personal",

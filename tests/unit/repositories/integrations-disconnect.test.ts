@@ -142,6 +142,10 @@ describe("disconnectByIdServiceRole", () => {
       disconnected_at: "2026-06-11T00:00:00Z",
       refresh_token_encrypted: null,
       access_token_expires_at: null,
+      // FLEETIO-1: the credential_paste extra-credentials blob is nullable and
+      // cleared on disconnect for the same defense-in-depth reason as the
+      // refresh token (migration 20260727000000).
+      extra_credentials_encrypted: null,
     });
     // access_token_encrypted is NOT NULL in schema — must NOT be in the patch.
     expect(patch).not.toHaveProperty("access_token_encrypted");

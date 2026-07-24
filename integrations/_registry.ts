@@ -11,6 +11,7 @@ import { typeformManifest } from "./typeform/manifest";
 import { quickbooksManifest } from "./quickbooks/manifest";
 import { motiveManifest } from "./motive/manifest";
 import { adpManifest } from "./adp/manifest";
+import { fleetioManifest } from "./fleetio/manifest";
 import { edenManifest } from "./eden/manifest";
 import { linearManifest } from "./linear/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
@@ -355,6 +356,16 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // sandbox verification of ADP's exact request/response shapes (no fabrication).
   // See docs/providers/adp/owner-report.md.
   adpManifest,
+  // FLEETIO-1 — Fleetio (fleetio.com), fleet MAINTENANCE management (work
+  // orders / DVIR inspections / service reminders / fuel + meter entries) —
+  // the maintenance-side counterpart to Motive. NEW `credential_paste` auth
+  // (user enters API key + Account-Token into the shared V2 credential form;
+  // verified via GET /accounts; API version pinned 2025-05-05). Connect-only
+  // this slice: capabilities.oauth true; actions/triggers honestly false until
+  // Slice 2+ registers typed handlers. ACCOUNT credential class (a company's
+  // fleet — the Motive/QuickBooks posture). isExperimental true until the
+  // post-owner-setup live certification pass.
+  fleetioManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

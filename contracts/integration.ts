@@ -54,6 +54,21 @@ export type TokenScope = z.infer<typeof TokenScopeSchema>;
  *     (a pasted `eden_pat_` bearer token — docs/providers/eden/).
  */
 /*
+ *   - `credential_paste`: the user manually enters ONE OR MORE provider-defined
+ *     named credentials (API key, account token, PAT pairs, …) into a
+ *     ChainReact-owned form. Like `token_paste` there is no provider authorize
+ *     page and no code exchange — but the transported secret is a typed SET of
+ *     named fields (declared in the manifest's `credentialFields`), not a
+ *     single opaque token, and the server operation is the dispatcher's
+ *     `handleCredentialIngest` (NOT `handleTokenIngest` — the two paths are
+ *     deliberately not cross-callable). Server contract mirrors token-ingest:
+ *     state consume → verify against the provider API → encrypt → upsert.
+ *     Non-refreshable by invariant. Inaugural consumer: Fleetio
+ *     (`Authorization: Token <apiKey>` + `Account-Token` header pair —
+ *     docs/providers/fleetio/). Rule doc: docs/rules/token-ingest-auth.md
+ *     §"Credential-paste variant".
+ */
+/*
  *   - `machine_credentials`: server-to-server OAuth 2.0 `client_credentials`
  *     grant whose token endpoint AND API endpoints require a client certificate
  *     at the TLS layer (mutual TLS). There is NO user redirect and NO refresh
@@ -69,12 +84,22 @@ export const AuthFlowSchema = z.enum([
   "code_callback",
   "token_ingest",
   "token_paste",
+  "credential_paste",
   "machine_credentials",
 ]);
 export type AuthFlow = z.infer<typeof AuthFlowSchema>;
 
 /** Auth flows that supply a non-refreshable per-user token directly (no code exchange). */
 export const DIRECT_TOKEN_AUTH_FLOWS = ["token_ingest", "token_paste"] as const;
+
+/**
+ * Auth flows where the user manually ENTERS named credentials into a V2-owned
+ * form (no provider redirect, no fragment, no code exchange). Deliberately NOT
+ * part of `DIRECT_TOKEN_AUTH_FLOWS`: the dispatcher's `handleTokenIngest`
+ * accepts only DIRECT_TOKEN flows and `handleCredentialIngest` accepts only
+ * CREDENTIAL_PASTE flows, so neither path can reach the other's providers.
+ */
+export const CREDENTIAL_PASTE_AUTH_FLOWS = ["credential_paste"] as const;
 
 /** Auth flows that mint tokens server-to-server (no user redirect, no refresh token). */
 export const MACHINE_CREDENTIAL_AUTH_FLOWS = ["machine_credentials"] as const;
@@ -83,6 +108,29 @@ export const MACHINE_CREDENTIAL_AUTH_FLOWS = ["machine_credentials"] as const;
 export function isMachineCredentialAuthFlow(authFlow: AuthFlow): boolean {
   return (MACHINE_CREDENTIAL_AUTH_FLOWS as readonly string[]).includes(authFlow);
 }
+
+/**
+ * One user-entered credential field for a `credential_paste` provider.
+ * Declared in the manifest (data only) and rendered by the SHARED
+ * provider-neutral credential form — the form never hardcodes any
+ * provider's field names. `id` is the stable key the provider's
+ * `verifyAndIngestCredentials` receives in its `credentials` record.
+ */
+export const CredentialFieldSchema = z.object({
+  /** Stable field id (camelCase). Key of the submitted credentials record. */
+  id: z.string().regex(/^[a-z][a-zA-Z0-9]*$/, "Credential field ids are camelCase."),
+  /** Input label shown above the field. */
+  label: z.string().min(1),
+  /** Secret fields render masked (password input + reveal control). */
+  secret: z.boolean().default(true),
+  /** Required fields block submit while empty. */
+  required: z.boolean().default(true),
+  /** Placeholder / example value (never a real credential). */
+  placeholder: z.string().optional(),
+  /** One-line helper under the input: where in the provider UI to find it. */
+  help: z.string().optional(),
+});
+export type CredentialField = z.infer<typeof CredentialFieldSchema>;
 
 export const ProviderManifestSchema = z
   .object({
@@ -152,6 +200,29 @@ export const ProviderManifestSchema = z
         help: z.string().optional(),
       })
       .optional(),
+    /**
+     * User-entered credential fields for `authFlow: "credential_paste"`
+     * providers. REQUIRED (non-empty) for that flow and FORBIDDEN for every
+     * other flow — the shared credential form renders exactly these fields.
+     * Data only (labels/help strings); never a secret value.
+     */
+    credentialFields: z.array(CredentialFieldSchema).optional(),
+    /**
+     * Connect-page guidance for `credential_paste` providers: where the user
+     * finds the credential values in the provider's own UI, plus any plan /
+     * permission caveats. Rendered above the shared credential form. Data
+     * only; forbidden outside `credential_paste`.
+     */
+    credentialGuide: z
+      .object({
+        /** One-or-two-sentence intro ("Connect using an API key from …"). */
+        intro: z.string().min(1),
+        /** Ordered "where to find it" steps rendered as a numbered list. */
+        steps: z.array(z.string().min(1)).default([]),
+        /** Optional caveat line (plan requirements, least-privilege advice). */
+        note: z.string().optional(),
+      })
+      .optional(),
   })
   .superRefine((m, ctx) => {
     if (m.tokenScope === "workspace" && !m.accountIdField) {
@@ -161,7 +232,14 @@ export const ProviderManifestSchema = z
         message: "tokenScope='workspace' requires an accountIdField.",
       });
     }
-    if (m.scopes.required.length === 0 && m.capabilities.oauth) {
+    if (
+      m.scopes.required.length === 0 &&
+      m.capabilities.oauth &&
+      !(CREDENTIAL_PASTE_AUTH_FLOWS as readonly string[]).includes(m.authFlow)
+    ) {
+      // credential_paste providers are exempt: their access level is the
+      // provider-side user's ROLE (RBAC), not a negotiated scope set — an
+      // empty scopes list is the honest declaration (e.g. Fleetio API keys).
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["scopes", "required"],
@@ -174,6 +252,57 @@ export const ProviderManifestSchema = z
         path: ["refreshable"],
         message: `authFlow='${m.authFlow}' providers cannot be refreshable.`,
       });
+    }
+    const isCredentialPaste = (CREDENTIAL_PASTE_AUTH_FLOWS as readonly string[]).includes(
+      m.authFlow,
+    );
+    if (isCredentialPaste) {
+      // Same non-refreshable invariant as the direct-token flows: the pasted
+      // credentials ARE the long-lived secret; there is nothing to refresh.
+      if (m.refreshable) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["refreshable"],
+          message: `authFlow='${m.authFlow}' providers cannot be refreshable.`,
+        });
+      }
+      if (!m.credentialFields || m.credentialFields.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["credentialFields"],
+          message:
+            "credential_paste providers must declare at least one credentialFields entry.",
+        });
+      } else {
+        const ids = new Set<string>();
+        for (const f of m.credentialFields) {
+          if (ids.has(f.id)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["credentialFields"],
+              message: `Duplicate credential field id '${f.id}'.`,
+            });
+          }
+          ids.add(f.id);
+        }
+      }
+    } else {
+      // Field/guide declarations outside credential_paste are a misconfiguration
+      // (the shared credential form only serves credential_paste providers).
+      if (m.credentialFields !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["credentialFields"],
+          message: "credentialFields is only valid for authFlow='credential_paste'.",
+        });
+      }
+      if (m.credentialGuide !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["credentialGuide"],
+          message: "credentialGuide is only valid for authFlow='credential_paste'.",
+        });
+      }
     }
     if ((MACHINE_CREDENTIAL_AUTH_FLOWS as readonly string[]).includes(m.authFlow)) {
       // Machine (client_credentials + mTLS) providers mint tokens server-to-server:
@@ -207,6 +336,19 @@ export interface EncryptedTokens {
   /** Epoch seconds, or null if the provider doesn't expose token expiry. */
   accessTokenExpiresAt: number | null;
   scopes: readonly string[];
+  /**
+   * OPTIONAL — multi-credential providers only (`credential_paste`).
+   * ONE AES-256-GCM ciphertext (core/encryption/tokens.ts) of the JSON object
+   * `{ [credentialFieldId]: plaintextValue }` holding every NON-PRIMARY
+   * credential the user entered. The provider designates one field as the
+   * primary credential (stored in `accessTokenEncrypted` as usual — for
+   * Fleetio that is the API key, which is literally the `Authorization`
+   * header token); everything else lives here, encrypted as one blob because
+   * the fields are only ever used together. `undefined`/`null` for every
+   * single-credential provider — the repository writes NULL and existing
+   * OAuth / token-ingest consumers are unaffected.
+   */
+  extraCredentialsEncrypted?: string | null;
 }
 
 /** Identifying fields about the connected account, parsed from the OAuth callback. */
@@ -432,6 +574,54 @@ export interface ProviderTokenIngestAuth {
     state: string;
   }): Promise<{ tokens: EncryptedTokens; account: ProviderAccountInfo }>;
   revoke(token: string): Promise<void>;
+}
+
+/**
+ * Per-provider credential-paste implementation. Used by manifests that declare
+ * `authFlow: "credential_paste"`. Each provider in `integrations/<id>/auth.ts`
+ * exports an object that satisfies this shape and registers it in the
+ * dispatcher's `CREDENTIAL_PASTE_BY_PROVIDER`. The generic dispatcher is the
+ * only caller.
+ *
+ * Distinct from `ProviderTokenIngestAuth` because the transported secret is a
+ * typed SET of named fields (`credentials[fieldId]` per the manifest's
+ * `credentialFields`), not a single token, and it flows through the
+ * dispatcher's `handleCredentialIngest` — never `handleTokenIngest`.
+ *
+ *   - `buildAuthUrl` returns the V2-HOSTED credential form URL
+ *     (`/integrations/credential-paste/<provider>?state=…`) — there is no
+ *     provider authorize page.
+ *   - `verifyAndIngestCredentials` MUST call a provider endpoint that proves
+ *     the full credential set AND returns durable account info; encrypt every
+ *     secret via `core/encryption/tokens.ts` before returning; and never echo
+ *     a credential value into an error, log, or metadata field.
+ *   - `revoke` receives the decrypted PRIMARY credential (best-effort; no-op
+ *     when the provider has no revocation API).
+ *
+ * Persistence stays dispatcher-canonical: `repositories/integrations.upsertActive`.
+ */
+export interface ProviderCredentialPasteAuth {
+  buildAuthUrl(state: string): string;
+  verifyAndIngestCredentials(input: {
+    credentials: Readonly<Record<string, string>>;
+    state: string;
+  }): Promise<{ tokens: EncryptedTokens; account: ProviderAccountInfo }>;
+  revoke(token: string): Promise<void>;
+}
+
+/**
+ * Thrown by `verifyAndIngestCredentials()` when the provider rejects the
+ * entered credentials (or a required field is missing/mismatched). The
+ * dispatcher and route map it to a typed 400. `reason` is a SAFE short
+ * string — it never contains a credential value.
+ */
+export class CredentialVerificationError extends Error {
+  readonly reason: string;
+  constructor(provider: string, reason: string) {
+    super(`Credential verification failed for '${provider}': ${reason}`);
+    this.name = "CredentialVerificationError";
+    this.reason = reason;
+  }
 }
 
 /**

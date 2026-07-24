@@ -1,0 +1,100 @@
+# Fleetio — Configuration Design (Rule 17 matrix)
+
+**Status:** authored at Slice 0/1 (auth + connection shell). The CONNECTION experience below is
+implemented; every node matrix is the binding design for Slices 2–5 and must be re-verified against
+live schema evidence when each node ships. Field classes per CLAUDE.md rule 17: **core user
+decision** · **static provider resource** · **dynamic upstream value** · **fixed repeated value** ·
+**derived/defaulted value** · **conditional option** · **advanced control** · **internal
+implementation detail**.
+
+## 0. Connection experience (implemented — Slice 1)
+
+| Field | Class | UI |
+|---|---|---|
+| API key | core user decision (secret) | password input + reveal, per-field "where to find it" help (Manage API Keys path) |
+| Account token | core user decision (secret) | password input + reveal, help (bottom of same page / URL slug) |
+| Fleetio account identity | derived | resolved server-side from `GET /accounts` (numeric id + name); user never types an id |
+| API version | internal implementation detail | pinned `2025-05-05` in the wrapper; never surfaced |
+| Role/plan caveats | guidance | credentialGuide note: least-privilege integration user; Professional/Premium required |
+
+Readiness: connected ⇔ both fields verified against `GET /accounts` (key valid AND token matches).
+Failure states: invalid key · role-restricted key · token mismatch · provider unreachable (retryable)
+— each a distinct, humanized message; no fake healthy state (verification failure persists nothing).
+Reconnect: same form via the standard per-account Reconnect flow; refuses a different Fleetio account
+than the intended row (identity-match guard).
+
+## Option resolvers to build (Slices 2–3, before the nodes that need them)
+
+| Resolver id | Backs | Source | Notes |
+|---|---|---|---|
+| `fleetio:vehicles` | every vehicle picker | `GET /vehicles` (+`filter[name_or_vin][like]` search — VERIFY exact filter at impl) | label: name + license plate; `allowManualEntry: true` |
+| `fleetio:vehicle_statuses` | Update Vehicle Status | `GET /vehicle_statuses` | static provider resource |
+| `fleetio:issue_labels` | Create/Update Issue | labels endpoint | |
+| `fleetio:contacts` | assignee/reporter | `GET /contacts` | |
+| `fleetio:service_tasks` | Service Entry rows | `GET /service_tasks` | row-cell resolver (RESOLVERS-3/4) |
+| `fleetio:vendors` | Fuel/Service Entry | `GET /vendors` | |
+| `fleetio:work_order_statuses` | WO trigger filter | `GET /work_order_statuses` | names are the filterable value |
+| meter units / fuel types | Meter/Fuel Entry | static enums | conditional options |
+
+## Node matrices (binding design — Slices 2–5)
+
+### Create Meter Entry (Must)
+| Field | Class | Setup/Advanced | UI |
+|---|---|---|---|
+| Vehicle | static provider resource | Setup, required | `fleetio:vehicles` combobox, manual entry retained |
+| Meter value | dynamic upstream value | Setup, required | number; typically `{{trigger.odometer}}` |
+| Unit | conditional option | Setup, required (Q11 — no silent default) | static enum (mi/km/hr) |
+| Date | derived/defaulted | Setup, `defaultValue: now` (visible) | date picker |
+| Void flag | advanced control | Advanced | boolean |
+| Vehicle id manual | advanced control | Advanced | text |
+Outputs (bounded): `meterEntryId, vehicleId, value, unit, meterDate, createdAt`.
+
+### Create Issue (Must)
+| Field | Class | Setup/Advanced |
+|---|---|---|
+| Vehicle | static provider resource | Setup, required (`fleetio:vehicles`) |
+| Summary | core user decision / dynamic upstream | Setup, required |
+| Description | dynamic upstream value | Setup, optional textarea |
+| Labels | static provider resource | Setup (`fleetio:issue_labels`, multi) |
+| Assignee | static provider resource | Setup (`fleetio:contacts`) |
+| Reporter contact id | advanced control | Advanced |
+| Custom fields | advanced control | Advanced — flat `object` editor, NOT raw json |
+Outputs: `issueId, vehicleId, number, state, summary, assignedContactId, createdAt`.
+
+### Create Fuel Entry (Must)
+Vehicle (resource, req) · Fuel type (conditional enum, req — Q11) · Volume (upstream, req) ·
+Volume unit (conditional, req — Q11) · Total cost (upstream) · Fueled-at date (defaulted, visible) ·
+Vendor (resource) — Setup. Reference no., partial-fuel/personal flags, meter-capture toggle — Advanced.
+Outputs: `fuelEntryId, vehicleId, volume, unit, costTotal, fueledAt, vendorId`.
+
+### Create Service Entry (Must)
+Vehicle (resource, req) · Completed date (req) · Service tasks (`object-list`, per-row
+`fleetio:service_tasks` — a row cell gets a picker, RESOLVERS-3/4) · Vendor (resource) · Total cost —
+Setup. Labor/parts breakdown rows, notes, meter-at-service — Advanced.
+Outputs: `serviceEntryId, vehicleId, completedAt, totalCost, taskCount`.
+
+### Update Vehicle Status (Must)
+Vehicle (resource, req) · New status (`fleetio:vehicle_statuses`, req) — Setup. Comment, effective
+date — Advanced. Outputs: `vehicleId, vehicleStatusId, statusName, changedAt`.
+
+### Get Vehicle (Must — enrichment read)
+Vehicle (resource with manual entry — commonly `{{trigger.vehicleId}}`) — Setup.
+Outputs: `vehicleId, name, number, licensePlate, vin, make, model, year, statusName,
+primaryMeterValue, primaryMeterUnit`. No bytes; photos deferred to a FileRef action later.
+
+### Triggers (Must set — polling; mirror Motive's `newFuelPurchase` shape)
+| Field | Class | Notes |
+|---|---|---|
+| Vehicle filter | static provider resource, optional | `fleetio:vehicles`, empty = all vehicles |
+| Status filter (WO / reminder triggers) | conditional option | `fleetio:work_order_statuses` names / reminder-status enum |
+| Poll cadence | internal implementation detail | never surfaced |
+| Include-archived | advanced control | default false, visible as defaultValue |
+payloadShape: thin handles only (ids + display fields + `changeKind`), driver email flagged
+`sensitive: true`, no enrichment I/O in filters (rule 12), short-form `eventType` (rule 10),
+baseline-first + DB dedup on stable numeric ids (rules 11/13).
+
+## Rule-17 verdict at this slice
+The connection path is complete for an ordinary fleet manager: no Fleetio API docs needed (the form
+tells them exactly where both values live), no opaque identifiers typed (account identity is
+derived), role/plan caveats stated inline. Node-level completion will be judged per node when
+Slices 2–5 ship against this matrix.

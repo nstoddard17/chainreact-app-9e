@@ -297,9 +297,70 @@ Before adopting `ProviderTokenIngestAuth` for a second provider, complete this c
 
 **Deferred (out of scope for Slice 17, may be revisited):**
 
-- **Token-paste UI variant** for Atlassian API token / Asana PAT — same server contract, different client UI. Future slice if a paste-only provider lands.
+- **Token-paste UI variant** — RESOLVED since: shipped as `token_paste` (Eden, single pasted token through the SAME `ProviderTokenIngestAuth` contract + ingest endpoint) and, for MULTI-FIELD credential sets, as the separate `credential_paste` contract (Fleetio — see §"Credential-paste variant (multi-field)" below).
 - **Workspace-scoped token-ingest providers** — action-handler `accountId: null` rule needs revision before shipping a workspace-scoped token-ingest provider.
 - **OAuth 1.0a** — explicitly NOT a token-ingest variant. V2 does not support OAuth 1.0a; providers that only offer 1.0a are deferred to a future contract.
+
+## Credential-paste variant (multi-field) — `authFlow: "credential_paste"`
+
+**Inaugural consumer: Fleetio (FLEETIO-1).** The generalization of the paste idea to providers whose
+auth is a SET of named, user-entered credentials (API key + account token, id/secret pairs, PATs
+with tenant discriminators) rather than one opaque token.
+
+**Semantic boundary (do not blur):**
+- `token_ingest` — provider returns ONE token through a browser-only redirect/fragment transport.
+- `token_paste` — user pastes ONE token into a V2 form; same `ProviderTokenIngestAuth` server
+  contract + `/ingest` endpoint.
+- `credential_paste` — user enters ONE OR MORE **named** credentials into a V2 form rendered from
+  the manifest's typed `credentialFields`; separate `ProviderCredentialPasteAuth` contract,
+  separate dispatcher op (`handleCredentialIngest`), separate route
+  (`/api/integrations/oauth/[provider]/credential-ingest`). The two paths are deliberately NOT
+  cross-callable — `handleTokenIngest` rejects credential-paste providers and vice versa (pinned by
+  `tests/unit/services/oauth/dispatcher-credential-paste.test.ts`).
+
+**Contract requirements** (all enforced by `ProviderManifestSchema` or the dispatcher):
+1. Manifest declares `credentialFields` (non-empty, unique camelCase ids, `secret`/`required`
+   default true) and MAY declare `credentialGuide` (where-to-find-it copy). Both are FORBIDDEN on
+   any other auth flow.
+2. `refreshable: false` — schema invariant, same rationale as the direct-token flows.
+3. `scopes.required` MAY be empty even with `capabilities.oauth: true` (credential-paste providers
+   are typically role-based, not scope-negotiated). The exemption applies ONLY to this flow.
+4. The SHARED form (`features/apps/credential-paste/CredentialPasteForm.tsx` behind
+   `app/integrations/credential-paste/[provider]/page.tsx`) renders fields from manifest metadata.
+   No provider-specific branching in shared form/dispatcher/route code — ever.
+5. `verifyAndIngestCredentials` MUST prove the FULL credential set against a provider endpoint that
+   also returns durable account info, encrypt every secret via `core/encryption/tokens.ts` before
+   returning, and never echo a credential into an error/log/metadata. Typed rejects use
+   `CredentialVerificationError` (route → 400); transient failures throw a generic Error whose
+   message contains `verify failed` (route → 502).
+6. Persistence is dispatcher-canonical (`upsertActive`). The PRIMARY credential goes in
+   `access_token_encrypted`; every other named credential lives in
+   `integrations.extra_credentials_encrypted` — ONE AES-256-GCM ciphertext of
+   `{ credentialFieldId: value }` (`EncryptedTokens.extraCredentialsEncrypted`, migration
+   `20260727000000`). NEVER a secret in `account_metadata`; NEVER JSON stuffed into
+   `access_token_encrypted`; NEVER a per-provider persistence path. Disconnect clears the blob.
+7. The dispatcher shape-validates the submitted set against `credentialFields` (unknown field /
+   missing required → typed error) BEFORE consuming state and BEFORE any provider call. State is
+   still consumed BEFORE the provider verify call — the replay-protection ordering is unchanged.
+
+**Why the signed single-use state is kept for a first-party form (threat model):** the paste-form
+POST is session-authenticated, so CSRF is already covered — state is NOT kept for CSRF. It is kept
+because it carries (a) the **account binding** resolved at connect-START from the active account
+(OAUTH-ACCT-BIND — the form POST alone cannot prove which account the user started the connect on),
+(b) **single-use replay protection** identical to the sibling flows, (c) the **reconnect intent**
+that powers the identity-match guard, and (d) uniformity — the Apps UI's
+`ConnectButton → connect → { redirectUrl }` flow needs zero special-casing. `handleCredentialIngest`
+additionally enforces the strict `JWT.userId === session.userId` cross-check, account-freeze,
+live-membership, and (for account-shared providers) owner/admin completion re-checks — identical to
+`handleTokenIngest`.
+
+**Adding the next credential-paste provider:** follow §"Adding a Second Token-Ingest Provider"
+items 1–4 and 6–10 analogously, plus: (i) declare every user-entered value as a `credentialFields`
+entry — if a value is derivable from a verify call, DERIVE it instead of asking; (ii) designate the
+primary credential (the one an `apiCall(accessToken)` naturally receives) and put the rest in the
+extra blob with a per-provider typed decoder (Fleetio: `integrations/fleetio/credentials.ts`);
+(iii) pick `providerAccountId` from a durable provider-issued id returned by the verify endpoint,
+never from a user-entered value.
 
 ## Cross-References
 

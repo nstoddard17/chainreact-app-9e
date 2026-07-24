@@ -1,8 +1,11 @@
 import {
   type AccountSteer,
   type AnyProviderOAuth,
+  CREDENTIAL_PASTE_AUTH_FLOWS,
+  CredentialVerificationError,
   DIRECT_TOKEN_AUTH_FLOWS,
   type EncryptedTokens,
+  type ProviderCredentialPasteAuth,
   type ProviderHint,
   type ProviderTokenIngestAuth,
   RefreshAuthRequiredError,
@@ -38,6 +41,7 @@ import { slackOAuth } from "@/integrations/slack/oauth";
 import { stripeOAuth } from "@/integrations/stripe/oauth";
 import { trelloAuth } from "@/integrations/trello/auth";
 import { edenAuth } from "@/integrations/eden/auth";
+import { fleetioCredentialAuth } from "@/integrations/fleetio/auth";
 import { calendlyOAuth } from "@/integrations/calendly/oauth";
 import { typeformOAuth } from "@/integrations/typeform/oauth";
 import { quickbooksOAuth } from "@/integrations/quickbooks/oauth";
@@ -168,6 +172,20 @@ const TOKEN_INGEST_BY_PROVIDER: Readonly<Record<string, ProviderTokenIngestAuth>
     // same ProviderTokenIngestAuth server contract, so it lives in this registry.
     eden: edenAuth,
   });
+
+/**
+ * Per-provider credential-paste registry (FLEETIO-1). Parallel to
+ * `TOKEN_INGEST_BY_PROVIDER` but for providers whose connect is a MULTI-FIELD
+ * V2-owned credential form (`authFlow: "credential_paste"`). Deliberately a
+ * SEPARATE registry + contract: `handleTokenIngest` can never reach these
+ * providers and `handleCredentialIngest` can never reach token-ingest/paste
+ * providers.
+ */
+const CREDENTIAL_PASTE_BY_PROVIDER: Readonly<
+  Record<string, ProviderCredentialPasteAuth>
+> = Object.freeze({
+  fleetio: fleetioCredentialAuth,
+});
 
 export interface ConnectInput {
   userId: string;
@@ -339,6 +357,38 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   // `input.reconnect.accountId`.
   const accountId = input.reconnect ? input.reconnect.accountId : input.accountId;
   if (!accountId) throw new Error("connect: accountId is required.");
+
+  // Credential-paste providers (FLEETIO-1) — the connect "redirect" is the
+  // V2-hosted multi-field credential form. The dispatcher still owns state
+  // issuance (account binding, replay protection, reconnect intent); only the
+  // browser destination differs. providerHint is rejected exactly like the
+  // direct-token flows.
+  if ((CREDENTIAL_PASTE_AUTH_FLOWS as readonly string[]).includes(manifest.authFlow)) {
+    if (input.providerHint !== undefined) {
+      throw new Error(
+        `Provider '${input.provider}' (${manifest.authFlow}) does not accept providerHint.`,
+      );
+    }
+    const credentialAuth = CREDENTIAL_PASTE_BY_PROVIDER[input.provider];
+    if (!credentialAuth) {
+      throw new Error(
+        `No credential-paste implementation registered for provider '${input.provider}'. Update services/oauth/dispatcher.ts.`,
+      );
+    }
+    const requestedScopes = [...manifest.scopes.required, ...manifest.scopes.optional];
+    const { token: state } = await createState({
+      userId: input.userId,
+      accountId,
+      provider: input.provider,
+      requestedScopes,
+      // Reconnect intent rides into the credential-paste state too, so
+      // `handleCredentialIngest` enforces the same identity-match guard.
+      ...(input.reconnect !== undefined
+        ? { reconnect: { integrationId: input.reconnect.integrationId } }
+        : {}),
+    });
+    return { redirectUrl: credentialAuth.buildAuthUrl(state) };
+  }
 
   // Token-ingest providers (Slice 17+) take a parallel path. They receive
   // the token from the browser via URL fragment + client POST, not via a
@@ -660,6 +710,114 @@ export async function handleTokenIngest(
 }
 
 /**
+ * Input for `handleCredentialIngest` — the dispatcher operation that receives
+ * the named credential set submitted by the V2 credential-paste form
+ * (FLEETIO-1). `credentials` is keyed by the manifest's `credentialFields[].id`.
+ */
+export interface HandleCredentialIngestInput {
+  userId: string;
+  provider: string;
+  state: string;
+  credentials: Readonly<Record<string, string>>;
+}
+
+/**
+ * Verify + persist a credential-paste provider's named credential set.
+ *
+ * Mirrors `handleTokenIngest` invariant-for-invariant (state consumed BEFORE
+ * the verify call; provider/user cross-checks; freeze + membership + role
+ * re-checks; reconnect identity match; dispatcher-canonical `upsertActive`),
+ * with two deliberate differences:
+ *   1. The secret is a typed SET of named fields validated against the
+ *      manifest's `credentialFields` (missing required field / unknown field
+ *      → typed `CredentialVerificationError` BEFORE any provider call).
+ *   2. Only `authFlow: "credential_paste"` providers are accepted — a
+ *      token-ingest/paste provider can never be reached through this path,
+ *      and vice versa.
+ *
+ * NEVER logs any credential value at any point.
+ */
+export async function handleCredentialIngest(
+  input: HandleCredentialIngestInput,
+): Promise<HandleCallbackOutput> {
+  if (!input.userId) throw new Error("handleCredentialIngest: userId is required.");
+  if (!input.state) throw new InvalidStateError("missing state");
+
+  const manifest = getProvider(input.provider);
+  if (!manifest) throw new Error(`Unknown provider: ${input.provider}`);
+  if (!(CREDENTIAL_PASTE_AUTH_FLOWS as readonly string[]).includes(manifest.authFlow)) {
+    throw new Error(
+      `Provider '${input.provider}' does not use the credential_paste auth flow.`,
+    );
+  }
+
+  const credentialAuth = CREDENTIAL_PASTE_BY_PROVIDER[input.provider];
+  if (!credentialAuth) {
+    throw new Error(
+      `No credential-paste implementation registered for provider '${input.provider}'.`,
+    );
+  }
+
+  // Shape-validate the submitted set against the manifest's declared fields
+  // BEFORE consuming state or calling the provider: a malformed submission is
+  // a client bug / tamper, and burning the nonce or probing the provider for
+  // it would be wrong. Values are checked for presence only — never logged.
+  const declared = manifest.credentialFields ?? [];
+  const declaredIds = new Set(declared.map((f) => f.id));
+  for (const key of Object.keys(input.credentials)) {
+    if (!declaredIds.has(key)) {
+      throw new CredentialVerificationError(input.provider, `unexpected field '${key}'`);
+    }
+  }
+  for (const field of declared) {
+    const value = input.credentials[field.id];
+    if (field.required && (typeof value !== "string" || value.trim().length === 0)) {
+      throw new CredentialVerificationError(
+        input.provider,
+        `missing required field '${field.id}'`,
+      );
+    }
+  }
+
+  const { payload } = await consumeState(input.state);
+  if (payload.provider !== input.provider) {
+    throw new InvalidStateError("provider mismatch between state and route");
+  }
+  if (payload.userId !== input.userId) {
+    throw new InvalidStateError("session/state user mismatch");
+  }
+
+  // OAUTH-ACCT-BIND parity: refuse a frozen state-bound account, re-verify the
+  // initiator is still a member, and re-check owner/admin for account-shared
+  // providers — all BEFORE any credential is sent to the provider.
+  await assertAccountOperational(payload.accountId);
+  if (!(await isMemberServiceRole(payload.accountId, payload.userId))) {
+    throw new StateAccountAccessError();
+  }
+  await assertCompletionRole(payload);
+
+  const { tokens, account } = await credentialAuth.verifyAndIngestCredentials({
+    credentials: input.credentials,
+    state: input.state,
+  });
+
+  // Same identity-match guard as the OAuth + token-ingest paths.
+  await assertReconnectIdentityMatch(payload, account.providerAccountId);
+
+  const integration = await upsertActive({
+    accountId: payload.accountId,
+    connectedByUserId: payload.userId,
+    provider: input.provider,
+    providerAccountId: account.providerAccountId,
+    displayName: account.displayName,
+    tokens,
+    accountMetadata: account.metadata,
+  });
+
+  return { integration };
+}
+
+/**
  * 4.ACCOUNT-MODEL-10c — best-effort provider token revocation for the purge
  * flow. Looks the provider up in BOTH registries (OAuth + token-ingest) and
  * calls its `revoke(token)`. Unknown providers (or providers whose `revoke` is
@@ -680,6 +838,12 @@ export async function revokeProviderToken(
   const ingest = TOKEN_INGEST_BY_PROVIDER[provider];
   if (ingest) {
     await ingest.revoke(token);
+    return;
+  }
+  const credentialPaste = CREDENTIAL_PASTE_BY_PROVIDER[provider];
+  if (credentialPaste) {
+    // `token` is the decrypted PRIMARY credential (access_token_encrypted).
+    await credentialPaste.revoke(token);
     return;
   }
   // Unknown provider — nothing to revoke. The local row is still deleted by the

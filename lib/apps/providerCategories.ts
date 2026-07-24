@@ -105,6 +105,7 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   github: "Developer",
   // Fleet & Telematics
   motive: "Fleet & Telematics",
+  fleetio: "Fleet & Telematics",
   // HR & Payroll
   adp: "HR & Payroll",
 };
@@ -147,6 +148,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
     "Refresh semantic models, run DAX, export reports, and deploy pipelines.",
   github: "Watch issues, PRs, and commits.",
   motive: "Log fuel purchases and watch fleet safety events.",
+  fleetio: "Track fleet maintenance, inspections, and service costs.",
   adp: "Connect ADP payroll and HR (setup in progress).",
 };
 

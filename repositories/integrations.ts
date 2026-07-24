@@ -34,6 +34,18 @@ export interface IntegrationRecord {
   refreshTokenEncrypted: string | null;
   /** ISO-8601 string from Postgres timestamptz, null if no expiry. */
   accessTokenExpiresAt: string | null;
+  /**
+   * Multi-credential providers only (`credential_paste` — FLEETIO-1). ONE
+   * AES-256-GCM ciphertext of JSON `{credentialFieldId: value}` holding the
+   * row's non-primary named credentials (contract:
+   * `EncryptedTokens.extraCredentialsEncrypted`). NULL everywhere else.
+   *
+   * OPTIONAL like `integrationSharingScope`: `rowToRecord` always populates
+   * it, but pre-existing test fixtures that build an `IntegrationRecord`
+   * literal must keep compiling without it. Readers treat `undefined` like
+   * `null`.
+   */
+  extraCredentialsEncrypted?: string | null;
   scopes: readonly string[];
   accountMetadata: Readonly<Record<string, unknown>>;
   disconnectedAt: string | null;
@@ -91,6 +103,7 @@ interface IntegrationsRow {
   access_token_encrypted: string;
   refresh_token_encrypted: string | null;
   access_token_expires_at: string | null;
+  extra_credentials_encrypted: string | null;
   scopes: string[];
   account_metadata: Record<string, unknown>;
   disconnected_at: string | null;
@@ -111,6 +124,7 @@ function rowToRecord(row: IntegrationsRow): IntegrationRecord {
     accessTokenEncrypted: row.access_token_encrypted,
     refreshTokenEncrypted: row.refresh_token_encrypted,
     accessTokenExpiresAt: row.access_token_expires_at,
+    extraCredentialsEncrypted: row.extra_credentials_encrypted ?? null,
     scopes: row.scopes,
     accountMetadata: row.account_metadata,
     disconnectedAt: row.disconnected_at,
@@ -176,6 +190,9 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
         access_token_encrypted: input.tokens.accessTokenEncrypted,
         refresh_token_encrypted: input.tokens.refreshTokenEncrypted,
         access_token_expires_at: expiresAtIso(input.tokens.accessTokenExpiresAt),
+        // credential_paste providers replace the full credential set on every
+        // (re)connect; single-credential providers write NULL (no stale blob).
+        extra_credentials_encrypted: input.tokens.extraCredentialsEncrypted ?? null,
         scopes: [...input.tokens.scopes],
         account_metadata: input.accountMetadata,
         // V2-READY-28: a successful (re)connect proves the credential is good
@@ -203,6 +220,7 @@ export async function upsertActive(input: UpsertActiveInput): Promise<Integratio
       access_token_encrypted: input.tokens.accessTokenEncrypted,
       refresh_token_encrypted: input.tokens.refreshTokenEncrypted,
       access_token_expires_at: expiresAtIso(input.tokens.accessTokenExpiresAt),
+      extra_credentials_encrypted: input.tokens.extraCredentialsEncrypted ?? null,
       scopes: [...input.tokens.scopes],
       account_metadata: input.accountMetadata,
     })
@@ -456,6 +474,13 @@ export async function updateTokens(input: UpdateTokensInput): Promise<Integratio
       refresh_token_encrypted: input.tokens.refreshTokenEncrypted,
       access_token_expires_at: expiresAtIso(input.tokens.accessTokenExpiresAt),
       scopes: [...input.tokens.scopes],
+      // Only touch the extra-credentials blob when the caller explicitly
+      // carries one (credential_paste providers are non-refreshable, so the
+      // refresh path never reaches here for them — but a refresh on a normal
+      // OAuth provider must NOT null out a column it doesn't own).
+      ...(input.tokens.extraCredentialsEncrypted !== undefined
+        ? { extra_credentials_encrypted: input.tokens.extraCredentialsEncrypted }
+        : {}),
     })
     .eq("id", input.id)
     .is("disconnected_at", null)
@@ -808,6 +833,12 @@ export async function disconnectByIdServiceRole(input: {
       disconnected_at: input.now ?? new Date().toISOString(),
       refresh_token_encrypted: null,
       access_token_expires_at: null,
+      // FLEETIO-1: the nullable extra-credentials blob is cleared on disconnect
+      // for the same defense-in-depth reason as the refresh token — a
+      // disconnected row can never be re-credentialed, so keeping the second
+      // secret is dead weight. (`access_token_encrypted` stays NOT NULL per the
+      // existing migration-gated caveat above.)
+      extra_credentials_encrypted: null,
     })
     .eq("id", input.integrationId)
     .is("disconnected_at", null)
