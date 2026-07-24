@@ -259,7 +259,7 @@ ledger row carries the workflow/run scope and credits charged.
 | `structure/field-sensitivity-coverage`, `structure/resource-field-discovery-coverage`, `structure/sensitive-output-coverage` | `linear:*` metas (`relatedTo`, `parentId`, `issueId`, `add_comment.body`) |
 | `structure/no-literal-slack-token-fixtures` | 10 `xoxb-…` literals in dual-builder / agent WIP test files |
 | `unit/services/execution/staleWorkflowRunSweep` | `errorClassification.action` now `"retry_later"` |
-| `unit/services/documents/parsing/parsers.fixtures` (5 PDF cases) | `parsePdf` throws `DocumentParseError` on the CS-1 fixture. **The fixture bytes are byte-identical to HEAD and CS-5 changed no parser code** — CS-1/CS-2 recorded these green on 2026-07-23/24, so something environmental (unpdf/pdfjs under the current Node) regressed. Worth a follow-up before enabling the flag, since it is the PDF read path this action depends on. |
+| `unit/services/documents/parsing/parsers.fixtures` (5 PDF cases) | `parsePdf` throws `DocumentParseError` on the CS-1 fixture. **The fixture bytes are byte-identical to HEAD and CS-5 changed no parser code** — CS-1/CS-2 recorded these green on 2026-07-23/24, so something environmental (unpdf/pdfjs under the current Node) regressed. Worth a follow-up before enabling the flag, since it is the PDF read path this action depends on. **[Resolved in CS-9: not a regression — these runs invoked bare `npx jest`, which lacks the `--experimental-vm-modules` flag `npm test` passes (documented at CS-1 in testing-strategy.md). Parser, fixtures, and dependency were always correct; see the CS-9 outcome doc.]** |
 
 None of these were touched by CS-5, and none are caused by it.
 

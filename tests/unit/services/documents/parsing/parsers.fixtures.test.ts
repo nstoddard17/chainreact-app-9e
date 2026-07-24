@@ -32,6 +32,29 @@ const FIXTURES = join(__dirname, "../../../../fixtures/documents");
 const fixture = (name: string) =>
   new Uint8Array(readFileSync(join(FIXTURES, name)));
 
+// AI-PROVIDER-9 CS-9 — self-identifying guard for the runner-invocation trap
+// (docs/rules/testing-strategy.md §"Test runner invocation"): `unpdf` resolves
+// its PDF.js bundle via dynamic `import()`, which inside Jest's VM needs Node's
+// `--experimental-vm-modules` flag. `npm test` passes it; bare `npx jest` does
+// not, and every PDF case then fails with a misleading generic parse error
+// (this masqueraded as an "environmental parser regression" through CS-5..CS-8).
+// Probe once and fail loudly with the actual remedy instead.
+beforeAll(async () => {
+  try {
+    const { getResolvedPDFJS } = await import("unpdf");
+    await getResolvedPDFJS();
+  } catch (error) {
+    if (String(error).includes("ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING_FLAG")) {
+      throw new Error(
+        "PDF suites need Node's --experimental-vm-modules flag. Run them via " +
+          "`npm test -- <path>` (which passes the flag), not bare `npx jest`. " +
+          "See docs/rules/testing-strategy.md §'Test runner invocation'.",
+      );
+    }
+    throw error;
+  }
+});
+
 describe("PDF parsing (multi-page.pdf)", () => {
   it("produces one labeled segment per page", async () => {
     const parsed = await parseDocument({
