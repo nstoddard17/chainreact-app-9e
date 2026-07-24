@@ -337,6 +337,16 @@ The following are explicitly rejected. PRs containing them will be blocked, and 
 
 When in doubt during review: ask "if I delete this test, what will break?" If the answer is "nothing real", the test is the problem.
 
+## Test runner invocation
+
+`npm test` runs Jest as `node --experimental-vm-modules node_modules/jest/bin/jest.js`
+(AI-PROVIDER-1 CS-1). The flag lets Jest's VM honor dynamic `import()` inside
+dependencies — required by the document-parsing layer, where `unpdf` lazily imports its
+ESM PDF.js bundle (without it, PDF suites fail with
+`ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING_FLAG`). Existing CJS suites are unaffected.
+When running ad-hoc suites, prefer `npm test -- <path>` over bare `npx jest <path>`;
+the bare form lacks the flag and fails any suite that parses PDFs.
+
 ## Open questions
 
 No open questions remain that block Slice 1.

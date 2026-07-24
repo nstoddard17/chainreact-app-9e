@@ -1,0 +1,2 @@
+﻿Plain text fixture with a BOM.
+Second line.

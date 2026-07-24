@@ -51,8 +51,15 @@ describe("core/ purity", () => {
       const src = readFileSync(file, "utf8");
       for (const group of FORBIDDEN_GROUPS) {
         const re = new RegExp(`from\\s+['"]@/${group}(?:/|['"])`);
-        if (re.test(src)) {
+        for (const line of src.split("\n")) {
+          const match = re.exec(line);
+          if (!match) continue;
+          // Skip matches inside template literals on the same line —
+          // core/mcpCompile/emit.ts CODE-GENERATES import statements as
+          // backtick strings; those are emitted text, not real imports.
+          if (line.slice(0, match.index).includes("`")) continue;
           offenders.push(`${file.slice(ROOT.length + 1)} imports @/${group}/...`);
+          break;
         }
       }
     }
