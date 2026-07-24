@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import {
+  describeAiProcessorRolloutReadiness,
   AI_PROCESSOR_ENV,
   describeAiProcessorConfigStatus,
   getAiProcessorConfig,
@@ -94,5 +95,52 @@ describe("services/ai/processor/config", () => {
     enableWithGateway();
     const status = describeAiProcessorConfigStatus();
     expect(JSON.stringify(status)).not.toContain("secret-token-value");
+  });
+});
+
+describe("AI processor GA rollout gate (plan risk R2)", () => {
+  const saved: Record<string, string | undefined> = {};
+  const KEYS = [...ENV_KEYS, "ENABLE_AI_CREDIT_ENFORCEMENT"];
+
+  beforeEach(() => {
+    for (const key of KEYS) {
+      saved[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+  afterEach(() => {
+    for (const key of KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  });
+
+  it("is NOT GA-ready when the processor is off", () => {
+    const readiness = describeAiProcessorRolloutReadiness();
+    expect(readiness.gaReady).toBe(false);
+    expect(readiness.blockers).toContain(AI_PROCESSOR_ENV.enabled);
+    expect(readiness.blockers).toContain("ENABLE_AI_CREDIT_ENFORCEMENT");
+  });
+
+  it("is NOT GA-ready when the processor is enabled but credits are unmetered", () => {
+    process.env[AI_PROCESSOR_ENV.enabled] = "true";
+    process.env[AI_PROCESSOR_ENV.gatewayUrl] = "https://gw.example.com";
+    process.env[AI_PROCESSOR_ENV.gatewayToken] = "secret-token-value";
+    const readiness = describeAiProcessorRolloutReadiness();
+    expect(readiness.processorConfigured).toBe(true);
+    expect(readiness.creditEnforcementEnabled).toBe(false);
+    expect(readiness.gaReady).toBe(false);
+    expect(readiness.blockers).toEqual(["ENABLE_AI_CREDIT_ENFORCEMENT"]);
+  });
+
+  it("is GA-ready only when configured AND metered", () => {
+    process.env[AI_PROCESSOR_ENV.enabled] = "true";
+    process.env[AI_PROCESSOR_ENV.gatewayUrl] = "https://gw.example.com";
+    process.env[AI_PROCESSOR_ENV.gatewayToken] = "secret-token-value";
+    process.env.ENABLE_AI_CREDIT_ENFORCEMENT = "true";
+    const readiness = describeAiProcessorRolloutReadiness();
+    expect(readiness.gaReady).toBe(true);
+    expect(readiness.blockers).toEqual([]);
+    expect(JSON.stringify(readiness)).not.toContain("secret-token-value");
   });
 });

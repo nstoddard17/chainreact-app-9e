@@ -22,17 +22,20 @@ import type {
  * validator as the gateway path — a request that validates on one path
  * validates identically on the other (asserted by test).
  *
- * TODO(CS-3): `core/ai/modelTypes.AiFeature` does not yet include the AI
- * provider features (`document_analysis` / `data_transform` /
- * `schema_suggestion`). Until CS-3 widens that union (and
- * FEATURE_DEFAULT_TIER), this adapter tags model calls with the closest
- * existing feature (`data_qa`) — acceptable because the path is dormant
- * (executeAiAction refuses unpriced features and the flag is OFF). CS-3
- * replaces this placeholder with the real feature keys.
+ * The model call is tagged with the REAL capability feature supplied by
+ * the AI action registry (AI-PROVIDER-3 CS-3 removed the interim `data_qa`
+ * placeholder), so model-layer telemetry, the credit charge, and the
+ * ledger row all key off one feature name.
  */
-const PLACEHOLDER_MODEL_FEATURE: AiFeature = "data_qa";
 
 export interface FirstPartyProcessorDeps {
+  /**
+   * The capability's feature key (registry-declared). Drives the model
+   * layer's default tier + telemetry tagging. Defaults to
+   * `document_analysis` only so a direct construction in a test is
+   * ergonomic; `executeAiAction` always passes the registry value.
+   */
+  readonly feature?: AiFeature;
   /** Injectable for tests; defaults to the runtime model client. */
   readonly modelClient?: ModelClient;
   /** Tier for the underlying model call (from the resolved route). */
@@ -76,17 +79,16 @@ export function createFirstPartyProcessorClient(
         };
       }
 
+      const feature: AiFeature = deps.feature ?? "document_analysis";
       const shape = buildFirstPartyRequestShape(request);
       const client =
         deps.modelClient ??
         createRuntimeModelClient(
-          deps.tier
-            ? { feature: PLACEHOLDER_MODEL_FEATURE, tier: deps.tier }
-            : { feature: PLACEHOLDER_MODEL_FEATURE },
+          deps.tier ? { feature, tier: deps.tier } : { feature },
         );
 
       const result = await client.generateStructuredJson({
-        feature: PLACEHOLDER_MODEL_FEATURE,
+        feature,
         ...(deps.tier ? { tier: deps.tier } : {}),
         messages: shape.messages,
         responseTool: shape.responseTool,

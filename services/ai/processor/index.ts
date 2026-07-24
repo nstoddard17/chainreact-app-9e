@@ -18,10 +18,12 @@ export type {
 export {
   AI_PROCESSOR_ENV,
   describeAiProcessorConfigStatus,
+  describeAiProcessorRolloutReadiness,
   getAiProcessorConfig,
   isAiProcessorEnabled,
   type AiProcessorConfig,
   type AiProcessorConfigStatus,
+  type AiProcessorRolloutReadiness,
 } from "./config";
 export {
   AI_ACTION_REGISTRY,
@@ -29,6 +31,7 @@ export {
   listAiActionRegistryEntries,
   type AiActionKey,
   type AiActionRegistryEntry,
+  type AiProviderFeature,
 } from "./aiActionRegistry";
 export { createAiProcessorClient } from "./createAiProcessorClient";
 export { createGatewayProcessorClient } from "./gatewayClient";

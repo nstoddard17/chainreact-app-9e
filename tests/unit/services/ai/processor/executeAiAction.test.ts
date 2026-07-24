@@ -1,4 +1,11 @@
 /** @jest-environment node */
+/**
+ * The standard AI action pipeline. Since AI-PROVIDER-3 (CS-3) all three
+ * registered capabilities are really priced, so these tests exercise the REAL
+ * credit policy and registry — only the external/injected seams (credit gate,
+ * processor client, ledger) are stubbed.
+ */
+import * as aiCreditPolicy from "@/core/billing/aiCreditPolicy";
 import { AI_PROCESSOR_ENV } from "@/services/ai/processor/config";
 import {
   executeAiAction,
@@ -9,48 +16,14 @@ import {
 import { resolveModelRoute } from "@/services/ai/processor/resolveModelRoute";
 import type {
   AiProcessorClient,
+  AiProcessRequest,
   AiProcessResult,
   ModelRoute,
 } from "@/services/ai/processor/types";
 
-/**
- * Pipeline behavior tests. The registry's real features are unpriced until
- * CS-3, so pipeline-order tests inject a gate/client/ledger AND run against
- * `ai:analyze_document` with the pricing step exercised both ways:
- *   - the real policy → feature_not_priced refusal (the honest pre-CS-3 state)
- *   - a PRICED simulation via the injected gate is NOT possible (pricing is
- *     not injectable by design), so ordering tests assert the refusal happens
- *     BEFORE the gate/model call — which is exactly the fail-closed contract.
- * Full success-path tests will flip on in CS-3 when the features are priced;
- * until then the success path is proven by driving the pipeline with the
- * pricing check bypassed at its seam: a registry key whose feature IS priced
- * does not exist yet, so we simulate CS-3 by temporarily pricing via the
- * policy's own extension point — not available — hence the success path is
- * tested through `validate`/client/ledger behavior using `feature_not_priced`
- * disabled? NO — instead, the tests below monkey-patch NOTHING: they assert
- * pre-CS-3 refusal, and the post-gate stages are tested by injecting deps and
- * a PRICED feature through a test-only registry seam is deliberately absent.
- *
- * Practical resolution: the post-pricing stages (gate ordering, client call,
- * validation, ledger) are exercised by mocking `computeAiCreditCharge`'s
- * INPUT — impossible — so instead we jest.mock the policy module for the
- * pipeline-order describe block. That keeps the business rule under test
- * (ordering / fail-closed), not the mocked pricing itself.
- */
-jest.mock("@/core/billing/aiCreditPolicy", () => {
-  const actual = jest.requireActual("@/core/billing/aiCreditPolicy");
-  return {
-    ...actual,
-    computeAiCreditCharge: jest.fn(actual.computeAiCreditCharge),
-  };
-});
-
-import { computeAiCreditCharge } from "@/core/billing/aiCreditPolicy";
-const chargeMock = computeAiCreditCharge as jest.MockedFunction<typeof computeAiCreditCharge>;
-
-const REQUEST = {
-  task: "analyze_document" as const,
-  mode: "summarize" as const,
+const REQUEST: AiProcessRequest = {
+  task: "analyze_document",
+  mode: "summarize",
   document: {
     name: "a.pdf",
     mimeType: "application/pdf",
@@ -77,13 +50,16 @@ function baseInput(
 
 interface Trace {
   order: string[];
+  gateCalls: Array<Record<string, unknown>>;
+  clientFeatures: string[];
   ledger: AiActionLedger & { completed: unknown[]; failed: unknown[] };
   deps: ExecuteAiActionDeps;
-  clientResults: AiProcessResult[];
 }
 
 function makeDeps(processResult: AiProcessResult, gateOutcome?: unknown): Trace {
   const order: string[] = [];
+  const gateCalls: Array<Record<string, unknown>> = [];
+  const clientFeatures: string[] = [];
   const completed: unknown[] = [];
   const failed: unknown[] = [];
   const ledger = {
@@ -105,22 +81,23 @@ function makeDeps(processResult: AiProcessResult, gateOutcome?: unknown): Trace 
     },
   };
   const deps: ExecuteAiActionDeps = {
-    gate: (async (input: unknown) => {
+    gate: (async (input: Record<string, unknown>) => {
       order.push("gate");
-      void input;
+      gateCalls.push(input);
       return (gateOutcome ?? { ok: true, skipped: true, reason: "enforcement_disabled" }) as never;
     }) as never,
     resolveRoute: (input) => {
       order.push("route");
       return resolveModelRoute(input);
     },
-    createClient: (route: ModelRoute) => {
+    createClient: (route: ModelRoute, feature: string) => {
       order.push(`create_client:${route.provider}`);
+      clientFeatures.push(feature);
       return client;
     },
     ledger,
   };
-  return { order, ledger, deps, clientResults: [processResult] };
+  return { order, gateCalls, clientFeatures, ledger, deps };
 }
 
 const OK_RESULT: AiProcessResult = {
@@ -142,21 +119,17 @@ describe("executeAiAction pipeline", () => {
     process.env[AI_PROCESSOR_ENV.enabled] = "true";
     process.env[AI_PROCESSOR_ENV.gatewayUrl] = "https://gw.example.com";
     process.env[AI_PROCESSOR_ENV.gatewayToken] = "tok";
-    chargeMock.mockClear();
-    // Default: simulate CS-3 pricing so post-pricing stages are testable.
-    chargeMock.mockReturnValue({
-      credits: 3,
-      policyVersion: "test",
-      mapped: true,
-      escalated: false,
-    });
+    jest.restoreAllMocks();
   });
   afterEach(() => {
     for (const key of KEYS) {
       if (saved[key] === undefined) delete process.env[key];
       else process.env[key] = saved[key];
     }
+    jest.restoreAllMocks();
   });
+
+  // ─── Preflight ordering (fail-closed before any spend) ────────────────────
 
   it("unknown action key is refused BEFORE gate and client", async () => {
     const { deps, order } = makeDeps(OK_RESULT);
@@ -165,7 +138,6 @@ describe("executeAiAction pipeline", () => {
       expect.objectContaining({ status: "preflight_refused", reason: "unknown_action" }),
     );
     expect(order).toEqual([]);
-    expect(chargeMock).not.toHaveBeenCalled();
   });
 
   it("flag off → disabled refusal before gate/client", async () => {
@@ -178,7 +150,7 @@ describe("executeAiAction pipeline", () => {
     expect(order).toEqual([]);
   });
 
-  it("unsupported tier is refused before pricing/gate", async () => {
+  it("schema_suggestion rejects the strong tier (registry allows fast only)", async () => {
     const { deps, order } = makeDeps(OK_RESULT);
     const outcome = await executeAiAction(
       baseInput({ actionKey: "ai:suggest_schema", requestedTier: "strong" }),
@@ -188,12 +160,15 @@ describe("executeAiAction pipeline", () => {
       expect.objectContaining({ status: "preflight_refused", reason: "tier_unsupported" }),
     );
     expect(order).toEqual([]);
-    expect(chargeMock).not.toHaveBeenCalled();
   });
 
-  it("UNPRICED feature (the real pre-CS-3 policy) is refused before the gate — never the 5-credit fallback", async () => {
-    const actual = jest.requireActual("@/core/billing/aiCreditPolicy");
-    chargeMock.mockImplementation(actual.computeAiCreditCharge);
+  it("a REGRESSION that unprices a registered feature fails closed (never the 5-credit fallback)", async () => {
+    jest.spyOn(aiCreditPolicy, "computeAiCreditCharge").mockReturnValue({
+      credits: 5,
+      policyVersion: "regressed",
+      mapped: false,
+      escalated: false,
+    });
     const { deps, order } = makeDeps(OK_RESULT);
     const outcome = await executeAiAction(baseInput(), deps);
     expect(outcome).toEqual(
@@ -202,7 +177,63 @@ describe("executeAiAction pipeline", () => {
     expect(order).toEqual([]); // no gate, no route, no client, no ledger
   });
 
-  it("gate refusal never reaches the client; outcome carries the gate detail", async () => {
+  // ─── Credit gating ────────────────────────────────────────────────────────
+
+  it("passes the REAL feature and computed credit amount to the gate", async () => {
+    const { deps, gateCalls } = makeDeps(OK_RESULT);
+    await executeAiAction(baseInput(), deps);
+    expect(gateCalls).toHaveLength(1);
+    expect(gateCalls[0]).toEqual(
+      expect.objectContaining({
+        accountId: "acct-1",
+        feature: "document_analysis",
+        plannedTier: "fast",
+      }),
+    );
+  });
+
+  it("document_analysis strong tier prices at 6 credits; data_transform fast at 2", async () => {
+    const analyze = makeDeps(OK_RESULT, { ok: true, charged: 6, used: 6, limit: 100 });
+    const analyzeOutcome = await executeAiAction(
+      baseInput({ requestedTier: "strong" }),
+      analyze.deps,
+    );
+    expect(analyzeOutcome).toEqual(
+      expect.objectContaining({
+        status: "success",
+        feature: "document_analysis",
+        tier: "strong",
+        estimatedCredits: 6,
+        creditsCharged: 6,
+      }),
+    );
+
+    const transform = makeDeps(OK_RESULT, { ok: true, charged: 2, used: 2, limit: 100 });
+    const transformOutcome = await executeAiAction(
+      baseInput({
+        actionKey: "ai:transform_data",
+        request: {
+          task: "transform_data",
+          inputJson: "[]",
+          outputShape: "rows",
+          schema: { fields: [{ name: "a", type: "string" }] },
+          limits: { maxRows: 10, maxOutputTokens: 500 },
+        },
+        validate: () => ({ ok: true, value: null }),
+      }),
+      transform.deps,
+    );
+    expect(transformOutcome).toEqual(
+      expect.objectContaining({
+        status: "success",
+        feature: "data_transform",
+        estimatedCredits: 2,
+        creditsCharged: 2,
+      }),
+    );
+  });
+
+  it("gate refusal never reaches the client", async () => {
     const { deps, order } = makeDeps(OK_RESULT, {
       ok: false,
       reason: "insufficient_ai_credits",
@@ -220,8 +251,27 @@ describe("executeAiAction pipeline", () => {
     expect(order).toEqual(["gate"]);
   });
 
-  it("happy path: ordering is gate → route → client → ledger, exactly once each", async () => {
-    const { deps, order, ledger } = makeDeps(OK_RESULT);
+  it("test mode reaches the gate and stays uncharged (existing skip policy)", async () => {
+    const { deps, gateCalls } = makeDeps(OK_RESULT, {
+      ok: true,
+      skipped: true,
+      reason: "test_mode",
+    });
+    const outcome = await executeAiAction(baseInput({ testMode: true }), deps);
+    expect(gateCalls[0]).toEqual(expect.objectContaining({ testMode: true }));
+    expect(outcome).toEqual(
+      expect.objectContaining({
+        status: "success",
+        creditsCharged: 0, // uncharged...
+        estimatedCredits: 3, // ...but the policy price is still reported
+      }),
+    );
+  });
+
+  // ─── Routing, execution, validation ───────────────────────────────────────
+
+  it("happy path ordering: gate → route → client → ledger, exactly once each", async () => {
+    const { deps, order, ledger, clientFeatures } = makeDeps(OK_RESULT);
     const outcome = await executeAiAction(baseInput(), deps);
     expect(outcome).toEqual(
       expect.objectContaining({
@@ -231,34 +281,13 @@ describe("executeAiAction pipeline", () => {
         source: "gateway",
         tier: "fast",
         feature: "document_analysis",
-        creditsCharged: 0, // gate skipped (enforcement_disabled) → nothing deducted
       }),
     );
     expect(order).toEqual(["gate", "route", "create_client:gateway", "client", "ledger_completed"]);
+    // The client factory receives the REAL registry feature (no data_qa placeholder).
+    expect(clientFeatures).toEqual(["document_analysis"]);
     expect(ledger.completed).toHaveLength(1);
     expect(ledger.failed).toHaveLength(0);
-  });
-
-  it("charged gate outcome propagates creditsCharged", async () => {
-    const { deps } = makeDeps(OK_RESULT, { ok: true, charged: 6, used: 6, limit: 100 });
-    const outcome = await executeAiAction(baseInput({ requestedTier: "strong" }), deps);
-    expect(outcome).toEqual(
-      expect.objectContaining({ status: "success", creditsCharged: 6, tier: "strong" }),
-    );
-  });
-
-  it("testMode is passed through to the gate (existing skip policy)", async () => {
-    const gateCalls: unknown[] = [];
-    const { deps } = makeDeps(OK_RESULT);
-    const outcome = await executeAiAction(baseInput({ testMode: true }), {
-      ...deps,
-      gate: (async (input: unknown) => {
-        gateCalls.push(input);
-        return { ok: true, skipped: true, reason: "test_mode" };
-      }) as never,
-    });
-    expect(outcome).toEqual(expect.objectContaining({ status: "success", creditsCharged: 0 }));
-    expect(gateCalls[0]).toEqual(expect.objectContaining({ testMode: true }));
   });
 
   it("provider failure → provider_failed + ledger recordFailed with safe metadata", async () => {
@@ -273,19 +302,18 @@ describe("executeAiAction pipeline", () => {
       expect.objectContaining({ status: "provider_failed", code: "TIMEOUT", retryable: true }),
     );
     expect(ledger.failed).toHaveLength(1);
-    const meta = (ledger.failed[0] as { metadata: Record<string, unknown> }).metadata;
-    expect(meta).toEqual(
+    const failure = ledger.failed[0] as { feature: string; metadata: Record<string, unknown> };
+    expect(failure.feature).toBe("document_analysis");
+    expect(failure.metadata).toEqual(
       expect.objectContaining({ task: "analyze_document", failureCode: "TIMEOUT" }),
     );
-    expect(JSON.stringify(ledger.failed[0])).not.toContain("hello"); // no document text
+    expect(JSON.stringify(failure)).not.toContain("hello"); // no document text
   });
 
-  it("caller validation failure → invalid_output; ledger metadata has counts, never values", async () => {
+  it("caller validation failure → invalid_output; ledger has counts, never values", async () => {
     const { deps, ledger } = makeDeps(OK_RESULT);
     const outcome = await executeAiAction(
-      baseInput({
-        validate: () => ({ ok: false, issues: ["total_amount", "hire_date"] }),
-      }),
+      baseInput({ validate: () => ({ ok: false, issues: ["total_amount", "hire_date"] }) }),
       deps,
     );
     expect(outcome).toEqual(
@@ -294,15 +322,16 @@ describe("executeAiAction pipeline", () => {
         issues: ["total_amount", "hire_date"],
       }),
     );
-    expect(ledger.failed).toHaveLength(1);
     const serialized = JSON.stringify(ledger.failed[0]);
     expect(serialized).toContain("validationIssueCount");
-    expect(serialized).not.toContain("summary"); // no output values in ledger
+    expect(serialized).not.toContain("summary");
     expect(serialized).not.toContain("hello");
   });
 
-  it("ledger success metadata carries only safe attribution", async () => {
-    const { deps, ledger } = makeDeps(OK_RESULT);
+  // ─── Ledger contract ──────────────────────────────────────────────────────
+
+  it("ledger success carries the real feature, credits, and safe attribution only", async () => {
+    const { deps, ledger } = makeDeps(OK_RESULT, { ok: true, charged: 3, used: 3, limit: 100 });
     await executeAiAction(baseInput({ workflowId: "wf-1", workflowRunId: "run-1" }), deps);
     const entry = ledger.completed[0] as Record<string, unknown>;
     expect(entry).toEqual(
@@ -314,17 +343,24 @@ describe("executeAiAction pipeline", () => {
         workflowRunId: "run-1",
         modelTag: "hermes-doc-v1",
         source: "gateway",
-        creditsCharged: 0,
+        creditsCharged: 3,
         usage: { inputTokens: 100, outputTokens: 10 },
       }),
     );
     const meta = entry.metadata as Record<string, unknown>;
-    expect(meta.usageSource).toBe("gateway_reported");
+    expect(meta).toEqual(
+      expect.objectContaining({
+        task: "analyze_document",
+        mode: "summarize",
+        tier: "fast",
+        estimatedCredits: 3,
+        usageSource: "gateway_reported",
+      }),
+    );
     expect(JSON.stringify(meta)).not.toMatch(/hello|summary|keyPoints/);
   });
 
   it("ledger failure is fail-open: a throwing ledger never changes the outcome", async () => {
-    const { deps } = makeDeps(OK_RESULT);
     const throwing = {
       async recordCompleted() {
         throw new Error("ledger down");
@@ -333,6 +369,7 @@ describe("executeAiAction pipeline", () => {
         throw new Error("ledger down");
       },
     };
+    const { deps } = makeDeps(OK_RESULT);
     const success = await executeAiAction(baseInput(), { ...deps, ledger: throwing });
     expect(success).toEqual(expect.objectContaining({ status: "success" }));
 

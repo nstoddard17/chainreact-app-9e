@@ -18,18 +18,37 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * layer sanitizes `metadata` before it reaches here).
  */
 
-export type AiCostFeature =
-  | "workflow_creation"
-  | "workflow_editing"
-  | "workflow_repair"
-  | "workflow_explanation"
-  | "workflow_qa"
-  | "failed_run_analysis"
-  | "provider_discovery"
-  | "template_recommendation"
-  | "template_customization"
-  | "cost_preview"
-  | "other";
+/**
+ * Allowed `ai_cost_events.feature` values, as a RUNTIME list.
+ *
+ * MUST stay in lockstep with the `ai_cost_events_feature_chk` CHECK constraint
+ * — widening the set is a forward-only migration that drops + recreates the
+ * constraint with the expanded list (latest:
+ * `20260728000000_ai_cost_events_feature_add_ai_provider.sql`). A static test
+ * parses that migration and compares it to this array, so drift fails CI
+ * instead of failing an INSERT in production.
+ */
+export const AI_COST_FEATURES = [
+  "workflow_creation",
+  "workflow_editing",
+  "workflow_repair",
+  "workflow_explanation",
+  "workflow_qa",
+  "failed_run_analysis",
+  "provider_discovery",
+  "template_recommendation",
+  "template_customization",
+  "cost_preview",
+  // AI-PROVIDER-3 (CS-3) — ChainReact AI provider capabilities. Names match
+  // `AiFeature` (core/ai/modelTypes) exactly so one key drives model call,
+  // credit charge, and ledger row.
+  "document_analysis",
+  "data_transform",
+  "schema_suggestion",
+  "other",
+] as const;
+
+export type AiCostFeature = (typeof AI_COST_FEATURES)[number];
 
 export type AiCostEventType =
   | "ai_interaction_started"

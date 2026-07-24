@@ -50,10 +50,9 @@ describe("AI action registry", () => {
     }
   });
 
-  // CS-3 lockstep seam: today the three features are deliberately UNPRICED
-  // (executeAiAction refuses them). CS-3 extends this test into the full
-  // registry ↔ FEATURE_BASE_CREDITS ↔ AiCostFeature ↔ CHECK lockstep.
-  it("documents the pre-CS-3 state: registry features are not yet priced", async () => {
+  // Full registry ↔ policy ↔ type ↔ DB lockstep lives in
+  // tests/unit/services/ai/processor/billingLockstep.test.ts (AI-PROVIDER-3).
+  it("every registry feature is priced — the unmapped fallback is unreachable", async () => {
     const { computeAiCreditCharge } = await import("@/core/billing/aiCreditPolicy");
     for (const entry of listAiActionRegistryEntries()) {
       const charge = computeAiCreditCharge({
@@ -61,7 +60,7 @@ describe("AI action registry", () => {
         isLlmCall: true,
         modelTier: "fast",
       });
-      expect(charge.mapped).toBe(false); // CS-3 flips this to true
+      expect(charge.mapped).toBe(true);
     }
   });
 });

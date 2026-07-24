@@ -12,6 +12,8 @@ import {
   TIER_CREDIT_MULTIPLIER,
   UNMAPPED_LLM_FALLBACK_CREDITS,
   computeAiCreditCharge,
+  getFeatureBaseCredits,
+  isFeaturePriced,
 } from "@/core/billing/aiCreditPolicy";
 
 describe("computeAiCreditCharge — deterministic work is free", () => {
@@ -116,5 +118,54 @@ describe("computeAiCreditCharge — unknown paid feature fails closed", () => {
     expect(c.credits).toBe(
       Math.ceil(UNMAPPED_LLM_FALLBACK_CREDITS * TIER_CREDIT_MULTIPLIER.strong),
     );
+  });
+});
+
+// ─── AI-PROVIDER-3 (CS-3): ChainReact AI provider capability pricing ─────────
+
+describe("computeAiCreditCharge — AI provider capabilities", () => {
+  const price = (feature: string, modelTier: "fast" | "strong") =>
+    computeAiCreditCharge({ feature, isLlmCall: true, modelTier }).credits;
+
+  it("document_analysis: 3 credits standard/fast, 6 advanced/strong", () => {
+    expect(price("document_analysis", "fast")).toBe(3);
+    expect(price("document_analysis", "strong")).toBe(6);
+  });
+
+  it("data_transform: 2 credits standard/fast, 4 advanced/strong", () => {
+    expect(price("data_transform", "fast")).toBe(2);
+    expect(price("data_transform", "strong")).toBe(4);
+  });
+
+  it("schema_suggestion: 1 credit (fast — the only tier its registry allows)", () => {
+    expect(price("schema_suggestion", "fast")).toBe(1);
+  });
+
+  it("all three are explicitly priced — never the unmapped fallback", () => {
+    for (const feature of ["document_analysis", "data_transform", "schema_suggestion"]) {
+      expect(isFeaturePriced(feature)).toBe(true);
+      expect(getFeatureBaseCredits(feature)).toBeGreaterThan(0);
+      const charge = computeAiCreditCharge({ feature, isLlmCall: true, modelTier: "fast" });
+      expect(charge.mapped).toBe(true);
+      expect(charge.credits).toBeLessThan(UNMAPPED_LLM_FALLBACK_CREDITS);
+    }
+  });
+
+  it("the strong-tier multiplier is unchanged at 2x for the new features", () => {
+    expect(TIER_CREDIT_MULTIPLIER.strong).toBe(2);
+    expect(price("document_analysis", "strong")).toBe(
+      price("document_analysis", "fast") * TIER_CREDIT_MULTIPLIER.strong,
+    );
+  });
+
+  it("deterministic (non-LLM) AI provider work stays free", () => {
+    expect(
+      computeAiCreditCharge({ feature: "document_analysis", isLlmCall: false }).credits,
+    ).toBe(0);
+  });
+
+  it("isFeaturePriced reports false for a genuinely unknown feature", () => {
+    expect(isFeaturePriced("image_understanding")).toBe(false);
+    expect(getFeatureBaseCredits("image_understanding")).toBeUndefined();
   });
 });

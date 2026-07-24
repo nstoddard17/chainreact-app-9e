@@ -1,3 +1,7 @@
+import {
+  AI_CREDIT_ENFORCEMENT_FLAG,
+  isAiCreditEnforcementEnabled,
+} from "@/services/billing/billingFeatureFlags";
 import type { AiProcessorProvider } from "./types";
 
 /**
@@ -111,6 +115,41 @@ export interface AiProcessorConfigStatus {
   readonly enabled: boolean;
   readonly configured: boolean;
   readonly missing: readonly string[];
+}
+
+/**
+ * GA rollout gate (AI-PROVIDER-3 CS-3 — plan risk R2).
+ *
+ * Enabling the processor while AI credit enforcement is OFF means every
+ * workflow run — including unattended scheduled ones — makes unmetered paid
+ * model calls. This reports readiness so an ops/readiness surface can refuse
+ * to call the processor "GA" in that state. It is a REPORT, not a runtime
+ * block: `aiCreditGate` already owns per-call enforcement, and blocking here
+ * would break the intended flag-on/enforcement-off staging step.
+ */
+export interface AiProcessorRolloutReadiness {
+  readonly processorEnabled: boolean;
+  readonly processorConfigured: boolean;
+  readonly creditEnforcementEnabled: boolean;
+  /** True only when the processor is enabled, configured, AND metered. */
+  readonly gaReady: boolean;
+  /** Var NAMES that still block GA (never values). */
+  readonly blockers: readonly string[];
+}
+
+export function describeAiProcessorRolloutReadiness(): AiProcessorRolloutReadiness {
+  const status = describeAiProcessorConfigStatus();
+  const creditEnforcementEnabled = isAiCreditEnforcementEnabled();
+  const blockers = [...status.missing];
+  if (!status.enabled) blockers.push(AI_PROCESSOR_ENV.enabled);
+  if (!creditEnforcementEnabled) blockers.push(AI_CREDIT_ENFORCEMENT_FLAG);
+  return {
+    processorEnabled: status.enabled,
+    processorConfigured: status.configured,
+    creditEnforcementEnabled,
+    gaReady: status.configured && creditEnforcementEnabled,
+    blockers,
+  };
 }
 
 export function describeAiProcessorConfigStatus(): AiProcessorConfigStatus {

@@ -75,7 +75,31 @@ const FEATURE_BASE_CREDITS: Readonly<Record<string, number>> = {
   template_recommendation: 1,
   template_customization: 2,
   cost_preview: 0,
+  // AI-PROVIDER-3 (CS-3) — the ChainReact AI provider's runtime capabilities.
+  // Owner-approved base prices; the `strong` tier ("advanced" quality) doubles
+  // them via TIER_CREDIT_MULTIPLIER. Analyze Document is the most expensive
+  // (large parsed documents), Transform Data cheaper (bounded upstream data),
+  // Suggest Fields cheapest (one small builder-time sample). Registering them
+  // here is what makes UNMAPPED_LLM_FALLBACK_CREDITS structurally unreachable
+  // for every registered `ai:*` capability (lockstep-tested).
+  document_analysis: 3,
+  data_transform: 2,
+  schema_suggestion: 1,
 };
+
+/**
+ * Read-only view of the priced-feature map. Exported so lockstep tests can
+ * assert registry ↔ policy coverage against the REAL map instead of
+ * duplicating expected numbers.
+ */
+export function getFeatureBaseCredits(feature: string): number | undefined {
+  return FEATURE_BASE_CREDITS[feature];
+}
+
+/** Whether a feature has an explicit price (i.e. never hits the fallback). */
+export function isFeaturePriced(feature: string): boolean {
+  return FEATURE_BASE_CREDITS[feature] !== undefined;
+}
 
 export interface AiCreditChargeInput {
   /** The `ai_cost_events.feature` value. */

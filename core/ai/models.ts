@@ -119,6 +119,13 @@ export const FEATURE_DEFAULT_TIER: Readonly<Record<AiFeature, ModelTier>> = {
   run_analysis: "fast",
   data_qa: "fast",
   discovery: "fast",
+  // AI-PROVIDER-3 (CS-3) — the AI provider's capabilities default to `fast`
+  // (the builder's "standard" quality). `document_analysis` / `data_transform`
+  // may be escalated to `strong` ("advanced", 2× credits) per their registry
+  // `supportedTiers`; `schema_suggestion` is fast-only by registry.
+  document_analysis: "fast",
+  data_transform: "fast",
+  schema_suggestion: "fast",
 } as const;
 
 /**

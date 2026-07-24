@@ -4,9 +4,8 @@ import { aiCreditGate, type AiCreditGateOutcome } from "@/services/billing/aiCre
 import {
   recordAiModelCallCompleted,
   recordAiModelCallFailed,
-  type AiCostFeature,
 } from "@/services/billing/aiCostEvents";
-import { getAiActionRegistryEntry } from "./aiActionRegistry";
+import { getAiActionRegistryEntry, type AiProviderFeature } from "./aiActionRegistry";
 import { createAiProcessorClient } from "./createAiProcessorClient";
 import { resolveModelRoute } from "./resolveModelRoute";
 import type {
@@ -43,10 +42,10 @@ import type {
  * values, and gateway bodies never reach the ledger (the aiCostEvents
  * sanitizer is defense-in-depth behind that).
  *
- * TODO(CS-3): the ledger `feature` union (`AiCostFeature`) + DB CHECK do
- * not yet include the AI provider features; the cast below is unreachable
- * until CS-3 prices the features (the estimate step refuses first) and is
- * removed when CS-3 widens the union + CHECK.
+ * AI-PROVIDER-3 (CS-3): the registry's `AiProviderFeature` is valid for
+ * BOTH the model layer and the ledger by construction, so the interim
+ * casts are gone — the feature flows unmodified from registry → credit
+ * policy → gate → model client → `ai_cost_events.feature`.
  */
 
 export interface ExecuteAiActionInput<T> {
@@ -76,8 +75,11 @@ export type ExecuteAiActionOutcome<T> =
       readonly modelTag: string;
       readonly source: "gateway" | "first_party";
       readonly tier: ModelTier;
-      readonly feature: string;
+      readonly feature: AiProviderFeature;
+      /** Credits actually deducted by the gate (0 when skipped/test mode). */
       readonly creditsCharged: number;
+      /** Policy-computed price for this call, independent of gate skipping. */
+      readonly estimatedCredits: number;
     }
   | {
       readonly status: "preflight_refused";
@@ -108,7 +110,7 @@ export interface AiActionLedger {
   recordCompleted(input: {
     accountId: string;
     userId: string;
-    feature: string;
+    feature: AiProviderFeature;
     workflowId?: string | null;
     workflowRunId?: string | null;
     modelTag: string;
@@ -120,7 +122,7 @@ export interface AiActionLedger {
   recordFailed(input: {
     accountId: string;
     userId: string;
-    feature: string;
+    feature: AiProviderFeature;
     workflowId?: string | null;
     workflowRunId?: string | null;
     modelTag?: string;
@@ -136,9 +138,7 @@ function defaultLedger(): AiActionLedger {
           {
             accountId: input.accountId,
             userId: input.userId,
-            // TODO(CS-3): unreachable until the features are priced; CS-3
-            // widens AiCostFeature + the DB CHECK and removes this cast.
-            feature: input.feature as AiCostFeature,
+            feature: input.feature,
             workflowId: input.workflowId ?? null,
             workflowRunId: input.workflowRunId ?? null,
           },
@@ -161,7 +161,7 @@ function defaultLedger(): AiActionLedger {
           {
             accountId: input.accountId,
             userId: input.userId,
-            feature: input.feature as AiCostFeature, // TODO(CS-3): see above
+            feature: input.feature,
             workflowId: input.workflowId ?? null,
             workflowRunId: input.workflowRunId ?? null,
           },
@@ -180,7 +180,10 @@ function defaultLedger(): AiActionLedger {
 export interface ExecuteAiActionDeps {
   readonly gate?: typeof aiCreditGate;
   readonly resolveRoute?: typeof resolveModelRoute;
-  readonly createClient?: (route: ModelRoute) => AiProcessorClient;
+  readonly createClient?: (
+    route: ModelRoute,
+    feature: AiProviderFeature,
+  ) => AiProcessorClient;
   readonly ledger?: AiActionLedger;
 }
 
@@ -275,7 +278,7 @@ export async function executeAiAction<T>(
     tier,
     task: input.request.task,
   });
-  const client = (deps.createClient ?? createAiProcessorClient)(route);
+  const client = (deps.createClient ?? createAiProcessorClient)(route, entry.feature);
 
   const ledger = deps.ledger ?? defaultLedger();
   const baseLedgerScope = {
@@ -291,6 +294,11 @@ export async function executeAiAction<T>(
     tier,
     routeProvider: route.provider,
     testMode: input.testMode === true,
+    // Policy price for this call. Differs from `creditsCharged` whenever the
+    // gate skipped (enforcement off / test mode / frozen) — recording both
+    // keeps "what it would cost" queryable during the recording-only phase.
+    estimatedCredits: estimate.credits,
+    creditPolicyVersion: estimate.policyVersion,
   };
 
   // 7. The model call.
@@ -357,5 +365,6 @@ export async function executeAiAction<T>(
     tier,
     feature: entry.feature,
     creditsCharged,
+    estimatedCredits: estimate.credits,
   };
 }

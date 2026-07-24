@@ -32,7 +32,15 @@ export type AiFeature =
   | "explanation"
   | "run_analysis"
   | "data_qa"
-  | "discovery";
+  | "discovery"
+  // AI-PROVIDER-3 (CS-3) — the ChainReact AI provider's runtime capabilities.
+  // These three names are deliberately IDENTICAL in `AiCostFeature`
+  // (repositories/aiCostEvents) so one key drives the model call, the credit
+  // charge, and the ledger row. `AiProviderFeature` in
+  // services/ai/processor/aiActionRegistry is their compile-time intersection.
+  | "document_analysis"
+  | "data_transform"
+  | "schema_suggestion";
 
 export type ModelRole = "system" | "user" | "assistant";
 
