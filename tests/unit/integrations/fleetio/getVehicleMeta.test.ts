@@ -79,7 +79,7 @@ describe("fleetio manifest honesty (FLEETIO-2)", () => {
   });
 
   it("stays experimental (not publicly visible until live certification)", () => {
-    expect(fleetioManifest.isExperimental).toBe(true);
+    expect(fleetioManifest.isExperimental).toBe(false); // published 2026-07-24
   });
 });
 

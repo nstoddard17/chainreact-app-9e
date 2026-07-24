@@ -220,7 +220,7 @@ describe("fleetio:find_linked_vehicle registration + manifest honesty", () => {
     expect(fleetioManifest.capabilities.actions).toBe(true);
     expect(fleetioManifest.capabilities.webhookTrigger).toBe(false);
     expect(fleetioManifest.capabilities.pollingTrigger).toBe(false);
-    expect(fleetioManifest.isExperimental).toBe(true);
+    expect(fleetioManifest.isExperimental).toBe(false); // published 2026-07-24
     expect(fleetioManifest.authFlow).toBe("credential_paste");
     expect(fleetioManifest.refreshable).toBe(false);
   });

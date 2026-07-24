@@ -41,9 +41,12 @@ describe("fleetio manifest (FLEETIO-1 — connect-only slice)", () => {
     expect(fleetioManifest.capabilities.pollingTrigger).toBe(false);
   });
 
-  it("stays hidden from the production catalog until live certification", () => {
+  it("is PUBLISHED to the production catalog (owner flip, 2026-07-24)", () => {
     expect(fleetioManifest.isEnabled).toBe(true);
-    expect(fleetioManifest.isExperimental).toBe(true);
+    // isExperimental:false is what reveals Fleetio in the Apps grid
+    // (app/apps/_shared.ts isCatalogVisible). Native provider → the manifest is
+    // the only gate; there is no preview-flag path.
+    expect(fleetioManifest.isExperimental).toBe(false);
   });
 
   it("declares exactly the two wire credentials, both secret and required, with locate-it help", () => {

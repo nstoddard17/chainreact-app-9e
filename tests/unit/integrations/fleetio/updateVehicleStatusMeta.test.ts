@@ -101,7 +101,7 @@ describe("fleetio:update_vehicle_status registration + manifest honesty", () => 
     expect(fleetioManifest.capabilities.actions).toBe(true);
     expect(fleetioManifest.capabilities.webhookTrigger).toBe(false);
     expect(fleetioManifest.capabilities.pollingTrigger).toBe(false);
-    expect(fleetioManifest.isExperimental).toBe(true);
+    expect(fleetioManifest.isExperimental).toBe(false); // published 2026-07-24
   });
 
   it("reuses the existing resolvers (does not duplicate them)", () => {

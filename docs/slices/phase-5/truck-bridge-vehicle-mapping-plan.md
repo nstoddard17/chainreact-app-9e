@@ -1548,6 +1548,30 @@ CS-6 created none and needed none. `db:push` was not run.
 
 ---
 
+## 11h. Post-arc — Fleetio PUBLISHED to the production catalog (owner flip)
+
+**2026-07-24, owner decision (Marcus).** After the arc closed, the Fleetio manifest flipped
+`isExperimental: true → false`
+([`integrations/fleetio/manifest.ts`](../../../integrations/fleetio/manifest.ts)), which reveals
+Fleetio in the production Apps catalog (`app/apps/_shared.ts` `isCatalogVisible`). Fleetio is a
+native `credential_paste` provider, so this is the ONLY gate — there is no OAuth client to register
+and **no environment variable to set**; each user pastes their own API key + Account-Token, verified
+live at connect via `GET /accounts`.
+
+Also flipped in the same batch: a **"← Back to Apps"** link on `/apps/vehicle-links`
+(`8ccc6c3e4`). The five Fleetio manifest/meta tests that pinned `isExperimental === true` now pin
+`false`; the catalog-visibility tests use synthetic providers and were unaffected.
+
+**Still open (publish ≠ live certification):** connecting a real Fleetio account and exercising
+every action end to end — including confirming `vin` is populated on `GET /vehicles` so
+`ENABLE_VEHICLE_VIN_BULK_CONFIRM` can be lifted (plan §11g, Q1) — remains outstanding. Publishing
+is the prerequisite that now lets an owner connect a real account and do that certification.
+
+The §11b–§11g slice records below remain as written (they were accurate when each slice landed);
+this section is the current state.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 *(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,

@@ -245,6 +245,11 @@
   connected Fleetio integrations, so VIN population on `GET /vehicles` is UNVERIFIED and bulk
   confirm's safety premise is untested (individual VIN confirmation is unaffected). Full arc
   detail + evidence: [`truck-bridge-vehicle-mapping-plan.md`](./slices/phase-5/truck-bridge-vehicle-mapping-plan.md) §11b–§11g.
+  **Post-arc (2026-07-24, owner flip):** Fleetio manifest `isExperimental: false` → PUBLISHED to
+  the production Apps catalog (native `credential_paste` provider — no OAuth client, **no env var**;
+  each user pastes their own API key + Account-Token). A "← Back to Apps" link was added to
+  `/apps/vehicle-links`. Publish ≠ live certification: connecting a real account + confirming VIN
+  population (to lift the bulk-confirm flag) is still open (§11h + Q1).
 
 - **MOTIVE PROVIDER ARC — CODE-COMPLETE LOCAL, OWNER SETUP + PHASE 13 PENDING (LOCAL/UNPUSHED, `85cf7a59c`, 104 files)** —
   fifth net-new V2 provider (gomotive.com / fleet telematics, formerly KeepTruckin). **NOT shipped,

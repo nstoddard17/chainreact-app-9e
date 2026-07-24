@@ -34,15 +34,27 @@ import {
  * `actions` (FLEETIO-2 registered the first real handler, `get_vehicle`).
  * Triggers stay `false` until a later slice registers them.
  *
- * `isExperimental: true` — hidden from the production Apps catalog until the
- * post-owner-setup live certification pass (same arc Linear/Eden followed).
+ * `isExperimental: false` — PUBLISHED to the production Apps catalog (owner
+ * decision, 2026-07-24, after the TRUCK-BRIDGE-1 arc closed and Vehicle Links
+ * launched). Fleetio connects with pasted credentials, so there is no OAuth
+ * client to register and no env var to set — each user pastes their own API key
+ * + Account-Token, verified live at connect via `GET /accounts`. Flipping this
+ * flag is what reveals Fleetio in the Apps grid (`isCatalogVisible`); native
+ * providers have no preview-flag path, so the manifest is the only gate.
+ *
+ * NOTE (still open, not blocked by publish): full live certification — a real
+ * connected account exercising every action end to end, and confirming `vin` is
+ * populated on `GET /vehicles` so `ENABLE_VEHICLE_VIN_BULK_CONFIRM` can be
+ * lifted — remains outstanding. Publishing lets an owner connect a real account,
+ * which is the prerequisite for that certification.
+ *
  * API version pinned to 2025-05-05 (X-Api-Version on every call).
  */
 export const fleetioManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "fleetio",
   displayName: "Fleetio",
   isEnabled: true,
-  isExperimental: true,
+  isExperimental: false,
   apiVersion: "2025-05-05",
   tokenScope: "user",
   oauthFlows: ["api_key"],
