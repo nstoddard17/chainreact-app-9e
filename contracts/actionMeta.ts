@@ -825,6 +825,21 @@ export const FieldMetaSchema = z
      */
     renderedBy: z.string().min(1).max(128).optional(),
     /**
+     * AI-PROVIDER-7 (CS-7) — for a `schema-fields` field, the NAME of the
+     * sibling field whose value provides the SAMPLE that "Suggest fields"
+     * reads (`ai:analyze_document.file`, `ai:transform_data.input`).
+     *
+     * Declarative rather than heuristic: without it the editor would have to
+     * guess which of the node's inputs is "the document", and a guess that is
+     * right for today's two AI actions would silently pick the wrong field for
+     * the third. The referenced field must be a declared sibling, and only a
+     * `schema-fields` field may declare it (enforced by the superRefines).
+     *
+     * Optional and additive — a `schema-fields` editor without it simply has
+     * no Suggest-fields affordance.
+     */
+    sampleSourceField: z.string().min(1).max(128).optional(),
+    /**
      * CONFIG-UX-AUDIT-2 — expected top-level shape for a `json` field,
      * mirroring the runtime schema's contract:
      *
@@ -945,6 +960,23 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["renderedBy"],
         message: `Field '${field.name}' cannot be rendered by itself.`,
+      });
+    }
+    // AI-PROVIDER-7 — the Suggest-fields sample source. Field-local invariants
+    // only; "names a real sibling" needs the full field list and lives in the
+    // meta-level superRefine.
+    if (field.sampleSourceField && field.type !== "schema-fields") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sampleSourceField"],
+        message: "`sampleSourceField` is only valid on `schema-fields` fields.",
+      });
+    }
+    if (field.sampleSourceField === field.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sampleSourceField"],
+        message: `Field '${field.name}' cannot be its own sample source.`,
       });
     }
     if (field.type === "json" && field.advanced !== true) {
@@ -1460,6 +1492,15 @@ export const ActionMetaSchema = z
           code: z.ZodIssueCode.custom,
           path: ["fields", i, "batchRowsField"],
           message: `Field '${f.name}' names unknown batch field '${f.batchRowsField}'.`,
+        });
+      }
+      // AI-PROVIDER-7 — a Suggest-fields sample source must name a real
+      // sibling, or the button would read a field that does not exist.
+      if (f.sampleSourceField && !fieldNames.has(f.sampleSourceField)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["fields", i, "sampleSourceField"],
+          message: `Field '${f.name}' names unknown sample source '${f.sampleSourceField}'.`,
         });
       }
       if (f.renderedBy) {

@@ -150,6 +150,14 @@ describe("conditional configuration", () => {
     }
   });
 
+  it("points both schema editors at the document they will analyze (CS-7)", () => {
+    expect(field("expectedFields").sampleSourceField).toBe("file");
+    expect(field("rowSchema").sampleSourceField).toBe("file");
+    // The named source is a real field on this action, so Suggest fields
+    // reads the SAME document the step runs on.
+    expect(field("file")).toBeDefined();
+  });
+
   it("uses structured editors — no raw-entry escape hatch anywhere", () => {
     expect(field("expectedFields").type).toBe("schema-fields");
     expect(field("rowSchema").type).toBe("schema-fields");

@@ -145,6 +145,11 @@ describe("conditional configuration", () => {
     }
   });
 
+  it("points the custom schema editor at the data being transformed (CS-7)", () => {
+    expect(field("destinationSchema").sampleSourceField).toBe("input");
+    expect(field("input")).toBeDefined();
+  });
+
   it("uses a registered picker for the destination and never a raw key box", () => {
     expect(field("destinationAction").type).toBe("combobox");
     expect(field("destinationAction").optionsSource).toBe("ai:destination_actions");

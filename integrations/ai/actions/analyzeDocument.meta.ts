@@ -25,6 +25,9 @@ import { AI_PROVIDER_ID } from "@/core/integrations/connectionlessProviders";
  * (`missingRequiredFields` evaluates the condition), so switching modes
  * never leaves a phantom "needs setup" marker behind.
  *
+ * Both schema editors declare `sampleSourceField: "file"` (AI-PROVIDER-7), so
+ * "Suggest fields" reads the SAME document this step will analyze.
+ *
  * `dynamicOutputs` declares where the author's own field names attach in
  * the variable picker. It is inert until CS-8 implements synthesis; the
  * runtime resolver already walks those paths, so hand-typed references
@@ -99,6 +102,7 @@ export const analyzeDocumentMeta: ActionMeta = {
         "Name each value you want. The names become the outputs you can use in later steps.",
       type: "schema-fields",
       required: true,
+      sampleSourceField: "file",
       visibleWhen: { field: "mode", valueIn: ["extract_fields"] },
     },
     {
@@ -108,6 +112,7 @@ export const analyzeDocumentMeta: ActionMeta = {
         "Name the columns every extracted row should have. Each row comes back with exactly these columns.",
       type: "schema-fields",
       required: true,
+      sampleSourceField: "file",
       visibleWhen: { field: "mode", valueIn: ["extract_rows"] },
     },
     {

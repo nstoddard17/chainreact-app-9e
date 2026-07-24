@@ -31,9 +31,21 @@
 
 import type { WorkflowRunDetail, WorkflowRunStep } from "@/contracts/workflow";
 
+/**
+ * The minimum this bridge reads from a run. Structural on purpose (AI-PROVIDER-7):
+ * the builder passes a full `WorkflowRunDetail` from the run-detail route, while
+ * the suggest-schema route passes a server-side run record it has already gated
+ * itself — both carry the same two fields, and neither should have to convert to
+ * the other's DTO to use one helper.
+ */
+export interface LatestValuesRunSource {
+  readonly steps: readonly Pick<WorkflowRunStep, "nodeId" | "output">[];
+  readonly triggerNodeId: string;
+}
+
 export interface BuildLatestValuesInput {
   /** Detail for the latest tracked run, or `null` when nothing's been run. */
-  readonly detail: WorkflowRunDetail | null;
+  readonly detail: LatestValuesRunSource | WorkflowRunDetail | null;
   /**
    * The current graph's trigger node id. Used to decide whether the
    * persisted trigger step still applies. Pass `null` when the graph
@@ -91,6 +103,6 @@ export function buildLatestValuesBySource(
 
 const EMPTY: Readonly<Record<string, unknown>> = Object.freeze({});
 
-function stepOutput(step: WorkflowRunStep): unknown {
+function stepOutput(step: Pick<WorkflowRunStep, "output">): unknown {
   return step.output;
 }

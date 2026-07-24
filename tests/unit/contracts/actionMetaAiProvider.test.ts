@@ -175,3 +175,64 @@ describe("dynamicOutputs declaration", () => {
     ).toBe(false);
   });
 });
+
+// ─── AI-PROVIDER-7 (CS-7) — the Suggest-fields sample source ────────────────
+
+describe("sampleSourceField", () => {
+  const withSample = (sampleSourceField: string, extraFields: unknown[] = []) =>
+    meta({
+      fields: [
+        { name: "file", label: "Document", type: "file", required: true },
+        { name: "mode", label: "Mode", type: "select", required: true },
+        {
+          name: "expectedFields",
+          label: "Fields to extract",
+          type: "schema-fields",
+          required: true,
+          sampleSourceField,
+        },
+        ...extraFields,
+      ],
+    });
+
+  it("accepts a schema-fields editor pointing at a declared sibling", () => {
+    expect(ActionMetaSchema.safeParse(withSample("file")).success).toBe(true);
+  });
+
+  it("is optional — a schema editor without one still parses", () => {
+    expect(ActionMetaSchema.safeParse(meta()).success).toBe(true);
+  });
+
+  it("rejects a source that is not a declared field", () => {
+    const result = ActionMetaSchema.safeParse(withSample("ghost"));
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(JSON.stringify(result.error.issues)).toMatch(/unknown sample source 'ghost'/);
+  });
+
+  it("rejects a field pointing at itself", () => {
+    expect(ActionMetaSchema.safeParse(withSample("expectedFields")).success).toBe(false);
+  });
+
+  it("rejects it on any field type other than schema-fields", () => {
+    const result = ActionMetaSchema.safeParse(
+      meta({
+        fields: [
+          { name: "file", label: "Document", type: "file", required: true },
+          {
+            name: "note",
+            label: "Note",
+            type: "text",
+            required: false,
+            sampleSourceField: "file",
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(JSON.stringify(result.error.issues)).toMatch(
+      /only valid on `schema-fields` fields/,
+    );
+  });
+});

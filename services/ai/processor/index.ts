@@ -82,6 +82,15 @@ export {
   type ResolveAnalysisDocumentInput,
   type ResolvedAnalysisDocument,
 } from "./resolveAnalysisDocument";
+// AI-PROVIDER-7 (CS-7) — builder-time schema suggestion.
+export {
+  MAX_SUGGESTED_FIELDS,
+  runSchemaSuggestion,
+  SUGGEST_SCHEMA_ACTION_KEY,
+  type RunSchemaSuggestionDeps,
+  type RunSchemaSuggestionInput,
+  type SchemaSuggestionOutcome,
+} from "./runSchemaSuggestion";
 // AI-PROVIDER-6 (CS-6) — Transform Data orchestration + destination resolution.
 export {
   DESTINATION_EXCLUDED_WARNING_PREFIX,

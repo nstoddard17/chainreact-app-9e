@@ -23,6 +23,9 @@ import { AI_PROVIDER_ID } from "@/core/integrations/connectionlessProviders";
  * (`core/workflows/deriveDestinationContext.ts`), re-derived server-side at
  * run time, so nobody retypes a schema ChainReact already knows.
  *
+ * `destinationSchema` declares `sampleSourceField: "input"` (AI-PROVIDER-7), so
+ * "Suggest fields" proposes fields from the data actually being transformed.
+ *
  * `dynamicOutputs` covers the custom-schema mode only — the declaration
  * contract sources child outputs from a `schema-fields` config field, and in
  * destination-action mode there is no such field (the shape comes from the
@@ -87,6 +90,7 @@ export const transformDataMeta: ActionMeta = {
         "Name each field the result should have. The names become the outputs you can use in later steps.",
       type: "schema-fields",
       required: true,
+      sampleSourceField: "input",
       visibleWhen: { field: "destinationMode", valueIn: ["custom"] },
     },
     {
