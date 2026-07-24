@@ -29,6 +29,11 @@ the exposure checklist — not new runtime behaviour beyond what CS-7 shipped.
   **not** restore (the drawer takes focus). Implemented in
   `useDocumentGuidedStop` (`originElementRef` → `restoreFocusRef`), tested in
   `guidedStop.test.tsx` ("Cancel/Escape returns focus to the originating chip").
+- **DOC-CONFIG-SYNC-1** — revealing the matching field in the right configuration
+  panel is a **display** action: it never moves keyboard focus out of the inline
+  editor. The reveal is announced once, politely, and the field label stays
+  visible (the ring is never the only signal). Details:
+  [`dual-builder-document-config-sync.md`](./dual-builder-document-config-sync.md).
 - **On mount** the Guided Stop editor focuses its own container (`tabIndex={-1}`,
   `role="group"`) so Escape works immediately and SR users land on the question.
 - **No keyboard trap** in the map, Guided Stop, agent rail, or inspector — each

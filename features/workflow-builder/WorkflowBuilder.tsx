@@ -318,14 +318,23 @@ export function WorkflowBuilder({
   useEffect(() => {
     if (documentViewActive) emitDocumentBuilderEvent("document_builder_view_opened");
   }, [documentViewActive]);
-  // 5.DUAL-BUILDER-1 CS-2 — the node whose configSlice selection is driven by
-  // an OPEN Document Guided Stop. The stop IS the editor for that selection,
-  // so the drawer's auto-open transition is suppressed for it (a ref, read by
-  // the existing transition effect without re-running it).
-  const guidedStopNodeRef = useRef<string | null>(null);
-  const handleGuidedStopActive = useCallback((nodeId: string | null) => {
-    guidedStopNodeRef.current = nodeId;
-  }, []);
+  // 5.DUAL-BUILDER-1 CS-2 → DOC-CONFIG-SYNC-1 — the node whose configSlice
+  // selection is driven by an OPEN Document Guided Stop.
+  //
+  // CS-2 used this to SUPPRESS the inspector drawer, on the reasoning that two
+  // editors for one field is one too many. DOC-CONFIG-SYNC-1 supersedes that:
+  // the drawer is not a second editor, it is the second VIEW of the same shared
+  // draft, and users read the sentence and the panel as one thing. So the
+  // ordinary `activeNodeId` transition now opens the drawer for a stop-driven
+  // selection too, and the panel reveals + rings the exact field the inline
+  // editor is on (`configSlice.focusField`, published by GuidedStopEditor).
+  // There is still exactly ONE pending draft and ONE commit path.
+  //
+  // The callback itself is retained (and must stay defined) because its presence
+  // is how DocumentView knows it is mounted interactively
+  // (`interactive = onGuidedStopActive !== undefined`); it no longer needs to
+  // record anything, so the suppression ref is gone.
+  const handleGuidedStopActive = useCallback(() => {}, []);
   // Transient Document notice (typed refusals, e.g. branching-in-CS-2).
   const [documentNotice, setDocumentNotice] = useState<string | null>(null);
 
@@ -439,10 +448,10 @@ export function WorkflowBuilder({
     const activeCleared = activeNodeId === null && prevActive !== null;
     prevActiveNodeId.current = activeNodeId;
     if (activeSet) {
-      // CS-2 — a Guided-Stop-driven selection edits inline in the Document;
-      // opening the inspector drawer on top of it would be two editors for
-      // one field. Every other selection path is unchanged.
-      if (guidedStopNodeRef.current === activeNodeId) return;
+      // DOC-CONFIG-SYNC-1 — every selection path, including a Guided-Stop-driven
+      // one, opens the inspector. The Document sentence, the inline stop, and the
+      // panel are three views of one node draft; the panel following along is the
+      // point (see `handleGuidedStopActive`).
       openDrawer("inspector");
     } else if (activeCleared && mode === "inspector") {
       closeDrawer();
@@ -629,14 +638,13 @@ export function WorkflowBuilder({
   // 5.DUAL-BUILDER-1 CS-1 — complex-region handoff: switch to the Visual
   // surface and reveal the region's anchor node via the EXISTING focus API
   // (configSlice.revealNode — navigation only, never a write/save/mutation).
-  // CS-2 — "Configure step" from the Document: clear the Guided-Stop
-  // suppression so the EXISTING transition effect opens the inspector drawer,
-  // then select through the same configSlice.openNode the canvas uses. CS-5 —
-  // also used to open the router-routes renderer right after a Router branch is
-  // created, so routes are configured through the EXISTING inspector.
+  // CS-2 — "Configure step" from the Document selects through the same
+  // configSlice.openNode the canvas uses, so the EXISTING transition effect
+  // opens the inspector drawer. CS-5 — also used to open the router-routes
+  // renderer right after a Router branch is created, so routes are configured
+  // through the EXISTING inspector.
   const handleOpenStepInspector = useCallback(
     (nodeId: string) => {
-      guidedStopNodeRef.current = null;
       const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
       if (!node) return;
       // Re-select: when the stop already had this node selected, openNode is a

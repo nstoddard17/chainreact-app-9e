@@ -61,6 +61,28 @@ export interface ConfigSliceState {
    */
   focusFieldKey: string | null;
   /**
+   * DOC-CONFIG-SYNC-1 — the NODE half of the guidance focus identity. A field is
+   * addressed canonically by `(nodeId, FieldMeta.name)`: two steps can both own a
+   * field literally called `property`, and a bare key would let a stale highlight
+   * land on the wrong step. The config panel only paints the highlight when this
+   * matches its `activeNodeId`. `null` = legacy/unscoped focus (key-only), kept so
+   * a caller that sets `focusFieldKey` without a node still behaves as before.
+   */
+  focusFieldNodeId: string | null;
+  /**
+   * DOC-CONFIG-SYNC-1 — which surface owns the current highlight, because the two
+   * have different lifetimes:
+   *
+   *   - `"reveal"` — the AI-REPAIR-2F / validation / `?focus=` nudge. It is a
+   *     one-shot "look here"; editing that field consumes it (unchanged).
+   *   - `"inline"` — the Document Guided Stop is OPEN on this field. Here the
+   *     highlight is a live "this is the field you're editing" indicator shown in
+   *     the panel, so editing the field must NOT extinguish it. It is bound to the
+   *     inline editor's lifetime: the editor clears it on close, and moves it when
+   *     the user opens a different field.
+   */
+  focusFieldOrigin: "reveal" | "inline" | null;
+  /**
    * Slice 4.AI-REPAIR-2F — the node the canvas should pan/zoom to. Read by the
    * canvas focus consumer (`useCanvasNodeFocus`). Paired with `canvasFocusSeq` so
    * repeated reveals of the SAME node re-trigger the pan (a bare id wouldn't).
@@ -99,6 +121,22 @@ export interface ConfigSliceActions {
     nodeId: string;
     initialValues: Readonly<Record<string, unknown>>;
     fieldKey?: string;
+  }): void;
+  /**
+   * DOC-CONFIG-SYNC-1 — point the guidance highlight at `(nodeId, fieldKey)`
+   * WITHOUT selecting, opening, panning, or hydrating anything. This is the
+   * "two views of one field" signal used by the Document Guided Stop: the inline
+   * editor already owns the selection, and this only tells the right-side config
+   * panel which field container to reveal + ring.
+   *
+   * `fieldKey: null` clears the highlight, but only when the caller still owns it
+   * (`focusFieldNodeId === nodeId`) — so a stale unmount can never yank a
+   * highlight another surface has since claimed. NAVIGATION ONLY.
+   */
+  focusField(input: {
+    nodeId: string;
+    fieldKey: string | null;
+    origin?: "reveal" | "inline";
   }): void;
   /** Clear the field-highlight focus (e.g. after the user edits that field). */
   clearFieldFocus(): void;
@@ -182,6 +220,8 @@ const INITIAL_STATE: ConfigSliceState = Object.freeze({
   drafts: {},
   activeNodeId: null,
   focusFieldKey: null,
+  focusFieldNodeId: null,
+  focusFieldOrigin: null,
   canvasFocusNodeId: null,
   canvasFocusSeq: 0,
   canvasFocusMode: null,
@@ -249,19 +289,46 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
       activeNodeId: nodeId,
       drafts,
       focusFieldKey: fieldKey ?? null,
+      focusFieldNodeId: fieldKey === undefined ? null : nodeId,
+      focusFieldOrigin: fieldKey === undefined ? null : ("reveal" as const),
       canvasFocusNodeId: nodeId,
       canvasFocusSeq: get().canvasFocusSeq + 1,
       canvasFocusMode: "reveal" as const,
     });
   },
 
+  focusField({ nodeId, fieldKey, origin }) {
+    if (fieldKey === null) {
+      // Only the current owner may clear — a late unmount must not steal a
+      // highlight another field/step has already claimed.
+      if (get().focusFieldNodeId !== nodeId) return;
+      if (get().focusFieldKey === null) return;
+      set({ focusFieldKey: null, focusFieldNodeId: null, focusFieldOrigin: null });
+      return;
+    }
+    const nextOrigin = origin ?? "inline";
+    if (
+      get().focusFieldKey === fieldKey &&
+      get().focusFieldNodeId === nodeId &&
+      get().focusFieldOrigin === nextOrigin
+    ) {
+      return; // idempotent — never churn subscribers on a steady-state pass
+    }
+    set({ focusFieldKey: fieldKey, focusFieldNodeId: nodeId, focusFieldOrigin: nextOrigin });
+  },
+
   clearFieldFocus() {
     if (get().focusFieldKey === null) return;
-    set({ focusFieldKey: null });
+    set({ focusFieldKey: null, focusFieldNodeId: null, focusFieldOrigin: null });
   },
 
   closeNode() {
-    set({ activeNodeId: null, focusFieldKey: null });
+    set({
+      activeNodeId: null,
+      focusFieldKey: null,
+      focusFieldNodeId: null,
+      focusFieldOrigin: null,
+    });
   },
 
   updateField({ nodeId, name, value }) {
@@ -290,9 +357,17 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
           lastUpdatedAt: Date.now(),
         },
       },
-      // AI-REPAIR-2F — once the user edits the highlighted field, the guidance
-      // highlight has served its purpose; clear it so it doesn't linger.
-      ...(get().focusFieldKey === name ? { focusFieldKey: null } : {}),
+      // AI-REPAIR-2F — once the user edits the highlighted field, a one-shot
+      // "go to field" nudge has served its purpose; clear it so it doesn't linger.
+      // DOC-CONFIG-SYNC-1 — an `"inline"` highlight is NOT a nudge: it marks the
+      // field an OPEN Guided Stop is editing, so it must survive that edit (the
+      // inline editor clears/moves it on close). Scoped by node so an edit on one
+      // step can never extinguish another step's highlight.
+      ...(get().focusFieldOrigin === "reveal" &&
+      get().focusFieldKey === name &&
+      (get().focusFieldNodeId === null || get().focusFieldNodeId === targetId)
+        ? { focusFieldKey: null, focusFieldNodeId: null, focusFieldOrigin: null }
+        : {}),
     });
   },
 
@@ -417,7 +492,13 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
     delete drafts[nodeId];
     const wasActive = get().activeNodeId === nodeId;
     const activeNodeId = wasActive ? null : get().activeNodeId;
-    set({ drafts, activeNodeId, ...(wasActive ? { focusFieldKey: null } : {}) });
+    set({
+      drafts,
+      activeNodeId,
+      ...(get().focusFieldNodeId === nodeId || wasActive
+        ? { focusFieldKey: null, focusFieldNodeId: null, focusFieldOrigin: null }
+        : {}),
+    });
   },
 
   reset() {

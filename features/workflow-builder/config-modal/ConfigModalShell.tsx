@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { Button } from "@/components/ui/button";
@@ -100,7 +100,13 @@ export function ConfigModalShell() {
   const closeNode = useConfigSlice((s) => s.closeNode);
   // Slice 4.AI-REPAIR-2F — field to visually highlight (set by a "Go to field"
   // reveal). Passed through to SchemaForm; display/navigation only.
+  // DOC-CONFIG-SYNC-1 — also set by the Document's inline Guided Stop, so the
+  // panel and the sentence show the same field at the same time. Scoped by node:
+  // the highlight only paints when it was requested for the node this panel is
+  // showing, so a `property` field on step 2 is never ringed because step 5's
+  // `property` was opened. `null` node = legacy unscoped caller.
   const focusFieldKey = useConfigSlice((s) => s.focusFieldKey);
+  const focusFieldNodeId = useConfigSlice((s) => s.focusFieldNodeId);
 
   // C — confirm-before-discard state for the close (`×` / Cancel) affordances.
   const [pendingClose, setPendingClose] = useState(false);
@@ -180,6 +186,41 @@ export function ConfigModalShell() {
     providerActions.actions,
     providerTriggers.triggers,
   ]);
+
+  // DOC-CONFIG-SYNC-1 — the field this panel should reveal + ring, resolved
+  // against the CANONICAL identity (node id + FieldMeta.name). A highlight
+  // requested for another node is ignored outright.
+  const highlightFieldName: string | null =
+    focusFieldKey !== null &&
+    (focusFieldNodeId === null || focusFieldNodeId === activeNodeId)
+      ? focusFieldKey
+      : null;
+  const highlightedField = useMemo(
+    () =>
+      highlightFieldName !== null && activeMeta
+        ? activeMeta.fields.find((f) => f.name === highlightFieldName)
+        : undefined,
+    [highlightFieldName, activeMeta],
+  );
+
+  // DOC-CONFIG-SYNC-1 — a highlighted field that lives on another tab would be
+  // "revealed" into a section the user can't see, so follow it. Keyed on the
+  // (node, field) identity via a ref so this fires exactly once per new target:
+  // a user who then switches tabs manually is never yanked back, and a re-render
+  // is not a reason to move the panel (§"If the field is already visible, do not
+  // unnecessarily move the panel").
+  const followedFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (highlightFieldName === null || activeNodeId === null) {
+      followedFocusRef.current = null;
+      return;
+    }
+    if (highlightedField === undefined) return; // metadata not loaded yet
+    const identity = `${activeNodeId}::${highlightFieldName}`;
+    if (followedFocusRef.current === identity) return;
+    followedFocusRef.current = identity;
+    setActiveTab(highlightedField.advanced === true ? "advanced" : "setup");
+  }, [highlightFieldName, highlightedField, activeNodeId]);
 
   // CONNECTION-AWARE-READINESS-1 — server-resolved app-connection signal
   // for the pending graph (same hook + route the React Agent readiness
@@ -407,6 +448,23 @@ export function ConfigModalShell() {
         advancedActiveCount={advancedActiveCount}
       />
 
+      {/* DOC-CONFIG-SYNC-1 — a11y: the ring is a VISUAL cue, so say in words which
+          setting was revealed. The text changes only when the target field
+          changes, so a re-render never re-announces, and the label itself stays
+          visible in the form below (the highlight is never the only signal).
+          Keyboard focus is deliberately NOT moved — the caret stays wherever the
+          user is typing, inline editor included. */}
+      <p
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        data-testid="config-focus-announcement"
+      >
+        {highlightedField
+          ? `${highlightedField.label} is highlighted in this step's settings.`
+          : ""}
+      </p>
+
       {currentTab === "test" ? (
         <ConfigTabEmptyState tab="test" />
       ) : currentTab === "data" ? (
@@ -428,7 +486,7 @@ export function ConfigModalShell() {
             errors={errors}
             onChange={(name, value) => updateField({ name, value })}
             section="advanced"
-            {...(focusFieldKey ? { highlightFieldName: focusFieldKey } : {})}
+            {...(highlightFieldName ? { highlightFieldName } : {})}
           />
         </section>
       ) : (
@@ -501,7 +559,7 @@ export function ConfigModalShell() {
             errors={errors}
             onChange={(name, value) => updateField({ name, value })}
             section="setup"
-            {...(focusFieldKey ? { highlightFieldName: focusFieldKey } : {})}
+            {...(highlightFieldName ? { highlightFieldName } : {})}
           />
         )}
       </section>

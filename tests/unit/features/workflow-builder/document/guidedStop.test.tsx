@@ -218,11 +218,19 @@ describe("Guided Stop — opening", () => {
     expect(mockFetchOptionsSource.mock.calls[0]?.[0]).toBe("slack:channels");
   });
 
-  it("does NOT open the inspector drawer for a Guided-Stop selection", async () => {
+  // DOC-CONFIG-SYNC-1 supersedes the original CS-2 expectation ("does NOT open
+  // the inspector drawer for a Guided-Stop selection"). The panel is not a second
+  // editor — it is the second VIEW of the same shared draft — so it now opens
+  // alongside the inline stop and reveals the exact field being edited. Full
+  // synchronization coverage lives in documentConfigSync.test.tsx.
+  it("opens the inspector drawer alongside the stop, on the same node", async () => {
     renderInDocument();
     fireEvent.click(screen.getByTestId("document-value-chip-a-Message"));
     await screen.findByTestId("document-guided-stop");
-    expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+    const drawer = await screen.findByTestId("builder-right-drawer");
+    // Same node, one draft — the panel shows the value the stop is editing.
+    await within(drawer).findByDisplayValue("Hello team");
+    expect(useConfigSlice.getState().activeNodeId).toBe("a");
   });
 
   it("a secret field is never editable inline — it hands off to step settings", async () => {

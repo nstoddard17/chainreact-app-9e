@@ -129,6 +129,15 @@ function readParentString(raw: unknown): string {
   return typeof raw === "string" ? raw : "";
 }
 
+/** True when the user asked the OS to reduce motion (jsdom-safe). */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export function SchemaForm({
   fields,
   values,
@@ -148,12 +157,18 @@ export function SchemaForm({
   // Slice 4.AI-REPAIR-2F — scroll the highlighted field into view when the
   // target changes (e.g. a "Go to field" click). jsdom lacks scrollIntoView, so
   // guard it; the visual ring (below) is the always-present affordance.
+  //
+  // DOC-CONFIG-SYNC-1 — the same reveal now also serves the Document Guided Stop
+  // (the panel follows whichever field the inline editor is on), so it must
+  // honour `prefers-reduced-motion`: animated auto-scroll is exactly the motion
+  // that setting exists to suppress. Same rule the Document's own `scrollToNode`
+  // already applies.
   const highlightRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
     if (!highlightFieldName) return;
     const el = highlightRef.current;
     if (el && typeof el.scrollIntoView === "function") {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
     }
   }, [highlightFieldName]);
   const fieldsByName = React.useMemo(() => {
@@ -263,7 +278,11 @@ export function SchemaForm({
               : {})}
             className={
               isHighlighted
-                ? "rounded-md p-1 ring-2 ring-offset-2 ring-[var(--builder-accent)] transition-shadow"
+                ? // Guidance ring — the ACCENT colour, deliberately not the
+                  // destructive/validation colour and not the Document's
+                  // selection treatment, so "we brought you here" never reads as
+                  // "this is wrong". Transition suppressed under reduced motion.
+                  "rounded-md p-1 ring-2 ring-offset-2 ring-[var(--builder-accent)] transition-shadow motion-reduce:transition-none"
                 : undefined
             }
           >

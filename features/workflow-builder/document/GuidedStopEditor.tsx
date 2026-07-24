@@ -23,6 +23,16 @@ import type { DocumentLaneContext } from "./documentBranchContext";
  *
  * Motion: one gentle expand transition, disabled under
  * `prefers-reduced-motion` (Tailwind `motion-reduce:transition-none`).
+ *
+ * DOC-CONFIG-SYNC-1 — the editor also PUBLISHES which field it is drawing, as
+ * `(nodeId, fieldName)`, into the shared `configSlice` guidance focus. That is
+ * the whole synchronization contract with the right-side config panel: the panel
+ * reveals + rings that exact field container (switching to its tab if needed),
+ * while values keep flowing through the one shared draft both surfaces already
+ * render. Nothing here reaches into the panel; nothing here owns a second copy
+ * of the value. The highlight is bound to this editor's lifetime — it moves when
+ * the drawn field changes (including a prerequisite advance) and is released on
+ * unmount.
  */
 
 const INSPECTOR_REASON_COPY: Record<GuidedStopInspectorReason, string> = {
@@ -55,6 +65,7 @@ export function GuidedStopEditor({
   const node = useGraphSlice((s) => s.pendingNodes.find((n) => n.id === nodeId));
   const draft = useConfigSlice((s) => s.drafts[nodeId]);
   const updateField = useConfigSlice((s) => s.updateField);
+  const focusField = useConfigSlice((s) => s.focusField);
   const { meta, loading, error } = useNodeMeta(node);
 
   // Stable identity so the plan memo below doesn't recompute every render.
@@ -76,9 +87,29 @@ export function GuidedStopEditor({
     rootRef.current?.focus();
   }, []);
 
+  // DOC-CONFIG-SYNC-1 — publish the DRAWN field to the shared guidance focus so
+  // the right-side config panel reveals + rings that exact field container. This
+  // is a store write only: it never moves keyboard focus, so the caret stays in
+  // this editor (a11y requirement). When a prerequisite is answered the plan
+  // recomputes to the requested field and this effect moves the highlight with
+  // it, in one place, for free. Released on unmount (Done / Cancel / handoff).
+  const drawnFieldName =
+    plan?.kind === "inline" || plan?.kind === "prerequisite" ? plan.field.name : null;
+  useEffect(() => {
+    if (drawnFieldName === null) return;
+    focusField({ nodeId, fieldKey: drawnFieldName, origin: "inline" });
+  }, [focusField, nodeId, drawnFieldName]);
+  useEffect(
+    () => () => {
+      useConfigSlice.getState().focusField({ nodeId, fieldKey: null });
+    },
+    [nodeId],
+  );
+
   if (!node) return null;
 
-  const field = plan?.kind === "inline" ? plan.field : undefined;
+  const field =
+    plan?.kind === "inline" || plan?.kind === "prerequisite" ? plan.field : undefined;
   const fieldError = field ? errors[field.name] : undefined;
   const stepTitle = getNodeDisplayName(
     node,
@@ -94,6 +125,7 @@ export function GuidedStopEditor({
       data-testid="document-guided-stop"
       data-node-id={nodeId}
       data-field-name={fieldName}
+      {...(drawnFieldName !== null ? { "data-drawn-field-name": drawnFieldName } : {})}
       className="relative mt-2 outline-none transition-[opacity,transform] motion-reduce:transition-none"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
@@ -242,12 +274,27 @@ export function GuidedStopEditor({
           </div>
         ) : (
           <>
+            {/* DOC-CONFIG-SYNC-1 — the clicked field needs an unanswered parent
+                first. We ask for the parent here (the real next decision) and
+                say why; once it has a value the plan recomputes and this editor
+                advances to the field the user actually clicked. */}
+            {plan?.kind === "prerequisite" ? (
+              <p
+                className="m-0 mb-2 text-[12px]"
+                style={{ color: "var(--builder-muted)" }}
+                data-testid="guided-stop-prerequisite"
+                data-requested-field={plan.requested.name}
+                data-prerequisite-field={plan.field.name}
+              >
+                Choose {plan.field.label} first — {plan.requested.label} depends on it.
+              </p>
+            ) : null}
             {/* The REAL renderer chain: full field list in scope, one drawn. */}
             <SchemaForm
               fields={meta.fields}
               values={values}
               errors={errors}
-              only={fieldName}
+              only={drawnFieldName ?? fieldName}
               onChange={(name, value) => updateField({ nodeId, name, value })}
             />
             <div className="mt-3 flex items-center gap-2">
