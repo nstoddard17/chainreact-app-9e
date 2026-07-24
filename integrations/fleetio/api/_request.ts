@@ -28,9 +28,12 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  *     change in Fleetio, not a reconnect).
  *   - 404 → `FleetioNotFoundError(resource)` so handlers can surface a stable
  *     "not found" UX for a bad/removed id (FLEETIO-2).
- *   - 429 → honors `Retry-After`: waits and retries ONCE when the advertised
- *     delay is ≤ `MAX_RETRY_AFTER_SECONDS`; otherwise (or on a second 429)
- *     throws `FleetioRateLimitError` carrying the parsed delay.
+ *   - 429 → METHOD-AWARE (FLEETIO-3 write-safety): for an idempotent **GET**,
+ *     honors `Retry-After` with ONE bounded inline retry (delay ≤
+ *     `MAX_RETRY_AFTER_SECONDS`). For any **write** (PATCH/POST/PUT/DELETE) it
+ *     NEVER auto-replays — it throws `FleetioRateLimitError` immediately
+ *     (carrying the parsed delay) so a mutation is never duplicated (Fleetio has
+ *     no idempotency key for vehicle updates). A second GET 429 also throws.
  *   - Timeout / network failure → generic Error naming only method + path.
  *
  * **Credential-leakage discipline (mirrors Trello):** no thrown error message
@@ -56,6 +59,21 @@ export class FleetioForbiddenError extends Error {
       `Fleetio ${method} ${path} returned HTTP 403 — the connected Fleetio user's role does not allow this.`,
     );
     this.name = "FleetioForbiddenError";
+  }
+}
+
+/**
+ * The provider returned a 2xx whose body doesn't match the expected shape
+ * (e.g. an update response missing the vehicle id). Carries only a stable
+ * caller label — never the raw response body. Callers must NOT emit fabricated
+ * output when this is thrown.
+ */
+export class FleetioMalformedResponseError extends Error {
+  readonly resource: string;
+  constructor(resource: string) {
+    super(`Fleetio returned an unexpected response for ${resource}.`);
+    this.name = "FleetioMalformedResponseError";
+    this.resource = resource;
   }
 }
 
@@ -192,7 +210,18 @@ async function fleetioRequestAttempt<T>(
   }
   if (res.status === 429) {
     const retryAfter = parseRetryAfterSeconds(res.headers.get("Retry-After"));
-    if (!retriedAfter429 && retryAfter !== null && retryAfter <= MAX_RETRY_AFTER_SECONDS) {
+    // WRITE-SAFETY (FLEETIO-3): only auto-retry IDEMPOTENT methods (GET). A
+    // non-idempotent write (PATCH/POST/PUT/DELETE) is NEVER auto-replayed on a
+    // 429 — Fleetio exposes no idempotency key for vehicle updates, so a blind
+    // replay could duplicate the mutation. Writes surface FleetioRateLimitError
+    // immediately (carrying the parsed delay) so the caller/engine can decide.
+    const methodIsRetryable = input.method === "GET";
+    if (
+      methodIsRetryable &&
+      !retriedAfter429 &&
+      retryAfter !== null &&
+      retryAfter <= MAX_RETRY_AFTER_SECONDS
+    ) {
       await sleep(retryAfter * 1000);
       return fleetioRequestAttempt<T>(input, true);
     }

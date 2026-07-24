@@ -127,6 +127,32 @@ describe("fleetioRequest — error mapping", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("WRITE-SAFETY: a PATCH is NEVER auto-retried on 429 (no duplicate write) — throws immediately with the parsed delay", async () => {
+    // Even with a tiny Retry-After that a GET would honor, a write must not replay.
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(429, { error: "Too many requests" }, { "Retry-After": "0" }))
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    let thrown: unknown;
+    try {
+      await fleetioRequest({
+        apiKey: API_KEY,
+        accountToken: ACCOUNT_TOKEN,
+        method: "PATCH",
+        path: "/vehicles/42",
+        body: { vehicle_status_id: 7 },
+      });
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(FleetioRateLimitError);
+    expect((thrown as FleetioRateLimitError).retryAfterSeconds).toBe(0);
+    // Exactly ONE call — the 429 was not replayed.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("throws FleetioRateLimitError (with parsed delay) when Retry-After exceeds the inline cap", async () => {
     global.fetch = jest.fn(async () =>
       jsonResponse(429, { error: "Too many requests" }, { "Retry-After": "120" }),

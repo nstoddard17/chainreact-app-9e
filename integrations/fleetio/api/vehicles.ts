@@ -1,4 +1,4 @@
-import { fleetioRequest } from "./_request";
+import { fleetioRequest, FleetioMalformedResponseError } from "./_request";
 
 /**
  * Fleetio Vehicles API wrappers (FLEETIO-2).
@@ -105,6 +105,43 @@ export async function fleetioGetVehicle(input: {
     resourceForNotFound: `vehicle ${input.vehicleId}`,
   });
   return toVehicle(raw);
+}
+
+/**
+ * `PATCH /vehicles/{id}` (Vehicles::Update) — set ONE vehicle's status
+ * (FLEETIO-3). The request body is an EXPLICITLY constructed object containing
+ * ONLY `vehicle_status_id` (the numeric wire type per the `Id` schema) — caller
+ * input is never spread, and no other vehicle field is exposed. Fleetio returns
+ * the updated `Vehicle-2` on 200, which we project into the SAME bounded subset.
+ *
+ * Status codes (per the 2025-05-05 schema): 200 (updated Vehicle), 401, 403,
+ * 404, **422** (validation — `{errors:{field:string[]}}`), 500. There is NO
+ * documented 409 for vehicle updates. The write is NOT auto-retried on 429
+ * (method-aware wrapper policy).
+ */
+export async function fleetioUpdateVehicleStatus(input: {
+  apiKey: string;
+  accountToken: string;
+  vehicleId: string;
+  /** Numeric Fleetio status id (validated + converted by the caller). */
+  vehicleStatusId: number;
+}): Promise<FleetioVehicle> {
+  const raw = await fleetioRequest<unknown>({
+    apiKey: input.apiKey,
+    accountToken: input.accountToken,
+    method: "PATCH",
+    path: `/vehicles/${encodeURIComponent(input.vehicleId)}`,
+    resourceForNotFound: `vehicle ${input.vehicleId}`,
+    // Explicit body — ONLY the status field; never spread caller input.
+    body: { vehicle_status_id: input.vehicleStatusId },
+  });
+  const vehicle = toVehicle(raw);
+  // Reject a malformed 2xx (e.g. no vehicle id) — the caller must not emit
+  // fabricated output. The label names only the resource, never the body.
+  if (!Number.isFinite(vehicle.id)) {
+    throw new FleetioMalformedResponseError(`vehicle ${input.vehicleId}`);
+  }
+  return vehicle;
 }
 
 /**

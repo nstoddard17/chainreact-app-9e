@@ -91,9 +91,12 @@ describe("fleetio registries", () => {
     expect(matches).toHaveLength(1);
   });
 
-  it("registers exactly one fleetio meta and it resolves by key", () => {
-    const fleetioMetas = listAllActionMetas().filter((m) => m.provider === "fleetio");
-    expect(fleetioMetas.map((m) => m.key)).toEqual(["fleetio:get_vehicle"]);
+  it("registers get_vehicle exactly once and it resolves by key", () => {
+    // FLEETIO-3 added a second action (update_vehicle_status); this test scopes
+    // to get_vehicle. The full fleetio action set is asserted in
+    // updateVehicleStatusMeta.test.ts.
+    const getVehicleMetas = listAllActionMetas().filter((m) => m.key === "fleetio:get_vehicle");
+    expect(getVehicleMetas).toHaveLength(1);
     expect(getActionMeta("fleetio:get_vehicle")).toBe(fleetioGetVehicleMeta);
   });
 

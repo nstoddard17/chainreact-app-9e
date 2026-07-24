@@ -350,12 +350,43 @@ Complexity: **S** ≈ ½–1 day, **M** ≈ 1–2 days, **L** ≈ 2–4 days (si
 - **Deferred to Slice 3:** write actions (Meter/Issue/Fuel/Service, Update Vehicle Status — the status resolver is ready), and multi-Fleetio-account node-level selection.
 - **Live certification (Phase 13):** unchanged — read a real vehicle + resolve real vehicles/statuses from a Fleetio sandbox once credentials exist.
 
-### Slice 3 — Must-Have writes (Meter, Issue, Fuel, Service, Vehicle Status) · **L**
-- **Scope:** 5 typed write actions + schemas + `.meta.ts` + resolvers (`issue_labels`, `contacts`,
-  `service_tasks`, `vendors`, fuel/meter enums); Setup/Advanced config per §6; Rule-11 Q-fields.
-- **Dependencies:** Slice 2.
-- **Testing:** per-action runtime + builder + resolver tests; `object-list` config test for Service Entry.
-- **Certification:** create a real meter entry, issue, fuel entry, service entry, status change in sandbox; verify in Fleetio UI.
+### Slice 3 — Must-Have writes · split; **Update Vehicle Status** shipped first (FLEETIO-3) · **M**
+Originally scoped as 5 writes in one slice; ship them incrementally. **FLEETIO-3 delivered
+`fleetio:update_vehicle_status`** (the smallest write; both resolvers already existed):
+- **Endpoint (verified against 2025-05-05 schema):** `PATCH /vehicles/{id}` (Vehicles::Update). Flat
+  body `{ vehicle_status_id: <integer ≥1> }` — **no wrapper**, no effective-date/comment/reason/version
+  field required or sent. Returns the **updated `Vehicle`** on 200, so the output is built from the
+  authoritative post-update record (no extra GET). Status codes: **200/401/403/404/422/500 — no 409,
+  no 400** (validation is 422 `{errors:{field:string[]}}`). Status id is numeric on the wire.
+- **Write-safety (Fleetio's first write):** Fleetio exposes **no idempotency key** for vehicle updates
+  (only Faults have one — not invented). The engine invokes a handler **exactly once** (no replay). The
+  shared request wrapper's 429 inline retry was made **method-aware**: only idempotent **GET** auto-
+  retries; **writes throw `FleetioRateLimitError` immediately** (never replay a mutation). A
+  timeout/network failure after transmission is an **unknown outcome** — surfaced as a typed transient
+  error, **never auto-replayed** (platform has no "outcome unknown" category; a human re-run is safe
+  because setting the same status is idempotent).
+- **Action contract:** `.strict()` `{ vehicleId: string, vehicleStatusId: string }`, both required,
+  trimmed; `vehicleStatusId` must be a **positive-integer string** (rejected before any provider call),
+  converted to the numeric wire type inside the API layer only. No status names accepted.
+- **Bounded output:** `{ vehicleId, vehicleName, vehicleStatusId, statusName, archived, updatedAt }` —
+  from the updated Vehicle; **`updatedAt` (real field), never an invented `changedAt`**; no before/after
+  pair (only the post-update value is authoritatively known).
+- **Builder:** Vehicle (`fleetio:vehicles`) then New status (`fleetio:vehicle_statuses`), both required
+  comboboxes with `allowManualEntry`; no hidden default; no Advanced fields (endpoint needs none). Meta
+  `riskLevel: "medium"` (recoverable external mutation), not destructive, no confirmation.
+- **Errors:** 401→reconnect-required (no refresh); 403→permission guidance (`FleetioForbiddenError`,
+  distinct from bad creds); 404→`FleetioNotFoundError`; 422→bounded validation summary (no raw body);
+  429→typed rate-limit, no duplicate write; 5xx/timeout→typed transient; malformed 2xx→
+  `FleetioMalformedResponseError` (no fabricated output). No credential/header/body/URL in any message.
+- **Tests:** all 133 Fleetio unit tests pass (api wire + method-aware 429 + malformed + full error
+  matrix, action incl. schema validation + Q5 + account isolation + reconnect, meta/readiness honesty,
+  ComboboxField UI, and a mock-boundary **write** walkthrough driving the real resolver + real registry
+  with a mocked Fleetio boundary, asserting the request body carries only the status and Account B
+  cannot be used).
+- **Remaining Slice-3 writes → FLEETIO-4+:** Create Meter Entry, Create Issue, Create Fuel Entry,
+  Create Service Entry (each needs its own resolvers: `issue_labels`, `contacts`, `service_tasks`,
+  `vendors`, fuel/meter enums).
+- **Certification (Phase 13):** set a real vehicle's status in a Fleetio sandbox; verify in the UI.
 
 ### Slice 4 — Must-Have polling triggers · **L**
 - **Scope:** 5 polling triggers (inspection submitted, issue created, work order status changed, fuel

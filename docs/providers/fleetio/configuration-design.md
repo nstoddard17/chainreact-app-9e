@@ -73,9 +73,22 @@ Vehicle (resource, req) · Completed date (req) · Service tasks (`object-list`,
 Setup. Labor/parts breakdown rows, notes, meter-at-service — Advanced.
 Outputs: `serviceEntryId, vehicleId, completedAt, totalCost, taskCount`.
 
-### Update Vehicle Status (Must)
-Vehicle (resource, req) · New status (`fleetio:vehicle_statuses`, req) — Setup. Comment, effective
-date — Advanced. Outputs: `vehicleId, vehicleStatusId, statusName, changedAt`.
+### Update Vehicle Status (Must) — ✅ IMPLEMENTED (FLEETIO-3)
+Vehicle (`fleetio:vehicles`, req, `allowManualEntry`) · New status (`fleetio:vehicle_statuses`, req,
+`allowManualEntry`) — Setup, in that order. **No Advanced fields** (comment/effective-date were in the
+original sketch but Fleetio's `PATCH /vehicles/{id}` needs only `vehicle_status_id`, so none are sent).
+Readiness: connected + both ids present (direct, manual, or mapped `{{...}}` all satisfy; resolver need
+not load). Meta risk `medium` (recoverable), non-destructive, no confirmation.
+- **Wire:** `PATCH /vehicles/{id}`, flat body `{ vehicle_status_id: <int ≥1> }` (no wrapper); returns
+  the updated Vehicle. Input `vehicleStatusId` is a positive-integer STRING at the CR boundary,
+  converted to number in the API layer only after strict validation.
+- **Bounded output (real, from the updated Vehicle):** `{ vehicleId, vehicleName, vehicleStatusId,
+  statusName, archived, updatedAt }`. **`updatedAt`, NOT `changedAt`** — Fleetio has no status-change
+  timestamp, so the original sketch's `changedAt` was corrected to the real field. No before/after
+  status pair (only the post-update value is known).
+- **Write-safety:** no Fleetio idempotency key for vehicle updates; engine invokes once; the shared
+  wrapper's 429 retry is now method-aware (writes never auto-replay); timeout = unknown outcome, never
+  auto-replayed. Full detail: plan §"Slice 3".
 
 ### Get Vehicle (Must — enrichment read) — ✅ IMPLEMENTED (FLEETIO-2)
 Vehicle (resource with manual entry — commonly `{{trigger.vehicleId}}`) — Setup, required

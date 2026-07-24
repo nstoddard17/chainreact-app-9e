@@ -4,18 +4,19 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Fleetio discovery sub-registry (FLEETIO-2).
  *
  * Fleetio (`credential_paste` auth — FLEETIO-1) is the fleet-MAINTENANCE
- * counterpart to Motive. Slice 2 ships the FIRST action only, so `fleetio`
- * joins COVERED_PROVIDERS with 1:1 handler↔meta drift enforced from here.
+ * counterpart to Motive. `fleetio` is in COVERED_PROVIDERS, so 1:1 handler↔meta
+ * drift is enforced.
  *
- * **Coverage:** 1 action (get_vehicle). No triggers yet.
- * Account-aware pickers registered this slice: fleetio:vehicles (backs
- * get_vehicle) + fleetio:vehicle_statuses (platform surface for a later
- * Update Vehicle Status action).
+ * **Coverage:** 2 actions — get_vehicle (read, FLEETIO-2) + update_vehicle_status
+ * (write, FLEETIO-3). No triggers yet. Both reuse the account-aware pickers
+ * fleetio:vehicles + fleetio:vehicle_statuses.
  */
 
 import { fleetioGetVehicleMeta } from "@/integrations/fleetio/actions/getVehicle.meta";
+import { fleetioUpdateVehicleStatusMeta } from "@/integrations/fleetio/actions/updateVehicleStatus.meta";
 
 /** Fleetio action metas — displayOrder 10.. */
 export const FLEETIO_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   fleetioGetVehicleMeta,
+  fleetioUpdateVehicleStatusMeta,
 ];
