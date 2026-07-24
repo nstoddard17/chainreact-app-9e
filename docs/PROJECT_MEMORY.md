@@ -191,17 +191,19 @@
 
 ## Open risks & follow-ups
 
-- [Claude] **`smoke:prod` public project is RED on stale copy, not a defect.** All 9 failures are one
-  root cause: the tests assert the sign-in heading exact name `"Sign in"`, but the page renders
-  `<h1>Sign in to your account</h1>` (button also reads "Sign in"). Pages serve correctly (HTTP + HTML
-  verified); this predates and is unrelated to the Document Builder release. Fix the smoke assertion
-  copy so the suite gates real regressions again → `tests/smoke/public.smoke.spec.ts`.
-- [Marcus] **Authenticated production Document Builder behavior is UNVERIFIED.** The release confirmed
-  the flag value, deploy health, and all focused unit/integration suites, but the in-prod authenticated
-  journey (Document/Visual toggle, config-sync highlight, React Agent dock, destructive-apply confirm)
-  was NOT run — no `smoke:prod` credentials are configured (auth-setup self-skips) and no interactive
-  authenticated browser was available. To close: configure smoke creds and run the `authenticated` /
-  `builder` smoke projects against prod, or do a manual authenticated pass on a disposable workflow.
+- [Claude] **Public `smoke:prod` assertions RESTORED** (DOC-BUILDER-PRODUCTION-CLOSEOUT-1). The 9
+  failures were TWO stale-heading drifts (not one): sign-in `"Sign in"`→`"Sign in to your account"`
+  (7 tests) and forgot-password `"Reset your password"`→`"Forgot your password?"` (2 tests). Both
+  fixed to the real rendered headings (verified via prod HTML). NOTE: a green in-browser RUN was not
+  obtained this session — Playwright stalled at Chromium launch on the loaded machine (env flakiness,
+  not the fix); spec parses (`--list` = 12 tests) and assertions match prod ground truth. Marcus/CI
+  should run `npm run smoke:prod` on a quiet machine to confirm green → `tests/smoke/public.smoke.spec.ts`.
+- [Marcus] **Authenticated production Document Builder behavior is UNVERIFIED.** No `smoke:prod`
+  credentials are configured (auth-setup self-skips) and no interactive authenticated browser is
+  available. Also `builder.smoke.spec.ts` covers the **Visual** builder only — it does NOT toggle or
+  assert Document mode — so closing this needs BOTH creds AND a Document-mode spec (or a manual
+  authenticated pass on a disposable workflow). Operator setup (account state, rotation) →
+  [`tests/smoke/README.md`](../tests/smoke/README.md).
 - [Claude] **`docs/PROJECT_MEMORY.md` is ~1050 lines — far over the ~150-line budget.** The
   "Recently completed arcs" section and the stamp chain have grown unbounded. A dedicated curation
   pass should prune completed arcs to ~6 and trim the stamp chain (git history retains the rest).

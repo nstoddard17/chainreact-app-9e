@@ -17,7 +17,7 @@ test.describe("Public smoke", () => {
   test("/auth/sign-in loads", async ({ page }) => {
     await gotoOk(page, "/auth/sign-in");
     await expect(
-      page.getByRole("heading", { name: "Sign in", exact: true }),
+      page.getByRole("heading", { name: "Sign in to your account", exact: true }),
     ).toBeVisible();
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
@@ -35,7 +35,7 @@ test.describe("Public smoke", () => {
   test("/auth/forgot-password loads", async ({ page }) => {
     await gotoOk(page, "/auth/forgot-password");
     await expect(
-      page.getByRole("heading", { name: "Reset your password" }),
+      page.getByRole("heading", { name: "Forgot your password?" }),
     ).toBeVisible();
     await assertNoServerError(page);
   });
@@ -57,7 +57,7 @@ test.describe("Public smoke", () => {
     // never a broken form or a crash.
     await expect(page).toHaveURL(/\/auth\/forgot-password/);
     await expect(
-      page.getByRole("heading", { name: "Reset your password" }),
+      page.getByRole("heading", { name: "Forgot your password?" }),
     ).toBeVisible();
     await assertNoServerError(page);
   });
@@ -76,7 +76,7 @@ test.describe("Public smoke", () => {
       await gotoOk(page, route);
       await expect(page).toHaveURL(/\/auth\/sign-in/);
       await expect(
-        page.getByRole("heading", { name: "Sign in", exact: true }),
+        page.getByRole("heading", { name: "Sign in to your account", exact: true }),
       ).toBeVisible();
       await assertNoServerError(page);
     });
