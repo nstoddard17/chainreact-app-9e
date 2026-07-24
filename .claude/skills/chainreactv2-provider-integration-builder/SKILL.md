@@ -625,7 +625,7 @@ Use the dev tooling `scripts/mcp-import` + the pure compiler `core/mcpCompile`. 
 1. **Auth (CS-1)** — reuse the shared MCP OAuth helper (`integrations/_shared/mcp/oauth.ts`: RS/AS-metadata discovery + PKCE + resource indicators, static-or-DCR), or `token_paste` for PAT servers (Eden). A thin per-app `ProviderOAuth` registers in the dispatcher like any provider; tokens land encrypted in `integrations`; 401 → `refreshAndRetry`.
 2. **Live capture (CS-6)** — `mcp:import capture <app>` snapshots the live `tools/list` (`capturedBy: "live"`, per-tool schema hashes). Never ship from a docs-draft assumption.
 3. **Curate the allowlist** — edit `mcp-catalog.ts`: `ship` / `skip` / `defer` EVERY tool with a reason (the catalog IS the decision record). Never expose every discovered tool; destructive/`delete_*`/publish tools stay `skip`/`defer` absent product signal. A vendor dispatcher tool (Linear `save_issue`) may be SPLIT into typed V2 actions (create/update) via field omission + required-pinning.
-4. **Compile (CS-2)** — `mcp:import generate <app>` → `.strict()` Zod schemas + `ActionMeta` + thin handlers over the shared executor + `_pinned.ts` (certified hashes). No raw-JSON Setup field ever; the compiler emits `NEEDS_MANUAL` for unions/deep nesting the curator must resolve. Curator-only widget upgrades: closed-enum override → `select`; `format` override → date/date-time picker; numeric bounds override — all enforced in the generated schema.
+4. **Compile (CS-2)** — `mcp:import generate <app>` → `.strict()` Zod schemas + `ActionMeta` + thin handlers over the shared executor + `_pinned.ts` (certified hashes). No raw-JSON Setup field ever; the compiler emits `NEEDS_MANUAL` for unions/deep nesting the curator must resolve. Curator-only widget upgrades: closed-enum override → `select`; `format` override → date/date-time picker; numeric bounds override; `allowManualEntry` for name-or-id/variable entry on pickers — all enforced in the generated schema. **After every generate, run the [vendor description review](#vendor-description-review-after-every-generate) below.**
 5. **Read evidence** — `mcp:import capture --evidence` runs ONLY read-only, catalog-approved tools and records **TYPE-ONLY, scrubbed** result shapes. Evidence is INPUT to human curation, never authority.
 6. **Option resolvers from REAL list-tool evidence (native Phase 9 bar)** — where the server has list tools, ship real resolvers mapping `{value:id, label:name}` with `dependsOn` cascades (Project→Team; State requires Team → route shows "choose a team first"). **NEVER guess a resolver shape** — if a list tool returns empty or its item shape is unconfirmed (Linear cycles), keep verified name-or-id text and document it; do not invent fields.
 7. **Gated write evidence** — writes are NEVER auto-captured. Use the explicit, double-gated `mcp:import write-evidence` / `write-evidence-chain` (`--allow-write-evidence` + effective risk exactly `write` + not a forbidden verb + `--yes-run-write`) against DISPOSABLE records. Chaining reuses a created id **transiently** (create → update → comment) so no id is copied by hand; committed evidence stays TYPE-ONLY (raw values never persisted).
@@ -634,6 +634,57 @@ Use the dev tooling `scripts/mcp-import` + the pure compiler `core/mcpCompile`. 
 10. **Drift + schema cache (CS-4)** — the runtime executor classifies drift against the pinned schema (breaking → fail closed with the `INTEGRATION_CHANGED` "being reviewed" UX, not `HANDLER_FAILED`); a short-TTL live-tools cache backs it; `mcp:import check` is the proactive sweep. Certification state lives in docs, not a new table.
 11. **Icon + Rule-17 audit + `isExperimental`** — add `public/integrations/<id>.svg` (a MISSING asset renders a broken icon — regression-locked by `providerIconUrl.test.ts`, which asserts every enabled provider has its asset). Run the Rule-17 configuration-UX audit (closed enums → dropdowns e.g. priority; date fields → date picker; static resources → resolvers; **no MCP terminology anywhere** in labels/descriptions). Ship `isExperimental: true` — hidden from the production catalog but reachable in dev via `ENABLE_EXPERIMENTAL_MCP_APPS=true` for certification (the flag mechanism stays for the next MCP app after this one is published).
 12. **Live certification + release flip (native Phase 13 / "Phase 19" / CS-6E)** — with real credentials: live OAuth connect, zero unresolved drift, live tool execution, certified read + write evidence, structured outputs, resolver-backed common paths, config-UX audit, tests green. THEN flip `isExperimental: false` (Marcus-approved). Leave any unverified action HIDDEN — unregister its meta + handler, keep the impl files as orphans (rule 14), and document it as deferred (Eden's 3 publish writes; see [`docs/providers/eden/deferred-actions.md`](../../../docs/providers/eden/deferred-actions.md)).
+
+### Vendor description review (after every generate)
+
+The compiler preserves vendor field descriptions automatically — including on nullable
+`anyOf:[X, {type:"null"}]` fields, whose wrapper description used to be silently dropped
+(fixed in `c96cdbfcd`; regression-locked in `tests/unit/core/mcpCompile/compiler.test.ts`).
+That preservation is correct and must stay automatic. But vendor copy is written for **MCP
+clients and LLM agents**, not for ChainReact's builder panel — so after every
+`mcp:import generate`, read the generated `*.meta.ts` diff and check each field description for:
+
+* **"pass null to clear/remove" instructions** — generated schemas are plain `.optional()`;
+  the builder cannot submit `null` (leaving a field empty omits the key), so this copy
+  promises an operation that does not exist.
+* **LLM-facing wording** — "when the user asks…", "you should…", agent-prompt phrasing.
+* **MCP/implementation leakage** — mentions of MCP clients, tool calls, JSON payloads, wire
+  formats, or internal parameter mechanics (Rule-17's "no MCP terminology" applies to
+  descriptions, not just labels).
+* **Capabilities ChainReact does not expose** — auto-pagination, client-side retries,
+  attachment mechanics the node doesn't ship, etc.
+* **Secrets / tokens / unsafe examples** embedded in vendor sample text.
+* **Length/clarity** — copy too long or too dense for the config panel; trim, don't rewrite.
+* **Fields with NO description despite useful vendor docs** — historically the nullable-wrapper
+  drop; today any such gap means either the vendor omitted it (curate one) or a compiler
+  regression (investigate — do not paper over with an override).
+* **Picker promises without the flag** — copy that offers names, IDs, emails, `"me"`,
+  pasted values, or upstream data on a picker field MUST be matched by
+  `allowManualEntry: true` in the catalog (`8fccaf26d` added the compiler override; the
+  repo-wide guard `tests/unit/integrations/pickerManualEntryContract.test.ts` fails on any
+  picker whose copy promises a free value it doesn't allow — and its exemption list is a
+  product decision, never a mute button).
+* **Now-redundant curated overrides** — an override added ONLY because the compiler used to
+  drop the vendor description can be removed when the restored vendor copy is meaningfully
+  equivalent. Keep it when the curated copy is clearer, safer, picker-aware, or
+  ChainReact-specific (Linear's assignee overrides are the worked example). Don't churn
+  wording merely to prefer the vendor's.
+
+**Decision rules:** preserve vendor wording by default; add a catalog `description` override
+only when the copy is misleading, unsupported, unsafe, or unsuitable for the panel; make the
+**smallest** correction — keep the vendor's informative sentence and drop only the offending
+clause (Linear's worked example: "Cycle name, number, or ID. Null to remove" became
+"Cycle name, number, or ID."). Fix copy in
+`mcp-catalog.ts` **only** — never hand-edit generated files (the byte-sync guard reverts
+them); catalog + snapshot remain the sole source of truth.
+
+**Accepting a regenerate:** run generate **twice** and confirm the second run is
+byte-identical; review the diff and confirm it is metadata/description-only — field types,
+widgets, requiredness, `optionsSource`, `allowManualEntry`, handlers, schemas, `_pinned`
+hashes, and capabilities must not change unless that change is the point of the batch and is
+explained line-by-line. A derived `mcp-capabilities.json` quality-score shift is acceptable
+only once traced to its cause (e.g. `descriptionQuality` rising because descriptions were
+restored).
 
 ### The React Agent invariant (do NOT get this wrong)
 
