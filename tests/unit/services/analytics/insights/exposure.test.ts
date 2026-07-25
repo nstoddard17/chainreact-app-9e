@@ -24,15 +24,20 @@ describe("isSourceExposed", () => {
 });
 
 describe("buildClientAnalyticsCatalog exposure filtering", () => {
-  it("production: ChainReact is public; Stripe (preview, uncertified) is absent", () => {
+  it("production: ChainReact and QuickBooks are public; Stripe (preview, uncertified) is absent", () => {
     const catalog = buildClientAnalyticsCatalog({ environment: "production" });
-    expect(catalog.sources.map((s) => s.id)).toEqual(["chainreact"]);
-    expect(catalog.sources[0]!.exposure).toBe("public");
+    // QuickBooks joined the public set in CD-4B after live certification passed.
+    expect(catalog.sources.map((s) => s.id)).toEqual(["chainreact", "quickbooks"]);
+    expect(catalog.sources.every((s) => s.exposure === "public")).toBe(true);
   });
 
   it("development: Stripe appears, explicitly marked preview", () => {
     const catalog = buildClientAnalyticsCatalog({ environment: "development" });
-    expect(catalog.sources.map((s) => s.id)).toEqual(["chainreact", "stripe"]);
+    expect(catalog.sources.map((s) => s.id)).toEqual([
+      "chainreact",
+      "quickbooks",
+      "stripe",
+    ]);
     const stripe = catalog.sources.find((s) => s.id === "stripe")!;
     expect(stripe.exposure).toBe("preview");
   });

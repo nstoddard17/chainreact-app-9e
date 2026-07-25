@@ -69,33 +69,13 @@ export function bucketIndexForMs(buckets: readonly StripeTimeBucket[], ms: numbe
 // ─── Currency (minor-unit → major-unit) ──────────────────────────────────────
 
 /**
- * Stripe zero-decimal currencies — the `amount` is already in the major unit
- * (no division). https://stripe.com/docs/currencies#zero-decimal
+ * Currency decimals come from the canonical analytics money table
+ * (`core/analytics/money`), shared with the QuickBooks money path so the
+ * zero-/three-decimal lists can't drift apart between providers. Re-exported
+ * here because this module has been Stripe's money seam since
+ * ANALYTICS-SOURCES-STRIPE-1.
  */
-const ZERO_DECIMAL: ReadonlySet<string> = new Set([
-  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf",
-  "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
-]);
-
-/**
- * Stripe three-decimal currencies — `amount` is in 1/1000 of the major unit.
- * https://stripe.com/docs/currencies#three-decimal
- */
-const THREE_DECIMAL: ReadonlySet<string> = new Set(["bhd", "jod", "kwd", "omr", "tnd"]);
-
-/** Number of minor-unit decimal places for a currency (default 2). */
-export function currencyDecimals(currency: string): number {
-  const c = currency.toLowerCase();
-  if (ZERO_DECIMAL.has(c)) return 0;
-  if (THREE_DECIMAL.has(c)) return 3;
-  return 2;
-}
-
-/** Convert a minor-unit integer amount to its major-unit value for `currency`. */
-export function minorToMajor(amountMinor: number, currency: string): number {
-  const decimals = currencyDecimals(currency);
-  return decimals === 0 ? amountMinor : amountMinor / 10 ** decimals;
-}
+export { currencyDecimals, minorUnitsToMajor as minorToMajor } from "@/core/analytics/money";
 
 /** Round a major-unit amount to 2 dp to avoid float-accumulation noise. */
 export function roundMajor(value: number): number {

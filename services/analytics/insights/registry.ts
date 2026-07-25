@@ -13,6 +13,7 @@ import type {
 } from "@/contracts/connectedAnalytics";
 import { getOptionsResolver } from "@/services/options/_registry";
 import { chainreactCatalog, chainreactWorkflowRunsAdapter } from "./chainreact";
+import { quickbooksInsightsCatalog, quickbooksInvoicesAdapter } from "./quickbooks";
 import { stripeInsightsCatalog, stripePaymentsAdapter } from "./stripe";
 
 /**
@@ -147,6 +148,7 @@ function registerSource(
 
 // ── Static registrations (approved sources only) ─────────────────────────────
 registerSource(chainreactCatalog, [chainreactWorkflowRunsAdapter]);
+registerSource(quickbooksInsightsCatalog, [quickbooksInvoicesAdapter]);
 registerSource(stripeInsightsCatalog, [stripePaymentsAdapter]);
 
 // ── Lookups ──────────────────────────────────────────────────────────────────
