@@ -109,10 +109,15 @@ describe("RunRow", () => {
     expect(errorBlock).toHaveTextContent(/reconnect gmail/i);
     expect(errorBlock).toHaveTextContent(/account settings/i);
     // CR-FAILREASON-2 — exactly ONE primary CTA, linking to the Apps page.
+    // HELP-CENTER-CONTEXTUAL-1 — plus one secondary /help/ link, nothing else.
     const cta = screen.getByTestId(`runs-row-${run.id}-cta`) as HTMLAnchorElement;
     expect(cta).toHaveAttribute("href", "/apps");
     expect(cta).toHaveTextContent("Reconnect app");
-    expect(within(errorBlock).getAllByRole("link")).toHaveLength(1);
+    const links = within(errorBlock).getAllByRole("link");
+    expect(links).toHaveLength(2);
+    expect(
+      screen.getByTestId(`runs-row-${run.id}-help-link`).getAttribute("href"),
+    ).toMatch(/^\/help\//);
   });
 
   it("omits the error block when errorClassification is null (no fake error)", () => {
@@ -248,9 +253,14 @@ describe("RunRow — failed-run CTA (CR-FAILREASON-2)", () => {
       expect(cta).toHaveAttribute("href", href);
       expect(cta).toHaveTextContent(label);
       expect(cta.getAttribute("data-cta-action")).toBe(action);
-      // exactly one CTA in the error block
+      // Exactly one PRIMARY CTA in the error block. HELP-CENTER-CONTEXTUAL-1
+      // added a secondary Help Center link beside it — the only other link
+      // allowed here, and it must point at /help/.
       const errorBlock = screen.getByTestId(`runs-row-${run.id}-error`);
-      expect(within(errorBlock).getAllByRole("link")).toHaveLength(1);
+      const links = within(errorBlock).getAllByRole("link");
+      expect(links).toHaveLength(2);
+      const help = screen.getByTestId(`runs-row-${run.id}-help-link`);
+      expect(help.getAttribute("href")).toMatch(/^\/help\//);
     },
   );
 
@@ -285,10 +295,15 @@ describe("RunRow — failed-run CTA (CR-FAILREASON-2)", () => {
       );
       const cta = screen.getByTestId(`runs-row-${run.id}-cta`);
       expect(cta).toHaveTextContent(label);
-      // guidance only — NOT a link/button
+      // Guidance only — the CTA itself is NOT a link/button (no retry/support
+      // route invented). HELP-CENTER-CONTEXTUAL-1: the only link allowed in
+      // the block is the secondary Help Center troubleshooting link.
       const errorBlock = screen.getByTestId(`runs-row-${run.id}-error`);
-      expect(within(errorBlock).queryByRole("link")).toBeNull();
+      expect(cta.tagName.toLowerCase()).toBe("p");
       expect(within(errorBlock).queryByRole("button")).toBeNull();
+      const links = within(errorBlock).getAllByRole("link");
+      expect(links).toHaveLength(1);
+      expect(links[0]).toHaveAttribute("href", "/help/troubleshoot-a-failed-run");
     },
   );
 

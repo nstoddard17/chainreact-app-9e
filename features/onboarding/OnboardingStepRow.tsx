@@ -7,6 +7,7 @@ import { postOnboardingEvent } from "@/lib/api/onboarding";
 import { ObIcons } from "./onboardingIcons";
 import { STEP_PRESENTATION, stepCta, stepDescription } from "./onboardingCopy";
 import { stepHref } from "./utils/stepDestinations";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 
 /**
  * One checklist step row (5.ONBOARD-1 Batch 2) — ports the design's `StepRow`
@@ -35,6 +36,12 @@ export function OnboardingStepRow({
   const done = step.status === "complete";
   const href = stepHref(step);
   const cta = stepCta(step);
+
+  // HELP-CENTER-CONTEXTUAL-1 — restrained "Learn how" link to the step's
+  // Help Center article (central resolver; null → no link). Secondary to the
+  // primary CTA; deliberately NOT wired to postOnboardingEvent, so existing
+  // onboarding analytics and completion behavior stay byte-identical.
+  const help = resolveHelpLink({ type: "onboarding", step: step.key });
 
   return (
     <li
@@ -99,7 +106,7 @@ export function OnboardingStepRow({
             {/* 5.ONBOARD-3: no provider chips. The Connect step teaches the
                 general action, so it names no app and shows no per-provider
                 readiness — that belongs on the Apps page and in the builder. */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {step.key === "create"
                 ? createChooser
                 : cta !== null &&
@@ -116,6 +123,16 @@ export function OnboardingStepRow({
                       <ObIcons.Arrow size={14} />
                     </Link>
                   )}
+              {help && (
+                <Link
+                  href={help.href}
+                  data-testid={`onboarding-step-${step.key}-help-link`}
+                  aria-label={`Learn how: ${presentation.label}`}
+                  className="whitespace-nowrap rounded text-[12px] text-muted-foreground underline underline-offset-2 transition hover:text-foreground hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {help.label}
+                </Link>
+              )}
             </div>
           </div>
         )}

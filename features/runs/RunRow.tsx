@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { RunListItem } from "@/contracts/workflow";
 import { failedRunCta } from "@/core/errors/failedRunCta";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import { RunStatusBadge } from "./RunStatusBadge";
 import { RunSourceBadge } from "./RunSourceBadge";
 import { formatRunDuration, formatRunStartedAt } from "./formatRunDuration";
@@ -133,6 +134,12 @@ export function RunRow({ run }: Props) {
  * (reconnect / upgrade_plan / open_node) and plain guidance text for actions
  * with no safe destination yet (retry_later / contact_support). Renders nothing
  * for a missing/legacy action — never a misleading CTA.
+ *
+ * HELP-CENTER-CONTEXTUAL-1 — a SECONDARY Help Center link renders beside the
+ * primary CTA, mapped from the same classified action enum via the central
+ * contextual-help resolver (general troubleshooting article for unknown/legacy
+ * actions; deliberately absent for review_pending, where no user action is
+ * needed). It never replaces or restyles the primary CTA.
  */
 function RunErrorCta({
   runId,
@@ -144,26 +151,38 @@ function RunErrorCta({
   workflowId: string;
 }) {
   const cta = failedRunCta(action, { workflowId });
-  if (!cta) return null;
-  if (cta.href) {
-    return (
-      <Link
-        href={cta.href}
-        data-testid={`runs-row-${runId}-cta`}
-        data-cta-action={action}
-        className="mt-1.5 inline-flex w-fit items-center text-xs font-medium text-foreground underline underline-offset-2 hover:no-underline"
-      >
-        {cta.label}
-      </Link>
-    );
-  }
+  const help = resolveHelpLink({ type: "run_error", action });
+  if (!cta && !help) return null;
   return (
-    <p
-      data-testid={`runs-row-${runId}-cta`}
-      data-cta-action={action}
-      className="mt-1.5 text-xs font-medium text-muted-foreground"
-    >
-      {cta.label}
-    </p>
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      {cta &&
+        (cta.href ? (
+          <Link
+            href={cta.href}
+            data-testid={`runs-row-${runId}-cta`}
+            data-cta-action={action}
+            className="inline-flex w-fit items-center text-xs font-medium text-foreground underline underline-offset-2 hover:no-underline"
+          >
+            {cta.label}
+          </Link>
+        ) : (
+          <p
+            data-testid={`runs-row-${runId}-cta`}
+            data-cta-action={action}
+            className="text-xs font-medium text-muted-foreground"
+          >
+            {cta.label}
+          </p>
+        ))}
+      {help && (
+        <Link
+          href={help.href}
+          data-testid={`runs-row-${runId}-help-link`}
+          className="inline-flex w-fit items-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground hover:no-underline"
+        >
+          {help.label}
+        </Link>
+      )}
+    </div>
   );
 }

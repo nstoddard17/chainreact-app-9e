@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import type { WorkflowNode } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 import {
@@ -91,6 +93,12 @@ export function ValidationSummary({
     issues: issues.filter((i) => categorizeValidationIssue(i.code) === category),
   })).filter((g) => g.issues.length > 0);
 
+  // HELP-CENTER-CONTEXTUAL-1 — resolver-gated footer link (issues state only).
+  const setupIssuesHelp = resolveHelpLink({
+    type: "builder_concept",
+    concept: "setup_issues",
+  });
+
   if (issues.length === 0) {
     return (
       <div
@@ -147,6 +155,20 @@ export function ValidationSummary({
           onChooseTrigger={onChooseTrigger}
         />
       ))}
+      {/* HELP-CENTER-CONTEXTUAL-1 — one footer link to the setup-issues Help
+          Center article (central resolver; renders nothing without a valid
+          article). Issues-state only — the ready state needs no troubleshooting
+          help. Navigation only; per-issue Open/Choose actions stay primary. */}
+      {setupIssuesHelp && (
+        <Link
+          href={setupIssuesHelp.href}
+          data-testid="validation-summary-help-link"
+          className="w-fit text-[11.5px] underline underline-offset-2 hover:no-underline"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {setupIssuesHelp.label}
+        </Link>
+      )}
     </div>
   );
 }

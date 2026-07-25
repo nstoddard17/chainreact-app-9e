@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { WorkflowRunStep } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { failedRunCta } from "@/core/errors/failedRunCta";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
 import { AgentRepairLoopPanel } from "./AgentRepairLoopPanel";
@@ -323,27 +324,41 @@ function RunErrorCta({
   workflowId: string;
 }) {
   const cta = failedRunCta(action, { workflowId });
-  if (!cta) return null;
-  if (cta.href) {
-    return (
-      <Link
-        href={cta.href}
-        data-testid="run-error-cta"
-        data-cta-action={action}
-        className="inline-flex w-fit items-center text-xs font-medium underline underline-offset-2 hover:no-underline"
-      >
-        {cta.label}
-      </Link>
-    );
-  }
+  // HELP-CENTER-CONTEXTUAL-1 — secondary Help Center link from the same
+  // classified action enum (central resolver; null → nothing rendered).
+  const help = resolveHelpLink({ type: "run_error", action });
+  if (!cta && !help) return null;
   return (
-    <p
-      data-testid="run-error-cta"
-      data-cta-action={action}
-      className="text-xs font-medium text-muted-foreground"
-    >
-      {cta.label}
-    </p>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {cta &&
+        (cta.href ? (
+          <Link
+            href={cta.href}
+            data-testid="run-error-cta"
+            data-cta-action={action}
+            className="inline-flex w-fit items-center text-xs font-medium underline underline-offset-2 hover:no-underline"
+          >
+            {cta.label}
+          </Link>
+        ) : (
+          <p
+            data-testid="run-error-cta"
+            data-cta-action={action}
+            className="text-xs font-medium text-muted-foreground"
+          >
+            {cta.label}
+          </p>
+        ))}
+      {help && (
+        <Link
+          href={help.href}
+          data-testid="run-error-help-link"
+          className="inline-flex w-fit items-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground hover:no-underline"
+        >
+          {help.label}
+        </Link>
+      )}
+    </div>
   );
 }
 

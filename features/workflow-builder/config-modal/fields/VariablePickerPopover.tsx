@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Braces, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import type { OutputMeta } from "@/contracts/actionMeta";
 import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePreview";
 import { resolveValueAtPath } from "@/core/workflows/resolveValueAtPath";
@@ -114,6 +116,12 @@ export function VariablePickerPopover({
 
   if (sources.length === 0) return null;
 
+  // HELP-CENTER-CONTEXTUAL-1 — resolver-gated footer link (null → no footer).
+  const stepDataHelp = resolveHelpLink({
+    type: "builder_concept",
+    concept: "step_data",
+  });
+
   return (
     <div
       role="dialog"
@@ -170,6 +178,20 @@ export function VariablePickerPopover({
           </section>
         );
       })}
+      {/* HELP-CENTER-CONTEXTUAL-1 — footer link to the step-data Help Center
+          article (central resolver; renders nothing without a valid article).
+          Visible only while the picker is open, so fields gain no clutter. */}
+      {stepDataHelp && (
+        <div className="mt-1 border-t border-input pt-1.5">
+          <Link
+            href={stepDataHelp.href}
+            data-testid="variable-picker-help-link"
+            className="inline-flex w-fit rounded px-2 py-0.5 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {stepDataHelp.label}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

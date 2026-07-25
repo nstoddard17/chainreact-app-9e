@@ -12,6 +12,7 @@ import { formatConnectedOn } from "./relativeDate";
 import { deriveCollapsedReconnect, orderAccountsByReconnectNeed } from "./collapsedReconnect";
 import { useReviewFocus } from "./useReviewFocus";
 import { OtherAccountsActiveNote, ReconnectRowCopy } from "./ReconnectNeededCopy";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 
 /**
  * Provider card for the Apps dashboard (Slice 4.APPS-PAGE-1).
@@ -104,6 +105,13 @@ export function AppCard({
   // new reconnect semantics. Only meaningful on a connected, collapsed card.
   const collapsedReconnect = deriveCollapsedReconnect(app.accounts);
 
+  // HELP-CENTER-CONTEXTUAL-1 — provider-specific setup guide, resolved through
+  // the central contextual-help resolver (null for providers without one).
+  const setupGuide = resolveHelpLink({
+    type: "provider_setup",
+    providerId: app.providerId,
+  });
+
   // CS-APPS-RECOVERY-REVIEW-SCROLL — "Review reconnects" expands the card, then scrolls
   // + focuses the FIRST reconnect-needed row (see useReviewFocus). Only the Review
   // action requests focus; the direct one-row Reconnect and a chevron expand never do.
@@ -182,6 +190,19 @@ export function AppCard({
               className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span aria-hidden>⇄</span> Vehicle links
+            </Link>
+          )}
+          {/* HELP-CENTER-CONTEXTUAL-1 — secondary setup-guide link for providers
+              with a dedicated Help Center connect article (resolver-gated: no
+              article → no control). Not-connected cards only; the primary
+              Connect action stays untouched and visually dominant. */}
+          {!app.isConnected && setupGuide && (
+            <Link
+              href={setupGuide.href}
+              data-testid="app-card-setup-guide-link"
+              className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {setupGuide.label}
             </Link>
           )}
           {!app.isConnected && app.canConnect && (

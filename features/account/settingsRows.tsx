@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { SettingRow } from "@/features/team/SettingRow";
 import type { AccountSummary } from "@/lib/api/accounts";
+import type { HelpArticleLink } from "@/features/marketing/help/contextualHelp";
 
 /**
  * Shared Account-settings row primitives (extracted from AccountSections.tsx in
@@ -13,6 +15,32 @@ export interface ActiveAccountView {
   name: string;
   type: AccountSummary["type"];
   role: AccountSummary["role"];
+}
+
+/**
+ * HELP-CENTER-CONTEXTUAL-1 — small secondary Help Center link used inside
+ * billing rows. Renders nothing when the resolver produced no article, so a
+ * dead help control can never ship.
+ */
+export function BillingHelpLink({
+  help,
+  testId,
+  className = "",
+}: {
+  help: HelpArticleLink | null;
+  testId: string;
+  className?: string;
+}) {
+  if (!help) return null;
+  return (
+    <Link
+      href={help.href}
+      data-testid={testId}
+      className={`text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground hover:no-underline ${className}`.trim()}
+    >
+      {help.label}
+    </Link>
+  );
 }
 
 /** A non-interactive "coming soon" pill used to mark deferred controls. */

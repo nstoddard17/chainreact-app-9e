@@ -1,5 +1,6 @@
 import { Panel } from "@/features/team/Panel";
 import { SettingRow } from "@/features/team/SettingRow";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import type { AccountSummary } from "@/lib/api/accounts";
 import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
@@ -10,7 +11,12 @@ import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
 import { BusinessDowngradePanel } from "./BusinessDowngradePanel";
 import { ManageBillingButton } from "./ManageBillingButton";
 import { SubscriptionCancelPanel } from "./SubscriptionCancelPanel";
-import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRows";
+import {
+  BillingHelpLink,
+  ComingSoonRow,
+  ReadOnlyRow,
+  type ActiveAccountView,
+} from "./settingsRows";
 
 /**
  * Plan & billing section body (extracted from AccountSections.tsx in
@@ -194,6 +200,15 @@ export function BillingSection({
   });
   const taskUsage = usageSummary.tasks;
   const aiCreditsUsage = usageSummary.aiCredits;
+
+  // HELP-CENTER-CONTEXTUAL-1 — Help Center explanation links, resolved through
+  // the central contextual-help resolver (null-safe: no article → no link).
+  // Usage links render ONLY in warned/blocked states; the plan-change link
+  // sits with the cancel panel. None of them replace a billing action.
+  const taskUsageHelp = resolveHelpLink({ type: "billing", reason: "task_usage" });
+  const aiCreditsHelp = resolveHelpLink({ type: "billing", reason: "ai_credits" });
+  const planChangeHelp = resolveHelpLink({ type: "billing", reason: "plan_change" });
+
   const resetsOn = taskUsage.resetsAt != null ? formatDate(taskUsage.resetsAt) : null;
   const aiCreditsResetsOn =
     aiCreditsUsage.resetsAt != null ? formatDate(aiCreditsUsage.resetsAt) : null;
@@ -304,6 +319,12 @@ export function BillingSection({
                     ? `Running low: ${taskUsage.remaining} left (${taskUsage.percentUsed}% used)`
                     : `${taskUsage.remaining} remaining (${taskUsage.percentUsed}% used)`}
               </span>
+              {/* HELP-CENTER-CONTEXTUAL-1 — explanation link ONLY when the
+                  account is warned/blocked; a normal usage row stays clean.
+                  The existing Upgrade/Manage actions stay the primary path. */}
+              {(taskUsage.overLimit || taskUsage.nearLimit) && (
+                <BillingHelpLink help={taskUsageHelp} testId="billing-usage-help-link" />
+              )}
             </span>
           </SettingRow>
         ) : (
@@ -346,6 +367,12 @@ export function BillingSection({
                     ? `Running low: ${aiCreditsUsage.remaining} left (${aiCreditsUsage.percentUsed}% used)`
                     : `${aiCreditsUsage.remaining} remaining (${aiCreditsUsage.percentUsed}% used)`}
               </span>
+              {(aiCreditsUsage.overLimit || aiCreditsUsage.nearLimit) && (
+                <BillingHelpLink
+                  help={aiCreditsHelp}
+                  testId="billing-ai-credits-help-link"
+                />
+              )}
             </span>
           </SettingRow>
         ) : (
@@ -445,6 +472,11 @@ export function BillingSection({
             stacked
           >
             <SubscriptionCancelPanel accountId={accountId} frozen={billing.frozen} />
+            <BillingHelpLink
+              help={planChangeHelp}
+              testId="billing-plan-change-help-link"
+              className="mt-1 inline-flex w-fit"
+            />
           </SettingRow>
         )}
 

@@ -90,6 +90,10 @@ tests plus lint).
   resolve "the help article for gmail" without hardcoding a slug).
 - Category ids (`getting-started`, `workflows`, `connecting-apps`,
   `troubleshooting`, `accounts-teams`, `billing-usage`) are likewise stable.
+- **HELP-CENTER-CONTEXTUAL-1:** product surfaces now resolve destinations
+  through `features/marketing/help/contextualHelp.ts` (`resolveHelpLink`) —
+  the single context → article mapping. See
+  [`help-center-contextual-1.md`](./help-center-contextual-1.md).
 
 ## Where provider metadata comes from
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { failedRunCta } from "@/core/errors/failedRunCta";
+import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import { getWorkflowRun } from "@/lib/api/workflows";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
@@ -153,6 +154,14 @@ function RunDetailBody({
     ? failedRunCta(detail.errorClassification.action, { workflowId: detail.workflowId })
     : null;
 
+  // HELP-CENTER-CONTEXTUAL-1 — secondary Help Center link for the classified
+  // failure (central resolver keyed on the action enum; null → no link, e.g.
+  // review_pending). Failed runs only; never replaces the action buttons.
+  const failedHelp =
+    detail.status === "failed" && detail.errorClassification
+      ? resolveHelpLink({ type: "run_error", action: detail.errorClassification.action })
+      : null;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -243,6 +252,16 @@ function RunDetailBody({
             }}
           >
             {failedCta.label}
+          </Link>
+        ) : null}
+        {failedHelp ? (
+          <Link
+            href={failedHelp.href}
+            data-testid="run-detail-help-link"
+            className="text-[12px] underline underline-offset-2 hover:no-underline"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            {failedHelp.label}
           </Link>
         ) : null}
       </div>
