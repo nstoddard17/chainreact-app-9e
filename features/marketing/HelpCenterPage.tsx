@@ -39,9 +39,11 @@ const SUPPORT_EMAIL = "support@chainreact.app";
 
 interface Props {
   providers: readonly HelpProviderEntry[];
+  /** Route-resolved viewer session: swaps the header CTAs for "Open ChainReact". */
+  authenticated?: boolean;
 }
 
-export function HelpCenterPage({ providers }: Props) {
+export function HelpCenterPage({ providers, authenticated = false }: Props) {
   const quickStart = QUICK_START_SLUGS.map(getHelpArticle).filter(
     (a): a is NonNullable<typeof a> => a !== undefined,
   );
@@ -51,7 +53,7 @@ export function HelpCenterPage({ providers }: Props) {
 
   return (
     <div data-marketing-surface className="hc-root" data-testid="help-center-page">
-      <MarketingHeader />
+      <MarketingHeader authenticated={authenticated} />
 
       <main className="hc-main">
         <div className="hc">
@@ -248,7 +250,10 @@ export function HelpCenterPage({ providers }: Props) {
         .hc-provider-grid { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         @media (max-width: 880px) { .hc-provider-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 560px) { .hc-provider-grid { grid-template-columns: 1fr; } }
-        .hc-provider-card { display: flex; align-items: center; gap: 12px; background: var(--mk-panel); border: 1px solid var(--mk-border); border-radius: 12px; padding: 13px 14px; transition: border-color .12s ease, transform .12s ease; }
+        /* The li stretches to the grid row; the card fills it so every card in
+           a row is equal height regardless of description length. */
+        .hc-provider-grid li { display: flex; }
+        .hc-provider-card { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; background: var(--mk-panel); border: 1px solid var(--mk-border); border-radius: 12px; padding: 13px 14px; transition: border-color .12s ease, transform .12s ease; }
         .hc-provider-card:hover { border-color: var(--mk-border-strong); transform: translateY(-1px); }
         .hc-provider-card:focus-visible { outline: 2px solid var(--mk-accent); outline-offset: 2px; }
         .hc-provider-ic { width: 36px; height: 36px; flex: none; border-radius: 9px; background: var(--mk-panel-2); border: 1px solid var(--mk-border); display: flex; align-items: center; justify-content: center; overflow: hidden; }

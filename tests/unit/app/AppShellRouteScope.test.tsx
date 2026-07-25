@@ -219,13 +219,26 @@ describe("AppShell — route scope: EXCLUDED", () => {
   });
 
   it("/help (public Help Center, HELP-CENTER-1) does NOT render AppShell — renders HelpCenterPage", async () => {
-    // Public marketing-surface route: no auth gate, works signed-in or out.
-    // (This file's registry mock returns no providers, so the page renders
-    // with an empty integration-help section — that path is valid.)
+    // Public marketing-surface route: no auth gate, works signed-in or out
+    // (the session is read ONLY for the header CTA variant). This file's
+    // registry mock returns no providers, so the page renders with an empty
+    // integration-help section — that path is valid.
+    mockGetUser.mockResolvedValue({ data: { user: null } });
     const { default: HelpPage } = await import("@/app/help/page");
-    const result = HelpPage();
+    const result = await HelpPage();
     expect(containsElement(result, AppShell)).toBe(false);
     expect(containsElement(result, HelpCenterPage)).toBe(true);
+  });
+
+  it("/help stays shell-less and gate-less for a SIGNED-IN viewer too", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "u-1", email: "marcus@example.com" } },
+    });
+    const { default: HelpPage } = await import("@/app/help/page");
+    const result = await HelpPage();
+    expect(containsElement(result, AppShell)).toBe(false);
+    expect(containsElement(result, HelpCenterPage)).toBe(true);
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("/integrations (legacy redirect) never reaches a render — server-redirects to /apps", async () => {

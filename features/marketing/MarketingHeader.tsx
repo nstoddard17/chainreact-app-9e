@@ -14,8 +14,14 @@ import { MarketingBrandLogo } from "./MarketingBrandLogo";
  * primary nav anchors (#how-it-works, #examples, etc.) are in-page
  * scroll targets matching the sections rendered below — design parity,
  * not fake actions.
+ *
+ * HELP-CENTER-CONTEXTUAL-1 (follow-up): pages that serve BOTH signed-in and
+ * signed-out visitors (the Help Center) resolve the session server-side and
+ * pass `authenticated` — the CTA cluster then shows a single "Open
+ * ChainReact" link to /workflows instead of Sign in / Try it free. Omitted
+ * (default false) everywhere else, so existing marketing pages are unchanged.
  */
-export function MarketingHeader() {
+export function MarketingHeader({ authenticated = false }: { authenticated?: boolean }) {
   return (
     <header className="mk-nav" aria-label="Site">
       <div className="mk-nav-inner">
@@ -47,20 +53,32 @@ export function MarketingHeader() {
         </nav>
 
         <div className="mk-nav-cta">
-          <Link
-            href="/auth/sign-in"
-            className="mk-btn-ghost"
-            data-testid="marketing-nav-signin"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/auth/sign-up"
-            className="mk-btn-primary"
-            data-testid="marketing-nav-tryfree"
-          >
-            Try it free <span aria-hidden>→</span>
-          </Link>
+          {authenticated ? (
+            <Link
+              href="/workflows"
+              className="mk-btn-primary"
+              data-testid="marketing-nav-open-app"
+            >
+              Open ChainReact <span aria-hidden>→</span>
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/auth/sign-in"
+                className="mk-btn-ghost"
+                data-testid="marketing-nav-signin"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/auth/sign-up"
+                className="mk-btn-primary"
+                data-testid="marketing-nav-tryfree"
+              >
+                Try it free <span aria-hidden>→</span>
+              </Link>
+            </>
+          )}
         </div>
       </div>
       <style>{`

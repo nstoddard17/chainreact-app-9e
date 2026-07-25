@@ -62,15 +62,17 @@ function ArticleBlock({ block }: { block: HelpArticleBlock }) {
 
 interface Props {
   article: HelpArticle;
+  /** Route-resolved viewer session: swaps the header CTAs for "Open ChainReact". */
+  authenticated?: boolean;
 }
 
-export function HelpArticlePage({ article }: Props) {
+export function HelpArticlePage({ article, authenticated = false }: Props) {
   const related = relatedArticlesFor(article);
   const categoryLabel = helpCategoryLabel(article.category);
 
   return (
     <div data-marketing-surface className="ha-root" data-testid="help-article-page">
-      <MarketingHeader />
+      <MarketingHeader authenticated={authenticated} />
 
       <main className="ha-main">
         <article className="ha">

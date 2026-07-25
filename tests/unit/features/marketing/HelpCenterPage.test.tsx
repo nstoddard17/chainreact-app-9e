@@ -73,6 +73,22 @@ describe("HelpCenterPage — structure", () => {
     expect(list[4]).toHaveAttribute("href", "/help/turn-on-a-workflow");
   });
 
+  it("signed-out (default) header shows Sign in / Try it free", () => {
+    render(<HelpCenterPage providers={PROVIDERS} />);
+    expect(screen.getByTestId("marketing-nav-signin")).toBeInTheDocument();
+    expect(screen.getByTestId("marketing-nav-tryfree")).toBeInTheDocument();
+    expect(screen.queryByTestId("marketing-nav-open-app")).not.toBeInTheDocument();
+  });
+
+  it("authenticated viewer gets an 'Open ChainReact' header link instead of auth CTAs", () => {
+    render(<HelpCenterPage providers={PROVIDERS} authenticated />);
+    const open = screen.getByTestId("marketing-nav-open-app");
+    expect(open).toHaveAttribute("href", "/workflows");
+    expect(open).toHaveTextContent("Open ChainReact");
+    expect(screen.queryByTestId("marketing-nav-signin")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("marketing-nav-tryfree")).not.toBeInTheDocument();
+  });
+
   it("footer carries the Help Center link (support navigation entry)", () => {
     render(<HelpCenterPage providers={PROVIDERS} />);
     const footer = screen.getByTestId("marketing-footer");

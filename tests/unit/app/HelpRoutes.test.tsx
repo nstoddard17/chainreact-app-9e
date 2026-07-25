@@ -17,6 +17,14 @@ jest.mock("next/navigation", () => ({
   notFound: () => mockNotFound(),
 }));
 
+// The routes resolve the viewer session (read-only, header CTA variant only).
+const mockGetUser = jest.fn();
+jest.mock("@/utils/supabase/server", () => ({
+  createClient: jest.fn(async () => ({
+    auth: { getUser: () => mockGetUser() },
+  })),
+}));
+
 import ArticlePage, {
   generateStaticParams,
   generateMetadata,
@@ -29,13 +37,34 @@ import {
 import { getProvider, providerIconUrl } from "@/integrations/_registry";
 
 describe("/help/[slug] route", () => {
-  beforeEach(() => mockNotFound.mockClear());
+  beforeEach(() => {
+    mockNotFound.mockClear();
+    mockGetUser.mockReset().mockResolvedValue({ data: { user: null } });
+  });
 
-  it("renders a known article slug", async () => {
+  it("renders a known article slug (signed-out header by default)", async () => {
     const el = await ArticlePage({
       params: Promise.resolve({ slug: "create-your-first-workflow" }),
     });
     expect(el).toBeTruthy();
+    expect((el as { props?: { authenticated?: boolean } }).props?.authenticated).toBe(false);
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it("passes authenticated=true for a signed-in viewer (header CTA variant, no gate)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u-1" } } });
+    const el = await ArticlePage({
+      params: Promise.resolve({ slug: "create-your-first-workflow" }),
+    });
+    expect((el as { props?: { authenticated?: boolean } }).props?.authenticated).toBe(true);
+  });
+
+  it("fails safe to the signed-out header when the session lookup throws", async () => {
+    mockGetUser.mockRejectedValue(new Error("supabase down"));
+    const el = await ArticlePage({
+      params: Promise.resolve({ slug: "create-your-first-workflow" }),
+    });
+    expect((el as { props?: { authenticated?: boolean } }).props?.authenticated).toBe(false);
     expect(mockNotFound).not.toHaveBeenCalled();
   });
 

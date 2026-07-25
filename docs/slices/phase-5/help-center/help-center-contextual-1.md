@@ -82,6 +82,18 @@ contexts/mappings in `contextualHelp.ts` only — never inline slugs.
   failed-run `upgrade_plan` path already; no separate surfaces were found
   that warranted links this batch.
 
+## Follow-up: session-aware header + card polish (same batch, Marcus QA)
+
+- `/help` and `/help/[slug]` now resolve the viewer session server-side
+  (read-only, fail-safe to signed-out, never a gate/redirect — pinned by
+  tests): a signed-in user sees a single "Open ChainReact" → `/workflows`
+  header CTA instead of Sign in / Try it free. `MarketingHeader` gained an
+  optional `authenticated` prop (default false ⇒ every other marketing page
+  is byte-identical). The zero-arg SSR `getUser()` lives inside the
+  `page.tsx` shells per the PR-AUTH-7 lint carve-out.
+- "Help with the apps you use" cards now stretch to equal height per grid
+  row (short descriptions no longer render ragged cards).
+
 ## Structural fix folded in
 
 HELP-CENTER-1's outcome doc had pushed `docs/slices/phase-5/` to 51 files
