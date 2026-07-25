@@ -3,6 +3,12 @@
 import type { ReactNode } from "react";
 import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
 import { formatInsightValue } from "./formatInsightValue";
+import {
+  computeInsightChange,
+  describeInsightChange,
+  formatChangeAbsolute,
+  formatChangePercent,
+} from "./insightCompare";
 
 /**
  * The user-SELECTABLE table display (CD-3B).
@@ -56,14 +62,28 @@ export function InsightTableChart({
             </td>
           </tr>
           {result.compare && (
-            <tr className="border-t border-border">
-              <th scope="row" className="px-2 py-1 text-left font-normal text-muted-foreground">
-                Previous period
-              </th>
-              <td className="px-2 py-1 text-right font-mono text-muted-foreground">
-                {formatInsightValue(result.compare.previousValue, valueMeta)}
-              </td>
-            </tr>
+            <>
+              <tr className="border-t border-border">
+                <th scope="row" className="px-2 py-1 text-left font-normal text-muted-foreground">
+                  Previous period
+                </th>
+                <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                  {formatInsightValue(result.compare.previousValue, valueMeta)}
+                </td>
+              </tr>
+              <tr className="border-t border-border">
+                <th scope="row" className="px-2 py-1 text-left font-normal text-muted-foreground">
+                  Change
+                </th>
+                <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                  {describeInsightChange(
+                    result.value ?? null,
+                    result.compare.previousValue,
+                    valueMeta,
+                  )}
+                </td>
+              </tr>
+            </>
           )}
         </tbody>
       </TableFrame>
@@ -74,6 +94,10 @@ export function InsightTableChart({
     const buckets = result.buckets ?? [];
     const series = result.series ?? [];
     if (buckets.length === 0 || series.length === 0) return <TableEmpty />;
+    // Change columns need ONE unambiguous current value per row. Comparison is
+    // only ever offered for a single-series time chart, so anything wider is a
+    // shape we refuse to compute a change against rather than guess (CD-5A).
+    const showChange = result.compareSeries != null && series.length === 1;
     return (
       <TableFrame caption={caption}>
         <thead className="sticky top-0 bg-muted">
@@ -91,9 +115,30 @@ export function InsightTableChart({
               </th>
             ))}
             {result.compareSeries && (
-              <th scope="col" className="px-2 py-1.5 text-right font-medium text-muted-foreground">
-                Previous period
-              </th>
+              <>
+                <th
+                  scope="col"
+                  className="px-2 py-1.5 text-right font-medium text-muted-foreground"
+                >
+                  Previous period
+                </th>
+                {showChange && (
+                  <>
+                    <th
+                      scope="col"
+                      className="px-2 py-1.5 text-right font-medium text-muted-foreground"
+                    >
+                      Change
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-2 py-1.5 text-right font-medium text-muted-foreground"
+                    >
+                      Change %
+                    </th>
+                  </>
+                )}
+              </>
             )}
           </tr>
         </thead>
@@ -108,11 +153,30 @@ export function InsightTableChart({
                   {formatInsightValue(s.values[i] ?? null, valueMeta)}
                 </td>
               ))}
-              {result.compareSeries && (
-                <td className="px-2 py-1 text-right font-mono text-muted-foreground">
-                  {formatInsightValue(result.compareSeries.values[i] ?? null, valueMeta)}
-                </td>
-              )}
+              {result.compareSeries &&
+                (() => {
+                  const previous = result.compareSeries.values[i] ?? null;
+                  const change = showChange
+                    ? computeInsightChange(series[0]?.values[i] ?? null, previous)
+                    : null;
+                  return (
+                    <>
+                      <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                        {formatInsightValue(previous, valueMeta)}
+                      </td>
+                      {change && (
+                        <>
+                          <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                            {formatChangeAbsolute(change.absolute, valueMeta) || "—"}
+                          </td>
+                          <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                            {formatChangePercent(change.percent) || "—"}
+                          </td>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
             </tr>
           ))}
         </tbody>

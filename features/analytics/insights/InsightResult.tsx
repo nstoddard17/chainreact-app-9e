@@ -11,6 +11,20 @@ import { InsightDonutChart } from "./InsightDonutChart";
 import { InsightDataTable } from "./InsightDataTable";
 import { InsightCompletenessBadge, InsightFreshness, InsightMessage } from "./InsightStates";
 import type { InsightFailure } from "./useInsightQuery";
+import { describeWindow } from "@/core/analytics/insightRange";
+
+/**
+ * Read a resolved `[from, to)` ISO window back as inclusive calendar days.
+ * Returns null when absent or unparseable — the UI simply omits the line
+ * rather than printing a broken date.
+ */
+function describeIsoWindow(range: { from: string; to: string } | null): string | null {
+  if (!range) return null;
+  const fromMs = Date.parse(range.from);
+  const toMs = Date.parse(range.to);
+  if (Number.isNaN(fromMs) || Number.isNaN(toMs) || toMs <= fromMs) return null;
+  return describeWindow(fromMs, toMs);
+}
 
 /**
  * The one successful-result renderer for Custom Insights (CD-3A; CD-3B added
@@ -55,17 +69,32 @@ export function InsightResult({
   const effectiveChart: InsightChartType =
     chart ?? (isTimeSeries ? "line" : isCategorical ? "table" : "kpi");
 
-  const summary = isTimeSeries
-    ? `${result.measure.label} by ${result.grain ?? "period"}${
-        buckets.length > 0
-          ? ` from ${buckets[0]!.label} to ${buckets[buckets.length - 1]!.label}`
-          : ""
-      }${series.length > 1 ? `, ${series.length} lines` : ""} — ${attribution}.`
-    : isCategorical
-      ? `${result.measure.label} by ${result.dimension ?? "group"}, ${rows.length} group${
-          rows.length === 1 ? "" : "s"
-        } — ${attribution}.`
-      : `${result.measure.label} — ${attribution}.`;
+  // The dates this result actually covers. The engine works in half-open UTC
+  // windows; these read them back as inclusive calendar days (CD-5A), so the
+  // chart states its own period instead of leaving the user to infer it.
+  const rangeLabel = describeIsoWindow(result.range);
+  const previousRangeLabel = describeIsoWindow(
+    result.compare?.previousRange ?? result.compareSeries?.previousRange ?? null,
+  );
+
+  const periodSentence = rangeLabel
+    ? ` Covering ${rangeLabel} UTC.${
+        previousRangeLabel ? ` Compared with ${previousRangeLabel}.` : ""
+      }`
+    : "";
+
+  const summary =
+    (isTimeSeries
+      ? `${result.measure.label} by ${result.grain ?? "period"}${
+          buckets.length > 0
+            ? ` from ${buckets[0]!.label} to ${buckets[buckets.length - 1]!.label}`
+            : ""
+        }${series.length > 1 ? `, ${series.length} lines` : ""} — ${attribution}.`
+      : isCategorical
+        ? `${result.measure.label} by ${result.dimension ?? "group"}, ${rows.length} group${
+            rows.length === 1 ? "" : "s"
+          } — ${attribution}.`
+        : `${result.measure.label} — ${attribution}.`) + periodSentence;
 
   // Bar + accessible-table inputs, normalized from whichever shape came back.
   const barGroups: InsightBarGroup[] = isTimeSeries
@@ -129,11 +158,19 @@ export function InsightResult({
             valueMeta={result.valueMeta}
             ariaLabel={summary}
             isTime={isTimeSeries}
+            compareValues={isTimeSeries ? (result.compareSeries?.values ?? null) : null}
           />
         ) : (
           <InsightDonutChart result={result} ariaLabel={summary} />
         )}
       </div>
+
+      {rangeLabel && (
+        <p className="text-[10.5px] text-muted-foreground" role="note">
+          {rangeLabel} (UTC)
+          {previousRangeLabel ? ` · vs ${previousRangeLabel}` : ""}
+        </p>
+      )}
 
       {isGraphical && hasGraphicalData && (
         <button

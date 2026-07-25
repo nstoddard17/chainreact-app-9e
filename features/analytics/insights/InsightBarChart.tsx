@@ -39,6 +39,16 @@ export interface InsightBarSeries {
 
 const MIN_BAR_PX = 3;
 
+/**
+ * Previous-period bars are muted AND hatched — never color alone, so the two
+ * periods stay separable in greyscale and for color-blind readers. Matches the
+ * line chart's dashed-and-muted treatment.
+ */
+const COMPARE_COLOR = "hsl(var(--muted-foreground))";
+const COMPARE_FILL =
+  "repeating-linear-gradient(135deg, hsl(var(--muted-foreground)) 0 3px, transparent 3px 6px)";
+const COMPARE_LABEL = "Previous period";
+
 function useMeasuredWidth(fallback: number): [RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(fallback);
@@ -76,14 +86,23 @@ export function InsightBarChart({
   valueMeta,
   ariaLabel,
   isTime = false,
+  compareValues = null,
 }: {
   groups: readonly InsightBarGroup[];
   series: readonly InsightBarSeries[];
   valueMeta: ConnectedValueMeta;
   ariaLabel: string;
   isTime?: boolean;
+  /**
+   * Previous-period values, index-aligned to `groups` (CD-5A). Only ever
+   * supplied for a single-series TIME chart — the only shape the result
+   * contract carries a comparison for — so each group gets one paired bar.
+   * Categorical results have no previous value per row and never pass this.
+   */
+  compareValues?: readonly (number | null)[] | null;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const [compareHidden, setCompareHidden] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [wrapRef, width] = useMeasuredWidth(560);
 
@@ -94,12 +113,17 @@ export function InsightBarChart({
     isTime,
   );
 
+  const showCompare = compareValues != null && !compareHidden;
+
   let max = 0;
   for (const g of groups) {
     for (const i of visibleSeriesIdx) {
       const v = g.values[i];
       if (v != null && v > max) max = v;
     }
+  }
+  if (showCompare) {
+    for (const v of compareValues) if (v != null && v > max) max = v;
   }
   const scaleMax = max > 0 ? max : 1;
 
@@ -111,7 +135,11 @@ export function InsightBarChart({
             (i) =>
               `${series[i]!.label} ${formatInsightValue(groups[active]!.values[i] ?? null, valueMeta)}`,
           )
-          .join(", ")}`
+          .join(", ")}${
+          showCompare
+            ? `, previous period ${formatInsightValue(compareValues[active] ?? null, valueMeta)}`
+            : ""
+        }`
       : "";
 
   const move = (delta: number) =>
@@ -121,7 +149,7 @@ export function InsightBarChart({
       return Math.min(groups.length - 1, Math.max(0, base + delta));
     });
 
-  const showLegend = series.length >= 2;
+  const showLegend = series.length >= 2 || compareValues != null;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1" ref={wrapRef}>
@@ -192,6 +220,29 @@ export function InsightBarChart({
                       </div>
                     );
                   })}
+                  {showCompare &&
+                    (() => {
+                      const pv = compareValues[gi] ?? null;
+                      return (
+                        <div className="flex items-center gap-1.5" title={COMPARE_LABEL}>
+                          <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                            {pv != null && (
+                              <div
+                                className="h-full rounded-full motion-reduce:transition-none"
+                                style={{
+                                  width: `max(${MIN_BAR_PX}px, ${(pv / scaleMax) * 100}%)`,
+                                  background: COMPARE_FILL,
+                                }}
+                                data-testid={`insight-bar-compare-${g.id}`}
+                              />
+                            )}
+                          </div>
+                          <span className="min-w-[46px] shrink-0 text-right font-mono text-[10.5px] text-muted-foreground">
+                            {formatInsightValue(pv, valueMeta)}
+                          </span>
+                        </div>
+                      );
+                    })()}
                 </div>
               </div>
             ))}
@@ -212,7 +263,7 @@ export function InsightBarChart({
                 {/* Direct value label — only for a single series, where it
                     can't crowd; grouped bars rely on the tooltip, keyboard
                     announcements, and the accessible table instead. */}
-                {series.length === 1 && (
+                {series.length === 1 && !showCompare && (
                   <div className="mb-0.5 truncate text-center font-mono text-[9.5px] text-foreground">
                     {formatInsightValue(g.values[0] ?? null, valueMeta)}
                   </div>
@@ -239,6 +290,27 @@ export function InsightBarChart({
                       </div>
                     );
                   })}
+                  {showCompare &&
+                    (() => {
+                      const pv = compareValues[gi] ?? null;
+                      return (
+                        <div
+                          className="flex h-full min-w-[3px] flex-1 items-end"
+                          title={`${COMPARE_LABEL}: ${formatInsightValue(pv, valueMeta)}`}
+                        >
+                          {pv != null && (
+                            <div
+                              className="w-full rounded-t-[3px] motion-reduce:transition-none"
+                              style={{
+                                height: `max(${MIN_BAR_PX}px, ${(pv / scaleMax) * 100}%)`,
+                                background: COMPARE_FILL,
+                              }}
+                              data-testid={`insight-bar-compare-${g.id}`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
                 </div>
                 <div
                   className="absolute -bottom-5 left-0 right-0 truncate text-center text-[9.5px] text-muted-foreground"
@@ -265,12 +337,25 @@ export function InsightBarChart({
                 style={{ background: insightSeriesColor(si) }}
                 aria-hidden
               />
-              {series.length > 1 ? `${series[si]!.label}: ` : ""}
+              {series.length > 1 || showCompare ? `${series[si]!.label}: ` : ""}
               <span className="font-mono text-foreground">
                 {formatInsightValue(groups[active]!.values[si] ?? null, valueMeta)}
               </span>
             </span>
           ))}
+          {showCompare && (
+            <span className="ml-2 text-muted-foreground">
+              <span
+                className="mr-1 inline-block h-2 w-2 rounded-full align-middle"
+                style={{ background: COMPARE_FILL }}
+                aria-hidden
+              />
+              {`${COMPARE_LABEL}: `}
+              <span className="font-mono text-foreground">
+                {formatInsightValue(compareValues[active] ?? null, valueMeta)}
+              </span>
+            </span>
+          )}
         </div>
       )}
       <span className="sr-only" role="status" aria-live="polite">
@@ -310,6 +395,28 @@ export function InsightBarChart({
               </button>
             );
           })}
+          {compareValues != null && (
+            <button
+              type="button"
+              role="listitem"
+              aria-pressed={!compareHidden}
+              className={
+                "inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-muted " +
+                (compareHidden
+                  ? "text-muted-foreground/50 line-through"
+                  : "text-muted-foreground")
+              }
+              onClick={() => setCompareHidden((v) => !v)}
+              title={compareHidden ? `Show ${COMPARE_LABEL}` : `Hide ${COMPARE_LABEL}`}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: COMPARE_FILL, opacity: compareHidden ? 0.35 : 1 }}
+                aria-hidden
+              />
+              <span className="max-w-[140px] truncate">{COMPARE_LABEL}</span>
+            </button>
+          )}
         </div>
       )}
     </div>

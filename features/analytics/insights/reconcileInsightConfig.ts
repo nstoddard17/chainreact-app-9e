@@ -413,6 +413,15 @@ export function reconcileInsightDraft(
       field: "compare",
       message: "Period comparison works on a single number or a single-line chart.",
     });
+  } else if (next.compare && next.chart === "donut") {
+    // A donut shows one period's parts against their own whole; drawing two
+    // periods in one ring would misstate every share. The grouping and filters
+    // stay exactly as they were — only the comparison is dropped (CD-5A).
+    next.compare = false;
+    resets.push({
+      field: "compare",
+      message: "A donut shows a single period — the previous-period comparison was turned off.",
+    });
   }
 
   return { draft: next, resets };
