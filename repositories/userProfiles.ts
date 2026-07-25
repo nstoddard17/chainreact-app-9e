@@ -1,6 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import {
+  DefaultBuilderViewSchema,
+  type DefaultBuilderView,
+} from "@/contracts/builderViewPreference";
+import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationPreferences,
 } from "@/contracts/notificationPreferences";
@@ -113,6 +117,49 @@ export async function updateNotificationPreferences(
     throw new Error(
       `user_profiles.updateNotificationPreferences failed: ${error.message}`,
     );
+  }
+}
+
+/**
+ * Read the caller's OWN default builder view (BUILDER-VIEW-DEFAULT-1). Session
+ * client — `user_profiles_select_own` gates on `auth.uid() = id`. `null`
+ * (column default, or absent row) means "no default chosen — ask on a newly
+ * created workflow".
+ */
+export async function getDefaultBuilderView(
+  userId: string,
+): Promise<DefaultBuilderView> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("default_builder_view")
+    .eq("id", userId)
+    .maybeSingle<{ default_builder_view: string | null }>();
+  if (error) {
+    throw new Error(`user_profiles.getDefaultBuilderView failed: ${error.message}`);
+  }
+  const parsed = DefaultBuilderViewSchema.safeParse(data?.default_builder_view ?? null);
+  // Fail-safe: an unexpected stored value (shouldn't happen — CHECK-constrained)
+  // reads as "no default" rather than crashing the builder route.
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * Set (or clear, with null) the caller's OWN default builder view
+ * (BUILDER-VIEW-DEFAULT-1). Session client — `user_profiles_update_own` gates
+ * on `auth.uid() = id`, so a caller can only ever write their own row.
+ */
+export async function updateDefaultBuilderView(
+  userId: string,
+  view: DefaultBuilderView,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({ default_builder_view: view })
+    .eq("id", userId);
+  if (error) {
+    throw new Error(`user_profiles.updateDefaultBuilderView failed: ${error.message}`);
   }
 }
 

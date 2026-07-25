@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/features/team/Panel";
 import { SettingRow } from "@/features/team/SettingRow";
 import { RoleBadge } from "@/features/team/RoleBadge";
+import { DefaultBuilderViewControl } from "./DefaultBuilderViewControl";
 
 /**
  * Profile basics section (Slice 4.ACCOUNT-SETTINGS-3).
@@ -29,9 +30,20 @@ interface Props {
   email: string;
   role: AccountSummary["role"] | null;
   initialDisplayName: string | null;
+  /**
+   * BUILDER-VIEW-DEFAULT-1 — server-resolved ENABLE_DOCUMENT_BUILDER. The
+   * default-builder-view preference renders only when two views exist to
+   * choose between; flag off keeps this section byte-identical.
+   */
+  builderViewPreferenceEnabled?: boolean;
 }
 
-export function ProfileSection({ email, role, initialDisplayName }: Props) {
+export function ProfileSection({
+  email,
+  role,
+  initialDisplayName,
+  builderViewPreferenceEnabled,
+}: Props) {
   const [value, setValue] = useState(initialDisplayName ?? "");
   // Canonical stored value ("" when null) — drives the dirty check.
   const [baseline, setBaseline] = useState(initialDisplayName ?? "");
@@ -127,6 +139,16 @@ export function ProfileSection({ email, role, initialDisplayName }: Props) {
         {role && (
           <SettingRow label="Role on this account">
             <RoleBadge role={role} />
+          </SettingRow>
+        )}
+
+        {builderViewPreferenceEnabled && (
+          <SettingRow
+            label="Default builder view"
+            desc="How the workflow builder opens for you. 'Ask each time' shows a one-time choice on each new workflow."
+            stacked
+          >
+            <DefaultBuilderViewControl />
           </SettingRow>
         )}
 

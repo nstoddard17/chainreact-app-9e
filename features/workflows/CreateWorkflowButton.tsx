@@ -34,7 +34,9 @@ export function CreateWorkflowButton() {
       // on return) and the builder loads the fresh create-time detail rather than
       // a cached one.
       router.refresh();
-      router.push(`/workflows/${created.id}`);
+      // BUILDER-VIEW-DEFAULT-1 — one-shot creation marker: the builder may show
+      // the view chooser (flag on + no saved default), then strips the param.
+      router.push(`/workflows/${created.id}?created=1`);
     } catch (err) {
       const message =
         err instanceof WorkflowApiError

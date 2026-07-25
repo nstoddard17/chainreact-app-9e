@@ -1191,7 +1191,7 @@ describe("WorkflowGuidancePanel — Preview → Use flow (REACT-AGENT-TEMPLATE-M
     mockUseTemplate.mockResolvedValue({ workflowId: "wf-77", name: "Support escalation from email" });
     await user.click(screen.getByTestId("guidance-template-preview-cta"));
     await user.click(screen.getByTestId("guidance-template-preview-use"));
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/workflows/wf-77"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/workflows/wf-77?created=1"));
     expect(mockUseTemplate).toHaveBeenCalledTimes(1);
     expect(mockUseTemplate).toHaveBeenCalledWith("c0ffee00-0000-4000-8000-00000000004e", { targetAccountId: "acct-1" });
   });

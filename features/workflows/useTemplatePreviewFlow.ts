@@ -94,7 +94,8 @@ export function useTemplatePreviewFlow(
         targetAccountId: accountId,
       });
       // Success → navigate to the created workflow (same as the marketplace dashboard). Keep `busy`.
-      router.push(`/workflows/${workflowId}`);
+      // BUILDER-VIEW-DEFAULT-1 — one-shot creation marker (view chooser).
+      router.push(`/workflows/${workflowId}?created=1`);
     } catch (err) {
       setError(
         err instanceof TemplateApiError

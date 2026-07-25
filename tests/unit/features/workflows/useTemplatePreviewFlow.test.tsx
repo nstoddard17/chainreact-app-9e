@@ -62,7 +62,7 @@ describe("useTemplatePreviewFlow", () => {
     });
     expect(mockUseTemplate).toHaveBeenCalledTimes(1);
     expect(mockUseTemplate).toHaveBeenCalledWith("tpl-42", { targetAccountId: "acct-1" });
-    expect(mockPush).toHaveBeenCalledWith("/workflows/wf-99");
+    expect(mockPush).toHaveBeenCalledWith("/workflows/wf-99?created=1");
     expect(result.current.error).toBeNull();
   });
 

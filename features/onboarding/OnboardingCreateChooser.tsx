@@ -31,7 +31,8 @@ export function OnboardingCreateChooser() {
     setError(null);
     try {
       const created = await createWorkflow({ name: "My first workflow" });
-      router.push(`/workflows/${created.id}`);
+      // BUILDER-VIEW-DEFAULT-1 — one-shot creation marker (view chooser).
+      router.push(`/workflows/${created.id}?created=1`);
     } catch (err) {
       setError(
         err instanceof WorkflowApiError

@@ -4,7 +4,7 @@ import { listProviders, providerIconUrl } from "@/integrations/_registry";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as accountsRepo from "@/repositories/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
-import { getActiveAccountId } from "@/repositories/userProfiles";
+import { getActiveAccountId, getDefaultBuilderView } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
 import { resolveAdvancedBranchingEntitlement } from "@/services/billing/advancedBranchingEntitlement";
@@ -21,7 +21,7 @@ import type { BuilderTeamContextValue } from "@/features/workflow-builder/contex
 
 interface Props {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ focus?: string | string[] }>;
+  searchParams?: Promise<{ focus?: string | string[]; created?: string | string[] }>;
 }
 
 /** 5.ONBOARD-1 Batch 3 — validated `?focus=` deep-link targets. Anything else
@@ -65,10 +65,25 @@ export default async function WorkflowDetailPage({ params, searchParams }: Props
   if (!user) redirect("/auth/sign-in");
 
   const { id } = await params;
-  const initialFocus = parseFocus((await searchParams)?.focus);
+  const resolvedSearchParams = await searchParams;
+  const initialFocus = parseFocus(resolvedSearchParams?.focus);
+  // BUILDER-VIEW-DEFAULT-1 — one-shot creation marker from the creation flows
+  // (?created=1). Anything else is ignored; the client strips it after mount.
+  const createdRaw = resolvedSearchParams?.created;
+  const justCreated = (Array.isArray(createdRaw) ? createdRaw[0] : createdRaw) === "1";
   const record = await workflowsRepo.getById(id);
   // Soft-deleted workflows are 404 — same contract as GET /api/workflows/[id].
   if (!record || record.state === "deleted") notFound();
+
+  // BUILDER-VIEW-DEFAULT-1 — the user's saved default builder view. Best-effort:
+  // a read failure degrades to "no default" (the chooser may ask once more),
+  // never a broken builder page.
+  let defaultBuilderView: Awaited<ReturnType<typeof getDefaultBuilderView>> = null;
+  try {
+    defaultBuilderView = await getDefaultBuilderView(user.id);
+  } catch {
+    defaultBuilderView = null;
+  }
 
   const workflow = {
     id: record.id,
@@ -214,6 +229,10 @@ export default async function WorkflowDetailPage({ params, searchParams }: Props
         // the read-only Document view toggle. No NEXT_PUBLIC_*; flag OFF keeps
         // the builder byte-identical to today.
         documentBuilderEnabled={isDocumentBuilderEnabled()}
+        // BUILDER-VIEW-DEFAULT-1 — the user's saved default view (null = ask on
+        // a just-created workflow) + the one-shot creation marker.
+        defaultBuilderView={defaultBuilderView}
+        justCreated={justCreated}
         {...(initialFocus ? { initialFocus } : {})}
         {...(teamContext ? { teamContext } : {})}
       />

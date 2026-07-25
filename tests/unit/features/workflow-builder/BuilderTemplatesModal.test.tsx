@@ -116,7 +116,7 @@ describe("BuilderTemplatesModal — create new workflow", () => {
     // Confirming creates + navigates.
     await user.click(screen.getByTestId("builder-templates-create-confirm-button"));
     await waitFor(() => expect(api.createWorkflowFromTemplateForCurrent).toHaveBeenCalledWith(WF, "tpl-1"));
-    expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new");
+    expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new?created=1");
     // Create must not have replaced the current workflow.
     expect(api.replaceCurrentWorkflowFromTemplate).not.toHaveBeenCalled();
   });

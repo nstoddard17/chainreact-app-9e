@@ -129,7 +129,9 @@ export function AnonymousDraftRestorer({ reason }: { reason?: AnonGateReason }) 
       clearAnonDraft();
       clearRestoreTarget();
       router.refresh();
-      router.replace(`/workflows/${targetId}`);
+      // BUILDER-VIEW-DEFAULT-1 — the restored draft IS a newly created
+      // workflow; the one-shot marker lets the builder offer the view chooser.
+      router.replace(`/workflows/${targetId}?created=1`);
     } catch (err) {
       runningRef.current = false;
       setStatus("error");

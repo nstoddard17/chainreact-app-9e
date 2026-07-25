@@ -29,7 +29,7 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { WorkflowCanvas } from "@/features/workflow-builder/canvas/WorkflowCanvas";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";

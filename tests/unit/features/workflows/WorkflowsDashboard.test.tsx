@@ -336,7 +336,7 @@ describe("WorkflowsDashboard — Create CTA + Open navigation", () => {
       expect(mockCreate).toHaveBeenCalledWith({ name: "New automation" }),
     );
     await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new"),
+      expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new?created=1"),
     );
   });
 
