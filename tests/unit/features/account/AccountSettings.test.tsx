@@ -16,17 +16,37 @@ import type { AccountSummary } from "@/lib/api/accounts";
 
 const mockRequest = jest.fn();
 const mockCancel = jest.fn();
+const mockSendCode = jest.fn();
+const mockVerifyCode = jest.fn();
 const mockUpdateDisplayName = jest.fn();
 jest.mock("@/lib/api/accounts", () => {
+  // Mirrors the real signature (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1): the
+  // optional payload is one `extra` object, not positional arguments.
   class AccountDeletionError extends Error {
     code: string;
     status: number;
     ownedAccounts?: unknown;
-    constructor(message: string, code = "UNKNOWN", status = 500, ownedAccounts?: unknown) {
+    deletionState?: unknown;
+    retryAfterSeconds?: number;
+    attemptsRemaining?: number;
+    constructor(
+      message: string,
+      code = "UNKNOWN",
+      status = 500,
+      extra: {
+        ownedAccounts?: unknown;
+        deletionState?: unknown;
+        retryAfterSeconds?: number;
+        attemptsRemaining?: number;
+      } = {},
+    ) {
       super(message);
       this.code = code;
       this.status = status;
-      this.ownedAccounts = ownedAccounts;
+      this.ownedAccounts = extra.ownedAccounts;
+      this.deletionState = extra.deletionState;
+      this.retryAfterSeconds = extra.retryAfterSeconds;
+      this.attemptsRemaining = extra.attemptsRemaining;
     }
   }
   class AccountApiError extends Error {
@@ -43,6 +63,14 @@ jest.mock("@/lib/api/accounts", () => {
     AccountApiError,
     requestAccountDeletion: (...a: unknown[]) => mockRequest(...a),
     cancelAccountDeletion: (...a: unknown[]) => mockCancel(...a),
+    sendAccountDeletionCode: (...a: unknown[]) => mockSendCode(...a),
+    verifyAccountDeletionCode: (...a: unknown[]) => mockVerifyCode(...a),
+    retryAccountDeletionBilling: jest.fn().mockResolvedValue({
+      deletionStatus: "pending_deletion",
+      requestedAt: null,
+      purgeAfter: null,
+      billingCancellation: "canceled",
+    }),
     updateDisplayName: (...a: unknown[]) => mockUpdateDisplayName(...a),
     changePassword: jest.fn().mockResolvedValue(undefined),
     getNotificationPreferences: jest.fn().mockResolvedValue({
@@ -125,6 +153,16 @@ function renderSettings(overrides: Overrides = {}) {
 beforeEach(() => {
   mockRequest.mockReset();
   mockCancel.mockReset();
+  mockSendCode.mockReset().mockResolvedValue({
+    maskedEmail: "c••••••••@gmail.com",
+    expiresAt: "2026-06-05T00:10:00Z",
+    resendAvailableAt: "2026-06-05T00:01:00Z",
+    codeLength: 6,
+    maxAttempts: 5,
+  });
+  mockVerifyCode
+    .mockReset()
+    .mockResolvedValue({ authorizationExpiresAt: "2026-06-05T00:06:00Z" });
 });
 
 describe("AccountSettings — settings shell + nav", () => {
@@ -271,15 +309,40 @@ describe("AccountSettings — Danger zone (deletion preserved)", () => {
     return renderSettings({ initialSection: "danger-zone", ...overrides });
   }
 
-  it("requires the typed phrase and a password before the confirm enables", async () => {
+  /** Walk the universal flow up to (and including) the final confirm. */
+  async function completeDeletionFlow(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTestId("account-delete-open"));
+    await user.click(screen.getByTestId("account-delete-send-code"));
+    await user.type(await screen.findByTestId("account-delete-code-input"), "123456");
+    await user.click(screen.getByTestId("account-delete-verify-code"));
+    await user.type(await screen.findByTestId("account-delete-confirm-input"), "DELETE");
+    await user.click(screen.getByTestId("account-delete-confirm"));
+  }
+
+  it("never shows a password field — the step-up is an emailed code for every provider", async () => {
     const user = userEvent.setup();
     renderDanger();
     await user.click(screen.getByTestId("account-delete-open"));
+    expect(screen.queryByTestId("account-delete-password")).toBeNull();
+    expect(screen.queryByLabelText(/password/i)).toBeNull();
+    expect(screen.getByTestId("account-delete-send-code")).toBeInTheDocument();
+  });
+
+  it("requires the exact typed DELETE (after the code) before the confirm enables", async () => {
+    const user = userEvent.setup();
+    renderDanger();
+    await user.click(screen.getByTestId("account-delete-open"));
+    await user.click(screen.getByTestId("account-delete-send-code"));
+    await user.type(await screen.findByTestId("account-delete-code-input"), "123456");
+    await user.click(screen.getByTestId("account-delete-verify-code"));
+
+    const input = await screen.findByTestId("account-delete-confirm-input");
     const confirm = screen.getByTestId("account-delete-confirm");
     expect(confirm).toBeDisabled();
-    await user.type(screen.getByTestId("account-delete-password"), "hunter2");
+    await user.type(input, "delete my account");
     expect(confirm).toBeDisabled();
-    await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
+    await user.clear(input);
+    await user.type(input, "DELETE");
     expect(confirm).toBeEnabled();
   });
 
@@ -291,13 +354,10 @@ describe("AccountSettings — Danger zone (deletion preserved)", () => {
     });
     const user = userEvent.setup();
     renderDanger();
-    await user.click(screen.getByTestId("account-delete-open"));
-    await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
-    await user.type(screen.getByTestId("account-delete-password"), "pw");
-    await user.click(screen.getByTestId("account-delete-confirm"));
+    await completeDeletionFlow(user);
 
     await waitFor(() =>
-      expect(mockRequest).toHaveBeenCalledWith({ password: "pw", confirmText: "delete my account" }),
+      expect(mockRequest).toHaveBeenCalledWith({ confirmText: "DELETE" }),
     );
     const pending = await screen.findByTestId("account-deletion-pending");
     expect(pending).toHaveTextContent(/pending deletion/i);
@@ -322,21 +382,47 @@ describe("AccountSettings — Danger zone (deletion preserved)", () => {
     expect(screen.queryByTestId("account-deletion-pending")).toBeNull();
   });
 
-  it("renders the request re-auth error inline and keeps the form open", async () => {
-    mockRequest.mockRejectedValue(
-      new AccountDeletionError("Password confirmation failed.", "REAUTH_FAILED", 401),
+  it("renders a wrong-code error inline (with attempts left) and keeps the form open", async () => {
+    mockVerifyCode.mockRejectedValue(
+      new AccountDeletionError(
+        "That code isn't right. Check the email and try again.",
+        "INVALID_CODE",
+        400,
+        { attemptsRemaining: 4 },
+      ),
     );
     const user = userEvent.setup();
     renderDanger();
     await user.click(screen.getByTestId("account-delete-open"));
-    await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
-    await user.type(screen.getByTestId("account-delete-password"), "wrong");
-    await user.click(screen.getByTestId("account-delete-confirm"));
+    await user.click(screen.getByTestId("account-delete-send-code"));
+    await user.type(await screen.findByTestId("account-delete-code-input"), "000000");
+    await user.click(screen.getByTestId("account-delete-verify-code"));
 
     expect(await screen.findByTestId("account-deletion-error")).toHaveTextContent(
-      /password confirmation failed/i,
+      /that code isn't right/i,
     );
     expect(screen.getByTestId("account-delete-form")).toBeInTheDocument();
+    // A failed verification never reaches the destructive request.
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
+  it("renders a missing/spent authorization as VERIFICATION_REQUIRED and restarts at send", async () => {
+    mockRequest.mockRejectedValue(
+      new AccountDeletionError(
+        "Verify a code sent to your email before deleting your account.",
+        "VERIFICATION_REQUIRED",
+        401,
+      ),
+    );
+    const user = userEvent.setup();
+    renderDanger();
+    await completeDeletionFlow(user);
+
+    expect(await screen.findByTestId("account-deletion-error")).toHaveTextContent(
+      /verify a code sent to your email/i,
+    );
+    // Back to step 1 — the spent authorization cannot be reused.
+    expect(screen.getByTestId("account-delete-send-code")).toBeInTheDocument();
   });
 
   it("renders the owned Team/Business blocker with Business label + Team link", async () => {
@@ -345,18 +431,17 @@ describe("AccountSettings — Danger zone (deletion preserved)", () => {
         "Transfer ownership or delete the Team/Business accounts you own…",
         "ACCOUNT_HAS_OWNED_TEAMS",
         409,
-        [
-          { id: "t1", name: "Acme Team", type: "team", typeLabel: "Team" },
-          { id: "o1", name: "Acme Biz", type: "organization", typeLabel: "Business" },
-        ],
+        {
+          ownedAccounts: [
+            { id: "t1", name: "Acme Team", type: "team", typeLabel: "Team" },
+            { id: "o1", name: "Acme Biz", type: "organization", typeLabel: "Business" },
+          ],
+        },
       ),
     );
     const user = userEvent.setup();
     renderDanger();
-    await user.click(screen.getByTestId("account-delete-open"));
-    await user.type(screen.getByTestId("account-delete-confirm-input"), "delete my account");
-    await user.type(screen.getByTestId("account-delete-password"), "pw");
-    await user.click(screen.getByTestId("account-delete-confirm"));
+    await completeDeletionFlow(user);
 
     const blocked = await screen.findByTestId("account-deletion-blocked");
     expect(blocked).toHaveTextContent(/transfer ownership or delete these accounts/i);

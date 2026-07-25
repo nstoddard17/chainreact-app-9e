@@ -399,9 +399,38 @@ export async function updateDefaultBuilderView(
 /** Backend error codes for the deletion lifecycle routes. */
 export type AccountDeletionErrorCode =
   | "ACCOUNT_HAS_OWNED_TEAMS"
-  | "REAUTH_FAILED"
+  /**
+   * The final deletion request arrived without a live, verified, session-bound
+   * email authorization (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1) — it was
+   * never verified, it expired, or it was already spent. Deliberately one code:
+   * the backend never tells the client which.
+   */
+  | "VERIFICATION_REQUIRED"
   | "INVALID_CONFIRMATION"
   | "ACCOUNT_PENDING_DELETION"
+  /** MFA is enrolled but this session is still AAL1 — step up, then retry. */
+  | "MFA_REQUIRED"
+  /** The challenge subsystem is unavailable (missing server key / email transport). */
+  | "VERIFICATION_UNAVAILABLE"
+  /** No usable session id to bind a challenge to — sign out and back in. */
+  | "SESSION_UNAVAILABLE"
+  // ── Verification-code lifecycle ─────────────────────────────────────────────
+  /** Resend requested inside the throttle window; `retryAfterSeconds` is set. */
+  | "RESEND_TOO_SOON"
+  /** The durable per-user send cap for this purpose is exhausted. */
+  | "SEND_LIMIT_REACHED"
+  /** The account has no confirmed address to send a code to (fail-closed). */
+  | "NO_VERIFIED_EMAIL"
+  /** The transactional-email transport did not accept the message. */
+  | "EMAIL_UNAVAILABLE"
+  /** Wrong code; `attemptsRemaining` is set. */
+  | "INVALID_CODE"
+  | "CODE_EXPIRED"
+  | "TOO_MANY_ATTEMPTS"
+  /** No live challenge for this user+session+purpose — send a new code. */
+  | "NO_ACTIVE_CODE"
+  /** Billing retry attempted on an account that isn't pending deletion. */
+  | "NOT_PENDING_DELETION"
   /**
    * ACCOUNT-BILLING-LIFECYCLE-1 — the deletion request DID freeze the account, but the
    * ChainReact subscription could not be cancelled. A partial success, deliberately
@@ -430,19 +459,29 @@ export class AccountDeletionError extends Error {
    * still move to the pending state while showing the billing-retry warning.
    */
   readonly deletionState?: DeletionStatusResult;
+  /** Present only for `RESEND_TOO_SOON` — seconds until a resend is allowed. */
+  readonly retryAfterSeconds?: number;
+  /** Present only for `INVALID_CODE` — guesses left before the challenge locks. */
+  readonly attemptsRemaining?: number;
   constructor(
     message: string,
     code: AccountDeletionErrorCode,
     status: number,
-    ownedAccounts?: readonly OwnedAccountSummary[],
-    deletionState?: DeletionStatusResult,
+    extra: {
+      ownedAccounts?: readonly OwnedAccountSummary[];
+      deletionState?: DeletionStatusResult;
+      retryAfterSeconds?: number;
+      attemptsRemaining?: number;
+    } = {},
   ) {
     super(message);
     this.name = "AccountDeletionError";
     this.code = code;
     this.status = status;
-    this.ownedAccounts = ownedAccounts;
-    this.deletionState = deletionState;
+    this.ownedAccounts = extra.ownedAccounts;
+    this.deletionState = extra.deletionState;
+    this.retryAfterSeconds = extra.retryAfterSeconds;
+    this.attemptsRemaining = extra.attemptsRemaining;
   }
 }
 
@@ -459,23 +498,97 @@ export interface DeletionStatusResult {
   billingCancellation?: "not_applicable" | "canceled" | "failed";
 }
 
+// ── Universal deletion verification (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1) ─
+// One flow for every auth provider — password, Google, email OTP, multi-identity.
+// The client never sends a destination address and never receives a code or a
+// challenge id: it only learns a MASKED address and the timing it needs to render
+// the resend countdown. Codes are typed into the page and posted; they are never
+// placed in a URL, stored, or logged.
+
+/** What the UI needs after a code was sent. Carries no code and no challenge id. */
+export interface DeletionCodeSentResult {
+  /** Masked destination, e.g. `c••••••••@gmail.com`. Never the full address. */
+  maskedEmail: string;
+  expiresAt: string;
+  /** Earliest time a resend is allowed — drives the countdown. */
+  resendAvailableAt: string;
+  codeLength: number;
+  maxAttempts: number;
+}
+
+/**
+ * POST /api/account/delete/verification-code — send (or resend) the deletion
+ * verification code to the VERIFIED email on the caller's auth identity. Takes no
+ * arguments by design: the server determines the destination.
+ *
+ * Throws `AccountDeletionError` — RESEND_TOO_SOON (with `retryAfterSeconds`),
+ * SEND_LIMIT_REACHED, NO_VERIFIED_EMAIL, EMAIL_UNAVAILABLE, MFA_REQUIRED, or
+ * VERIFICATION_UNAVAILABLE.
+ */
+export async function sendAccountDeletionCode(): Promise<DeletionCodeSentResult> {
+  const res = await fetch("/api/account/delete/verification-code", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) throw await parseDeletionError(res);
+  const body = (await res.json()) as { ok: true } & DeletionCodeSentResult;
+  return {
+    maskedEmail: body.maskedEmail,
+    expiresAt: body.expiresAt,
+    resendAvailableAt: body.resendAvailableAt,
+    codeLength: body.codeLength,
+    maxAttempts: body.maxAttempts,
+  };
+}
+
+/**
+ * POST /api/account/delete/verification-code/verify — check the emailed code.
+ * Success authorizes deletion for a few minutes; it deletes nothing on its own.
+ *
+ * Throws `AccountDeletionError` — INVALID_CODE (with `attemptsRemaining`),
+ * CODE_EXPIRED, TOO_MANY_ATTEMPTS, or NO_ACTIVE_CODE.
+ */
+export async function verifyAccountDeletionCode(
+  code: string,
+): Promise<{ authorizationExpiresAt: string }> {
+  const res = await fetch("/api/account/delete/verification-code/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw await parseDeletionError(res);
+  const body = (await res.json()) as { ok: true; authorizationExpiresAt: string };
+  return { authorizationExpiresAt: body.authorizationExpiresAt };
+}
+
 /**
  * POST /api/account/delete — request deletion of the caller's OWN personal
- * account. Requires the typed confirmation phrase ("delete my account") + a
- * password re-auth. Freezes the account (reversible during the grace window) and
- * returns the lifecycle state. Throws `AccountDeletionError` on failure — code
- * ACCOUNT_HAS_OWNED_TEAMS (with `ownedAccounts`), REAUTH_FAILED, or
- * INVALID_CONFIRMATION.
+ * account. Requires the exact typed word `DELETE` plus a verification code that
+ * was already verified in THIS session. NO PASSWORD, for any auth provider.
+ * Freezes the account (reversible during the grace window) and returns the
+ * lifecycle state. Throws `AccountDeletionError` — code ACCOUNT_HAS_OWNED_TEAMS
+ * (with `ownedAccounts`), VERIFICATION_REQUIRED, or INVALID_CONFIRMATION.
  */
 export async function requestAccountDeletion(input: {
-  password: string;
   confirmText: string;
 }): Promise<DeletionStatusResult> {
   const res = await fetch("/api/account/delete", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ confirmText: input.confirmText }),
   });
+  if (!res.ok) throw await parseDeletionError(res);
+  return (await res.json()) as DeletionStatusResult;
+}
+
+/**
+ * POST /api/account/delete/retry-billing — re-attempt ONLY the subscription
+ * cancellation after a partial failure. No code and no password: the account is
+ * already frozen, so there is no destructive transition left to authorize.
+ */
+export async function retryAccountDeletionBilling(): Promise<DeletionStatusResult> {
+  const res = await fetch("/api/account/delete/retry-billing", { method: "POST" });
   if (!res.ok) throw await parseDeletionError(res);
   return (await res.json()) as DeletionStatusResult;
 }
@@ -499,6 +612,8 @@ async function parseDeletionError(res: Response): Promise<AccountDeletionError> 
     deletionStatus?: string;
     requestedAt?: string | null;
     purgeAfter?: string | null;
+    retryAfterSeconds?: number;
+    attemptsRemaining?: number;
   } = {};
   try {
     body = (await res.json()) as typeof body;
@@ -524,33 +639,56 @@ async function parseDeletionError(res: Response): Promise<AccountDeletionError> 
           billingCancellation: "failed" as const,
         }
       : undefined;
-  return new AccountDeletionError(
-    message,
-    code,
-    res.status,
+  return new AccountDeletionError(message, code, res.status, {
     ownedAccounts,
     deletionState,
-  );
+    retryAfterSeconds:
+      typeof body.retryAfterSeconds === "number" ? body.retryAfterSeconds : undefined,
+    attemptsRemaining:
+      typeof body.attemptsRemaining === "number" ? body.attemptsRemaining : undefined,
+  });
 }
 
 /**
+ * Backend `code` values that map 1:1 onto a typed client code. The server is
+ * authoritative; the status fallbacks below only cover a response that carried no
+ * code at all.
+ */
+const PASSTHROUGH_DELETION_CODES = new Set<AccountDeletionErrorCode>([
+  "ACCOUNT_HAS_OWNED_TEAMS",
+  "VERIFICATION_REQUIRED",
+  "ACCOUNT_PENDING_DELETION",
+  "BILLING_CANCELLATION_FAILED",
+  "MFA_REQUIRED",
+  "VERIFICATION_UNAVAILABLE",
+  "SESSION_UNAVAILABLE",
+  "RESEND_TOO_SOON",
+  "SEND_LIMIT_REACHED",
+  "NO_VERIFIED_EMAIL",
+  "EMAIL_UNAVAILABLE",
+  "INVALID_CODE",
+  "CODE_EXPIRED",
+  "TOO_MANY_ATTEMPTS",
+  "NO_ACTIVE_CODE",
+  "NOT_PENDING_DELETION",
+]);
+
+/**
  * Map the backend `code` (authoritative) + HTTP status to a typed deletion code.
- * The backend names ACCOUNT_HAS_OWNED_TEAMS / REAUTH_FAILED explicitly; a bare
- * 400 is the Zod validation failure on the confirmation phrase / password.
+ * A bare 400 is the Zod validation failure on the typed `DELETE` confirmation; a
+ * bare 401 on the deletion routes means the email authorization was missing or
+ * spent (VERIFICATION_REQUIRED) — there is no password step any more.
  */
 function deletionCodeFor(
   serverCode: string | undefined,
   status: number,
 ): AccountDeletionErrorCode {
-  if (serverCode === "ACCOUNT_HAS_OWNED_TEAMS") return "ACCOUNT_HAS_OWNED_TEAMS";
-  if (serverCode === "REAUTH_FAILED") return "REAUTH_FAILED";
-  if (serverCode === "ACCOUNT_PENDING_DELETION") return "ACCOUNT_PENDING_DELETION";
-  if (serverCode === "BILLING_CANCELLATION_FAILED") {
-    return "BILLING_CANCELLATION_FAILED";
+  if (serverCode && PASSTHROUGH_DELETION_CODES.has(serverCode as AccountDeletionErrorCode)) {
+    return serverCode as AccountDeletionErrorCode;
   }
   if (status === 409) return "ACCOUNT_HAS_OWNED_TEAMS";
   if (status === 400) return "INVALID_CONFIRMATION";
-  if (status === 401) return "REAUTH_FAILED";
+  if (status === 401) return "VERIFICATION_REQUIRED";
   return "UNKNOWN";
 }
 

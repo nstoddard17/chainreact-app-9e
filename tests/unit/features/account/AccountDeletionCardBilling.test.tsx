@@ -1,5 +1,7 @@
 /**
  * Slice 4.ACCOUNT-BILLING-LIFECYCLE-1 — the Danger-Zone deletion card's BILLING behavior.
+ * Updated for ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1: the step-up is an emailed
+ * verification code, not a password, and the billing retry has its own route.
  * Mocks the account deletion client helpers.
  *
  * Asserts what the user is actually told and shown:
@@ -18,12 +20,18 @@ import { AccountDeletionError } from "@/lib/api/accounts";
 
 const mockRequest = jest.fn();
 const mockCancel = jest.fn();
+const mockSendCode = jest.fn();
+const mockVerifyCode = jest.fn();
+const mockRetryBilling = jest.fn();
 jest.mock("@/lib/api/accounts", () => {
   const actual = jest.requireActual("@/lib/api/accounts");
   return {
     ...actual,
     requestAccountDeletion: (...a: unknown[]) => mockRequest(...a),
     cancelAccountDeletion: (...a: unknown[]) => mockCancel(...a),
+    sendAccountDeletionCode: (...a: unknown[]) => mockSendCode(...a),
+    verifyAccountDeletionCode: (...a: unknown[]) => mockVerifyCode(...a),
+    retryAccountDeletionBilling: (...a: unknown[]) => mockRetryBilling(...a),
   };
 });
 
@@ -34,24 +42,37 @@ const FROZEN_STATE = {
   billingCancellation: "failed" as const,
 };
 
+const CODE_SENT = {
+  maskedEmail: "c••••••••@gmail.com",
+  expiresAt: "2026-07-24T00:10:00.000Z",
+  resendAvailableAt: "2026-07-24T00:01:00.000Z",
+  codeLength: 6,
+  maxAttempts: 5,
+};
+
 beforeEach(() => {
   mockRequest.mockReset();
   mockCancel.mockReset();
+  mockRetryBilling.mockReset();
+  mockSendCode.mockReset().mockResolvedValue(CODE_SENT);
+  mockVerifyCode.mockReset().mockResolvedValue({
+    authorizationExpiresAt: "2026-07-24T00:06:00.000Z",
+  });
 });
 
 function renderActive() {
   return render(<AccountDeletionCard initialStatus="active" initialPurgeAfter={null} />);
 }
 
-/** Fill the typed phrase + password and submit. */
-function submitDeletion() {
+/** Walk the whole universal flow: open → send code → verify → type DELETE → confirm. */
+async function submitDeletion() {
   fireEvent.click(screen.getByTestId("account-delete-open"));
-  fireEvent.change(screen.getByTestId("account-delete-confirm-input"), {
-    target: { value: "delete my account" },
-  });
-  fireEvent.change(screen.getByTestId("account-delete-password"), {
-    target: { value: "pw" },
-  });
+  fireEvent.click(screen.getByTestId("account-delete-send-code"));
+  const codeInput = await screen.findByTestId("account-delete-code-input");
+  fireEvent.change(codeInput, { target: { value: "123456" } });
+  fireEvent.click(screen.getByTestId("account-delete-verify-code"));
+  const confirmInput = await screen.findByTestId("account-delete-confirm-input");
+  fireEvent.change(confirmInput, { target: { value: "DELETE" } });
   fireEvent.click(screen.getByTestId("account-delete-confirm"));
 }
 
@@ -82,20 +103,26 @@ describe("deletion consequences copy", () => {
     expect(list).toHaveTextContent(/does not restart billing/i);
   });
 
-  it("keeps the typed-phrase + password step-up on the destructive action", () => {
+  it("keeps the typed-DELETE step-up on the destructive action, after the code", async () => {
     renderActive();
     fireEvent.click(screen.getByTestId("account-delete-open"));
+    fireEvent.click(screen.getByTestId("account-delete-send-code"));
+    fireEvent.change(await screen.findByTestId("account-delete-code-input"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByTestId("account-delete-verify-code"));
+
+    const confirmInput = await screen.findByTestId("account-delete-confirm-input");
     const confirm = screen.getByTestId("account-delete-confirm");
     expect(confirm).toBeDisabled();
 
-    fireEvent.change(screen.getByTestId("account-delete-confirm-input"), {
-      target: { value: "delete my account" },
-    });
-    expect(confirm).toBeDisabled(); // password still required
+    // Anything other than the exact word is refused by the UI too.
+    fireEvent.change(confirmInput, { target: { value: "delete" } });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(confirmInput, { target: { value: " DELETE " } });
+    expect(confirm).toBeDisabled();
 
-    fireEvent.change(screen.getByTestId("account-delete-password"), {
-      target: { value: "pw" },
-    });
+    fireEvent.change(confirmInput, { target: { value: "DELETE" } });
     expect(confirm).toBeEnabled();
   });
 });
@@ -107,12 +134,11 @@ describe("billing cancellation partial failure", () => {
         "Your account is frozen and scheduled for deletion, but we couldn't cancel your subscription.",
         "BILLING_CANCELLATION_FAILED",
         502,
-        undefined,
-        FROZEN_STATE,
+        { deletionState: FROZEN_STATE },
       ),
     );
     renderActive();
-    submitDeletion();
+    await submitDeletion();
 
     // The freeze is real, so the card moves to the pending state...
     expect(await screen.findByTestId("account-deletion-pending")).toBeInTheDocument();
@@ -126,71 +152,62 @@ describe("billing cancellation partial failure", () => {
     expect(screen.getByTestId("account-deletion-error")).toHaveAttribute("role", "alert");
   });
 
-  it("retries the cancellation behind the password step-up and clears on success", async () => {
-    mockRequest
-      .mockRejectedValueOnce(
-        new AccountDeletionError(
-          "Couldn't cancel your subscription.",
-          "BILLING_CANCELLATION_FAILED",
-          502,
-          undefined,
-          FROZEN_STATE,
-        ),
-      )
-      .mockResolvedValueOnce({
-        deletionStatus: "pending_deletion",
-        requestedAt: FROZEN_STATE.requestedAt,
-        purgeAfter: FROZEN_STATE.purgeAfter,
-        billingCancellation: "canceled",
-      });
+  it("retries the cancellation WITHOUT a password or a new code, and clears on success", async () => {
+    mockRequest.mockRejectedValueOnce(
+      new AccountDeletionError(
+        "Couldn't cancel your subscription.",
+        "BILLING_CANCELLATION_FAILED",
+        502,
+        { deletionState: FROZEN_STATE },
+      ),
+    );
+    mockRetryBilling.mockResolvedValueOnce({
+      deletionStatus: "pending_deletion",
+      requestedAt: FROZEN_STATE.requestedAt,
+      purgeAfter: FROZEN_STATE.purgeAfter,
+      billingCancellation: "canceled",
+    });
 
     renderActive();
-    submitDeletion();
+    await submitDeletion();
     await screen.findByTestId("account-deletion-billing-failed");
 
-    fireEvent.click(screen.getByTestId("account-billing-retry-open"));
-    const retryConfirm = screen.getByTestId("account-billing-retry-confirm");
-    // Step-up preserved: no password, no retry.
-    expect(retryConfirm).toBeDisabled();
+    // No password box and no code box on the retry — the account is already frozen,
+    // so there is no destructive transition left to authorize.
+    expect(screen.queryByTestId("account-billing-retry-password")).toBeNull();
+    expect(screen.queryByTestId("account-delete-code-input")).toBeNull();
 
-    fireEvent.change(screen.getByTestId("account-billing-retry-password"), {
-      target: { value: "pw" },
-    });
-    fireEvent.click(retryConfirm);
+    fireEvent.click(screen.getByTestId("account-billing-retry-confirm"));
 
     await waitFor(() =>
       expect(screen.queryByTestId("account-deletion-billing-failed")).toBeNull(),
     );
-    // The retry re-POSTs the (idempotent) deletion request with the canonical phrase.
-    expect(mockRequest).toHaveBeenLastCalledWith({
-      password: "pw",
-      confirmText: "delete my account",
-    });
+    // The retry hits the dedicated route with no arguments; it never re-issues a code.
+    expect(mockRetryBilling).toHaveBeenCalledWith();
+    expect(mockSendCode).toHaveBeenCalledTimes(1);
     // Still pending — the retry never un-deletes anything.
     expect(screen.getByTestId("account-deletion-pending")).toBeInTheDocument();
   });
 
   it("keeps the warning up when the retry ALSO fails", async () => {
-    const failure = new AccountDeletionError(
-      "Couldn't cancel your subscription.",
-      "BILLING_CANCELLATION_FAILED",
-      502,
-      undefined,
-      FROZEN_STATE,
+    mockRequest.mockRejectedValueOnce(
+      new AccountDeletionError("Couldn't cancel your subscription.", "BILLING_CANCELLATION_FAILED", 502, {
+        deletionState: FROZEN_STATE,
+      }),
     );
-    mockRequest.mockRejectedValue(failure);
+    mockRetryBilling.mockRejectedValue(
+      new AccountDeletionError("Still couldn't cancel.", "BILLING_CANCELLATION_FAILED", 502, {
+        deletionState: FROZEN_STATE,
+      }),
+    );
 
     renderActive();
-    submitDeletion();
+    await submitDeletion();
     await screen.findByTestId("account-deletion-billing-failed");
 
-    fireEvent.click(screen.getByTestId("account-billing-retry-open"));
-    fireEvent.change(screen.getByTestId("account-billing-retry-password"), {
-      target: { value: "pw" },
-    });
     fireEvent.click(screen.getByTestId("account-billing-retry-confirm"));
 
-    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockRetryBilling).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("account-deletion-billing-failed")).toBeInTheDocument();
   });
 
@@ -202,7 +219,7 @@ describe("billing cancellation partial failure", () => {
       billingCancellation: "canceled",
     });
     renderActive();
-    submitDeletion();
+    await submitDeletion();
 
     expect(await screen.findByTestId("account-deletion-pending")).toBeInTheDocument();
     expect(screen.queryByTestId("account-deletion-billing-failed")).toBeNull();
@@ -240,6 +257,7 @@ describe("pending state copy", () => {
     // The restore route takes no arguments and triggers no subscription request.
     expect(mockCancel).toHaveBeenCalledWith();
     expect(mockRequest).not.toHaveBeenCalled();
+    expect(mockRetryBilling).not.toHaveBeenCalled();
   });
 });
 
@@ -250,6 +268,9 @@ describe("pending state copy", () => {
  * ownership, delete the personal account. The blocked screen must name all four, must not
  * imply that cancelling the personal plan touches the team plan, and must not imply that
  * deleting the personal account deletes team-owned data.
+ *
+ * The universal email challenge did NOT weaken this: the refusal still comes from the
+ * canonical deletion service at DELETION time, after the code was verified and spent.
  */
 describe("blocked: user still owns Team/Business accounts", () => {
   function blockedError(owned = [
@@ -260,14 +281,14 @@ describe("blocked: user still owns Team/Business accounts", () => {
       "Transfer ownership or delete the Team/Business accounts you own before deleting your personal account.",
       "ACCOUNT_HAS_OWNED_TEAMS",
       409,
-      owned,
+      { ownedAccounts: owned },
     );
   }
 
   async function renderBlocked() {
     mockRequest.mockRejectedValueOnce(blockedError());
     renderActive();
-    submitDeletion();
+    await submitDeletion();
     return screen.findByTestId("account-deletion-blocked");
   }
 

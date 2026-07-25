@@ -1,26 +1,25 @@
 import { verifyPasswordCredential } from "@/repositories/authReauth";
 
 /**
- * Re-auth confirmation for the self-serve account-deletion request
- * (4.ACCOUNT-MODEL-10e).
+ * Password re-auth (step-up) for high-risk actions that are only ever performed
+ * by a user who HAS a ChainReact password.
  *
- * Deleting an account is destructive (after the grace window the purge cron
- * tears down the entire account graph + auth.users). Per the deletion-flow plan
- * ("Self-serve request route: authenticated user + re-auth confirm") the request
- * route requires the caller to re-prove their credential — a freshly-typed
- * password — on top of the existing session cookie. This is the standard
- * step-up guard for a high-risk irreversible action and defends against a
- * hijacked-but-idle session or an unattended machine.
+ * Current callers: password change (`services/accounts/passwordChange.ts` — the
+ * caller is by definition changing a password they already have) and Team/Business
+ * ownership transfer.
  *
- * Mechanism appropriate for the CURRENT auth setup: V2 auth is email + password
- * (app/auth/actions.ts; SSO is a later slice). The raw credential check lives in
- * repositories/authReauth.ts (a throwaway, session-less client). This service
- * owns the business reasoning around it.
+ * NOT USED BY ACCOUNT DELETION ANY MORE (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1).
+ * The file name is historical: this check was originally written for the deletion
+ * request. Requiring a password there made the only irreversible action in the
+ * product unreachable for users who signed up with Google, with an email OTP, or
+ * (later) with SSO — those identities may have no password at all. Deletion now
+ * uses the universal, purpose-bound emailed verification code in
+ * `services/accounts/deletionChallenge.ts`, which works identically for every auth
+ * provider. Do not reintroduce a password requirement into the deletion path.
  *
- * When SSO providers land, extend this with a provider re-auth / OTP branch and
- * key the choice off the user's identities. Until then a passwordless (OAuth-
- * only) user cannot self-serve delete and must use the (service-role) admin
- * path — documented in the route + the slice report.
+ * The raw credential check lives in repositories/authReauth.ts (a throwaway,
+ * session-less client). This service owns the business reasoning around it and
+ * returns `no_email` / `misconfigured` for the environments where it cannot run.
  */
 
 export interface ReauthResult {

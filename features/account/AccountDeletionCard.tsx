@@ -5,23 +5,30 @@ import Link from "next/link";
 import {
   AccountDeletionError,
   cancelAccountDeletion,
-  requestAccountDeletion,
+  retryAccountDeletionBilling,
   type DeletionStatusResult,
   type OwnedAccountSummary,
 } from "@/lib/api/accounts";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/features/team/Panel";
 import { AccountDeletionBillingRetry } from "./AccountDeletionBillingRetry";
+import { AccountDeletionVerification } from "./AccountDeletionVerification";
 
 /**
  * Personal-account danger zone (Slice 4.ACCOUNT-SETTINGS-1; relocated under the
  * Danger-zone settings section in 4.ACCOUNT-SETTINGS-2; billing consequences added in
- * 4.ACCOUNT-BILLING-LIFECYCLE-1).
+ * 4.ACCOUNT-BILLING-LIFECYCLE-1; confirmation made universal in
+ * ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1).
  *
- * Explains the freeze/grace/purge flow, then either (a) the request form behind
- * a typed phrase + password, (b) the owned-Team/Business blocker, or (c) the
+ * Explains the freeze/grace/purge flow, then either (a) the emailed-code
+ * confirmation flow, (b) the owned-Team/Business blocker, or (c) the
  * pending/scheduled state with a cancel. Deletion always targets the caller's
  * OWN personal account; the shell only renders this when that account is active.
+ *
+ * NO PASSWORD FIELD — for any auth provider. Confirmation is a one-time code sent
+ * to the account's verified email (see `AccountDeletionVerification`), so users
+ * who signed up with Google or an email OTP can delete their account too. This
+ * card contains no notion of "how did this user sign in".
  *
  * This is DELETE MY ACCOUNT — deliberately distinct from "Cancel subscription", which lives
  * in Plan & billing and keeps the account. The confirmation here states every consequence
@@ -34,9 +41,6 @@ import { AccountDeletionBillingRetry } from "./AccountDeletionBillingRetry";
  * BOTH facts — deletion is scheduled AND billing cancellation needs a retry — instead of a
  * plain success or a plain error.
  */
-
-/** Typed confirmation phrase — mirrors the backend `DELETION_CONFIRM_PHRASE`. */
-const CONFIRM_PHRASE = "delete my account";
 
 function formatPurgeDate(iso: string | null): string | null {
   if (!iso) return null;
@@ -65,16 +69,12 @@ export function AccountDeletionCard({
 
   // request-form state
   const [formOpen, setFormOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<readonly OwnedAccountSummary[] | null>(
     null,
   );
-  const [retryOpen, setRetryOpen] = useState(false);
 
-  const phraseOK = confirmText.trim().toLowerCase() === CONFIRM_PHRASE;
   const purgeDate = formatPurgeDate(purgeAfter);
 
   function applyResult(result: DeletionStatusResult) {
@@ -86,8 +86,6 @@ export function AccountDeletionCard({
   function openForm() {
     setError(null);
     setBlocked(null);
-    setConfirmText("");
-    setPassword("");
     setFormOpen(true);
   }
 
@@ -96,59 +94,33 @@ export function AccountDeletionCard({
     setError(null);
   }
 
-  async function submitDelete() {
-    if (!phraseOK || password.length === 0) return;
-    setBusy(true);
-    setError(null);
-    setBlocked(null);
-    try {
-      const result = await requestAccountDeletion({ password, confirmText });
-      setFormOpen(false);
-      applyResult(result);
-    } catch (err) {
-      if (err instanceof AccountDeletionError) {
-        if (err.code === "ACCOUNT_HAS_OWNED_TEAMS") {
-          setFormOpen(false);
-          setBlocked(err.ownedAccounts ?? []);
-        } else if (err.code === "BILLING_CANCELLATION_FAILED" && err.deletionState) {
-          // Partial success: the account IS frozen. Move to the pending state so the user
-          // sees the truth, and keep the billing warning + retry visible there.
-          setFormOpen(false);
-          applyResult(err.deletionState);
-          setError(err.message);
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError("Couldn't request deletion. Try again.");
-      }
-    } finally {
-      setBusy(false);
-    }
+  /** Deletion scheduled — possibly with a billing cancellation that failed. */
+  function handleDeleted(result: DeletionStatusResult, billingError: string | null) {
+    setFormOpen(false);
+    applyResult(result);
+    setError(billingError);
+  }
+
+  function handleBlocked(accounts: readonly OwnedAccountSummary[]) {
+    setFormOpen(false);
+    setBlocked(accounts);
   }
 
   /**
    * Retry ONLY the subscription cancellation after a partial failure.
    *
-   * Re-POSTs the deletion request: the account is already `pending_deletion`, so the
-   * service's idempotent path performs NO second lifecycle transition and simply re-attempts
-   * the (idempotent) Stripe cancellation. The password step-up is still required — it is the
-   * real security control. The typed phrase is supplied programmatically because the user
-   * already typed it to reach this state and this call cannot cause a new destructive
-   * transition; re-typing it would only add friction to recovering from OUR failure.
+   * Hits the dedicated retry route, which refuses unless the account is already
+   * `pending_deletion` and performs NO lifecycle transition — it just re-runs the
+   * idempotent Stripe cancellation. No password and no verification code: there is
+   * no destructive decision left to authorize, and demanding a fresh emailed code
+   * to recover from OUR failure would be friction with no security value.
    */
   async function retryBillingCancellation() {
-    if (password.length === 0) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await requestAccountDeletion({
-        password,
-        confirmText: CONFIRM_PHRASE,
-      });
+      const result = await retryAccountDeletionBilling();
       applyResult(result);
-      setRetryOpen(false);
-      setPassword("");
     } catch (err) {
       if (err instanceof AccountDeletionError) {
         if (err.code === "BILLING_CANCELLATION_FAILED" && err.deletionState) {
@@ -200,17 +172,8 @@ export function AccountDeletionCard({
           {/* Partial-failure banner: the freeze is real, the cancellation is not (yet). */}
           {billingFailed && (
             <AccountDeletionBillingRetry
-              retryOpen={retryOpen}
-              password={password}
               busy={busy}
-              onOpen={() => {
-                setPassword("");
-                setError(null);
-                setRetryOpen(true);
-              }}
-              onPasswordChange={setPassword}
               onRetry={retryBillingCancellation}
-              onDismiss={() => setRetryOpen(false)}
             />
           )}
 
@@ -372,87 +335,35 @@ export function AccountDeletionCard({
         </div>
 
         {!formOpen ? (
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              data-testid="account-delete-open"
-              onClick={openForm}
-              className="text-destructive hover:text-destructive"
-            >
-              Delete account
-            </Button>
-          </div>
-        ) : (
-          <div
-            data-testid="account-delete-form"
-            className="flex flex-col gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4"
-          >
-            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
-              Type <span className="font-mono text-destructive">{CONFIRM_PHRASE}</span> to confirm
-              <input
-                type="text"
-                aria-label="Confirmation phrase"
-                data-testid="account-delete-confirm-input"
-                value={confirmText}
-                disabled={busy}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => setConfirmText(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
-              Enter your password
-              <input
-                type="password"
-                aria-label="Password"
-                data-testid="account-delete-password"
-                value={password}
-                disabled={busy}
-                autoComplete="current-password"
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              />
-            </label>
-
-            <p className="text-xs text-muted-foreground">
-              Your data stays recoverable for 30 days — sign in any time before then to
-              cancel. Your subscription is cancelled right away and is not restored by
-              cancelling the deletion.
-            </p>
-
+          <>
+            <div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-testid="account-delete-open"
+                onClick={openForm}
+                className="text-destructive hover:text-destructive"
+              >
+                Delete account
+              </Button>
+            </div>
             {error && (
-              <p role="alert" data-testid="account-deletion-error" className="text-xs text-destructive">
+              <p
+                role="alert"
+                data-testid="account-deletion-error"
+                className="text-xs text-destructive"
+              >
                 {error}
               </p>
             )}
-
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                data-testid="account-delete-confirm"
-                disabled={busy || !phraseOK || password.length === 0}
-                onClick={submitDelete}
-              >
-                {busy ? "Scheduling…" : "Delete account"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                data-testid="account-delete-cancel"
-                disabled={busy}
-                onClick={cancelForm}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
+          </>
+        ) : (
+          <AccountDeletionVerification
+            onDeleted={handleDeleted}
+            onBlocked={handleBlocked}
+            onCancel={cancelForm}
+          />
         )}
       </div>
     </Panel>

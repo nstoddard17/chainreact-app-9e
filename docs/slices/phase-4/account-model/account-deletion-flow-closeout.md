@@ -11,6 +11,21 @@ The original design rationale lives in
 [`account-deletion-flow-plan.md`](../account-deletion-flow-plan.md); this doc records
 what actually shipped.
 
+> ### ⚠️ Superseded: the confirmation step-up is no longer a password
+>
+> **ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1** replaced the password re-auth described
+> below with a **universal one-time code emailed to the account's verified address**,
+> and changed the typed phrase from `"delete my account"` to the exact word `DELETE`.
+> Password re-auth made deletion impossible for Google / email-OTP / SSO accounts,
+> which may have no ChainReact password at all.
+>
+> **Everything else on this page still holds** — freeze-first, the 30-day grace window,
+> the sole-owner guard, billing wind-down, purge ordering, and ledger anonymization are
+> unchanged. The code authorizes the lifecycle below; it does not bypass any of it.
+>
+> Current contract: [`docs/rules/account-deletion-verification.md`](../../../rules/account-deletion-verification.md).
+> Read the sections below as the historical record of the 10a–10e arc.
+
 ---
 
 ## Commit chain
@@ -87,11 +102,17 @@ out), `repositories/authReauth.ts` + `services/accounts/accountDeletionReauth.ts
 
 ## Confirmation / re-auth model
 
-- **Request (destructive):** two factors layered on the session cookie —
+> **SUPERSEDED by ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1** — see the banner at the
+> top. The current step-up is a purpose-bound, session-bound, single-use code emailed
+> to the account's verified address, plus the exact typed word `DELETE`. No password,
+> for any auth provider. The "own-account-only" and "cancel needs no step-up"
+> properties below are unchanged.
+
+- **Request (destructive) — HISTORICAL:** two factors layered on the session cookie —
   (1) a typed confirmation phrase `"delete my account"` (case-insensitive,
   anti-accidental), and (2) a **password re-auth** step-up verified on a
   throwaway, session-less Supabase client that never mutates the caller's
-  cookies. Appropriate for the current **email + password** auth setup.
+  cookies. Appropriate for the then-current **email + password** auth setup.
 - **Cancel (non-destructive restore):** authentication + ownership only — no
   re-auth, so the freeze can never strand a user out of undoing the request.
 - **Own-account-only:** routes resolve the account from the session user id and
@@ -135,8 +156,12 @@ registered in `vercel.json` yet.
   — that doc is authoritative for anything cancel-vs-delete. The 90-day ledger
   retention window is unchanged and is still the seam for future financial-audit
   retention.
-- **SSO / OAuth-only re-auth** — password re-auth only today; OAuth-only users
-  must use the (deferred) admin path until a provider-reauth/OTP branch is added.
+- ~~**SSO / OAuth-only re-auth** — password re-auth only today; OAuth-only users
+  must use the (deferred) admin path until a provider-reauth/OTP branch is added.~~
+  **RESOLVED by ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1.** There is no provider
+  branch and no admin path: every account — password, Google, email OTP, multi-identity,
+  future SSO — confirms with the same emailed verification code.
+  See [`docs/rules/account-deletion-verification.md`](../../../rules/account-deletion-verification.md).
 
 ---
 

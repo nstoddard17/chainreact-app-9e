@@ -101,8 +101,10 @@ What already exists and this plan builds on:
   invited + accept first (existing invitation flow).
 - **Old owner becomes `admin`** by default after transfer, unless they choose **"transfer and leave"**
   (then they are removed via the existing offboarding path).
-- **Owner transfer requires step-up auth** (reuse the password re-auth step-up the account-deletion
-  route already performs).
+- **Owner transfer requires step-up auth** (password re-auth, `verifyPasswordReauth`). NOTE: account
+  deletion no longer shares this — it moved to a universal emailed code in
+  ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1, so a passwordless owner can delete their account but cannot
+  yet transfer a Team/Business. Extending the challenge to a `transfer_ownership` purpose is the fix.
 - **Transfer is owner-initiated and immediate** for V1 (see Risks for the accept-based alternative).
 - A **sole owner cannot leave** until ownership is transferred. Non-owner members and admins **can
   leave freely**.
@@ -372,8 +374,14 @@ lifecycle; TL-4 unblocks the deletion dead-end; TL-5 makes it usable.
 3. **Creator-pinned workflows break on leave (Q18).** Documented, warned, **not mitigated** here. Confirm
    it's acceptable that a leaver's personal-provider workflows stop until a future creator-reassignment /
    sharing track ships. This is the single biggest UX sharp edge.
-4. **Step-up availability (Q5).** Account deletion uses password re-auth; confirm OAuth-only users have a
-   viable step-up (the deletion flow already faces this — reuse whatever it settled on).
+4. ~~**Step-up availability (Q5).** Account deletion uses password re-auth; confirm OAuth-only users have a
+   viable step-up (the deletion flow already faces this — reuse whatever it settled on).~~
+   **ANSWERED by ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1:** deletion no longer uses password re-auth. It
+   settled on a purpose-bound, session-bound, single-use code emailed to the account's verified address —
+   see [`docs/rules/account-deletion-verification.md`](../../rules/account-deletion-verification.md).
+   **Ownership transfer still uses password re-auth and therefore still excludes passwordless owners**; the
+   challenge model is deliberately generic (`purpose` column) so a future `transfer_ownership` purpose is a
+   CHECK extension, not a new subsystem. Not done in that slice — transfer was out of scope.
 5. **Should transfer offer creator-reassignment inline?** Tempting to batch "transfer ownership **and**
    reassign the departing owner's workflows," but that's the deferred creator-transfer track. Keep separate.
 6. **owner_user_id semantics under future multi-owner.** It becomes a "primary owner" pointer; make sure

@@ -38,7 +38,10 @@ interface Props {
  * actually supports today):
  *   - Account overview (active account name / type label / role).
  *   - Personal-account deletion request + cancel → /api/account/delete[/cancel]
- *     (typed phrase + password re-auth; reversible freeze, not a hard delete).
+ *     (emailed verification code + the typed word DELETE; reversible freeze, not a
+ *     hard delete). NO password — the code works identically for password, Google,
+ *     email-OTP, and future SSO accounts
+ *     (docs/rules/account-deletion-verification.md).
  *   - Owned-Team/Business remediation blocker (ACCOUNT_HAS_OWNED_TEAMS).
  *   - Pointer to /team for shared-account lifecycle (transfer / leave / members).
  *
