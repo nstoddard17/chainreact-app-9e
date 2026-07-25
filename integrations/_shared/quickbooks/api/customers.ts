@@ -154,13 +154,90 @@ export async function customerSearch(input: {
   return (res.QueryResponse?.Customer ?? []).map(projectCustomer);
 }
 
-/** Active customers for the option source (names-only labels upstream). */
-export async function customerList(input: {
+/** Longest search term forwarded to QuickBooks (bounds the statement). */
+export const CUSTOMER_SEARCH_MAX_LENGTH = 100;
+
+export interface CustomerListInput {
   accessToken: string;
   realmId: string;
+  /** Page size, 1..100 (QuickBooks' own MAXRESULTS ceiling is 1000). */
   maxResults: number;
+  /**
+   * Optional case-insensitive CONTAINS search on `DisplayName`. Live-certified
+   * (QUICKBOOKS-INVOICES-INTEGRATION-RESOLVER-1): `LIKE '%term%'` is accepted,
+   * is case-insensitive, and matches interior substrings — not just prefixes.
+   * The term is escaped via `escapeQueryValue`, so a quote-bearing term stays
+   * a literal and can never break out into query syntax.
+   */
+  search?: string;
+  /** 1-based offset (QuickBooks STARTPOSITION). Defaults to 1. */
+  startPosition?: number;
+}
+
+export interface CustomerListPage {
+  items: ProjectedQuickbooksCustomer[];
+  /**
+   * True when the page came back full — QuickBooks' query response carries no
+   * total, so a full page is the honest "there may be more" signal.
+   */
+  hasMore: boolean;
+  /** STARTPOSITION for the next page (only meaningful when hasMore). */
+  nextStartPosition: number;
+}
+
+/**
+ * Active customers for the option source (names-only labels upstream).
+ *
+ * `ORDERBY DisplayName` is the deterministic paging order; STARTPOSITION over
+ * Customer is live-certified to page without overlap. `%` and `_` are LIKE
+ * wildcards, so they are neutralised in the user's term — a customer literally
+ * named "50% Co" is searched for as text, not as a pattern.
+ */
+export async function customerList(
+  input: CustomerListInput,
+): Promise<CustomerListPage> {
+  const predicates = ["Active = true"];
+  const term = (input.search ?? "").trim().slice(0, CUSTOMER_SEARCH_MAX_LENGTH);
+  if (term.length > 0) {
+    const escaped = escapeQueryValue(term).replace(/[%_]/g, "\\$&");
+    predicates.push(`DisplayName LIKE '%${escaped}%'`);
+  }
+  const startPosition = Math.max(1, Math.trunc(input.startPosition ?? 1));
+  const maxResults = Math.trunc(input.maxResults);
+  const statement = `select * from Customer where ${predicates.join(" and ")} ORDERBY DisplayName STARTPOSITION ${startPosition} MAXRESULTS ${maxResults}`;
+
+  const res = await quickbooksRequest<CustomerQueryEnvelope>({
+    accessToken: input.accessToken,
+    realmId: input.realmId,
+    method: "GET",
+    path: "/query",
+    query: new URLSearchParams({ query: statement }),
+    resourceForNotFound: "customer query",
+  });
+  const items = (res.QueryResponse?.Customer ?? []).map(projectCustomer);
+  return {
+    items,
+    hasMore: items.length === maxResults,
+    nextStartPosition: startPosition + items.length,
+  };
+}
+
+/**
+ * Resolve specific customers by stable id — the label backfill for a value a
+ * picker already holds (a saved selection) that is not in the current page.
+ * `Id IN (…)` is live-certified. Bounded by the caller's id list; inactive
+ * customers resolve too, so a saved selection still shows its name.
+ */
+export async function customersByIds(input: {
+  accessToken: string;
+  realmId: string;
+  ids: readonly string[];
 }): Promise<ProjectedQuickbooksCustomer[]> {
-  const statement = `select * from Customer where Active = true ORDERBY DisplayName MAXRESULTS ${Math.trunc(input.maxResults)}`;
+  if (input.ids.length === 0) return [];
+  const inList = input.ids
+    .map((id) => `'${escapeQueryValue(id)}'`)
+    .join(",");
+  const statement = `select * from Customer where Id in (${inList}) MAXRESULTS ${input.ids.length}`;
   const res = await quickbooksRequest<CustomerQueryEnvelope>({
     accessToken: input.accessToken,
     realmId: input.realmId,

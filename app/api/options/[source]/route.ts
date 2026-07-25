@@ -103,6 +103,12 @@ export async function GET(
     userId: auth.userId,
     q: url.searchParams.get("q") ?? "",
     deps,
+    // Values the picker already holds and needs labels for (repeated
+    // `selected` params). Normalization/bounding happens in the service, so
+    // the route stays a parser. These are opaque option values — they widen
+    // nothing: the resolver still runs under the same session-derived
+    // credential decision as any other request.
+    selected: url.searchParams.getAll("selected"),
     workflowId: url.searchParams.get("workflowId"),
     // CS-4 — the node being configured. Threaded so the server can resolve an
     // ACCEPTED per-node credential owner; client-supplied owner identity is

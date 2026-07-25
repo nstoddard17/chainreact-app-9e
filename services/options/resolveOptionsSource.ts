@@ -48,6 +48,14 @@ import {
 /** Max accepted `q` length — clamped here so every caller clamps identically. */
 export const MAX_QUERY_LENGTH = 256;
 
+/**
+ * Max accepted `selected` values, and the max length of each. Bounds what a
+ * caller can ask a resolver to look up in one request — the ceiling matches
+ * the widest selection any picker allows (`maxSelections` tops out at 20).
+ */
+export const MAX_SELECTED_VALUES = 20;
+export const MAX_SELECTED_VALUE_LENGTH = 120;
+
 export interface ResolveOptionsSourceInput {
   /** `<provider>:<resource>` source key. */
   readonly source: string;
@@ -61,6 +69,14 @@ export interface ResolveOptionsSourceInput {
   readonly workflowId: string | null;
   /** Optional node id (drives accepted per-node owner resolution). */
   readonly nodeId: string | null;
+  /**
+   * Optional values the caller already holds and wants labelled (saved
+   * selections). Normalized here — trimmed, empties dropped, de-duplicated,
+   * each capped at `MAX_SELECTED_VALUE_LENGTH`, list capped at
+   * `MAX_SELECTED_VALUES` — so every caller normalizes identically. Omitting
+   * it is equivalent to sending none.
+   */
+  readonly selected?: ReadonlyArray<string>;
 }
 
 /** Non-secret diagnostics about how the resolution was scoped. */
@@ -103,6 +119,24 @@ function err(
   };
 }
 
+/** Trim, drop empties, cap each value, de-duplicate, cap the list. */
+function normalizeSelected(
+  raw: ReadonlyArray<string> | undefined,
+): ReadonlyArray<string> {
+  if (!raw || raw.length === 0) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (typeof value !== "string") continue;
+    const v = value.trim().slice(0, MAX_SELECTED_VALUE_LENGTH);
+    if (v.length === 0 || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+    if (out.length >= MAX_SELECTED_VALUES) break;
+  }
+  return out;
+}
+
 const NO_INTEGRATION: ResolveOptionsSourceDiagnostics = {
   requiresIntegration: false,
   integrationConnected: false,
@@ -118,6 +152,7 @@ export async function resolveOptionsSource(
 ): Promise<ResolveOptionsSourceResult> {
   const { source, userId, deps, workflowId, nodeId } = input;
   const q = input.q.trim().slice(0, MAX_QUERY_LENGTH);
+  const selected = normalizeSelected(input.selected);
 
   const resolver = getOptionsResolver(source);
   if (!resolver) {
@@ -251,6 +286,7 @@ export async function resolveOptionsSource(
       integration,
       q,
       deps,
+      selected,
       ...(workflowCreator !== null && { workflowCreator }),
     });
 

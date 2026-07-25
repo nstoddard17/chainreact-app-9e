@@ -598,9 +598,10 @@ async function main(): Promise<void> {
 
   // ── 8. Customer resolver viability (ids + labels, no financials needed) ───
   try {
-    const [customers, ms] = await timed(() =>
+    const [customerPage, ms] = await timed(() =>
       call((accessToken) => customerList({ accessToken, realmId, maxResults: 100 })),
     );
+    const customers = customerPage.items;
     const withId = customers.filter(
       (c) => typeof c.customerId === "string" && c.customerId.length > 0,
     ).length;

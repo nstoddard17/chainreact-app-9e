@@ -47,6 +47,13 @@ export function InsightEntityPicker({
   // Labels for every option ever seen, so selected chips stay labeled when
   // the search changes or remote pages move on. Ids are the stable identity.
   const knownLabels = useRef(new Map<string, string>());
+  // The selection this picker OPENED with — a saved config's values, which for
+  // a large catalog are usually absent from the first page and would otherwise
+  // render as raw provider ids. Captured once, so asking the resolver to
+  // label them adds no dependency to the fetch effect below: selecting or
+  // clearing an item never triggers a refetch. Values chosen during this
+  // session are already labeled by the page they were chosen from.
+  const openedWith = useRef(selected);
 
   const remoteMode = !options && typeof optionsSource === "string" && optionsSource.length > 0;
 
@@ -58,6 +65,7 @@ export function InsightEntityPicker({
     const timer = setTimeout(() => {
       fetchOptionsSource(optionsSource!, {
         q: query.trim(),
+        ...(openedWith.current.length > 0 ? { selected: openedWith.current } : {}),
         signal: controller.signal,
       })
         .then((res) => {

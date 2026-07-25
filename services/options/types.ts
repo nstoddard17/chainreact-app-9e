@@ -194,6 +194,27 @@ export interface OptionsResolverContext {
   readonly q: string;
   readonly deps: Readonly<Record<string, string>>;
   readonly workflowCreator?: WorkflowCreatorContext;
+  /**
+   * Values the caller ALREADY holds (a saved selection) and needs a label for
+   * — QUICKBOOKS-INVOICES-INTEGRATION-RESOLVER-1.
+   *
+   * A picker over a large catalog can only show one page, so a value chosen
+   * earlier is usually absent from the current page and would render as a raw
+   * provider id. Resolvers that can look values up cheaply MAY resolve these
+   * and include them in `items`, so the picker can label a saved selection
+   * without loading the whole catalog.
+   *
+   * `resolveOptionsSource` always passes an array (empty when the caller sent
+   * none), already trimmed, de-duplicated and BOUNDED — see
+   * `MAX_SELECTED_VALUES`. It is declared OPTIONAL so that every pre-existing
+   * caller that builds a context by hand (AI tools, resource links, smoke
+   * harnesses) keeps compiling unchanged; resolvers should read
+   * `ctx.selected ?? []`. Supporting it at all is optional — a resolver that
+   * ignores it behaves exactly as before, which is what keeps this addition
+   * backward-compatible for every existing resolver.
+   * These are opaque option VALUES, never a credential or an authority claim.
+   */
+  readonly selected?: ReadonlyArray<string>;
 }
 
 /**

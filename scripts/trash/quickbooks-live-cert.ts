@@ -265,10 +265,10 @@ async function phaseRealm(): Promise<void> {
 
   // One harmless read — proves the token works AND exercises refreshAndRetry's
   // auto-refresh-on-401 path (the certification "refresh works" criterion).
-  const customers = await call((accessToken) =>
+  const customerProbe = await call((accessToken) =>
     customerList({ accessToken, realmId, maxResults: 1 }),
   );
-  console.log(`PASS: harmless read call (customerList maxResults=1) returned ${customers.length} row(s) via refreshAndRetry`);
+  console.log(`PASS: harmless read call (customerList maxResults=1) returned ${customerProbe.items.length} row(s) via refreshAndRetry`);
   console.log("      (refreshAndRetry auto-refreshes on a 401; a passing call proves the refresh path is wired)");
 
   const s = readState();
@@ -338,7 +338,7 @@ async function phasePrepare(): Promise<void> {
   s.realmId = realmId;
 
   // Inventory read (evidence + discovery). All bounded, names-only.
-  const [customers, items, terms, taxCodes, invoicePage] = await Promise.all([
+  const [customerPage, items, terms, taxCodes, invoicePage] = await Promise.all([
     call((t) => customerList({ accessToken: t, realmId, maxResults: 100 })),
     call((t) => itemList({ accessToken: t, realmId, maxResults: 100 })),
     call((t) => termList({ accessToken: t, realmId, maxResults: 100 })),
@@ -346,7 +346,7 @@ async function phasePrepare(): Promise<void> {
     call((t) => invoiceList({ accessToken: t, realmId, maxResults: 5 })),
   ]);
   console.log(
-    `discovered: ${customers.length} customer(s), ${items.length} item(s), ${terms.length} term(s), ` +
+    `discovered: ${customerPage.items.length} customer(s), ${items.length} item(s), ${terms.length} term(s), ` +
       `${taxCodes.length} tax code(s), ${invoicePage.items.length} recent invoice(s)`,
   );
 

@@ -103,6 +103,15 @@ export interface FetchOptionsSourceArgs {
    */
   readonly nodeId?: string;
   /**
+   * Option values the caller ALREADY holds and wants labels for — a saved
+   * selection that may not appear in the current page of a large catalog
+   * (QUICKBOOKS-INVOICES-INTEGRATION-RESOLVER-1). Serialized as repeated
+   * `?selected=…` params; the route bounds and de-duplicates them. Resolvers
+   * that can look values up cheaply return them among `items`; the rest
+   * ignore the hint, so sending it is always safe.
+   */
+  readonly selected?: ReadonlyArray<string>;
+  /**
    * Optional AbortSignal so the caller (typically the hook) can
    * cancel an in-flight fetch on dep change / unmount.
    */
@@ -136,6 +145,11 @@ export function buildOptionsSourceUrl(
   // when the caller opts in (alongside workflowId).
   if (args.nodeId !== undefined && args.nodeId.length > 0) {
     params.set("nodeId", args.nodeId);
+  }
+  // Saved selections needing labels — repeated `selected` params, appended
+  // last so the rest of the URL shape is unchanged for existing callers.
+  for (const value of args.selected ?? []) {
+    if (value.length > 0) params.append("selected", value);
   }
   const qs = params.toString();
   const path = `/api/options/${encodeURIComponent(source)}`;
