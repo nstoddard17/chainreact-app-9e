@@ -4,6 +4,10 @@ import type {
 } from "@/contracts/analyticsQuery";
 import { ANALYTICS_QUERY_MAX_BUCKETS } from "@/contracts/analyticsQuery";
 import type { NormalizedAnalyticsQuery } from "@/contracts/analyticsQueryCapabilities";
+import {
+  resolvePresetWindow,
+  type InsightRangePreset,
+} from "@/core/analytics/insightRange";
 
 /**
  * PURE time semantics for the flexible analytics query path
@@ -29,26 +33,29 @@ function startOfUtcYear(ms: number): number {
   return Date.UTC(new Date(ms).getUTCFullYear(), 0, 1);
 }
 
-/** Resolve a request range to the [from, to) window in epoch ms. */
+/**
+ * Resolve a request range to the [from, to) window in epoch ms.
+ *
+ * Preset windows come from `core/analytics/insightRange.ts` — the SAME
+ * definition the builder uses to tell the user which dates a preset covers
+ * (CD-5A). Custom ranges parse verbatim: by the time a range reaches this
+ * function its `to` is already the exclusive boundary, because the one
+ * inclusive-end translation happens in `insightQueryFromConfig`.
+ *
+ * Accepts the wider Insight preset set; the narrower CS-1 range type is a
+ * subset, so internal callers are unaffected.
+ */
 export function resolveQueryRange(
-  range: NormalizedAnalyticsQuery["range"],
+  range:
+    | NormalizedAnalyticsQuery["range"]
+    | { preset: InsightRangePreset }
+    | { from: string; to: string },
   now: number,
 ): { fromMs: number; toMs: number } {
   if ("from" in range) {
     return { fromMs: Date.parse(range.from), toMs: Date.parse(range.to) };
   }
-  switch (range.preset) {
-    case "today":
-      return { fromMs: startOfUtcDay(now), toMs: now };
-    case "7d":
-      return { fromMs: now - 7 * DAY_MS, toMs: now };
-    case "30d":
-      return { fromMs: now - 30 * DAY_MS, toMs: now };
-    case "90d":
-      return { fromMs: now - 90 * DAY_MS, toMs: now };
-    case "ytd":
-      return { fromMs: startOfUtcYear(now), toMs: now };
-  }
+  return resolvePresetWindow(range.preset, now);
 }
 
 /** Auto-grain rule: ≤ 92 days → day; ≤ 731 days → week; beyond → month. */

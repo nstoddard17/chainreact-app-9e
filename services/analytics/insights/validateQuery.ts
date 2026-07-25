@@ -3,6 +3,7 @@ import {
   type ConnectedAnalyticsQuery,
 } from "@/contracts/connectedAnalytics";
 import type { ResolvedMeasure } from "@/contracts/analyticsCatalogDerive";
+import { INSIGHT_RANGE_PRESETS } from "@/core/analytics/insightRange";
 import type { RegisteredDataset } from "./registry";
 
 /**
@@ -151,7 +152,9 @@ export function validateConnectedQuery(
     }
   }
 
-  // Range span.
+  // Range span. Presets are span-checked too (CD-5A): a dataset may declare a
+  // ceiling smaller than a preset's widest window, and "validated by
+  // construction" only held while every preset fitted every dataset's maximum.
   if ("from" in q.range) {
     const from = Date.parse(q.range.from);
     const to = Date.parse(q.range.to);
@@ -159,6 +162,12 @@ export function validateConnectedQuery(
       invalid("The range start must be before its end.");
     }
     if (to - from > dataset.queryLimits.maxRangeDays * DAY_MS) {
+      invalid(`The range can cover at most ${dataset.queryLimits.maxRangeDays} days.`);
+    }
+  } else {
+    const presetId = q.range.preset;
+    const preset = INSIGHT_RANGE_PRESETS.find((p) => p.id === presetId);
+    if (preset && preset.maxSpanDays > dataset.queryLimits.maxRangeDays) {
       invalid(`The range can cover at most ${dataset.queryLimits.maxRangeDays} days.`);
     }
   }

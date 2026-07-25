@@ -113,9 +113,42 @@ export type InsightChartType = z.infer<typeof InsightChartTypeSchema>;
 
 const InsightId = z.string().min(1).max(60);
 
-/** Mirrors `ConnectedAnalyticsQuery.range` (contracts/connectedAnalytics.ts). */
+/**
+ * Range presets a Custom Insight may persist (CD-5A).
+ *
+ * A SUPERSET of `AnalyticsRangeSchema` — every id the legacy dashboard selector
+ * uses is still here, so every previously saved Insight keeps parsing AND keeps
+ * meaning exactly what it meant. The added ids are the calendar-anchored ranges
+ * people actually ask for.
+ *
+ * Each one resolves in `core/analytics/insightRange.ts`, which the builder and
+ * the server share, so a preset can never mean one thing in the chart and
+ * another in the query. The legacy dashboard-wide enum is deliberately NOT
+ * widened — it drives the internal overview path, which has its own resolver.
+ */
+export const InsightRangePresetSchema = z.enum([
+  "today",
+  "yesterday",
+  "7d",
+  "30d",
+  "90d",
+  "this_month",
+  "last_month",
+  "ytd",
+  "12m",
+]);
+export type InsightRangePresetId = z.infer<typeof InsightRangePresetSchema>;
+
+/**
+ * Mirrors `ConnectedAnalyticsQuery.range` (contracts/connectedAnalytics.ts).
+ *
+ * For a custom range, `to` is the user's INCLUSIVE end date — "to July 31"
+ * includes July 31. The translator in `insightQueryFromConfig` converts it to
+ * the exclusive UTC instant the query engine works in, so nobody has to
+ * understand `[from, to)` to get the range they asked for.
+ */
 export const InsightRangeSchema = z.union([
-  z.object({ preset: AnalyticsRangeSchema }).strict(),
+  z.object({ preset: InsightRangePresetSchema }).strict(),
   z.object({ from: z.string().min(1).max(40), to: z.string().min(1).max(40) }).strict(),
 ]);
 export type InsightRange = z.infer<typeof InsightRangeSchema>;

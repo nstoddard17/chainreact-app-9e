@@ -1,4 +1,11 @@
-import type { AnalyticsRange, InsightWidgetConfig } from "@/contracts/analytics";
+import type { InsightRange, InsightWidgetConfig } from "@/contracts/analytics";
+import {
+  isGrainAvailable,
+  presetsWithinLimit,
+  rangeSpanDays,
+  validateCustomRange,
+  type InsightRangePreset,
+} from "@/core/analytics/insightRange";
 import {
   availableDimensionChoices,
   sortAllowed,
@@ -42,7 +49,11 @@ export interface InsightDraft {
     ids?: string[];
     topN?: number;
   } | null;
-  range: { preset: AnalyticsRange } | { from: string; to: string };
+  /**
+   * A preset, or a custom range whose `to` is the user's INCLUSIVE end date
+   * (translated to the engine's exclusive boundary in `insightQueryFromConfig`).
+   */
+  range: InsightRange;
   compare: boolean;
   /** Category-breakdown ordering (CD-3B); null = the server's default order. */
   sort: { by: "value" | "label"; dir: "asc" | "desc" } | null;
@@ -56,6 +67,7 @@ export interface InsightReset {
     | "dimension"
     | "dateField"
     | "timeGrain"
+    | "range"
     | "filters"
     | "series"
     | "compare"
@@ -64,7 +76,7 @@ export interface InsightReset {
   message: string;
 }
 
-export const DEFAULT_INSIGHT_RANGE: { preset: AnalyticsRange } = { preset: "30d" };
+export const DEFAULT_INSIGHT_RANGE: { preset: InsightRangePreset } = { preset: "30d" };
 
 export function emptyInsightDraft(): InsightDraft {
   return {
@@ -114,6 +126,8 @@ export function insightDraftFromConfig(config: InsightWidgetConfig): InsightDraf
 export function reconcileInsightDraft(
   catalog: InsightCatalog,
   draft: InsightDraft,
+  /** Injected clock — range/grain compatibility depends on when "last 30 days" is. */
+  nowMs: number = Date.now(),
 ): { draft: InsightDraft; resets: InsightReset[] } {
   const resets: InsightReset[] = [];
   const next: InsightDraft = {
@@ -239,6 +253,26 @@ export function reconcileInsightDraft(
     return { draft: next, resets };
   }
 
+  // Range — the new dataset may not accept the range the old one did (CD-5A).
+  // Reconciled BEFORE the time knobs, because grain validity depends on span.
+  const maxRangeDays = dataset.limits.maxRangeDays;
+  if ("preset" in next.range) {
+    const presetId = next.range.preset;
+    if (!presetsWithinLimit(maxRangeDays).some((p) => p.id === presetId)) {
+      next.range = { ...DEFAULT_INSIGHT_RANGE };
+      resets.push({
+        field: "range",
+        message: `This data can cover at most ${maxRangeDays} days at a time — the date range was reset.`,
+      });
+    }
+  } else if (validateCustomRange(next.range.from, next.range.to, maxRangeDays) !== null) {
+    next.range = { ...DEFAULT_INSIGHT_RANGE };
+    resets.push({
+      field: "range",
+      message: `This data can cover at most ${maxRangeDays} days at a time — the date range was reset.`,
+    });
+  }
+
   // Grouping.
   const dimChoices = availableDimensionChoices(dataset, measure);
   if (!dimChoices.some((c) => c.id === next.dimension)) {
@@ -268,6 +302,21 @@ export function reconcileInsightDraft(
       });
     }
   } else {
+    // An explicit grain coarser than the range collapses the chart into one
+    // meaningless bucket — fall back to Automatic and say so (CD-5A).
+    const spanDays = rangeSpanDays(next.range, nowMs);
+    if (
+      next.timeGrain !== "auto" &&
+      spanDays !== null &&
+      !isGrainAvailable(next.timeGrain, spanDays)
+    ) {
+      next.timeGrain = "auto";
+      resets.push({
+        field: "timeGrain",
+        message:
+          "That grouping is longer than the dates you picked — using automatic grouping instead.",
+      });
+    }
     if (
       next.dateField !== undefined &&
       !dataset.dateFields.some((d) => d.id === next.dateField)

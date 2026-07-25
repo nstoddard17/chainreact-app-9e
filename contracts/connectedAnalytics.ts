@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AnalyticsRangeSchema } from "./analytics";
+import { InsightRangePresetSchema } from "./analytics";
 import { AnalyticsChartTypeSchema, AnalyticsValueUnitSchema } from "./analyticsCatalog";
 
 /**
@@ -41,8 +41,13 @@ export const ConnectedAnalyticsQuerySchema = z
       })
       .strict()
       .optional(),
+    /**
+     * Preset, or an explicit `[from, to)` window. On this wire `to` is the
+     * EXCLUSIVE boundary — the builder's inclusive end date is translated once,
+     * in `insightQueryFromConfig`, before the query is built.
+     */
     range: z.union([
-      z.object({ preset: AnalyticsRangeSchema }).strict(),
+      z.object({ preset: InsightRangePresetSchema }).strict(),
       z
         .object({
           from: z.string().min(1).max(40),

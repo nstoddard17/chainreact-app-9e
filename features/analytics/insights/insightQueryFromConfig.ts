@@ -6,6 +6,10 @@ import {
   findSource,
   type InsightCatalog,
 } from "./insightCatalog";
+import {
+  customRangeToWireRange,
+  validateCustomRange,
+} from "@/core/analytics/insightRange";
 import { DEFAULT_INSIGHT_RANGE, type InsightDraft } from "./reconcileInsightConfig";
 
 /**
@@ -15,11 +19,26 @@ import { DEFAULT_INSIGHT_RANGE, type InsightDraft } from "./reconcileInsightConf
  * Pure; no I/O.
  */
 
-const DAY_MS = 86_400_000;
-
-/** A complete, saveable config from the draft — or null while incomplete. */
-export function insightConfigFromDraft(draft: InsightDraft): InsightWidgetConfig | null {
+/**
+ * A complete, saveable config from the draft — or null while incomplete.
+ *
+ * `maxRangeDays` is the selected dataset's ceiling; pass it so an out-of-bounds
+ * or backwards custom range can never be persisted (CD-5A — previously the
+ * preview was blocked but Apply stayed enabled, so a broken range was saved and
+ * only failed later, on the dashboard).
+ */
+export function insightConfigFromDraft(
+  draft: InsightDraft,
+  maxRangeDays?: number,
+): InsightWidgetConfig | null {
   if (!draft.source || !draft.dataset || !draft.measure || !draft.chart) return null;
+  if (
+    "from" in draft.range &&
+    maxRangeDays !== undefined &&
+    validateCustomRange(draft.range.from, draft.range.to, maxRangeDays) !== null
+  ) {
+    return null;
+  }
   // Shape guards mirror the server's chart rules (validateQuery.ts).
   if (draft.chart === "line" && draft.dimension !== "time") return null;
   if (draft.chart === "kpi" && draft.dimension !== null) return null;
@@ -68,8 +87,21 @@ export function insightConfigFromDraft(draft: InsightDraft): InsightWidgetConfig
   };
 }
 
-/** The one query shape both preview and saved widgets send. */
+/**
+ * The one query shape both preview and saved widgets send.
+ *
+ * THE inclusive-end translation lives here (CD-5A): a saved custom range stores
+ * the end date the person picked ("to July 31", meaning July 31 counts), and
+ * this is the single place it becomes the engine's exclusive `[from, to)`
+ * boundary. Presets pass through — the server resolves them from the same
+ * shared definition the builder used to describe them.
+ */
 export function insightQueryFromConfig(config: InsightWidgetConfig): ConnectedAnalyticsQuery {
+  const storedRange = config.range ?? DEFAULT_INSIGHT_RANGE;
+  const range =
+    "from" in storedRange
+      ? customRangeToWireRange(storedRange.from, storedRange.to)
+      : storedRange;
   return {
     source: config.source,
     dataset: config.dataset,
@@ -79,7 +111,7 @@ export function insightQueryFromConfig(config: InsightWidgetConfig): ConnectedAn
     ...(config.timeGrain !== undefined ? { timeGrain: config.timeGrain } : {}),
     ...(config.filters !== undefined ? { filters: config.filters } : {}),
     ...(config.series !== undefined ? { series: config.series } : {}),
-    range: config.range ?? DEFAULT_INSIGHT_RANGE,
+    range,
     ...(config.compare === "previous_period" ? { compare: "previous_period" as const } : {}),
     ...(config.sort !== undefined ? { sort: config.sort } : {}),
     ...(config.limit !== undefined ? { limit: config.limit } : {}),
@@ -105,15 +137,13 @@ export function insightDraftIssues(catalog: InsightCatalog, draft: InsightDraft)
     issues.push("Choose at least one item to get its own line.");
   }
   if ("from" in draft.range) {
-    const from = Date.parse(draft.range.from);
-    const to = Date.parse(draft.range.to);
-    if (Number.isNaN(from) || Number.isNaN(to)) {
-      issues.push("Enter both custom dates.");
-    } else if (from >= to) {
-      issues.push("The range start must be before its end.");
-    } else if (to - from > dataset.limits.maxRangeDays * DAY_MS) {
-      issues.push(`The range can cover at most ${dataset.limits.maxRangeDays} days.`);
-    }
+    // Inclusive end date: start === end is a valid single day (CD-5A).
+    const rangeIssue = validateCustomRange(
+      draft.range.from,
+      draft.range.to,
+      dataset.limits.maxRangeDays,
+    );
+    if (rangeIssue) issues.push(rangeIssue);
   }
   return issues;
 }
