@@ -215,6 +215,49 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
     expect(denied.error).not.toBeNull(); // EXECUTE not granted to authenticated
   });
 
+  it("terminal rows never block or contaminate a fresh invite for the same email (HUMAN-JOURNEY-4)", async () => {
+    const { userId } = await createUser();
+    const teamId = await createTeam(userId);
+    const stamp = Date.now();
+    const email = `history-${stamp}@example.com`;
+
+    // A → accepted, B → revoked, C → historical expired: all terminal.
+    for (const [suffix, settle] of [
+      ["a", { status: "accepted", accepted_by_user_id: userId, accepted_at: new Date().toISOString() }],
+      ["b", { status: "revoked", revoked_at: new Date().toISOString() }],
+      ["c", { status: "expired" }],
+    ] as const) {
+      const ins = await insertInvite(teamId, email, `h-hist-${suffix}-${stamp}`);
+      expect(ins.error).toBeNull(); // each insert allowed: no pending row exists at this moment
+      const { error } = await admin
+        .from("account_invitations")
+        .update(settle)
+        .eq("account_id", teamId)
+        .eq("token_hash", `h-hist-${suffix}-${stamp}`);
+      expect(error).toBeNull();
+    }
+
+    // With accepted + revoked + expired rows all present for this email, a
+    // FRESH pending invite still inserts — its own row, its own hash.
+    const fresh = await insertInvite(teamId, email, `h-fresh-${stamp}`);
+    expect(fresh.error).toBeNull();
+
+    const { data: rows } = await admin
+      .from("account_invitations")
+      .select("id, status, token_hash, accepted_at, revoked_at, expires_at")
+      .eq("account_id", teamId)
+      .eq("email", email);
+    expect((rows ?? []).length).toBe(4);
+    const pending = (rows ?? []).filter((r) => r.status === "pending");
+    expect(pending.length).toBe(1);
+    expect(pending[0]!.token_hash).toBe(`h-fresh-${stamp}`);
+    expect(pending[0]!.accepted_at).toBeNull();
+    expect(pending[0]!.revoked_at).toBeNull();
+    expect(pending[0]!.expires_at).toBeNull();
+    // The historical accepted row is untouched by the fresh insert.
+    expect((rows ?? []).find((r) => r.status === "accepted")).toBeTruthy();
+  });
+
   it("find_user_id_by_email resolves a known email and returns null for unknown", async () => {
     const { userId, email } = await createUser();
     const known = await admin.rpc("find_user_id_by_email", { p_email: email.toUpperCase() });

@@ -605,6 +605,57 @@ describe("replaceInvitationEmail (TEAM-INVITATION-LIFECYCLE-2A — atomic)", () 
   });
 });
 
+describe("fresh-invite correlation (TEAM-INVITATION-HUMAN-JOURNEY-4)", () => {
+  function extractUrlToken(text: string): string {
+    const m = text.match(/token=([A-Za-z0-9._~%-]+)/);
+    if (!m) throw new Error("no token parameter in emailed body");
+    return decodeURIComponent(m[1]!);
+  }
+
+  it("a NEW create mints a fresh row + token, and the EMAILED URL carries exactly that token (old accepted rows can't interfere)", async () => {
+    // An older ACCEPTED invitation for the same email exists in the DB. The
+    // pending-only partial unique index means it cannot block the insert, and
+    // nothing about it feeds this create: the emailed URL must hash to the
+    // token hash stored by THIS insert.
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "invitee@example.com", role: "member",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    expect(mockInsertPending).toHaveBeenCalledTimes(1);
+    const insertArg = mockInsertPending.mock.calls[0][0] as { tokenHash: string };
+
+    const message = mockSendEmail.mock.calls[0][0] as { text: string; html: string; subject: string };
+    const emailedToken = extractUrlToken(message.text);
+    // The emailed link, the response link, and the inserted row are ONE operation:
+    expect(hashInviteToken(emailedToken)).toBe(insertArg.tokenHash);
+    expect(emailedToken).toBe(res.acceptToken);
+    expect(hashInviteToken(res.acceptToken)).toBe(insertArg.tokenHash);
+    // HTML body carries the same URL (attribute-escaped, token unchanged).
+    expect(extractUrlToken(message.html)).toBe(emailedToken);
+    // The subject carries the NEW invitation's opaque ref (id-derived).
+    expect(message.subject).toContain(`(invite ${res.invitation.id.slice(0, 8)})`);
+    // The ref is not secret material.
+    expect(message.subject).not.toContain(res.acceptToken);
+    expect(message.subject).not.toContain(insertArg.tokenHash);
+  });
+
+  it("acceptance resolves the presented token BY HASH — the second invitation is consumed, never a historical row", async () => {
+    const SECOND_TOKEN = "second-raw-token";
+    mockGetByTokenHash.mockResolvedValueOnce(pendingInvite({ id: "inv-2", role: "member" }));
+    const res = await acceptInvitation({
+      token: SECOND_TOKEN, userId: INVITEE, userEmail: "invitee@example.com",
+    });
+    expect(res.ok).toBe(true);
+    // Lookup went through the hash of the PRESENTED token…
+    expect(mockGetByTokenHash).toHaveBeenCalledWith(hashInviteToken(SECOND_TOKEN));
+    // …and only that invitation was settled.
+    expect(mockMarkAccepted).toHaveBeenCalledTimes(1);
+    expect(mockMarkAccepted).toHaveBeenCalledWith("inv-2", INVITEE, expect.any(String));
+  });
+});
+
 describe("normalizeEmail", () => {
   it("trims and lowercases", () => {
     expect(normalizeEmail("  Foo@Bar.COM ")).toBe("foo@bar.com");
