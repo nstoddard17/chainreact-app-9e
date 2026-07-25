@@ -34,6 +34,7 @@ export interface WidgetProps {
   isDragging: boolean;
   rangeLabel?: string;
   onResize: (id: string, size: AnalyticsWidgetSize) => void;
+  onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onConfigure: (id: string) => void;
@@ -47,6 +48,7 @@ export function Widget({
   isDragging,
   rangeLabel,
   onResize,
+  onDuplicate,
   onRemove,
   onRename,
   onConfigure,
@@ -155,6 +157,15 @@ export function Widget({
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/15 hover:text-primary"
+                onClick={() => onDuplicate(widget.id)}
+                title="Duplicate"
+                aria-label="Duplicate widget"
+              >
+                <AnalyticsIcon name="Layers" size={11} />
+              </button>
               <button
                 type="button"
                 className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive"

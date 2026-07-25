@@ -135,6 +135,7 @@ export function InsightWidgetBody({
   return (
     <InsightResult
       result={result}
+      chart={config.chart}
       refreshError={state.status === "ok" ? state.refreshError : null}
       onRefresh={dataset.freshness.mode === "cached" ? refresh : undefined}
       refreshing={refreshing}

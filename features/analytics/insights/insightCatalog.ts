@@ -19,9 +19,18 @@ export type InsightDimension = InsightDataset["dimensions"][number];
 export type InsightFilterDef = InsightDataset["filters"][number];
 export type InsightSeriesCap = InsightDataset["series"][number];
 
-/** CD-3A renders these chart types; bar/table/donut are CD-3B. */
-export const INSIGHT_CHARTS = ["kpi", "line"] as const;
+/** Every display type the Insight renderer can draw (CD-3A kpi/line + CD-3B). */
+export const INSIGHT_CHARTS = ["kpi", "line", "bar", "table", "donut"] as const;
 export type InsightChart = (typeof INSIGHT_CHARTS)[number];
+
+/** Customer-facing chart names (never the internal ids). */
+export const INSIGHT_CHART_LABELS: Record<InsightChart, string> = {
+  kpi: "Number",
+  line: "Line chart",
+  bar: "Bar chart",
+  table: "Table",
+  donut: "Donut",
+};
 
 export function findSource(
   catalog: InsightCatalog,
@@ -64,24 +73,45 @@ export function supportsTime(dataset: InsightDataset, measure: InsightMeasure): 
   );
 }
 
+/** Whether a categorical breakdown of this measure can be drawn at all. */
+export function supportsCategorical(dataset: InsightDataset): boolean {
+  return (
+    dataset.charts.includes("bar") ||
+    dataset.charts.includes("table") ||
+    dataset.charts.includes("donut")
+  );
+}
+
 /**
- * Group-by choices for CD-3A: no grouping (KPI) and — when the measure and
- * dataset support it — over time (line). Categorical groupings return with
- * bar/table charts in CD-3B; they are not offered while no shipped chart
- * could render them.
+ * Group-by choices (CD-3B): no grouping, over time, and every CATEGORICAL
+ * dimension the measure declares — the latter became offerable once bar /
+ * table / donut shipped. A choice is only listed when some declared chart
+ * could actually render it, so the builder never offers a dead end.
  */
 export function availableDimensionChoices(
   dataset: InsightDataset,
   measure: InsightMeasure,
 ): readonly { id: string | null; label: string }[] {
   const choices: { id: string | null; label: string }[] = [];
-  if (dataset.charts.includes("kpi")) {
+  if (dataset.charts.includes("kpi") || dataset.charts.includes("table")) {
     choices.push({ id: null, label: "No grouping — one number" });
   }
   if (supportsTime(dataset, measure)) {
     choices.push({ id: "time", label: "Over time" });
   }
+  if (supportsCategorical(dataset)) {
+    const allowed = measureDimensionIds(dataset, measure);
+    for (const dim of dataset.dimensions) {
+      if (dim.kind === "time" || !allowed.includes(dim.id)) continue;
+      choices.push({ id: dim.id, label: `By ${dim.label.toLowerCase()}` });
+    }
+  }
   return choices;
+}
+
+/** True when the dimension is a declared TRUE part-to-whole (donut gate). */
+export function isPartToWhole(dataset: InsightDataset, dimension: string | null): boolean {
+  return dimension !== null && dataset.partToWholeDimensions.includes(dimension);
 }
 
 /** Filters that apply to this measure (existence minus incompatibilities). */
@@ -109,16 +139,64 @@ export function seriesDimension(
   return dataset.dimensions.find((d) => d.id === cap.by) ?? null;
 }
 
-/** Chart types renderable for the current grouping, CD-3A subset only. */
+/**
+ * Chart types renderable for the current grouping (CD-3B).
+ *
+ * Derived ENTIRELY from the dataset's declared `charts` + the measure's
+ * dimension capability + `partToWholeDimensions` — there is no measure-name
+ * or provider allow-list anywhere. Shape rules:
+ *   - ungrouped  → kpi (one number) · table (a labeled single row)
+ *   - over time  → line · bar (discrete buckets) · table
+ *   - by category→ bar · table · donut (ONLY on a declared part-to-whole)
+ * The server re-validates every one of these (validateQuery.ts).
+ */
 export function chartChoices(
   dataset: InsightDataset,
   measure: InsightMeasure,
   dimension: string | null,
 ): readonly InsightChart[] {
+  const has = (c: InsightChart) => dataset.charts.includes(c);
   const out: InsightChart[] = [];
-  if (dimension === null && dataset.charts.includes("kpi")) out.push("kpi");
-  if (dimension === "time" && supportsTime(dataset, measure)) out.push("line");
+  if (dimension === null) {
+    if (has("kpi")) out.push("kpi");
+    if (has("table")) out.push("table");
+    return out;
+  }
+  if (dimension === "time") {
+    if (supportsTime(dataset, measure)) out.push("line");
+    if (has("bar")) out.push("bar");
+    if (has("table")) out.push("table");
+    return out;
+  }
+  // Categorical grouping — valid only where the measure allows the dimension.
+  if (!measureDimensionIds(dataset, measure).includes(dimension)) return out;
+  if (has("bar")) out.push("bar");
+  if (has("table")) out.push("table");
+  if (has("donut") && isPartToWhole(dataset, dimension)) out.push("donut");
   return out;
+}
+
+/**
+ * The natural display for a shape, used when the previous chart type stopped
+ * fitting. Choosing HOW to draw an answer is a display default, not a change
+ * to the business question (the grouping decides that) — so the builder keeps
+ * CD-3A's guided feel instead of stranding the user on an unset chart.
+ */
+export function defaultChartFor(
+  dataset: InsightDataset,
+  measure: InsightMeasure,
+  dimension: string | null,
+): InsightChart | null {
+  const choices = chartChoices(dataset, measure, dimension);
+  if (choices.length === 0) return null;
+  const preferred: InsightChart =
+    dimension === null ? "kpi" : dimension === "time" ? "line" : "bar";
+  return choices.includes(preferred) ? preferred : choices[0]!;
+}
+
+/** Whether a categorical breakdown can be ordered (bar/table sort control). */
+export function sortAllowed(dimension: string | null): boolean {
+  return dimension !== null && dimension !== "time";
 }
 
 /** Whether period comparison is offerable for this shape (mirror of server). */

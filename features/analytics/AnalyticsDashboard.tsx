@@ -25,10 +25,13 @@ import type { InsightCatalog } from "./insights/insightCatalog";
 import {
   RANGE_OPTIONS,
   makeWidget,
+  duplicateWidgetAt,
   ErrorBanner,
   EmptyDashboard,
   downloadDashboardExport,
 } from "./dashboardHelpers";
+import { DashboardConfirmDialog, DashboardNameDialog } from "./DashboardDialogs";
+import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
 /**
  * Analytics dashboard orchestrator (Slice ANALYTICS-1).
@@ -91,6 +94,9 @@ export function AnalyticsDashboard({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [showLibrary, setShowLibrary] = useState(false);
+  // CD-3B dashboard actions — real dialogs, never window.prompt/confirm.
+  const [nameDialog, setNameDialog] = useState<"create" | "rename" | null>(null);
+  const [showRestore, setShowRestore] = useState(false);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const draggingId = useRef<string | null>(null);
   const [draggingState, setDraggingState] = useState<string | null>(null);
@@ -157,6 +163,17 @@ export function AnalyticsDashboard({
     setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, size } : w)));
   const handleRemove = (id: string) =>
     setDraftWidgets((ws) => ws.filter((w) => w.id !== id));
+  const handleDuplicate = (id: string) => {
+    setActionError(null);
+    setDraftWidgets((ws) => {
+      const outcome = duplicateWidgetAt(ws, id);
+      if ("error" in outcome) {
+        setActionError(outcome.error);
+        return ws;
+      }
+      return outcome.widgets;
+    });
+  };
   const handleRename = (id: string, title: string) =>
     setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, title } : w)));
   const handleConfigSave = (id: string, config: AnalyticsWidgetConfig) => {
@@ -198,17 +215,35 @@ export function AnalyticsDashboard({
     setActiveId(id);
   };
 
-  const createDashboard = async () => {
-    const name = window.prompt("Name your new dashboard")?.trim();
-    if (!name) return;
-    setActionError(null);
-    try {
-      const created = await analyticsApi.createDashboard({ name });
-      setDashboards((ds) => [...ds, created]);
-      setActiveId(created.id);
-    } catch (err) {
-      setActionError(err instanceof AnalyticsApiError ? err.message : "Couldn't create the dashboard.");
-    }
+  const createDashboard = async (name: string) => {
+    const created = await analyticsApi.createDashboard({ name });
+    setDashboards((ds) => [...ds, created]);
+    setActiveId(created.id);
+    setNameDialog(null);
+  };
+
+  /** Rename the active dashboard through the existing PATCH path. */
+  const renameDashboard = async (name: string) => {
+    if (!active) return;
+    const updated = await analyticsApi.updateDashboard(active.id, { name });
+    setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+    setNameDialog(null);
+  };
+
+  /**
+   * Restore the default board: rewrite the DEFAULT dashboard's widgets to the
+   * canonical definitions (contracts/analyticsDefaults.ts) through the same
+   * atomic PATCH every save uses. Other dashboards, connections, and account
+   * data are untouched.
+   */
+  const restoreDefaultLayout = async () => {
+    if (!active?.isDefault) return;
+    const updated = await analyticsApi.updateDashboard(active.id, {
+      widgets: DEFAULT_OVERVIEW_WIDGETS,
+    });
+    setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+    setDraftWidgets(updated.widgets.map((w) => ({ ...w })));
+    setShowRestore(false);
   };
 
   const deleteActiveDashboard = async () => {
@@ -346,6 +381,24 @@ export function AnalyticsDashboard({
           );
         })}
         <span className="flex-1" />
+        {canManage && active && !editing && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setNameDialog("rename")}
+          >
+            <AnalyticsIcon name="Settings" size={11} /> Rename
+          </button>
+        )}
+        {canManage && active?.isDefault && !editing && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setShowRestore(true)}
+          >
+            <AnalyticsIcon name="History" size={11} /> Restore default layout
+          </button>
+        )}
         {canManage && active && !active.isDefault && !editing && (
           <button
             type="button"
@@ -359,7 +412,7 @@ export function AnalyticsDashboard({
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 px-3 py-1 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
-            onClick={() => void createDashboard()}
+            onClick={() => setNameDialog("create")}
             disabled={editing}
           >
             <AnalyticsIcon name="Plus" size={11} /> New dashboard
@@ -411,6 +464,7 @@ export function AnalyticsDashboard({
               isDragging={draggingState === w.id}
               {...(rangeLabel && w.type !== "insight" ? { rangeLabel } : {})}
               onResize={handleResize}
+              onDuplicate={handleDuplicate}
               onRemove={handleRemove}
               onRename={handleRename}
               onConfigure={(id) => setConfiguringId(id)}
@@ -444,6 +498,24 @@ export function AnalyticsDashboard({
         </div>
       )}
 
+      {nameDialog && (
+        <DashboardNameDialog
+          mode={nameDialog}
+          {...(nameDialog === "rename" && active ? { initialName: active.name } : {})}
+          onSubmit={nameDialog === "rename" ? renameDashboard : createDashboard}
+          onClose={() => setNameDialog(null)}
+        />
+      )}
+      {showRestore && active?.isDefault && (
+        <DashboardConfirmDialog
+          title="Restore the default layout?"
+          body={`This replaces the widgets on "${active.name}" with ChainReact's default set. Any widgets you added or configured here will be removed. Your other dashboards and your data aren't affected.`}
+          confirmLabel="Restore layout"
+          destructive
+          onConfirm={restoreDefaultLayout}
+          onClose={() => setShowRestore(false)}
+        />
+      )}
       {showLibrary && <WidgetLibrary onAdd={handleAdd} onClose={() => setShowLibrary(false)} />}
       {configuringWidget &&
         (configuringWidget.type === "insight" ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { InsightChartType } from "@/contracts/analytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
 import type { InsightPreviewGate } from "./useInsightPreview";
 import { InsightFailureView, InsightMessage } from "./InsightStates";
@@ -17,10 +18,13 @@ export function InsightPreview({
   gate,
   runExplicitPreview,
   sourceLabel,
+  chart,
 }: {
   gate: InsightPreviewGate;
   runExplicitPreview: () => void;
   sourceLabel: string | null;
+  /** The draft's display intent, so the preview draws what will be saved. */
+  chart?: InsightChartType | undefined;
 }) {
   return (
     <section className="flex min-h-[210px] flex-col rounded-xl border border-border bg-background/40 p-3">
@@ -31,7 +35,12 @@ export function InsightPreview({
         <span>Preview</span>
       </div>
       <div className="min-h-0 flex-1">
-        <PreviewBody gate={gate} runExplicitPreview={runExplicitPreview} sourceLabel={sourceLabel} />
+        <PreviewBody
+          gate={gate}
+          runExplicitPreview={runExplicitPreview}
+          sourceLabel={sourceLabel}
+          chart={chart}
+        />
       </div>
     </section>
   );
@@ -41,10 +50,12 @@ function PreviewBody({
   gate,
   runExplicitPreview,
   sourceLabel,
+  chart,
 }: {
   gate: InsightPreviewGate;
   runExplicitPreview: () => void;
   sourceLabel: string | null;
+  chart?: InsightChartType | undefined;
 }) {
   if (gate.kind === "incomplete") {
     const first = gate.issues[0] ?? "Choose where your data comes from.";
@@ -108,6 +119,7 @@ function PreviewBody({
   return (
     <InsightResult
       result={result}
+      chart={chart}
       refreshError={state.status === "ok" ? state.refreshError : null}
       onRefresh={result.freshness.mode === "cached" ? refresh : undefined}
       refreshing={state.status === "loading"}

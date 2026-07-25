@@ -1,10 +1,13 @@
 import type { AnalyticsRange, InsightWidgetConfig } from "@/contracts/analytics";
 import {
   availableDimensionChoices,
+  sortAllowed,
+  type InsightChart,
   availableFilters,
   availableSeries,
   chartChoices,
   compareAllowed,
+  defaultChartFor,
   findDataset,
   findMeasure,
   findSource,
@@ -28,7 +31,7 @@ export interface InsightDraft {
   source: string | null;
   dataset: string | null;
   measure: string | null;
-  /** null = single number; "time" = line (CD-3A's grouping choices). */
+  /** null = single number · "time" = time buckets · else a category id. */
   dimension: string | null;
   dateField?: string;
   timeGrain: "auto" | "day" | "week" | "month";
@@ -41,7 +44,9 @@ export interface InsightDraft {
   } | null;
   range: { preset: AnalyticsRange } | { from: string; to: string };
   compare: boolean;
-  chart: "kpi" | "line" | null;
+  /** Category-breakdown ordering (CD-3B); null = the server's default order. */
+  sort: { by: "value" | "label"; dir: "asc" | "desc" } | null;
+  chart: InsightChart | null;
 }
 
 export interface InsightReset {
@@ -54,6 +59,7 @@ export interface InsightReset {
     | "filters"
     | "series"
     | "compare"
+    | "sort"
     | "chart";
   message: string;
 }
@@ -71,6 +77,7 @@ export function emptyInsightDraft(): InsightDraft {
     series: null,
     range: DEFAULT_INSIGHT_RANGE,
     compare: false,
+    sort: null,
     chart: null,
   };
 }
@@ -99,6 +106,7 @@ export function insightDraftFromConfig(config: InsightWidgetConfig): InsightDraf
       : null,
     range: config.range ?? DEFAULT_INSIGHT_RANGE,
     compare: config.compare === "previous_period",
+    sort: config.sort ? { ...config.sort } : null,
     chart: config.chart,
   };
 }
@@ -217,9 +225,16 @@ export function reconcileInsightDraft(
   if (!measure) {
     // Without a measure the grouping/series/chart can't be judged — keep the
     // user's grouping only if the dataset could ever support it.
-    if (next.dimension !== null && next.dimension !== "time") next.dimension = null;
+    if (
+      next.dimension !== null &&
+      next.dimension !== "time" &&
+      !dataset.dimensions.some((d) => d.id === next.dimension)
+    ) {
+      next.dimension = null;
+    }
     next.series = null;
     next.compare = false;
+    next.sort = null;
     next.chart = null;
     return { draft: next, resets };
   }
@@ -313,15 +328,34 @@ export function reconcileInsightDraft(
 
   // Chart: keep if still renderable; otherwise auto-fill only when exactly one
   // honest choice remains (not a substitution — the grouping decides it).
+  // Donut carries an extra reason so a user who picked it learns WHY it went.
   const charts = chartChoices(dataset, measure, next.dimension);
   if (next.chart !== null && !charts.includes(next.chart)) {
     resets.push({
       field: "chart",
-      message: "That chart type doesn't fit the current grouping.",
+      message:
+        next.chart === "donut"
+          ? "A donut needs a breakdown whose parts add up to a meaningful whole, so the chart type was cleared."
+          : "That chart type doesn't fit the current grouping.",
     });
     next.chart = null;
   }
-  if (next.chart === null && charts.length === 1) next.chart = charts[0]!;
+  // Fill a natural display for the current shape (kpi / line / bar). The
+  // grouping is the question; the chart is how it's drawn, so defaulting it
+  // is guidance, never a silent substitution — and any clear above already
+  // rendered its explanation.
+  if (next.chart === null) next.chart = defaultChartFor(dataset, measure, next.dimension);
+
+  // Ordering applies to a category breakdown only (mirror of the server).
+  if (next.sort && !sortAllowed(next.dimension)) {
+    next.sort = null;
+    resets.push({
+      field: "sort",
+      message: "Ordering only applies to a category breakdown.",
+    });
+  }
+  // A donut draws a whole; re-ordering its slices is not a business question.
+  if (next.sort && next.chart === "donut") next.sort = null;
 
   // Compare.
   if (next.compare && !compareAllowed(dataset, measure, next.dimension, next.series !== null)) {

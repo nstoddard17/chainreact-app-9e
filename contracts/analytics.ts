@@ -102,8 +102,13 @@ export type AnalyticsWidgetDataSource = z.infer<typeof AnalyticsWidgetDataSource
 
 // ── Custom Insight (CD-3A) ───────────────────────────────────────────────────
 
-/** CD-3A ships KPI + line only; bar/table/donut arrive in CD-3B. */
-export const InsightChartTypeSchema = z.enum(["kpi", "line"]);
+/**
+ * Insight display types. CD-3A shipped kpi + line; CD-3B adds bar, the
+ * user-selectable table, and the catalog-gated donut. Availability per query
+ * always comes from the dataset's declared `charts` (+ part-to-whole for
+ * donut) — this enum only bounds what the renderer can draw.
+ */
+export const InsightChartTypeSchema = z.enum(["kpi", "line", "bar", "table", "donut"]);
 export type InsightChartType = z.infer<typeof InsightChartTypeSchema>;
 
 const InsightId = z.string().min(1).max(60);
@@ -155,6 +160,15 @@ export const InsightWidgetConfigSchema = z
      * Insight does not follow the dashboard's global range selector). */
     range: InsightRangeSchema.optional(),
     compare: z.literal("previous_period").nullable().optional(),
+    /** Category-breakdown ordering (CD-3B). Mirrors the connected query's
+     * `sort`; only meaningful for a categorical grouping — the server rejects
+     * it otherwise, so it is never persisted for KPI/time shapes. */
+    sort: z
+      .object({ by: z.enum(["value", "label"]), dir: z.enum(["asc", "desc"]) })
+      .strict()
+      .optional(),
+    /** Category-row cap (CD-3B); bounded by the dataset's maxCategoryRows. */
+    limit: z.number().int().min(1).max(50).optional(),
     chart: InsightChartTypeSchema,
   })
   .strict();

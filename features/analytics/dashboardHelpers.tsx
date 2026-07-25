@@ -1,5 +1,6 @@
 "use client";
 
+import { AnalyticsWidgetSchema } from "@/contracts/analytics";
 import type {
   AnalyticsDashboard,
   AnalyticsOverview,
@@ -88,6 +89,52 @@ export function makeWidget(type: AnalyticsWidgetType): AnalyticsWidget {
       ...(type === "note" ? { note: "Type a note for you or your team." } : {}),
     },
   };
+}
+
+/** Dashboards cap at 48 widgets (AnalyticsWidgetsSchema). */
+export const MAX_DASHBOARD_WIDGETS = 48;
+
+/** Fresh, collision-proof widget id (same scheme as `makeWidget`). */
+function newWidgetId(): string {
+  return `w-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+/**
+ * Duplicate a widget (CD-3B). PURE — returns the next widget list, or null
+ * when the copy must be refused.
+ *
+ * Copies only the persisted question: type, size, icon and config. Runtime
+ * state (results, freshness, errors, loading, legend visibility) lives in
+ * component state and hooks, never in the widget, so it cannot come along.
+ * A widget whose stored config no longer parses is refused rather than
+ * cloned — duplicating a broken widget would just double the repair work.
+ * Exposure is NOT re-checked here: a copied config referencing a
+ * non-exposed source renders the same "settings need an update" state its
+ * original does, because the catalog is filtered server-side.
+ */
+export function duplicateWidgetAt(
+  widgets: readonly AnalyticsWidget[],
+  id: string,
+): { widgets: AnalyticsWidget[]; newId: string } | { error: string } {
+  const index = widgets.findIndex((w) => w.id === id);
+  const source = widgets[index];
+  if (index < 0 || !source) return { error: "That widget is no longer on this dashboard." };
+  if (widgets.length >= MAX_DASHBOARD_WIDGETS) {
+    return { error: `A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.` };
+  }
+  if (!AnalyticsWidgetSchema.safeParse(source).success) {
+    return { error: "That widget's settings need to be fixed before it can be copied." };
+  }
+  const newId = newWidgetId();
+  const copy: AnalyticsWidget = {
+    ...source,
+    id: newId,
+    title: `${source.title} copy`.slice(0, 120),
+    config: JSON.parse(JSON.stringify(source.config)) as AnalyticsWidget["config"],
+  };
+  const next = widgets.slice();
+  next.splice(index + 1, 0, copy); // sits immediately after its source
+  return { widgets: next, newId };
 }
 
 export function ErrorBanner({

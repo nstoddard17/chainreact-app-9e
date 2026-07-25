@@ -48,8 +48,17 @@ describe("registry validation (loud failures)", () => {
     ).toThrow(/unknown options source/);
   });
   it("rejects donut without part-to-whole and time charts on current-state data", () => {
+    // ChainReact legitimately declares donut + part-to-whole `status` since
+    // CD-3B, so drop the declaration to exercise the guard itself.
     expect(() =>
-      validateCatalog(catalogWith((c) => c.datasets[0]!.supportedCharts.push("donut"))),
+      validateCatalog(
+        catalogWith((c) => {
+          c.datasets[0]!.partToWholeDimensions = [];
+          if (!c.datasets[0]!.supportedCharts.includes("donut")) {
+            c.datasets[0]!.supportedCharts.push("donut");
+          }
+        }),
+      ),
     ).toThrow(/part-to-whole/);
     // Removing all historical date fields fails loudly — either at the
     // named-measure "time" reference or the current-state chart guard.

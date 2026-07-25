@@ -80,8 +80,9 @@ export const FIXTURE_CATALOG: InsightCatalog = {
             { id: "include_drafts", label: "Include drafts", valueType: "boolean", maxSelections: 1 },
           ],
           dateFields: [{ id: "placed", label: "Order date" }],
-          charts: ["kpi", "line", "bar", "table"],
-          partToWholeDimensions: [],
+          charts: ["kpi", "line", "bar", "table", "donut"],
+          // Status is mutually exclusive + exhaustive → a genuine whole.
+          partToWholeDimensions: ["status"],
           series: [
             { by: "item", max: 8, modes: ["explicit", "top"] },
             { by: "status", max: 3, modes: [] },
@@ -156,7 +157,7 @@ export const FIXTURE_CATALOG: InsightCatalog = {
             },
           ],
           dateFields: [{ id: "at", label: "Event time" }],
-          charts: ["kpi", "line"],
+          charts: ["kpi", "line", "bar", "table"],
           partToWholeDimensions: [],
           series: [{ by: "thing", max: 8, modes: ["explicit", "top"] }],
           compare: true,
@@ -252,6 +253,35 @@ export function timeSeriesResult(
       { start: "2026-06-03", end: "2026-06-04", label: "Jun 3" },
     ],
     series: [{ id: "all", label: "Orders", values: [3, 0, 5] }],
+    warnings: [],
+    ...overrides,
+  };
+}
+
+export function categoricalResult(
+  overrides: Partial<ConnectedAnalyticsResult> = {},
+): ConnectedAnalyticsResult {
+  return {
+    kind: "categorical",
+    source: {
+      sourceId: "acme",
+      sourceLabel: "Acme",
+      datasetId: "orders",
+      datasetLabel: "Orders",
+    },
+    measure: { id: "order_count", label: "Orders" },
+    dimension: "status",
+    grain: null,
+    range: { from: "2026-06-01T00:00:00.000Z", to: "2026-07-01T00:00:00.000Z" },
+    valueMeta: { unit: "count" },
+    freshness: { mode: "live" },
+    completeness: { state: "complete" },
+    rows: [
+      { id: "paid", label: "Paid", value: 60, records: 60 },
+      { id: "refunded", label: "Refunded", value: 30, records: 30 },
+      { id: "void", label: "Void", value: 10, records: 10 },
+    ],
+    total: 100,
     warnings: [],
     ...overrides,
   };

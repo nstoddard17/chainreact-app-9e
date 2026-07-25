@@ -160,8 +160,14 @@ export const stripeInsightsCatalog: AnalyticsSourceCatalog = {
           compare: true,
         },
       ],
-      supportedCharts: ["kpi", "line", "bar", "table"],
-      partToWholeDimensions: [],
+      supportedCharts: ["kpi", "line", "bar", "table", "donut"],
+      // Charge status is mutually exclusive and exhaustive over the scanned
+      // window (succeeded | pending | failed), so a COUNT by status sums to a
+      // meaningful whole. Currency is NOT listed: monetary measures can't
+      // group by it at all, and a count-by-currency donut invites reading it
+      // as a money split. A scan-capped result still renders without
+      // percentages (the renderer's completeness guardrail).
+      partToWholeDimensions: ["status"],
       series: [{ by: "status", max: 3, modes: [] }],
       compare: true,
       queryLimits: {

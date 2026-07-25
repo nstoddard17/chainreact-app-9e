@@ -66,12 +66,46 @@ describe("InsightWidgetConfigSchema", () => {
     }
   });
 
-  it("rejects CD-3B chart types and malformed shapes", () => {
+  it("accepts every shipped chart type, incl. the CD-3B additions", () => {
+    for (const chart of ["kpi", "line", "bar", "table", "donut"]) {
+      expect(
+        InsightWidgetConfigSchema.safeParse({ ...VALID_INSIGHT, chart }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("persists category ordering + row bounds (CD-3B)", () => {
+    const categorical = {
+      ...VALID_INSIGHT,
+      dimension: "status",
+      series: undefined,
+      chart: "bar",
+      sort: { by: "value", dir: "desc" },
+      limit: 10,
+    };
+    delete (categorical as { series?: unknown }).series;
+    const parsed = InsightWidgetConfigSchema.safeParse(categorical);
+    expect(parsed.success).toBe(true);
+    // Bounds + strictness still hold.
     expect(
-      InsightWidgetConfigSchema.safeParse({ ...VALID_INSIGHT, chart: "bar" }).success,
+      InsightWidgetConfigSchema.safeParse({ ...categorical, limit: 51 }).success,
     ).toBe(false);
     expect(
-      InsightWidgetConfigSchema.safeParse({ ...VALID_INSIGHT, chart: "donut" }).success,
+      InsightWidgetConfigSchema.safeParse({ ...categorical, sort: { by: "runs", dir: "desc" } })
+        .success,
+    ).toBe(false);
+    expect(
+      InsightWidgetConfigSchema.safeParse({ ...categorical, sort: { by: "value", dir: "desc", nulls: "last" } })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects unknown chart types and malformed shapes", () => {
+    expect(
+      InsightWidgetConfigSchema.safeParse({ ...VALID_INSIGHT, chart: "heatmap" }).success,
+    ).toBe(false);
+    expect(
+      InsightWidgetConfigSchema.safeParse({ ...VALID_INSIGHT, chart: "pie" }).success,
     ).toBe(false);
     expect(
       InsightWidgetConfigSchema.safeParse({ ...VALID_INSIGHT, series: { mode: "top" } }).success,

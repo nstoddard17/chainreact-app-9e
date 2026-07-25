@@ -130,6 +130,7 @@ export function InsightConfigPanel({
             gate={gate}
             runExplicitPreview={runExplicitPreview}
             sourceLabel={source?.label ?? null}
+            chart={draft.chart ?? undefined}
           />
         </div>
 

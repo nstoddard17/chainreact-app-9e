@@ -6,6 +6,9 @@ import {
   availableDimensionChoices,
   availableSeries,
   chartChoices,
+  sortAllowed,
+  INSIGHT_CHART_LABELS,
+  type InsightChart,
   findDataset,
   findMeasure,
   findSource,
@@ -178,14 +181,33 @@ export function InsightBuilder({
             />
           </Step>
 
+          {sortAllowed(draft.dimension) && (
+            <Step icon="Filter" prompt="Order" optional notes={notes("sort")}>
+              <div className="flex flex-wrap gap-1.5">
+                {SORT_CHOICES.map((o) => (
+                  <Chip
+                    key={o.key}
+                    label={o.label}
+                    on={
+                      o.value === null
+                        ? draft.sort === null
+                        : draft.sort?.by === o.value.by && draft.sort?.dir === o.value.dir
+                    }
+                    onSelect={() => onPatch({ sort: o.value })}
+                  />
+                ))}
+              </div>
+            </Step>
+          )}
+
           <Step icon="History" prompt="Chart" notes={notes("chart")}>
             <div className="flex flex-wrap gap-1.5">
-              {(["kpi", "line"] as const).map((c) => {
+              {CHART_ORDER.map((c) => {
                 const enabled = chartChoices(dataset, measure, draft.dimension).includes(c);
                 return (
                   <Chip
                     key={c}
-                    label={c === "kpi" ? "Number" : "Line chart"}
+                    label={INSIGHT_CHART_LABELS[c]}
                     on={draft.chart === c}
                     disabled={!enabled}
                     onSelect={() => onPatch({ chart: c })}
@@ -193,16 +215,36 @@ export function InsightBuilder({
                 );
               })}
             </div>
-            <p className="mt-1 text-[10.5px] text-muted-foreground">
-              {draft.dimension === "time"
-                ? "A chart over time renders as a line."
-                : "An ungrouped result renders as a single number. Group it over time for a line chart."}
-            </p>
+            <p className="mt-1 text-[10.5px] text-muted-foreground">{chartHint(draft.dimension)}</p>
           </Step>
         </>
       )}
     </div>
   );
+}
+
+/** Display order of the chart chips (availability comes from the catalog). */
+const CHART_ORDER: readonly InsightChart[] = ["kpi", "line", "bar", "table", "donut"];
+
+const SORT_CHOICES: readonly {
+  key: string;
+  label: string;
+  value: { by: "value" | "label"; dir: "asc" | "desc" } | null;
+}[] = [
+  { key: "default", label: "Default order", value: null },
+  { key: "value-desc", label: "Largest first", value: { by: "value", dir: "desc" } },
+  { key: "value-asc", label: "Smallest first", value: { by: "value", dir: "asc" } },
+  { key: "label-asc", label: "By name (A–Z)", value: { by: "label", dir: "asc" } },
+];
+
+function chartHint(dimension: string | null): string {
+  if (dimension === "time") {
+    return "Results over time can be a line, bars, or a table.";
+  }
+  if (dimension === null) {
+    return "An ungrouped result is a single number. Group it to compare categories or plot it over time.";
+  }
+  return "A category breakdown can be bars or a table — a donut only when the groups add up to a meaningful whole.";
 }
 
 function Step({

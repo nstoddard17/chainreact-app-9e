@@ -20,8 +20,13 @@ const DAY_MS = 86_400_000;
 /** A complete, saveable config from the draft — or null while incomplete. */
 export function insightConfigFromDraft(draft: InsightDraft): InsightWidgetConfig | null {
   if (!draft.source || !draft.dataset || !draft.measure || !draft.chart) return null;
+  // Shape guards mirror the server's chart rules (validateQuery.ts).
   if (draft.chart === "line" && draft.dimension !== "time") return null;
   if (draft.chart === "kpi" && draft.dimension !== null) return null;
+  if (draft.chart === "donut" && (draft.dimension === null || draft.dimension === "time")) {
+    return null;
+  }
+  if (draft.chart === "bar" && draft.dimension === null) return null;
   if (draft.series?.mode === "explicit" && !draft.series.ids?.length) return null;
   const filters = Object.fromEntries(
     Object.entries(draft.filters).filter(
@@ -56,6 +61,9 @@ export function insightConfigFromDraft(draft: InsightDraft): InsightWidgetConfig
       : {}),
     range: draft.range,
     ...(draft.compare ? { compare: "previous_period" as const } : {}),
+    ...(draft.sort && draft.dimension !== null && draft.dimension !== "time"
+      ? { sort: { ...draft.sort } }
+      : {}),
     chart: draft.chart,
   };
 }
@@ -73,6 +81,8 @@ export function insightQueryFromConfig(config: InsightWidgetConfig): ConnectedAn
     ...(config.series !== undefined ? { series: config.series } : {}),
     range: config.range ?? DEFAULT_INSIGHT_RANGE,
     ...(config.compare === "previous_period" ? { compare: "previous_period" as const } : {}),
+    ...(config.sort !== undefined ? { sort: config.sort } : {}),
+    ...(config.limit !== undefined ? { limit: config.limit } : {}),
     chart: config.chart,
   };
 }

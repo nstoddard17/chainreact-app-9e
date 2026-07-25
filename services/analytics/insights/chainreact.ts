@@ -160,8 +160,14 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           compare: true,
         },
       ],
-      supportedCharts: ["kpi", "line", "bar", "table"],
-      partToWholeDimensions: [],
+      supportedCharts: ["kpi", "line", "bar", "table", "donut"],
+      // Run status is the ONE true part-to-whole breakdown here: the domain
+      // has exactly two terminal states (succeeded | failed), they are
+      // mutually exclusive, and together they are every run in the window —
+      // so the slices sum to a meaningful total. Workflow / trigger source
+      // are deliberately NOT listed (a run has one of each, but Top-N rows
+      // omit an unlabeled remainder, so a donut would imply a false whole).
+      partToWholeDimensions: ["status"],
       series: [
         { by: "workflow", max: 8, modes: ["explicit", "top"] },
         { by: "status", max: 2, modes: [] },

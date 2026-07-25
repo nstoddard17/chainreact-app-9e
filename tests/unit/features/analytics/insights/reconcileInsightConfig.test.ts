@@ -28,6 +28,7 @@ function acmeLineDraft(): InsightDraft {
     series: { by: "item", mode: "explicit", ids: ["i-1", "i-2"] },
     range: { preset: "30d" },
     compare: false,
+    sort: null,
     chart: "line",
   };
 }
