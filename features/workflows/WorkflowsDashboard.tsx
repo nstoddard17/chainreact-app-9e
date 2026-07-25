@@ -14,7 +14,6 @@ import { WorkflowCard } from "./WorkflowCard";
 import { WorkflowsTable } from "./WorkflowsTable";
 import { WorkflowsEmptyState } from "./WorkflowsEmptyState";
 import { WorkflowsStatCards } from "./WorkflowsStatCards";
-import type { AccountUsageSummary } from "@/core/billing/accountUsageSummary";
 import {
   WorkflowsToolbar,
   type WorkflowStatusFilter,
@@ -73,12 +72,6 @@ interface Props {
   initialCollaborationOnboarding?: CollaborationChecklistDTO | null;
   /** 5.ONBOARD-1 Batch 4 — server-configured optional video (null = hidden). */
   onboardingVideo?: OnboardingVideoProps | null;
-  /**
-   * DASHBOARD-USAGE-VISIBILITY-1 — server-computed account usage (tasks + AI
-   * credits) for the two "left this period" stat cards. Null/absent → the four
-   * classic cards render alone (fail-open; usage is never faked client-side).
-   */
-  usage?: AccountUsageSummary | null;
 }
 
 const UNDO_TIMEOUT_MS = 8000;
@@ -110,7 +103,6 @@ export function WorkflowsDashboard({
   initialOnboarding = null,
   initialCollaborationOnboarding = null,
   onboardingVideo = null,
-  usage = null,
 }: Props) {
   const [onboardingVisible, setOnboardingVisible] = useState(() =>
     // 5.ONBOARD-4 — either checklist occupying the slot suppresses the empty
@@ -362,7 +354,7 @@ export function WorkflowsDashboard({
         />
       )}
 
-      <WorkflowsStatCards workflows={workflows} usage={usage} />
+      <WorkflowsStatCards workflows={workflows} />
 
       <WorkflowsToolbar
         tab={tab}
