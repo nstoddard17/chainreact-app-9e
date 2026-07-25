@@ -11,6 +11,9 @@ import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
 import { useInitialBuilderFocus } from "./hooks/useInitialBuilderFocus";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
+import type { BuilderTab } from "./canvas/BuilderTabPlaceholder";
+import { BuilderTabStrip } from "./layout/BuilderTabStrip";
+import { BuilderTabPanels } from "./layout/BuilderTabPanels";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
@@ -311,6 +314,15 @@ export function WorkflowBuilder({
     [workflow.id],
   );
   const documentViewActive = documentBuilderEnabled === true && builderView === "document";
+
+  // BUILDER-TABS-HEADER-1 — the top tab segment (Builder | Runs | Data Map |
+  // History | Settings) now lives at the builder level, rendered in the header
+  // region, so BOTH view modes reach every tab. State survives Visual/Document
+  // switches; resets to "builder" on workflow switch.
+  const [activeTab, setActiveTab] = useState<BuilderTab>("builder");
+  useEffect(() => {
+    setActiveTab("builder");
+  }, [workflow.id]);
   // CS-7 telemetry — gate emission on the server-resolved flag so flag OFF emits
   // NOTHING, then record when the Document surface is actually shown.
   useEffect(() => {
@@ -952,6 +964,7 @@ export function WorkflowBuilder({
     <BuilderTeamProvider value={teamContext ?? null}>
     <BuilderShell
       header={
+        <>
         <BuilderHeader
           workflowName={workflowName}
           workflowId={workflow.id}
@@ -980,6 +993,11 @@ export function WorkflowBuilder({
           // ANON-BUILDER-1 — local-only: replace save/run/activate with a sign-up CTA.
           {...(localOnly ? { localOnly: true } : {})}
         />
+        {/* BUILDER-TABS-HEADER-1 — the section tabs sit in the header region,
+            below the 48px action bar, visible in BOTH Visual and Document
+            modes (they were previously canvas-only in CanvasActionBar). */}
+        <BuilderTabStrip activeTab={activeTab} onSelectTab={setActiveTab} />
+        </>
       }
       banner={
         <>
@@ -1101,8 +1119,39 @@ export function WorkflowBuilder({
         {/* 5.DUAL-BUILDER-1 CS-1 — the center workspace renders ONE of two
             projections of the same graphSlice draft. Switching mounts/unmounts
             the surface only; graph state, config drafts, dirty, undo history,
-            and canvas positions live in the shared stores and are untouched. */}
-        {documentViewActive ? (
+            and canvas positions live in the shared stores and are untouched.
+            BUILDER-TABS-HEADER-1 — the Runs / Data Map / History / Settings
+            tabs render HERE (above the mode branch) so both view modes share
+            them; "builder" falls through to the Document/Visual branch. */}
+        {activeTab !== "builder" ? (
+          <BuilderTabPanels
+            activeTab={activeTab}
+            providerLabels={providerLabels}
+            runEditBlocked={workflow.viewerCanRunEdit === false}
+            settings={{
+              name: workflowName,
+              state: workflow.state,
+              createdAt: workflow.createdAt,
+              updatedAt: workflow.updatedAt,
+              activeRevisionId: workflow.activeRevisionId,
+              unpublishedChanges: workflow.unpublishedChanges,
+            }}
+            onNameSaved={setWorkflowName}
+            historyPanel={
+              <HistoryPanel
+                items={agentChanges}
+                loading={agentChangesLoading}
+                error={agentChangesError}
+                isDirty={isDirty}
+                restoringCheckpointId={checkpointRestoringId}
+                restoreError={checkpointRestoreError}
+                onRestore={handleRestoreCheckpoint}
+                onViewDiff={setViewDiffItem}
+              />
+            }
+            onBackToBuilder={() => setActiveTab("builder")}
+          />
+        ) : documentViewActive ? (
           <DocumentView
             requiredFieldsByType={requiredFieldsByType}
             summaryFieldsByType={summaryFieldsByType}
@@ -1186,35 +1235,6 @@ export function WorkflowBuilder({
           // value per show) so the canvas fits the viewport once + hides the empty-state card.
           previewToken={previewOverlay ? previewShowCount : null}
           previewDiff={previewDiffGraph}
-          // BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the Settings tab.
-          workflowSettings={{
-            name: workflowName,
-            state: workflow.state,
-            createdAt: workflow.createdAt,
-            updatedAt: workflow.updatedAt,
-            activeRevisionId: workflow.activeRevisionId,
-            unpublishedChanges: workflow.unpublishedChanges,
-          }}
-          // BUILDER-SETTINGS-2 — sync the header when the name is renamed in Settings.
-          onWorkflowNameSaved={setWorkflowName}
-          // BUILDER-RUNS-TAB-1 — hide the Runs tab "Run again" when the viewer
-          // can't run/edit (private-credential workflow). Mirrors HeaderRunControls.
-          runEditBlocked={workflow.viewerCanRunEdit === false}
-          // AGENT-CHANGE-HISTORY-1 — the History tab body: the full agent-change /
-          // checkpoint timeline. Restore reuses the builder's checkpoint-restore path
-          // (re-hydrates the graph); View diff opens the read-only right drawer.
-          historyPanel={
-            <HistoryPanel
-              items={agentChanges}
-              loading={agentChangesLoading}
-              error={agentChangesError}
-              isDirty={isDirty}
-              restoringCheckpointId={checkpointRestoringId}
-              restoreError={checkpointRestoreError}
-              onRestore={handleRestoreCheckpoint}
-              onViewDiff={setViewDiffItem}
-            />
-          }
         />
         )}
         {addPanelMode !== null ? (

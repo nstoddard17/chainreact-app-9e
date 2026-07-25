@@ -1,39 +1,28 @@
 "use client";
 
-import type { BuilderTab } from "./BuilderTabPlaceholder";
-
 /**
  * Above-canvas action bar for the workflow builder (extracted from
  * `WorkflowCanvas` in Slice 4.BUILDER-SHELL-TABS-1 to keep that file under the
- * line cap). Owns the top tab segment (Builder | Runs | Data Map | Settings),
- * the env / trigger / node-count tags, and the "+ Add action" CTA. Pure
- * presentational — all behavior comes in via props.
+ * line cap). Owns the env / trigger / node-count tags and the "+ Add action"
+ * CTA. Pure presentational — all behavior comes in via props.
+ *
+ * BUILDER-TABS-HEADER-1: the top tab segment (Builder | Runs | Data Map |
+ * History | Settings) moved OUT of this bar into the header-level
+ * `layout/BuilderTabStrip.tsx` so the Document view has the same tabs. This
+ * bar is now canvas-only chrome (tags + Add action).
  */
-
-const BUILDER_TABS: readonly { readonly id: BuilderTab; readonly label: string }[] = [
-  { id: "builder", label: "Builder" },
-  { id: "runs", label: "Runs" },
-  { id: "data-map", label: "Data Map" },
-  { id: "history", label: "History" },
-  { id: "settings", label: "Settings" },
-];
-
 export function CanvasActionBar({
   nodeCountText,
   triggerTagText,
   onAddAction,
   canAddAction,
   addActionBlockedReason,
-  activeTab,
-  onSelectTab,
 }: {
   nodeCountText: string;
   triggerTagText?: string;
   onAddAction?: () => void;
   canAddAction?: boolean;
   addActionBlockedReason?: "no-trigger" | "multiple-tails";
-  activeTab: BuilderTab;
-  onSelectTab: (tab: BuilderTab) => void;
 }) {
   return (
     <div
@@ -44,29 +33,12 @@ export function CanvasActionBar({
         borderBottom: "1px solid var(--builder-border)",
       }}
     >
-      <div
-        className="flex items-center gap-0.5 rounded-md p-0.5"
-        role="tablist"
-        style={{
-          background: "var(--builder-panel-2)",
-          border: "1px solid var(--builder-border)",
-        }}
-      >
-        {BUILDER_TABS.map((t) => (
-          <CanvasTab
-            key={t.id}
-            label={t.label}
-            active={activeTab === t.id}
-            onSelect={() => onSelectTab(t.id)}
-          />
-        ))}
+      <div className="hidden items-center gap-1 md:flex">
+        <Tag text="env: draft" />
+        {triggerTagText ? <Tag text={triggerTagText} /> : null}
+        <Tag text={nodeCountText} />
       </div>
       <div className="flex items-center gap-1.5">
-        <div className="hidden items-center gap-1 md:flex">
-          <Tag text="env: draft" />
-          {triggerTagText ? <Tag text={triggerTagText} /> : null}
-          <Tag text={nodeCountText} />
-        </div>
         {onAddAction ? (
           <button
             type="button"
@@ -92,34 +64,6 @@ export function CanvasActionBar({
         ) : null}
       </div>
     </div>
-  );
-}
-
-function CanvasTab({
-  label,
-  active,
-  onSelect,
-}: {
-  label: string;
-  active?: boolean;
-  onSelect?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active ? "true" : "false"}
-      onClick={onSelect}
-      className="builder-mono inline-flex h-[22px] items-center rounded-[3px] px-2 text-[11.5px] transition-colors"
-      style={{
-        background: active ? "var(--builder-panel)" : "transparent",
-        boxShadow: active ? "var(--builder-shadow-sm)" : undefined,
-        color: active ? "var(--builder-text)" : "var(--builder-muted)",
-        border: "0",
-      }}
-    >
-      {label}
-    </button>
   );
 }
 
