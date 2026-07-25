@@ -1,8 +1,32 @@
 # TEAM-INVITATION-LIFECYCLE-2 — Non-expiring invitations + pending-invite management (outcome)
 
-**Status:** implemented and locally verified (2026-07-25). Local commit only —
-nothing pushed. Supersedes the expiry behavior described in
+**Status:** LIVE IN PRODUCTION and **human-verified end to end** (2026-07-25,
+TEAM-INVITATION-FINAL-CLOSEOUT). Supersedes the expiry behavior described in
 [`team-invitation-email-1-outcome.md`](./team-invitation-email-1-outcome.md).
+
+## Final product contract (verified)
+
+- Invitations remain active until accepted or canceled — they never expire.
+- A role change updates the pending invitation IN PLACE: the existing
+  invitation link keeps working and no new email is sent; acceptance applies
+  the role stored at accept time.
+- An email change ATOMICALLY revokes the old invitation and issues a
+  replacement (new token, same role) in one database transaction
+  (`replace_account_invitation` RPC) — never a committed revoke without a
+  replacement.
+- Every invitation email carries a unique opaque invitation reference in its
+  subject and body (plus a sent timestamp), so mail clients — Gmail
+  especially — never thread old and new invitation emails together and the
+  newest link is unmistakable (`ac7382d30`, shipped after a threaded older
+  link was mistaken for the current one; the app state was correct
+  throughout).
+- **Production human verification (2026-07-25):** a real recipient received
+  the branded email, clicked the emailed link, completed the normal signup
+  form and real inbox OTP, returned to the exact invitation page, explicitly
+  accepted, and joined the team with the stored role; the joined team became
+  their active account. Pre-accept role change + accept-as-changed-role was
+  separately proven by the earlier scripted production journey and targeted
+  tests. GET/scanner renders never consumed any invitation at any point.
 
 ## Locked product rules shipped
 
