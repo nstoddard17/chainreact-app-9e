@@ -44,7 +44,6 @@ const MIN_BAR_PX = 3;
  * periods stay separable in greyscale and for color-blind readers. Matches the
  * line chart's dashed-and-muted treatment.
  */
-const COMPARE_COLOR = "hsl(var(--muted-foreground))";
 const COMPARE_FILL =
   "repeating-linear-gradient(135deg, hsl(var(--muted-foreground)) 0 3px, transparent 3px 6px)";
 const COMPARE_LABEL = "Previous period";
@@ -234,6 +233,7 @@ export function InsightBarChart({
                                   background: COMPARE_FILL,
                                 }}
                                 data-testid={`insight-bar-compare-${g.id}`}
+                                data-compare-pattern="hatched"
                               />
                             )}
                           </div>
@@ -306,6 +306,7 @@ export function InsightBarChart({
                                 background: COMPARE_FILL,
                               }}
                               data-testid={`insight-bar-compare-${g.id}`}
+                              data-compare-pattern="hatched"
                             />
                           )}
                         </div>

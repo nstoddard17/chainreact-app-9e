@@ -406,21 +406,26 @@ export function reconcileInsightDraft(
   // A donut draws a whole; re-ordering its slices is not a business question.
   if (next.sort && next.chart === "donut") next.sort = null;
 
-  // Compare.
-  if (next.compare && !compareAllowed(dataset, measure, next.dimension, next.series !== null)) {
-    next.compare = false;
-    resets.push({
-      field: "compare",
-      message: "Period comparison works on a single number or a single-line chart.",
-    });
-  } else if (next.compare && next.chart === "donut") {
-    // A donut shows one period's parts against their own whole; drawing two
-    // periods in one ring would misstate every share. The grouping and filters
-    // stay exactly as they were — only the comparison is dropped (CD-5A).
+  // Compare. The donut case is checked FIRST: a donut always carries a
+  // categorical dimension, so the general rule below would also reject it — but
+  // with copy that explains the wrong thing. Telling someone who just picked a
+  // donut about "single-line charts" does not tell them what happened (CD-5A).
+  if (next.compare && next.chart === "donut") {
+    // A donut shows one period's parts against their own whole; two periods in
+    // one ring would misstate every share. Grouping and filters are untouched.
     next.compare = false;
     resets.push({
       field: "compare",
       message: "A donut shows a single period — the previous-period comparison was turned off.",
+    });
+  } else if (
+    next.compare &&
+    !compareAllowed(dataset, measure, next.dimension, next.series !== null)
+  ) {
+    next.compare = false;
+    resets.push({
+      field: "compare",
+      message: "Period comparison works on a single number or a single-line chart.",
     });
   }
 

@@ -29,8 +29,10 @@ export function exportInsightCsv(
     exportedAt,
   });
 
-  // A BOM keeps Excel from mangling non-ASCII labels on open.
-  const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
+  // A BOM keeps Excel from mangling non-ASCII labels on open. Written as an
+  // escape so the source file contains no invisible character.
+  const BOM = "﻿";
+  const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   try {
     const a = document.createElement("a");

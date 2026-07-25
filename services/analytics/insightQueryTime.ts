@@ -29,10 +29,6 @@ function startOfUtcDay(ms: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-function startOfUtcYear(ms: number): number {
-  return Date.UTC(new Date(ms).getUTCFullYear(), 0, 1);
-}
-
 /**
  * Resolve a request range to the [from, to) window in epoch ms.
  *
