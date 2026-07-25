@@ -92,7 +92,8 @@ describe("internal MCP provider manifest summary", () => {
     const out = String(await tool!.handler({ provider: "slack" }));
     expect(out).toContain("provider: slack");
     expect(out).toContain("actions=true");
-    expect(out).toContain("refreshable: false");
+    // SLACK-TOKEN-ROTATION-1 — Slack implements a real refreshToken().
+    expect(out).toContain("refreshable: true");
   });
 
   it("refuses an invalid provider id", async () => {

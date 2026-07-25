@@ -1,5 +1,4 @@
 import { slackOAuth } from "@/integrations/slack/oauth";
-import { RefreshNotSupportedError } from "@/contracts/integration";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -60,12 +59,10 @@ describe("slackOAuth.buildAuthUrl", () => {
   });
 });
 
-describe("slackOAuth — refresh + revoke", () => {
-  // handleCallback has its own dedicated test file (oauth-callback.test.ts).
-  it("refreshToken throws RefreshNotSupportedError (Slack default v2)", async () => {
-    await expect(slackOAuth.refreshToken("any")).rejects.toThrow(RefreshNotSupportedError);
-  });
-
+describe("slackOAuth — revoke", () => {
+  // handleCallback + refreshToken have their own dedicated test file
+  // (oauth-callback.test.ts — SLACK-TOKEN-ROTATION-1 implemented a real
+  // refreshToken() for rotation-enabled Slack apps).
   it("revoke is a no-op (Slice 1E+)", async () => {
     await expect(slackOAuth.revoke("any-token")).resolves.toBeUndefined();
   });

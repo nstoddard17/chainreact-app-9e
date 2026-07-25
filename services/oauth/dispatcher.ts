@@ -891,7 +891,7 @@ export interface RefreshOutput {
  *
  * Throws:
  *   - `RefreshNotSupportedError` (from the provider's `refreshToken()`)
- *     for non-refreshable providers (Slack default v2). The wrapper
+ *     for non-refreshable providers (e.g. Notion, Discord). The wrapper
  *     `services/oauth/refreshAndRetry.ts` catches and translates this
  *     into `IntegrationActionRequiredError`.
  *   - `Error("No active integration ...")` when the lookup returns null.

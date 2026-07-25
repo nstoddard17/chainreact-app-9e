@@ -3,15 +3,20 @@ import { ProviderManifestSchema, type ProviderManifest } from "@/contracts/integ
 /**
  * Slack provider manifest.
  *
- * Defaults to OAuth v2 with bot tokens (xoxb-*). Slack's default v2 flow does
- * NOT return refresh tokens — token rotation is opt-in per app config and the
- * Slice 1 app does not enable it. Q3 refresh-and-retry is therefore verified
- * via mock providers (oauth-dispatcher.md tests #14 + #15), not against Slack.
+ * OAuth v2 with bot tokens (xoxb-* / xoxe.xoxb-*). SLACK-TOKEN-ROTATION-1:
+ * `refreshable: true` because the OAuth module implements a real
+ * `refreshToken()` for rotation-enabled Slack apps (oauth.v2.access with
+ * grant_type=refresh_token). Rows connected WITHOUT rotation store no expiry
+ * and no refresh token — they never match the refresh sweep's due query and
+ * behave exactly as before (non-expiring; reactive auth classification only).
+ * Rows connected WITH rotation store both, so the proactive sweep
+ * (services/integrations/tokenRefreshSweep.ts) refreshes them before their
+ * ~12 h expiry instead of the connection dying into a reconnect loop.
  *
- * Slice 1 capabilities:
- *   - OAuth (connect / callback / no refresh / revoke)
+ * Capabilities:
+ *   - OAuth (connect / callback / refresh (rotation) / revoke)
  *   - Webhook trigger (Events API → public URL)
- *   - Action handler (chat.postMessage)
+ *   - Action handlers
  */
 export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "slack",
@@ -114,5 +119,5 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
     actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000, // 4h — per CLAUDE.md V1 health-check intervals.
-  refreshable: false,
+  refreshable: true,
 });

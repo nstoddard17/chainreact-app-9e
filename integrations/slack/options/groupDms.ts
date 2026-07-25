@@ -17,7 +17,9 @@ import {
  *
  * Mirrors `slack:channels`:
  *   - `requiresIntegration: true`; decrypts the bot token via `decryptToken`
- *     (Slack is non-refreshable — no `refreshAndRetry`).
+ *     (no `refreshAndRetry` — the proactive sweep keeps rotation-enabled
+ *     tokens fresh, and legacy Slack rows have nothing to refresh with;
+ *     SLACK-TOKEN-ROTATION-1 residual gap, documented in the slice doc).
  *   - No `requiredDeps` — group DMs are workspace-scoped.
  *   - Maps each mpim to `{value: id, label: name}`:
  *     - `value`: the Slack conversation id (`G…`) — exactly what the trigger

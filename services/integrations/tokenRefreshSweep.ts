@@ -29,7 +29,7 @@ import { AccountFrozenError } from "@/services/accounts/accountFreeze";
  * live token. Audit: docs/slices/phase-8/oauth-refresh-reliability-audit.md.
  *
  * CLASSIFICATION (conservative — never cry wolf, never hide):
- *   - Manifest `refreshable: false` (Slack / Notion / GitHub / Facebook / ...)
+ *   - Manifest `refreshable: false` (Notion / GitHub / Facebook / ...)
  *       → skippedNonRefreshable. NEVER marked — non-refreshable by design is
  *       not a failure. (Most such providers have no expiry and never even
  *       match the due query; Facebook's 60-day expiring token does.)

@@ -23,7 +23,9 @@ import {
  *
  * Behavior (mirrors `slack:channels` / `slack:group_dms`):
  *   - `requiresIntegration: true`; decrypts the bot token via `decryptToken`
- *     (Slack is non-refreshable — no `refreshAndRetry`).
+ *     (no `refreshAndRetry` — the proactive sweep keeps rotation-enabled
+ *     tokens fresh, and legacy Slack rows have nothing to refresh with;
+ *     SLACK-TOKEN-ROTATION-1 residual gap, documented in the slice doc).
  *   - No `requiredDeps` — channels are workspace-scoped.
  *   - Single bounded page (`limit: 200`, same as the sibling resolver). The
  *     page mixes active + archived conversations; the archived subset is

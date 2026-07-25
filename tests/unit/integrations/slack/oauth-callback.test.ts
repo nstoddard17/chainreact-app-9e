@@ -175,6 +175,34 @@ describe("slackOAuth.handleCallback", () => {
     await expect(slackOAuth.handleCallback("c", "s", null)).rejects.toThrow(/missing/);
   });
 
+  // SLACK-TOKEN-ROTATION-1 — a rotation-enabled Slack app returns expires_in +
+  // refresh_token from the SAME endpoint. Dropping them (the pre-slice
+  // behavior) stored a 12-hour token as if permanent → recurring reconnects.
+  it("persists rotation fields when present (encrypted refresh token + epoch expiry)", async () => {
+    const before = Math.floor(Date.now() / 1000);
+    mockFetchOnce({
+      ok: true,
+      json: {
+        ok: true,
+        access_token: (["xoxe.xoxb", "rotating", "token"].join("-")),
+        refresh_token: (["xoxe", "1", "refresh", "grant"].join("-")),
+        expires_in: 43200,
+        scope: "chat:write",
+        team: { id: "T", name: "N" },
+      },
+    });
+    const result = await slackOAuth.handleCallback("c", "s", null);
+    expect(result.tokens.refreshTokenEncrypted).not.toBeNull();
+    expect(result.tokens.refreshTokenEncrypted).not.toContain("refresh");
+    expect(decryptToken(result.tokens.refreshTokenEncrypted!)).toBe(
+      (["xoxe", "1", "refresh", "grant"].join("-")),
+    );
+    expect(result.tokens.accessTokenExpiresAt).toBeGreaterThanOrEqual(before + 43200);
+    expect(result.tokens.accessTokenExpiresAt).toBeLessThanOrEqual(
+      Math.floor(Date.now() / 1000) + 43200,
+    );
+  });
+
   it("uses SLACK_API_BASE override for the token exchange (e2e mock surface)", async () => {
     process.env.SLACK_API_BASE = "http://localhost:9876";
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -193,5 +221,129 @@ describe("slackOAuth.handleCallback", () => {
       "http://localhost:9876/api/oauth.v2.access",
       expect.any(Object),
     );
+  });
+});
+
+/**
+ * SLACK-TOKEN-ROTATION-1 — refreshToken() for rotation-enabled Slack apps.
+ * Same oauth.v2.access endpoint with grant_type=refresh_token; single-use
+ * rotating refresh tokens; dead-grant codes map to RefreshAuthRequiredError
+ * so the dispatcher marks needs-reconnect + notifies once.
+ */
+describe("slackOAuth.refreshToken", () => {
+  const OLD_REFRESH = ["xoxe", "1", "old", "refresh"].join("-");
+
+  it("posts grant_type=refresh_token form-encoded to oauth.v2.access", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          access_token: (["xoxe.xoxb", "new"].join("-")),
+          refresh_token: (["xoxe", "1", "new", "refresh"].join("-")),
+          expires_in: 43200,
+          scope: "chat:write",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await slackOAuth.refreshToken(OLD_REFRESH);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://slack.com/api/oauth.v2.access",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }),
+    );
+    const body = fetchSpy.mock.calls[0]![1]!.body as string;
+    const params = new URLSearchParams(body);
+    expect(params.get("grant_type")).toBe("refresh_token");
+    expect(params.get("refresh_token")).toBe(OLD_REFRESH);
+    expect(params.get("client_id")).toBe("test-client-id");
+    expect(params.get("client_secret")).toBe("test-client-secret");
+  });
+
+  it("returns encrypted rotated tokens + epoch expiry + parsed scopes", async () => {
+    const before = Math.floor(Date.now() / 1000);
+    mockFetchOnce({
+      ok: true,
+      json: {
+        ok: true,
+        access_token: (["xoxe.xoxb", "fresh", "access"].join("-")),
+        refresh_token: (["xoxe", "1", "rotated", "refresh"].join("-")),
+        expires_in: 43200,
+        scope: "chat:write,channels:read",
+      },
+    });
+
+    const tokens = await slackOAuth.refreshToken(OLD_REFRESH);
+
+    expect(decryptToken(tokens.accessTokenEncrypted)).toBe(
+      (["xoxe.xoxb", "fresh", "access"].join("-")),
+    );
+    // ROTATION: the NEW refresh token is persisted (old one is single-use).
+    expect(decryptToken(tokens.refreshTokenEncrypted!)).toBe(
+      (["xoxe", "1", "rotated", "refresh"].join("-")),
+    );
+    expect(tokens.accessTokenExpiresAt).toBeGreaterThanOrEqual(before + 43200);
+    expect(tokens.scopes).toEqual(["chat:write", "channels:read"]);
+  });
+
+  it("preserves the prior refresh token when the response omits one (defensive)", async () => {
+    mockFetchOnce({
+      ok: true,
+      json: {
+        ok: true,
+        access_token: (["xoxe.xoxb", "fresh"].join("-")),
+        expires_in: 43200,
+        scope: "chat:write",
+      },
+    });
+
+    const tokens = await slackOAuth.refreshToken(OLD_REFRESH);
+
+    expect(decryptToken(tokens.refreshTokenEncrypted!)).toBe(OLD_REFRESH);
+  });
+
+  it.each(["invalid_refresh_token", "token_revoked", "account_inactive", "invalid_auth"])(
+    "maps dead-grant code %s to RefreshAuthRequiredError (dispatcher marks + notifies)",
+    async (code) => {
+      mockFetchOnce({ ok: true, json: { ok: false, error: code } });
+      await expect(slackOAuth.refreshToken(OLD_REFRESH)).rejects.toMatchObject({
+        name: "RefreshAuthRequiredError",
+        provider: "slack",
+        code,
+      });
+    },
+  );
+
+  it.each(["invalid_grant_type", "bad_client_secret", "ratelimited", "internal_error"])(
+    "throws a GENERIC error on config/transient code %s (never flips reconnect)",
+    async (code) => {
+      mockFetchOnce({ ok: true, json: { ok: false, error: code } });
+      const thrown = await slackOAuth.refreshToken(OLD_REFRESH).catch((e: unknown) => e);
+      expect(thrown).toBeInstanceOf(Error);
+      expect((thrown as Error).name).not.toBe("RefreshAuthRequiredError");
+    },
+  );
+
+  it("throws a generic error on HTTP-level failure (transient)", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("server error", { status: 500 }));
+    await expect(slackOAuth.refreshToken(OLD_REFRESH)).rejects.toThrow(/HTTP 500/);
+  });
+
+  it("never leaks the refresh token into thrown error messages (no-leak)", async () => {
+    mockFetchOnce({ ok: true, json: { ok: false, error: "invalid_refresh_token" } });
+    const thrown = await slackOAuth.refreshToken(OLD_REFRESH).catch((e: unknown) => e as Error);
+    expect(String((thrown as Error).message)).not.toContain(OLD_REFRESH);
+    expect(String((thrown as Error).stack ?? "")).not.toContain(OLD_REFRESH);
+  });
+
+  it("throws when the success response is missing access_token", async () => {
+    mockFetchOnce({ ok: true, json: { ok: true, scope: "chat:write" } });
+    await expect(slackOAuth.refreshToken(OLD_REFRESH)).rejects.toThrow(/missing access_token/);
   });
 });

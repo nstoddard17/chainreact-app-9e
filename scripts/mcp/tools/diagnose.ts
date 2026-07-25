@@ -101,7 +101,7 @@ export const OPTION_SOURCE_DIAGNOSES: Record<
     nextChecks: [
       "Reconnect the provider (Apps → provider → Reconnect) to re-consent with the current scope set / mint a fresh token.",
       "Compare the connected token's scopes to the provider's required scopes (use explain_provider_connection_requirements) — a missing scope lands here.",
-      "Non-refreshable providers (e.g. Slack) surface revoked/expired tokens here too — reconnect is the fix.",
+      "Non-refreshable providers (e.g. Notion, GitHub) surface revoked/expired tokens here too — reconnect is the fix.",
     ],
   },
   SERVER_ERROR: {

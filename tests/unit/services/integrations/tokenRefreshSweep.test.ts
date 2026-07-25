@@ -6,7 +6,7 @@
  *
  * Mocks the repositories, the claim wrapper, and the reconnect notification;
  * uses the REAL provider registry so refreshable/non-refreshable
- * classification is the actual manifest truth (gmail refreshable, slack not) —
+ * classification is the actual manifest truth (gmail refreshable, notion not) —
  * business behavior, not a mocked flag.
  */
 
@@ -120,8 +120,9 @@ describe("tokenRefreshSweep — proactive refresh", () => {
 
 describe("tokenRefreshSweep — non-refreshable providers", () => {
   it("skips manifest-non-refreshable rows without refreshing or marking them broken", async () => {
-    // Real registry truth: slack is refreshable:false.
-    mockListRefreshDue.mockResolvedValue([dueRow({ provider: "slack" })]);
+    // Real registry truth: notion is refreshable:false. (Slack flipped to
+    // refreshable:true in SLACK-TOKEN-ROTATION-1.)
+    mockListRefreshDue.mockResolvedValue([dueRow({ provider: "notion" })]);
 
     const result = await runTokenRefreshSweep({ limit: 100 });
 
@@ -223,7 +224,7 @@ describe("tokenRefreshSweep — provider refresh failures", () => {
   it("one row's failure never aborts the batch (mixed outcomes tally independently)", async () => {
     mockListRefreshDue.mockResolvedValue([
       dueRow({ id: "int-a" }),
-      dueRow({ id: "int-b", provider: "slack" }),
+      dueRow({ id: "int-b", provider: "notion" }),
       dueRow({ id: "int-c" }),
     ]);
     mockRefreshWithClaim

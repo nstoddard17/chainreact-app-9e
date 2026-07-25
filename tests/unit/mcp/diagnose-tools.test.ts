@@ -108,7 +108,8 @@ describe("explain_provider_connection_requirements", () => {
     expect(out).toContain("required scopes:");
     expect(out).toContain("channels:read"); // a known Slack required scope
     expect(out).toContain("chat:write");
-    expect(out).toContain("refreshable: false");
+    // SLACK-TOKEN-ROTATION-1 — Slack implements a real refreshToken().
+    expect(out).toContain("refreshable: true");
     // authFlow falls back to oauthFlows (v2) — never a bare null.
     expect(out).toContain("authFlow: v2");
     expect(out).not.toContain("authFlow: null");

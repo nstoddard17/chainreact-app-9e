@@ -9,25 +9,31 @@ import { SlackApiError, isSlackAuthError } from "@/integrations/slack/api/errors
 import { decryptToken } from "@/core/encryption/tokens";
 import { notifyReconnectNeeded } from "@/services/integrations/reconnectNotification";
 import { isIntegrationHealthCheckEnabled } from "@/services/integrations/integrationHealthFlags";
+import { refreshWithClaim } from "@/services/oauth/refreshWithClaim";
+import { RefreshAuthRequiredError } from "@/contracts/integration";
 
 /**
  * V2-READY-29 — proactive Slack connection health check.
  *
- * WHY THIS EXISTS: Slack bot tokens are NOT refreshable (the OAuth flow stores
- * no refresh token; `refreshToken()` throws). Today a stale/revoked Slack token
- * is only discovered REACTIVELY — when a builder picker or an action 401s
- * (V2-READY-28 marks reconnect-needed at that point). This sweep moves detection
- * EARLIER: it periodically probes each active Slack connection with the
- * lightweight `auth.test` endpoint and drives the SAME existing
- * mark/clear/notify path (V2-READY-28/28B) so a user learns to reconnect before
- * a workflow run fails.
+ * WHY THIS EXISTS: a Slack row connected WITHOUT token rotation stores no
+ * refresh token — a stale/revoked token there is only discovered REACTIVELY,
+ * when a builder picker or an action 401s (V2-READY-28 marks reconnect-needed
+ * at that point). This sweep moves detection EARLIER: it periodically probes
+ * each active Slack connection with the lightweight `auth.test` endpoint and
+ * drives the SAME existing mark/clear/notify path (V2-READY-28/28B) so a user
+ * learns to reconnect before a workflow run fails. Rotation-enabled rows
+ * (SLACK-TOKEN-ROTATION-1) instead self-heal via refresh — see
+ * `refreshInsteadOfMark`.
  *
  * CLASSIFICATION (conservative — never cry wolf):
  *   - `auth.test` ok            → HEALTHY. Clear any prior `needs_reconnect_at`.
  *   - SlackApiError + isSlackAuthError(code) → CONFIRMED auth failure
  *       (invalid_auth / token_revoked / account_inactive / not_authed /
  *        token_expired / missing_scope / … / http_401 / http_403).
- *       Mark needs-reconnect; on a TRUE first-mark transition, notify once.
+ *       SLACK-TOKEN-ROTATION-1: if the row stores a refresh token (rotation-
+ *       enabled Slack app) and the code isn't `missing_scope`, attempt a
+ *       refresh instead of marking (see `refreshInsteadOfMark`). Otherwise
+ *       mark needs-reconnect; on a TRUE first-mark transition, notify once.
  *   - SlackApiError that is NOT an auth error (ratelimited / internal_error /
  *       http_429 / http_5xx / …) → TRANSIENT. Do nothing (skipped).
  *   - Any non-Slack throw (network, decrypt, DNS) → AMBIGUOUS. Do nothing
@@ -109,6 +115,21 @@ async function checkOne(integration: IntegrationRecord): Promise<RowResult> {
   } catch (err) {
     if (err instanceof SlackApiError) {
       if (isSlackAuthError(err.slackErrorCode)) {
+        // SLACK-TOKEN-ROTATION-1 — rotation-aware guard. A row that stores a
+        // refresh token (rotation-enabled Slack app) with a dead ACCESS token
+        // is REFRESHABLE, not reconnect-needed: marking it would remove it
+        // from the proactive sweep (`needs_reconnect_at IS NULL` selection)
+        // and strand a recoverable connection in a permanent reconnect loop.
+        // Attempt the refresh instead; a truly dead GRANT surfaces as
+        // RefreshAuthRequiredError, which the dispatcher already marks +
+        // notifies (V2-READY-32). `missing_scope` is excluded — refresh keeps
+        // the same scopes, so reconnect (re-consent) IS the fix there.
+        if (
+          integration.refreshTokenEncrypted != null &&
+          err.slackErrorCode !== "missing_scope"
+        ) {
+          return refreshInsteadOfMark(integration, err.slackErrorCode);
+        }
         // CONFIRMED auth failure → mark; notify once on first-mark transition.
         logRow("slack_health.auth_failure", integration.id, err.slackErrorCode);
         const firstMark = await markNeedsReconnect(integration.id);
@@ -130,6 +151,50 @@ async function checkOne(integration: IntegrationRecord): Promise<RowResult> {
     // Non-Slack throw (network / DNS / decode) — ambiguous, never mark.
     logRow("slack_health.unexpected_error", integration.id, null);
     return { outcome: "errors", cleared: false, newlyMarked: false };
+  }
+}
+
+/**
+ * SLACK-TOKEN-ROTATION-1 — refresh a rotation-enabled row whose access token
+ * failed auth, instead of marking it reconnect-needed.
+ *
+ *   - Refresh succeeds → the row is HEALTHY again (new access token persisted
+ *     by the dispatcher, which also clears any prior `needs_reconnect_at`).
+ *   - RefreshAuthRequiredError → the refresh GRANT is dead; the dispatcher
+ *     already marked needs_reconnect + notified once before re-throwing, so
+ *     this is counted authFailed WITHOUT a second mark/notify here.
+ *   - Anything else (network / 5xx / claim wait budget) → TRANSIENT; no state
+ *     change, a later tick re-checks.
+ *
+ * Slack is an account-shared provider, so the claim key is unpinned
+ * (`connectedByUserId: null`) — same key shape the sweep and refreshAndRetry
+ * use for account providers.
+ */
+async function refreshInsteadOfMark(
+  integration: IntegrationRecord,
+  slackErrorCode: string,
+): Promise<RowResult> {
+  try {
+    await refreshWithClaim({
+      accountId: integration.accountId,
+      provider: PROVIDER,
+      providerAccountId: integration.providerAccountId,
+      connectedByUserId: null,
+    });
+    logRow("slack_health.refreshed", integration.id, slackErrorCode);
+    return {
+      outcome: "healthy",
+      cleared: integration.needsReconnectAt != null,
+      newlyMarked: false,
+    };
+  } catch (err) {
+    if (err instanceof RefreshAuthRequiredError) {
+      // Dispatcher marked + notified (one-shot) before re-throwing.
+      logRow("slack_health.refresh_auth_dead", integration.id, err.code);
+      return { outcome: "authFailed", cleared: false, newlyMarked: false };
+    }
+    logRow("slack_health.refresh_transient", integration.id, slackErrorCode);
+    return { outcome: "skipped", cleared: false, newlyMarked: false };
   }
 }
 

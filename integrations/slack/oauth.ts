@@ -1,6 +1,7 @@
 import {
   type ProviderOAuth,
-  RefreshNotSupportedError,
+  type EncryptedTokens,
+  RefreshAuthRequiredError,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
 
@@ -9,12 +10,22 @@ import { encryptToken } from "@/core/encryption/tokens";
  *
  * Per docs/rules/oauth-dispatcher.md:
  *   - Slack's default v2 flow does NOT return refresh tokens. Token rotation
- *     is opt-in per app config and Slice 1 does not enable it. refreshToken()
- *     therefore throws RefreshNotSupportedError; refreshAndRetry detects
- *     this and emits `action_required` rather than attempting a refresh.
+ *     is opt-in per Slack app config — and once a Slack app enables it, Slack
+ *     does not allow turning it off: every token exchange then returns a
+ *     short-lived access token (`expires_in` ≈ 12 h) plus a single-use
+ *     rotating `refresh_token`.
+ *   - SLACK-TOKEN-ROTATION-1: this module handles BOTH shapes. When Slack
+ *     returns rotation fields they are persisted (encrypted refresh token +
+ *     epoch expiry) so the proactive refresh sweep keeps the token alive;
+ *     when Slack omits them (rotation off) the stored nulls mean
+ *     "non-expiring", exactly as before. Dropping the rotation fields — the
+ *     pre-slice behavior — stored a 12-hour token as if permanent, which
+ *     produced the recurring "Slack needs to be reconnected" loop.
  *   - handleCallback exchanges the authorization code at oauth.v2.access,
- *     encrypts the bot token, and returns the tokens + account info for the
- *     repository to persist.
+ *     encrypts the token material, and returns tokens + account info for the
+ *     repository to persist. refreshToken() re-calls oauth.v2.access with
+ *     grant_type=refresh_token and maps dead-grant codes to
+ *     RefreshAuthRequiredError (dispatcher marks needs-reconnect + notifies).
  */
 
 /**
@@ -35,11 +46,18 @@ function slackAuthorizeBase(): string {
 interface SlackOAuthV2Success {
   ok: true;
   access_token: string;
-  scope: string;
-  team: { id: string; name?: string };
+  scope?: string;
+  team?: { id?: string; name?: string };
   bot_user_id?: string;
   app_id?: string;
   authed_user?: { id: string };
+  /**
+   * Rotation-only fields — present when the Slack app has token rotation
+   * enabled. `expires_in` is seconds until the access token dies (~43200);
+   * `refresh_token` is single-use and rotates on every refresh.
+   */
+  refresh_token?: string;
+  expires_in?: number;
 }
 
 interface SlackOAuthV2Error {
@@ -64,6 +82,45 @@ function getClientSecret(): string {
   const secret = process.env.SLACK_CLIENT_SECRET;
   if (!secret) throw new Error("SLACK_CLIENT_SECRET env var is not set.");
   return secret;
+}
+
+/**
+ * Refresh-endpoint error codes that PROVE the refresh grant itself is dead —
+ * only user re-authorization recovers. Mapped to RefreshAuthRequiredError so
+ * the dispatcher sets needs_reconnect_at + notifies once (V2-READY-32).
+ * Config/transient codes (invalid_client_id, bad_client_secret,
+ * invalid_grant_type, ratelimited, internal_error, …) stay generic errors:
+ * they must never flip a healthy connection to "reconnect needed".
+ */
+const SLACK_REFRESH_AUTH_DEAD_CODES: ReadonlySet<string> = new Set([
+  "invalid_refresh_token",
+  "token_revoked",
+  "account_inactive",
+  "invalid_auth",
+]);
+
+/**
+ * Map an oauth.v2.access success payload (code exchange OR refresh) to the
+ * dispatcher's EncryptedTokens shape. Rotation fields are optional in both
+ * flows; `priorRefreshToken` preserves the existing grant when a refresh
+ * response omits `refresh_token` (defensive — Slack documents rotation, but
+ * a preserved grant is strictly safer than wiping it).
+ */
+function tokensFromOAuthResponse(
+  json: SlackOAuthV2Success,
+  priorRefreshToken?: string,
+): EncryptedTokens {
+  const refreshTokenPlain = json.refresh_token ?? priorRefreshToken ?? null;
+  return {
+    accessTokenEncrypted: encryptToken(json.access_token),
+    refreshTokenEncrypted:
+      refreshTokenPlain !== null ? encryptToken(refreshTokenPlain) : null,
+    accessTokenExpiresAt:
+      typeof json.expires_in === "number"
+        ? Math.floor(Date.now() / 1000) + json.expires_in
+        : null,
+    scopes: (json.scope ?? "").split(",").filter(Boolean),
+  };
 }
 
 export const slackOAuth: ProviderOAuth = {
@@ -100,15 +157,8 @@ export const slackOAuth: ProviderOAuth = {
       throw new Error("Slack OAuth response missing access_token or team.id");
     }
 
-    const scopes = (json.scope ?? "").split(",").filter(Boolean);
-
     return {
-      tokens: {
-        accessTokenEncrypted: encryptToken(json.access_token),
-        refreshTokenEncrypted: null,
-        accessTokenExpiresAt: null,
-        scopes,
-      },
+      tokens: tokensFromOAuthResponse(json),
       account: {
         providerAccountId: json.team.id,
         displayName: json.team.name ?? null,
@@ -123,8 +173,34 @@ export const slackOAuth: ProviderOAuth = {
     };
   },
 
-  async refreshToken(_refreshToken) {
-    throw new RefreshNotSupportedError("slack");
+  async refreshToken(refreshTokenPlaintext) {
+    const params = new URLSearchParams({
+      client_id: getClientId(),
+      client_secret: getClientSecret(),
+      grant_type: "refresh_token",
+      refresh_token: refreshTokenPlaintext,
+    });
+    const res = await fetch(`${slackApiBase()}/api/oauth.v2.access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    // NO-LEAK: thrown messages carry only an HTTP status or Slack's logical
+    // error code — never the refresh token, response body, or team identity.
+    if (!res.ok) {
+      throw new Error(`Slack token refresh failed: HTTP ${res.status}`);
+    }
+    const json = (await res.json()) as SlackOAuthV2Response;
+    if (!json.ok) {
+      if (SLACK_REFRESH_AUTH_DEAD_CODES.has(json.error)) {
+        throw new RefreshAuthRequiredError("slack", json.error);
+      }
+      throw new Error(`Slack token refresh failed: ${json.error}`);
+    }
+    if (!json.access_token) {
+      throw new Error("Slack refresh response missing access_token.");
+    }
+    return tokensFromOAuthResponse(json, refreshTokenPlaintext);
   },
 
   async revoke(_token) {

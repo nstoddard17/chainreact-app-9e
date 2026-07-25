@@ -16,11 +16,15 @@ const mockAuthTest = jest.fn();
 const mockNotify = jest.fn();
 const mockDecrypt = jest.fn();
 const mockFlag = jest.fn();
+const mockRefreshWithClaim = jest.fn();
 
 jest.mock("@/repositories/integrations", () => ({
   listActiveByProviderServiceRole: (...a: unknown[]) => mockList(...a),
   markNeedsReconnect: (...a: unknown[]) => mockMark(...a),
   clearNeedsReconnect: (...a: unknown[]) => mockClear(...a),
+}));
+jest.mock("@/services/oauth/refreshWithClaim", () => ({
+  refreshWithClaim: (...a: unknown[]) => mockRefreshWithClaim(...a),
 }));
 jest.mock("@/integrations/slack/api/authTest", () => ({
   authTest: (...a: unknown[]) => mockAuthTest(...a),
@@ -37,6 +41,7 @@ jest.mock("@/services/integrations/integrationHealthFlags", () => ({
 
 import { runSlackHealthCheck } from "@/services/integrations/slackHealthCheck";
 import { SlackApiError } from "@/integrations/slack/api/errors";
+import { RefreshAuthRequiredError } from "@/contracts/integration";
 import type { IntegrationRecord } from "@/repositories/integrations";
 
 let warnSpy: jest.SpyInstance;
@@ -49,6 +54,8 @@ beforeEach(() => {
   mockNotify.mockReset();
   mockDecrypt.mockReset();
   mockFlag.mockReset();
+
+  mockRefreshWithClaim.mockReset();
 
   mockFlag.mockReturnValue(true); // enabled by default; one test flips it off
   mockDecrypt.mockImplementation((enc: string) => `dec(${enc})`);
@@ -195,6 +202,98 @@ describe("runSlackHealthCheck — confirmed auth failures mark + notify once", (
       authFailed: 1,
       markedNeedsReconnect: 0,
     });
+  });
+});
+
+describe("runSlackHealthCheck — rotation-enabled rows refresh instead of marking (SLACK-TOKEN-ROTATION-1)", () => {
+  const ROTATION_ROW = () => row({ refreshTokenEncrypted: "enc-refresh" });
+
+  it("attempts a refresh (not a mark) when the access token auth-fails on a row with a refresh token", async () => {
+    const r = ROTATION_ROW();
+    mockList.mockResolvedValueOnce([r]);
+    mockAuthTest.mockRejectedValueOnce(new SlackApiError("token_expired"));
+    mockRefreshWithClaim.mockResolvedValueOnce({ integration: {} });
+
+    const result = await runSlackHealthCheck({ limit: 500 });
+
+    expect(mockRefreshWithClaim).toHaveBeenCalledWith({
+      accountId: r.accountId,
+      provider: "slack",
+      providerAccountId: r.providerAccountId,
+      // Slack is account-shared → claim key is unpinned, matching the sweep
+      // and refreshAndRetry key shape.
+      connectedByUserId: null,
+    });
+    expect(mockMark).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ checked: 1, healthy: 1, authFailed: 0, skipped: 0 });
+  });
+
+  it("counts a healthy refresh of a previously-marked row as cleared (dispatcher clears the signal)", async () => {
+    const r = row({
+      refreshTokenEncrypted: "enc-refresh",
+      needsReconnectAt: "2026-07-01T00:00:00.000Z",
+    });
+    mockList.mockResolvedValueOnce([r]);
+    mockAuthTest.mockRejectedValueOnce(new SlackApiError("invalid_auth"));
+    mockRefreshWithClaim.mockResolvedValueOnce({ integration: {} });
+
+    const result = await runSlackHealthCheck({ limit: 500 });
+
+    expect(result).toMatchObject({ healthy: 1, cleared: 1 });
+    expect(mockMark).not.toHaveBeenCalled();
+  });
+
+  it("counts authFailed WITHOUT double-marking when the refresh grant is dead (dispatcher owns mark+notify)", async () => {
+    mockList.mockResolvedValueOnce([ROTATION_ROW()]);
+    mockAuthTest.mockRejectedValueOnce(new SlackApiError("token_expired"));
+    mockRefreshWithClaim.mockRejectedValueOnce(
+      new RefreshAuthRequiredError("slack", "invalid_refresh_token"),
+    );
+
+    const result = await runSlackHealthCheck({ limit: 500 });
+
+    expect(mockMark).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ authFailed: 1, markedNeedsReconnect: 0 });
+  });
+
+  it("treats a transient refresh failure as skipped (no mark; later tick re-checks)", async () => {
+    mockList.mockResolvedValueOnce([ROTATION_ROW()]);
+    mockAuthTest.mockRejectedValueOnce(new SlackApiError("token_expired"));
+    mockRefreshWithClaim.mockRejectedValueOnce(new Error("HTTP 500"));
+
+    const result = await runSlackHealthCheck({ limit: 500 });
+
+    expect(mockMark).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ skipped: 1, authFailed: 0 });
+  });
+
+  it("still marks + notifies on missing_scope even with a refresh token (refresh keeps scopes; re-consent is the fix)", async () => {
+    const r = ROTATION_ROW();
+    mockList.mockResolvedValueOnce([r]);
+    mockAuthTest.mockRejectedValueOnce(new SlackApiError("missing_scope"));
+    mockMark.mockResolvedValueOnce(true);
+
+    const result = await runSlackHealthCheck({ limit: 500 });
+
+    expect(mockRefreshWithClaim).not.toHaveBeenCalled();
+    expect(mockMark).toHaveBeenCalledWith(r.id);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ authFailed: 1, markedNeedsReconnect: 1 });
+  });
+
+  it("legacy rows (no refresh token) keep the existing mark+notify behavior", async () => {
+    const r = row({ refreshTokenEncrypted: null });
+    mockList.mockResolvedValueOnce([r]);
+    mockAuthTest.mockRejectedValueOnce(new SlackApiError("token_expired"));
+    mockMark.mockResolvedValueOnce(true);
+
+    const result = await runSlackHealthCheck({ limit: 500 });
+
+    expect(mockRefreshWithClaim).not.toHaveBeenCalled();
+    expect(mockMark).toHaveBeenCalledWith(r.id);
+    expect(result).toMatchObject({ authFailed: 1, markedNeedsReconnect: 1 });
   });
 });
 

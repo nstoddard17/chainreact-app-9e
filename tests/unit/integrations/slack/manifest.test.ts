@@ -13,8 +13,8 @@ describe("Slack manifest", () => {
     expect(slackManifest.capabilities.pollingTrigger).toBe(false);
   });
 
-  it("is non-refreshable (Slack default v2 has no refresh tokens)", () => {
-    expect(slackManifest.refreshable).toBe(false);
+  it("is refreshable (SLACK-TOKEN-ROTATION-1 — rotation-enabled apps get a real refreshToken())", () => {
+    expect(slackManifest.refreshable).toBe(true);
   });
 
   it("uses team_id as the multi-account discriminator", () => {
