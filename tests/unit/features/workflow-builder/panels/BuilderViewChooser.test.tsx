@@ -38,6 +38,24 @@ describe("BuilderViewChooser", () => {
     expect(onChoose).toHaveBeenCalledWith("visual", true);
   });
 
+  it("takes focus on open so keyboard users can Tab to the options (QA defect fix)", async () => {
+    const user = userEvent.setup();
+    const onChoose = jest.fn();
+    render(<BuilderViewChooser onChoose={onChoose} onDismiss={jest.fn()} />);
+    // Browser QA: without the mount focus, Tab wandered the page BEHIND the
+    // overlay and never reached the options. The dialog must own focus.
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+    // Tab order from the dialog: × → Visual → Document → checkbox.
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByTestId("builder-view-chooser-dismiss"));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByTestId("builder-view-chooser-visual"));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByTestId("builder-view-chooser-document"));
+    await user.keyboard("{Enter}");
+    expect(onChoose).toHaveBeenCalledWith("document", false);
+  });
+
   it("× and Escape dismiss without choosing", async () => {
     const user = userEvent.setup();
     const onChoose = jest.fn();

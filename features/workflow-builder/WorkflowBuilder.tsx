@@ -80,6 +80,8 @@ import {
   DocumentView,
   readBuilderViewPref,
   writeBuilderViewPref,
+  markViewChooserResolved,
+  hasResolvedViewChooser,
   addDocumentActionToEmptyLane,
   createDocumentIfThenBranch,
   createDocumentRouterBranch,
@@ -337,15 +339,24 @@ export function WorkflowBuilder({
   // new workflow asks again). Choosing switches immediately; "always use
   // this" additionally saves the account-level default (fail-safe: a failed
   // save never blocks building — the chooser simply asks again next time).
+  // BUILDER-VIEW-QA-1 — the session marker suppresses re-shows when Next's
+  // router cache remounts the builder with the ORIGINAL justCreated payload
+  // (browser back → forward after a choose/dismiss).
   const [showViewChooser, setShowViewChooser] = useState(
     () =>
       documentBuilderEnabled === true &&
       justCreated === true &&
-      (defaultBuilderView ?? null) === null,
+      (defaultBuilderView ?? null) === null &&
+      !hasResolvedViewChooser(workflow.id),
   );
+  const handleDismissChooser = useCallback(() => {
+    setShowViewChooser(false);
+    markViewChooserResolved(workflow.id);
+  }, [workflow.id]);
   const handleChooseView = useCallback(
     (view: BuilderViewMode, rememberAsDefault: boolean) => {
       setShowViewChooser(false);
+      markViewChooserResolved(workflow.id);
       setBuilderView(view);
       writeBuilderViewPref(view, workflow.id);
       emitDocumentBuilderEvent("builder_view_switched", { to: view });
@@ -1313,7 +1324,7 @@ export function WorkflowBuilder({
         {showViewChooser && !localOnly ? (
           <BuilderViewChooser
             onChoose={handleChooseView}
-            onDismiss={() => setShowViewChooser(false)}
+            onDismiss={handleDismissChooser}
           />
         ) : null}
         {addPanelMode !== null ? (
