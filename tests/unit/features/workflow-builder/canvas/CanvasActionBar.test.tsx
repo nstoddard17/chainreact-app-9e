@@ -1,32 +1,42 @@
 /**
- * AGENT-CHANGE-HISTORY-1 — the builder top-tab bar includes a "History" tab.
- *
- * Business rules under test:
- *   - The tab bar renders History between Data Map and Settings.
- *   - Selecting it fires onSelectTab("history"); the active tab is marked selected.
+ * BUILDER-TABS-HEADER-1 — CanvasActionBar is now canvas-only chrome: the
+ * env/trigger/node-count tags + the "+ Add action" CTA. The section tab
+ * segment (Builder | Runs | Data Map | History | Settings) moved to the
+ * header-level BuilderTabStrip (see layout/BuilderTabs.test.tsx).
  */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CanvasActionBar } from "@/features/workflow-builder/canvas/CanvasActionBar";
 
-describe("CanvasActionBar — History tab", () => {
-  it("renders Builder | Runs | Data Map | History | Settings in order", () => {
-    render(<CanvasActionBar nodeCountText="2 nodes" activeTab="builder" onSelectTab={jest.fn()} />);
-    const tabs = screen.getAllByRole("tab").map((t) => t.textContent);
-    expect(tabs).toEqual(["Builder", "Runs", "Data Map", "History", "Settings"]);
+describe("CanvasActionBar", () => {
+  it("renders no section tabs (they live in the header tab strip now)", () => {
+    render(<CanvasActionBar nodeCountText="2 nodes" />);
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
   });
 
-  it("fires onSelectTab('history') when History is clicked", async () => {
+  it("renders the env/count tags and an enabled Add action CTA", async () => {
     const user = userEvent.setup();
-    const onSelectTab = jest.fn();
-    render(<CanvasActionBar nodeCountText="2 nodes" activeTab="builder" onSelectTab={onSelectTab} />);
-    await user.click(screen.getByRole("tab", { name: "History" }));
-    expect(onSelectTab).toHaveBeenCalledWith("history");
+    const onAddAction = jest.fn();
+    render(
+      <CanvasActionBar
+        nodeCountText="2 nodes · 1 edge"
+        triggerTagText="trigger: slack"
+        onAddAction={onAddAction}
+        canAddAction
+      />,
+    );
+    expect(screen.getByText("env: draft")).toBeInTheDocument();
+    expect(screen.getByText("trigger: slack")).toBeInTheDocument();
+    expect(screen.getByText("2 nodes · 1 edge")).toBeInTheDocument();
+    await user.click(screen.getByTestId("canvas-add-action-button"));
+    expect(onAddAction).toHaveBeenCalledTimes(1);
   });
 
-  it("marks the History tab selected when active", () => {
-    render(<CanvasActionBar nodeCountText="2 nodes" activeTab="history" onSelectTab={jest.fn()} />);
-    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute("aria-selected", "true");
+  it("disables the Add action CTA when canAddAction is false", () => {
+    render(
+      <CanvasActionBar nodeCountText="0 nodes" onAddAction={jest.fn()} canAddAction={false} />,
+    );
+    expect(screen.getByTestId("canvas-add-action-button")).toBeDisabled();
   });
 });

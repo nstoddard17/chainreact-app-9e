@@ -48,10 +48,6 @@ import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { ConnectionHintBanner } from "./ConnectionHintBanner";
 import { BuilderNodeActionsProvider } from "./nodeActionsContext";
-import { BuilderTabPlaceholder, type BuilderTab } from "./BuilderTabPlaceholder";
-import { DataMapPanel } from "./DataMapPanel";
-import { RunsPanel } from "./RunsPanel";
-import { SettingsPanel, type WorkflowSettingsMeta } from "./SettingsPanel";
 import { CanvasActionBar } from "./CanvasActionBar";
 import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
@@ -156,19 +152,6 @@ interface Props {
    */
   resourceLabels?: Readonly<Record<string, string>>;
   /**
-   * Slice 4.BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the top-level
-   * Settings tab (the `WorkflowDetail` subset threaded from `WorkflowBuilder`).
-   * Optional so isolated canvas tests keep passing; the Settings tab still
-   * renders graph-derived rows (counts / trigger / save status) without it.
-   */
-  workflowSettings?: WorkflowSettingsMeta;
-  /**
-   * Slice 4.BUILDER-SETTINGS-2 — called after a successful name save in the
-   * Settings tab so `WorkflowBuilder` can sync the header. Optional (isolated
-   * canvas tests omit it; the save still persists server-side regardless).
-   */
-  onWorkflowNameSaved?: (name: string) => void;
-  /**
    * HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — a per-show token from `WorkflowBuilder`: `null` when no
    * AI preview overlay is active, and a NEW number each time a preview is shown. When non-null the
    * canvas (a) hides the empty-state "Choose a trigger" card so the holographic preview reads clearly,
@@ -182,20 +165,6 @@ interface Props {
    * in the preview control bar (`WorkflowBuilder`). Visual only; no draft mutation while it's shown.
    */
   previewDiff?: PreviewDiffGraph | null;
-  /**
-   * WF-RUNPERM — true when the viewer may NOT run/edit this workflow (private
-   * credential). Threaded into the Runs tab so its "Run again" affordance hides,
-   * matching the header's run controls. The run-now route enforces the same
-   * policy server-side regardless.
-   */
-  runEditBlocked?: boolean;
-  /**
-   * AGENT-CHANGE-HISTORY-1 — the live "History" tab body (the full agent-change /
-   * checkpoint timeline), built + wired by `WorkflowBuilder` (which owns the data
-   * hooks + graph re-hydration on restore). Rendered when the History tab is
-   * active; absent (isolated canvas tests) → the History placeholder shows.
-   */
-  historyPanel?: ReactNode;
 }
 
 const NODE_TYPES = {
@@ -228,12 +197,8 @@ function WorkflowCanvasInner({
   requiredFieldsByType,
   summaryFieldsByType,
   resourceLabels,
-  workflowSettings,
-  onWorkflowNameSaved,
   previewToken,
   previewDiff,
-  runEditBlocked,
-  historyPanel,
 }: Props) {
   const previewDiffActive = previewDiff != null;
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
@@ -245,12 +210,6 @@ function WorkflowCanvasInner({
 
   const openNode = useConfigSlice((s) => s.openNode);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
-
-  // Slice 4.BUILDER-SHELL-TABS-1 — top tabs: Builder | Runs | Data Map | Settings.
-  // "builder" shows the canvas; the others show a polished empty-state panel until
-  // their real systems land (no dead tabs). Local to the center workspace — the
-  // left rail / right drawer are unaffected by this first slice.
-  const [activeTab, setActiveTab] = useState<BuilderTab>("builder");
 
   // Slice 4.AI-REPAIR-2F — pan/zoom the viewport to a node when a "Go to field"
   // reveal is requested (configSlice canvas-focus signal). Navigation only.
@@ -477,8 +436,6 @@ function WorkflowCanvasInner({
         onAddAction={onAddAction}
         canAddAction={canAddAction}
         addActionBlockedReason={addActionBlockedReason}
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
       />
       <div
         aria-label="Workflow canvas"
@@ -491,8 +448,9 @@ function WorkflowCanvasInner({
           aria-hidden
           className="builder-dot-grid pointer-events-none absolute inset-0"
         />
-        {activeTab === "builder" ? (
-          <>
+        {/* BUILDER-TABS-HEADER-1 — the canvas is now builder-content only; the
+            Runs / Data Map / History / Settings panels render at the
+            WorkflowBuilder level (header tab strip), in BOTH view modes. */}
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -566,38 +524,6 @@ function WorkflowCanvasInner({
           message={connectionHint}
           onDismiss={() => setConnectionHint(null)}
         />
-          </>
-        ) : activeTab === "runs" ? (
-          // Slice 4.BUILDER-RUNS-TAB-1 — the Runs tab is this workflow's
-          // execution history + run-detail/debugging surface. Reuses the
-          // existing workflow-scoped run list/detail endpoints + the latest-run
-          // poller; "Open failed step" switches back to the Builder tab so the
-          // canvas reveal lands.
-          <RunsPanel
-            onOpenFailedStep={() => setActiveTab("builder")}
-            {...(runEditBlocked !== undefined ? { runEditBlocked } : {})}
-          />
-        ) : activeTab === "data-map" ? (
-          // Slice 4.BUILDER-DATA-MAP-MVP-1 — the Data Map tab shows a real
-          // workflow data outline once actions exist; it falls back to the
-          // shared empty-state panel (via BuilderTabPlaceholder) otherwise.
-          <DataMapPanel providerLabels={providerLabels} />
-        ) : activeTab === "history" ? (
-          // AGENT-CHANGE-HISTORY-1 — the History tab: the full agent-change /
-          // checkpoint timeline (View diff + restore). Built by WorkflowBuilder;
-          // falls back to the placeholder in isolated canvas tests.
-          (historyPanel ?? <BuilderTabPlaceholder tab="history" />)
-        ) : activeTab === "settings" ? (
-          // Slice 4.BUILDER-SETTINGS-MVP-1 — the Settings tab shows real
-          // workflow-level metadata + behavior (read-only this slice).
-          <SettingsPanel
-            settings={workflowSettings}
-            providerLabels={providerLabels}
-            {...(onWorkflowNameSaved ? { onNameSaved: onWorkflowNameSaved } : {})}
-          />
-        ) : (
-          <BuilderTabPlaceholder tab={activeTab} />
-        )}
       </div>
       {pendingDelete !== null ? (
         <DeleteNodeConfirmDialog

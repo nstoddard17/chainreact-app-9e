@@ -132,27 +132,17 @@ describe("WorkflowCanvas — node click dispatches configSlice.openNode", () => 
 });
 
 describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () => {
-  // AGENT-CHANGE-HISTORY-4 added the "History" tab (Agent Change History moved
-  // out of a drawer into a top-level tab). The tab list itself + History's own
-  // selection behavior are owned by CanvasActionBar.test.tsx; this case keeps
-  // asserting the shell-level invariants — no dead tabs, Builder default.
-  it("renders Builder | Runs | Data Map | History | Settings — all enabled, Builder active by default (BUILDER-SHELL-TABS-1)", () => {
+  // BUILDER-TABS-HEADER-1 — the Builder | Runs | Data Map | History | Settings
+  // tab segment moved OUT of the canvas into the header-level BuilderTabStrip
+  // (so the Document view has the same tabs). Tab-strip + panel behavior is
+  // now owned by tests/unit/features/workflow-builder/layout/BuilderTabs.test.tsx;
+  // this bar keeps only the env/trigger/count tags + the Add-action CTA.
+  it("no longer renders section tabs — the canvas is builder-content only", () => {
     render(<WorkflowCanvas providerLabels={providerLabels} />);
     const bar = screen.getByTestId("canvas-action-bar");
-    const tabs = within(bar).getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual([
-      "Builder",
-      "Runs",
-      "Data Map",
-      "History",
-      "Settings",
-    ]);
-    // No dead tabs — every tab is interactive (none disabled).
-    for (const t of tabs) expect(t).toBeEnabled();
-    // Builder is selected by default and shows the canvas (no placeholder).
-    expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
-    for (const t of tabs.slice(1)) expect(t.getAttribute("aria-selected")).toBe("false");
-    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
+    expect(within(bar).queryAllByRole("tab")).toHaveLength(0);
+    // The canvas surface itself is always the builder content.
+    expect(screen.getByTestId("workflow-canvas")).toBeInTheDocument();
   });
 
   it("Add action canvas button fires the supplied callback when enabled, disabled otherwise", () => {
@@ -199,92 +189,10 @@ describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () 
   });
 });
 
-describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", () => {
-  function clickTab(name: RegExp) {
-    fireEvent.click(screen.getByRole("tab", { name }));
-  }
-
-  it("Runs tab renders the workflow Runs panel and replaces the canvas (no dead tab)", async () => {
-    // Slice 4.BUILDER-RUNS-TAB-1 — the Runs tab is now the real workflow-scoped
-    // run-history panel (no longer a placeholder).
-    const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
-    // Builder canvas (ReactFlow surface) is present initially.
-    expect(container.querySelector(".react-flow")).not.toBeNull();
-    clickTab(/^Runs$/);
-    expect(screen.getByTestId("builder-runs-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
-    // The ReactFlow canvas is swapped out for the Runs panel.
-    expect(container.querySelector(".react-flow")).toBeNull();
-    // With no runs, the panel surfaces its empty-state hint.
-    expect(await screen.findByTestId("runs-empty-state")).toBeInTheDocument();
-  });
-
-  it("Data Map tab shows a workflow-ordered data outline once actions exist (no raw JSON/schema dump)", () => {
-    // BUILDER-DATA-MAP-MVP-1 — with action nodes present (baseDef has one), the
-    // Data Map tab renders the real data outline, NOT the dead placeholder.
-    const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
-    expect(container.querySelector(".react-flow")).not.toBeNull();
-    clickTab(/^Data Map$/);
-    const panel = screen.getByTestId("data-map-panel");
-    expect(panel).toBeInTheDocument();
-    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
-    // Workflow-ordered cards: trigger first, then the action.
-    const cards = within(panel).getAllByTestId("data-map-node");
-    expect(cards).toHaveLength(2);
-    expect(cards[0]).toHaveAttribute("data-node-kind", "trigger");
-    expect(cards[1]).toHaveAttribute("data-node-kind", "action");
-    // Friendly provider labels surface; no raw JSON / schema dump.
-    expect(within(cards[0]!).getByText(/Slack/)).toBeInTheDocument();
-    expect(within(cards[1]!).getByText(/GitHub/)).toBeInTheDocument();
-    expect(panel.textContent).not.toMatch(/JSON|schema/i);
-    // The ReactFlow canvas is swapped out for the outline.
-    expect(container.querySelector(".react-flow")).toBeNull();
-  });
-
-  it("Settings tab shows real workflow-level metadata and keeps credentials in Apps / node config in the step panel", () => {
-    // BUILDER-SETTINGS-MVP-1 — the Settings tab renders the real panel (not the
-    // dead placeholder) with workflow-level metadata threaded from the builder.
-    render(
-      <WorkflowCanvas
-        providerLabels={providerLabels}
-        workflowSettings={{
-          name: "Demo Workflow",
-          state: "draft",
-          createdAt: "2026-06-01T09:00:00.000Z",
-          updatedAt: "2026-06-02T09:00:00.000Z",
-          activeRevisionId: null,
-          unpublishedChanges: false,
-        }}
-      />,
-    );
-    clickTab(/^Settings$/);
-    const panel = screen.getByTestId("settings-panel");
-    expect(panel).toBeInTheDocument();
-    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
-    // Real workflow-level values render. Name is now an editable input.
-    expect(within(panel).getByDisplayValue("Demo Workflow")).toBeInTheDocument();
-    expect(within(panel).getByText(/message_received/)).toBeInTheDocument();
-    // Workflow Settings must NOT host provider credentials…
-    expect(panel.textContent).not.toMatch(/credential|token|password|api key/i);
-    // …and it points the user to where connections / step settings actually live.
-    expect(panel.textContent).toMatch(/connections live in Apps/i);
-    expect(panel.textContent).toMatch(/config panel/i);
-  });
-
-  it("returns to the canvas when Builder is reselected", async () => {
-    const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
-    // Switch to Runs (a non-canvas tab) to prove the canvas is swapped out, then
-    // back to Builder to prove it's restored.
-    clickTab(/^Runs$/);
-    expect(screen.getByTestId("builder-runs-tab")).toBeInTheDocument();
-    expect(container.querySelector(".react-flow")).toBeNull();
-    clickTab(/^Builder$/);
-    expect(screen.queryByTestId("builder-runs-tab")).toBeNull();
-    await waitFor(() =>
-      expect(container.querySelector(".react-flow")).not.toBeNull(),
-    );
-  });
-});
+// BUILDER-TABS-HEADER-1 — the "top tabs + empty states" describe moved to
+// tests/unit/features/workflow-builder/layout/BuilderTabs.test.tsx: the tabs
+// (and the Runs / Data Map / History / Settings panels) are no longer part of
+// the canvas, so both view modes can reach them.
 
 // ─── Slice 4.BUILDER-TRIGGER-RECOVERY-1 — no-trigger recovery banner ────────
 
