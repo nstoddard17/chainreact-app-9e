@@ -31,13 +31,16 @@
   production-browser-certified after deploy. Authoritative detail →
   [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md) ·
   [`builder-view-default-and-header-tabs.md`](./slices/phase-5/builder-view/builder-view-default-and-header-tabs.md).
-- **Push state:** `origin/v2-main` is at `b8fbf625d` — the builder-view release
-  (`1eddd8dee`, **deployed to prod 2026-07-25**) plus a later docs-only invitation closeout.
-  **Local `v2-main` has diverged** from origin: releases are now cut by cherry-picking the
-  batch's commits onto a clean branch off `origin/v2-main` (concurrent sessions interleave
-  commits on local `v2-main`), so local `v2-main` holds original-hash duplicates and currently
-  also lacks the concurrent journey-4 invitation fix. Never push local `v2-main` directly —
-  extract a clean branch. **Push posture unchanged:** local work stays push-gated (commit
+- **Push state:** local `v2-main` was **reconciled with `origin/v2-main` on 2026-07-25**
+  (V2-MAIN-RECONCILE-1): a one-time `--no-ff` merge adopted the production versions of all
+  code (incl. the concurrent journey-4 invitation fix) and shipped the remaining docs
+  closeouts; the divergence caused by sessions committing to local `v2-main` while releases
+  were cherry-picked from clean branches is repaired, and normal fast-forward pushes work
+  again. The prevention rule (each batch on its own branch; `v2-main` = integration branch;
+  fetch + ancestor-check + read `git diff --name-status origin/v2-main HEAD` before any push)
+  now lives in `CLAUDE.md` → "Concurrent-session rule". Backup of the pre-reconcile local
+  history: branch `backup/v2-main-before-reconcile-2026-07-25` (local only).
+  **Push posture unchanged:** local work stays push-gated (commit
   locally, don't push by default); Marcus's explicit per-batch approval of a verified batch
   authorizes a `v2-main` push **which deploys to prod** (no staging env yet). Per-batch; does
   not carry over.

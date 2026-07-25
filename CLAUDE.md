@@ -62,6 +62,24 @@ Use local branches/commits to keep progress organized, but wait for Marcus befor
 pushing. When he approves a verified batch, the push goes to `v2-main` and deploys
 to production — that is the intended ship path until a dev/staging env exists.
 
+### Concurrent-session rule (V2-MAIN-RECONCILE-1, 2026-07-25)
+
+Marcus often runs several Claude sessions against this repo at once. Local
+`v2-main` once diverged from `origin/v2-main` because sessions committed to it
+directly while releases were cut from cherry-pick branches; a one-time merge
+reconciliation repaired it. To keep it repaired:
+
+- Start every session's work from the **latest fetched `origin/v2-main`**.
+- Each substantial batch gets its **own branch (or worktree)** — local `v2-main`
+  is the integration branch, not a shared scratch branch, and no session commits
+  directly to it while another session may also be working.
+- Completed, approved branches **merge or fast-forward into `v2-main`**; then the
+  push (on Marcus's per-batch approval) is a normal fast-forward push.
+- Immediately before any push: `git fetch`, confirm
+  `git merge-base --is-ancestor origin/v2-main HEAD`, and read
+  `git diff --name-status origin/v2-main HEAD` — files there that aren't yours
+  are another session's work you would ship or revert. Never force-push.
+
 ---
 
 ## Provider Authoring — start from V2 patterns
