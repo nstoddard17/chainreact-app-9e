@@ -506,6 +506,8 @@ describe("GET /api/options/[source] — requiresIntegration branch", () => {
       integration: integrationRow,
       q: "foo",
       deps: {},
+      // Always passed, empty when the caller sent none.
+      selected: [],
     });
   });
 
@@ -857,6 +859,70 @@ describe("GET /api/options/slack:channels — end-to-end through the real resolv
   });
 });
 
+describe("GET /api/options/[source] — selected parsing", () => {
+  // QUICKBOOKS-INVOICES-INTEGRATION-RESOLVER-1 — repeated `selected` params
+  // let a picker ask for labels on values it already holds.
+  function syntheticSelected(): OptionsResolver {
+    authedUser();
+    const synthetic: OptionsResolver = {
+      source: "synthetic:selected",
+      provider: "synthetic",
+      requiresIntegration: false,
+      resolve: jest.fn().mockResolvedValue({ items: [], hasMore: false }),
+    };
+    mockGetOptionsResolver.mockReturnValue(synthetic);
+    return synthetic;
+  }
+
+  it("forwards repeated selected params to the resolver", async () => {
+    const synthetic = syntheticSelected();
+    await getOptions(
+      makeReq("http://x/api/options/synthetic:selected?selected=42&selected=137"),
+      paramsOf("synthetic:selected"),
+    );
+    expect(synthetic.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({ selected: ["42", "137"] }),
+    );
+  });
+
+  it("normalizes selected values (trim, drop empty, de-duplicate)", async () => {
+    const synthetic = syntheticSelected();
+    await getOptions(
+      makeReq(
+        "http://x/api/options/synthetic:selected?selected=%2042%20&selected=42&selected=&selected=43",
+      ),
+      paramsOf("synthetic:selected"),
+    );
+    expect(synthetic.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({ selected: ["42", "43"] }),
+    );
+  });
+
+  it("bounds how many selected values one request can ask for", async () => {
+    const synthetic = syntheticSelected();
+    const many = Array.from({ length: 60 }, (_, i) => `selected=id-${i}`).join("&");
+    await getOptions(
+      makeReq(`http://x/api/options/synthetic:selected?${many}`),
+      paramsOf("synthetic:selected"),
+    );
+    const ctx = (synthetic.resolve as jest.Mock).mock.calls[0]![0] as {
+      selected: string[];
+    };
+    expect(ctx.selected).toHaveLength(20);
+  });
+
+  it("passes an empty array when the param is absent", async () => {
+    const synthetic = syntheticSelected();
+    await getOptions(
+      makeReq("http://x/api/options/synthetic:selected"),
+      paramsOf("synthetic:selected"),
+    );
+    expect(synthetic.resolve).toHaveBeenCalledWith(
+      expect.objectContaining({ selected: [] }),
+    );
+  });
+});
+
 describe("GET /api/options/[source] — deps parsing", () => {
   it("parses multiple deps[*] parameters", async () => {
     authedUser();
@@ -882,6 +948,7 @@ describe("GET /api/options/[source] — deps parsing", () => {
       integration: null,
       q: "",
       deps: { baseId: "B1", tableId: "T1" },
+      selected: [],
     });
   });
 
@@ -906,6 +973,7 @@ describe("GET /api/options/[source] — deps parsing", () => {
       integration: null,
       q: "",
       deps: { a: "kept" },
+      selected: [],
     });
   });
 });
