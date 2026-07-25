@@ -132,6 +132,89 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
     expect((strangerRead.data ?? []).length).toBe(0);
   });
 
+  it("replace_account_invitation is ATOMIC: a duplicate clash rolls back the revoke (old invite stays pending + usable)", async () => {
+    const { userId } = await createUser();
+    const teamId = await createTeam(userId);
+    const stamp = Date.now();
+
+    // Old pending invite A (the one being replaced) + an unrelated pending
+    // invite B already occupying the target address.
+    await insertInvite(teamId, `olda-${stamp}@example.com`, `h-a-${stamp}`);
+    await insertInvite(teamId, `target-${stamp}@example.com`, `h-b-${stamp}`);
+    const { data: rows } = await admin
+      .from("account_invitations")
+      .select("id, email")
+      .eq("account_id", teamId);
+    const oldId = (rows ?? []).find((r) => (r.email as string).startsWith("olda-"))!.id as string;
+
+    // Replacing A's email to B's address must 23505 — and the whole
+    // transaction (including A's revoke) must roll back.
+    const clash = await admin.rpc("replace_account_invitation", {
+      p_invitation_id: oldId,
+      p_account_id: teamId,
+      p_new_email: `target-${stamp}@example.com`,
+      p_new_token_hash: `h-clash-${stamp}`,
+      p_invited_by_user_id: userId,
+      p_now: new Date().toISOString(),
+    });
+    expect(clash.error).not.toBeNull();
+    const afterClash = await admin
+      .from("account_invitations")
+      .select("status")
+      .eq("id", oldId)
+      .single<{ status: string }>();
+    expect(afterClash.data?.status).toBe("pending"); // rollback preserved it
+
+    // Happy path: replacing to a FREE address commits both changes together —
+    // old revoked, new pending with the SAME role and no expiry.
+    const ok = await admin.rpc("replace_account_invitation", {
+      p_invitation_id: oldId,
+      p_account_id: teamId,
+      p_new_email: `fresh-${stamp}@example.com`,
+      p_new_token_hash: `h-fresh-${stamp}`,
+      p_invited_by_user_id: userId,
+      p_now: new Date().toISOString(),
+    });
+    expect(ok.error).toBeNull();
+    const oldRow = await admin
+      .from("account_invitations").select("status").eq("id", oldId).single<{ status: string }>();
+    expect(oldRow.data?.status).toBe("revoked");
+    const newRow = await admin
+      .from("account_invitations")
+      .select("status, role, expires_at")
+      .eq("account_id", teamId)
+      .eq("email", `fresh-${stamp}@example.com`)
+      .single<{ status: string; role: string; expires_at: string | null }>();
+    expect(newRow.data?.status).toBe("pending");
+    expect(newRow.data?.role).toBe("member"); // preserved from the replaced row
+    expect(newRow.data?.expires_at).toBeNull(); // non-expiring
+
+    // A settled row refuses cleanly (typed error, nothing changed).
+    const again = await admin.rpc("replace_account_invitation", {
+      p_invitation_id: oldId,
+      p_account_id: teamId,
+      p_new_email: `another-${stamp}@example.com`,
+      p_new_token_hash: `h-again-${stamp}`,
+      p_invited_by_user_id: userId,
+      p_now: new Date().toISOString(),
+    });
+    expect(again.error?.message ?? "").toContain("INVITATION_NOT_PENDING");
+  });
+
+  it("replace_account_invitation is service-role only — an authenticated session cannot execute it", async () => {
+    const caller = await createUser();
+    const session = await sessionClientFor(caller.email);
+    const denied = await session.rpc("replace_account_invitation", {
+      p_invitation_id: "00000000-0000-0000-0000-000000000000",
+      p_account_id: "00000000-0000-0000-0000-000000000000",
+      p_new_email: "x@example.com",
+      p_new_token_hash: "h-denied",
+      p_invited_by_user_id: caller.userId,
+      p_now: new Date().toISOString(),
+    });
+    expect(denied.error).not.toBeNull(); // EXECUTE not granted to authenticated
+  });
+
   it("find_user_id_by_email resolves a known email and returns null for unknown", async () => {
     const { userId, email } = await createUser();
     const known = await admin.rpc("find_user_id_by_email", { p_email: email.toUpperCase() });

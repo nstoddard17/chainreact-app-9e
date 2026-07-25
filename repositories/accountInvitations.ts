@@ -260,6 +260,58 @@ export async function markRevokedServiceRole(
   }
 }
 
+/** Typed failure from the atomic replacement RPC: row absent/foreign/settled. */
+export const REPLACE_NOT_PENDING = "REPLACE_NOT_PENDING" as const;
+
+/**
+ * ATOMICALLY replace a PENDING invite with a new one for a different email
+ * (TEAM-INVITATION-LIFECYCLE-2A). One `replace_account_invitation` RPC call =
+ * one transaction: the old row is revoked AND the new row (new token hash,
+ * SAME role — preserved server-side, non-expiring) is inserted, or NEITHER
+ * happens. A duplicate-pending clash on the new address rolls the revoke back,
+ * so the old invitation and its link remain fully usable.
+ *
+ * Throws `REPLACE_NOT_PENDING` when the (id, account) row is absent or
+ * settled, `DUPLICATE_PENDING_INVITE` on the 23505 clash.
+ */
+export async function replaceInvitationServiceRole(input: {
+  invitationId: string;
+  accountId: string;
+  newEmail: string;
+  newTokenHash: string;
+  invitedByUserId: string | null;
+  nowIso: string;
+}): Promise<AccountInvitationRecord> {
+  const supabase = getServiceRoleClient(
+    `account_invitations: replace ${input.invitationId}`,
+  );
+  const { data, error } = await supabase
+    .rpc("replace_account_invitation", {
+      p_invitation_id: input.invitationId,
+      p_account_id: input.accountId,
+      p_new_email: input.newEmail,
+      p_new_token_hash: input.newTokenHash,
+      p_invited_by_user_id: input.invitedByUserId,
+      p_now: input.nowIso,
+    })
+    .single<AccountInvitationsRow>();
+  if (error) {
+    if (error.message?.includes("INVITATION_NOT_PENDING")) {
+      throw new Error(REPLACE_NOT_PENDING);
+    }
+    if (error.code === "23505") {
+      throw new Error(DUPLICATE_PENDING_INVITE);
+    }
+    throw new Error(
+      `account_invitations.replaceInvitationServiceRole failed: ${error.message}`,
+    );
+  }
+  if (!data) {
+    throw new Error("account_invitations.replaceInvitationServiceRole failed: no row");
+  }
+  return rowToRecord(data);
+}
+
 /**
  * Update a PENDING invite's role in place (TEAM-INVITATION-LIFECYCLE-2).
  * Same id, email, token hash, and link — only the role changes. Filtered to
