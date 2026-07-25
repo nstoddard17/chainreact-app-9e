@@ -13,7 +13,7 @@ const mockGetById = jest.fn();
 const mockListPending = jest.fn();
 const mockMarkAccepted = jest.fn();
 const mockMarkRevoked = jest.fn();
-const mockMarkExpired = jest.fn();
+const mockUpdatePendingRole = jest.fn();
 const mockCountPending = jest.fn();
 const mockCountRecentByInviter = jest.fn();
 const mockCountRecentForAccount = jest.fn();
@@ -29,7 +29,7 @@ jest.mock("@/repositories/accountInvitations", () => ({
   countCreatedSinceForAccountServiceRole: (...a: unknown[]) => mockCountRecentForAccount(...a),
   markAcceptedServiceRole: (...a: unknown[]) => mockMarkAccepted(...a),
   markRevokedServiceRole: (...a: unknown[]) => mockMarkRevoked(...a),
-  markExpiredServiceRole: (...a: unknown[]) => mockMarkExpired(...a),
+  updatePendingRoleServiceRole: (...a: unknown[]) => mockUpdatePendingRole(...a),
 }));
 
 // External email boundary — the ONLY email mock (template + origin run real).
@@ -73,6 +73,8 @@ import {
   createInvitation,
   acceptInvitation,
   revokeInvitation,
+  changeInvitationRole,
+  replaceInvitationEmail,
   hashInviteToken,
   normalizeEmail,
 } from "@/services/accounts/invitations";
@@ -89,7 +91,8 @@ function pendingInvite(overrides: Record<string, unknown> = {}) {
     role: "member",
     status: "pending",
     invitedByUserId: INVITER,
-    expiresAt: "2999-01-01T00:00:00.000Z",
+    // Non-expiring (TEAM-INVITATION-LIFECYCLE-2).
+    expiresAt: null,
     acceptedByUserId: null,
     acceptedAt: null,
     revokedAt: null,
@@ -101,7 +104,7 @@ function pendingInvite(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   [
     mockInsertPending, mockGetByTokenHash, mockGetById, mockListPending,
-    mockMarkAccepted, mockMarkRevoked, mockMarkExpired, mockGetDeletionStatus,
+    mockMarkAccepted, mockMarkRevoked, mockUpdatePendingRole, mockGetDeletionStatus,
     mockGetAccountById, mockIsMemberSR, mockInsertMember, mockFindUserByEmail,
     mockNotify, mockSetActiveAccount, mockCountMembers, mockCountPending,
     mockCountRecentByInviter, mockCountRecentForAccount, mockSendEmail,
@@ -367,12 +370,28 @@ describe("acceptInvitation", () => {
     expect(mockMarkAccepted).not.toHaveBeenCalled();
   });
 
-  it("rejects + marks expired when past expiry", async () => {
-    signedInvite({ expiresAt: "2000-01-01T00:00:00.000Z" });
+  it("accepts a pending invite regardless of age — even a legacy past expires_at (non-expiring)", async () => {
+    // TEAM-INVITATION-LIFECYCLE-2: pending invites never lapse. A legacy row
+    // whose stored expires_at is decades past must still accept.
+    signedInvite({ expiresAt: "2000-01-01T00:00:00.000Z", createdAt: "1999-01-01T00:00:00.000Z" });
+    const res = await acceptInvitation({ token: TOKEN, userId: INVITEE, userEmail: "invitee@example.com" });
+    expect(res.ok).toBe(true);
+    expect(mockInsertMember).toHaveBeenCalledWith(ACCOUNT, INVITEE, "member");
+  });
+
+  it("still refuses a HISTORICAL 'expired' row (never reactivated)", async () => {
+    signedInvite({ status: "expired" });
     const res = await acceptInvitation({ token: TOKEN, userId: INVITEE, userEmail: "invitee@example.com" });
     expect(res).toEqual({ ok: false, reason: "expired" });
-    expect(mockMarkExpired).toHaveBeenCalledWith("inv-1");
     expect(mockInsertMember).not.toHaveBeenCalled();
+  });
+
+  it("acceptance applies the role CURRENTLY stored on the invitation", async () => {
+    // e.g. invited as member, role changed to admin before acceptance.
+    signedInvite({ role: "admin" });
+    const res = await acceptInvitation({ token: TOKEN, userId: INVITEE, userEmail: "invitee@example.com" });
+    expect(res.ok).toBe(true);
+    expect(mockInsertMember).toHaveBeenCalledWith(ACCOUNT, INVITEE, "admin");
   });
 
   it("rejects a revoked invite", async () => {
@@ -430,6 +449,94 @@ describe("revokeInvitation", () => {
     mockGetById.mockResolvedValueOnce(pendingInvite({ status: "accepted" }));
     const res = await revokeInvitation({ accountId: ACCOUNT, invitationId: "inv-1" });
     expect(res).toEqual({ ok: false, reason: "not_pending" });
+  });
+});
+
+describe("changeInvitationRole (TEAM-INVITATION-LIFECYCLE-2)", () => {
+  it("updates the pending invite IN PLACE — same id, no token touched, NO email sent", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockUpdatePendingRole.mockResolvedValueOnce(pendingInvite({ role: "admin" }));
+    const res = await changeInvitationRole({ accountId: ACCOUNT, invitationId: "inv-1", role: "admin" });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.invitation.role).toBe("admin");
+    expect(mockUpdatePendingRole).toHaveBeenCalledWith("inv-1", "admin");
+    // In place: nothing revoked, nothing inserted, no new token, no email.
+    expect(mockMarkRevoked).not.toHaveBeenCalled();
+    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses another account's invite (not_found) and settled invites (not_pending)", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite({ accountId: "other" }));
+    expect(await changeInvitationRole({ accountId: ACCOUNT, invitationId: "inv-1", role: "admin" }))
+      .toEqual({ ok: false, reason: "not_found" });
+
+    mockGetById.mockResolvedValueOnce(pendingInvite({ status: "accepted" }));
+    expect(await changeInvitationRole({ accountId: ACCOUNT, invitationId: "inv-1", role: "admin" }))
+      .toEqual({ ok: false, reason: "not_pending" });
+    expect(mockUpdatePendingRole).not.toHaveBeenCalled();
+  });
+
+  it("maps a lost update race (row settled between read and update) to not_pending", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockUpdatePendingRole.mockResolvedValueOnce(null);
+    expect(await changeInvitationRole({ accountId: ACCOUNT, invitationId: "inv-1", role: "member" }))
+      .toEqual({ ok: false, reason: "not_pending" });
+  });
+});
+
+describe("replaceInvitationEmail (TEAM-INVITATION-LIFECYCLE-2)", () => {
+  it("revokes the old invite, issues a NEW token for the new email with the SAME role, and emails it", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite({ role: "admin", email: "old@example.com" }));
+    const res = await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "New@Example.com", inviterUserId: INVITER,
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    // Old link dies…
+    expect(mockMarkRevoked).toHaveBeenCalledWith("inv-1", expect.any(String));
+    // …new invitation for the normalized new address, role preserved…
+    const insertArg = mockInsertPending.mock.calls[0][0];
+    expect(insertArg.email).toBe("new@example.com");
+    expect(insertArg.role).toBe("admin");
+    // …with a fresh token (hash of the returned raw token), emailed to the new address.
+    expect(insertArg.tokenHash).toBe(hashInviteToken(res.acceptToken));
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect((mockSendEmail.mock.calls[0][0] as { to: string }).to).toBe("new@example.com");
+    expect(res.acceptPath).toContain(encodeURIComponent(res.acceptToken));
+  });
+
+  it("email delivery failure leaves the NEW invitation valid (ok with status 'failed')", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockSendEmail.mockResolvedValueOnce({ status: "failed", reason: "provider_500" });
+    const res = await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "new@example.com", inviterUserId: INVITER,
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.emailDelivery).toEqual({ status: "failed" });
+    expect(mockInsertPending).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a no-op change to the SAME email without killing the working link", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite({ email: "invitee@example.com" }));
+    const res = await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "  Invitee@Example.COM ", inviterUserId: INVITER,
+    });
+    expect(res).toEqual({ ok: false, reason: "same_email" });
+    expect(mockMarkRevoked).not.toHaveBeenCalled();
+    expect(mockInsertPending).not.toHaveBeenCalled();
+  });
+
+  it("refuses another account's invite (not_found) and settled invites (not_pending)", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite({ accountId: "other" }));
+    expect(await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "n@example.com", inviterUserId: INVITER,
+    })).toEqual({ ok: false, reason: "not_found" });
+
+    mockGetById.mockResolvedValueOnce(pendingInvite({ status: "revoked" }));
+    expect(await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "n@example.com", inviterUserId: INVITER,
+    })).toEqual({ ok: false, reason: "not_pending" });
   });
 });
 

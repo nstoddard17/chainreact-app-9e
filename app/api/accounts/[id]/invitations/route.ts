@@ -36,7 +36,7 @@ function inviteProjection(inv: {
   email: string;
   role: string;
   status: string;
-  expiresAt: string;
+  expiresAt: string | null;
   createdAt: string;
 }) {
   return {

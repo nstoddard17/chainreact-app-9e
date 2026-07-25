@@ -73,6 +73,9 @@ describe("InviteBar — email delivery states (TEAM-INVITATION-EMAIL-1)", () => 
     const panel = screen.getByTestId("team-invite-delivery");
     expect(panel).toHaveTextContent(/Invitation emailed to new@example.com/i);
     expect(panel).toHaveTextContent(/sign in or create an account/i);
+    // Non-expiring (TEAM-INVITATION-LIFECYCLE-2): no expiry wording anywhere.
+    expect(panel.textContent!.toLowerCase()).not.toContain("expire");
+    expect(panel).toHaveTextContent(/stays active until accepted or canceled/i);
     // Copy-link fallback survives a successful send.
     const link = screen.getByLabelText("Invite link") as HTMLInputElement;
     expect(link.value).toContain("/invitations/accept?token=raw-token");

@@ -78,9 +78,10 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
   }
 
   async function insertInvite(accountId: string, email: string, tokenHash: string) {
+    // Non-expiring (TEAM-INVITATION-LIFECYCLE-2): expires_at stays NULL,
+    // which also proves the 20260804000000 DROP NOT NULL migration applied.
     return admin.from("account_invitations").insert({
       account_id: accountId, email, role: "member", token_hash: tokenHash,
-      expires_at: new Date(Date.now() + 7 * 86400_000).toISOString(),
     });
   }
 

@@ -24,7 +24,6 @@ export interface TeamInvitationEmailInput {
   role: "admin" | "member";
   /** Full canonical accept URL (origin + /invitations/accept?token=…). */
   acceptUrl: string;
-  expiresInDays: number;
 }
 
 export interface RenderedTransactionalEmail {
@@ -67,7 +66,9 @@ export function renderTeamInvitationEmail(
     : `You've been invited to join ${teamPlain} on ChainReact.`;
 
   const roleLine = ROLE_LINE[input.role];
-  const expiryLine = `This invitation expires in ${input.expiresInDays} days.`;
+  // TEAM-INVITATION-LIFECYCLE-2: invitations do not expire — no expiry wording.
+  const validityLine =
+    "This invitation stays active until it's accepted or canceled by the team.";
   const identityLine =
     "To accept, sign in — or create a free ChainReact account — using the email address this invitation was sent to.";
   const securityLine =
@@ -82,7 +83,7 @@ export function renderTeamInvitationEmail(
     input.acceptUrl,
     "",
     identityLine,
-    expiryLine,
+    validityLine,
     "",
     securityLine,
     "",
@@ -108,7 +109,7 @@ export function renderTeamInvitationEmail(
     <p style="margin:0 0 6px;font-size:12px;color:#6b7280;">Or paste this link into your browser:</p>
     <p style="margin:0 0 20px;font-size:12px;word-break:break-all;"><a href="${urlAttr}" style="color:#6366f1;">${urlAttr}</a></p>
     <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#4b5563;">${escapeHtml(identityLine)}</p>
-    <p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#4b5563;">${escapeHtml(expiryLine)}</p>
+    <p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#4b5563;">${escapeHtml(validityLine)}</p>
     <hr style="border:none;border-top:1px solid #e4e7ec;margin:0 0 16px;" />
     <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">${escapeHtml(securityLine)}</p>
   </div>

@@ -18,12 +18,23 @@ import type { EmailDeliveryStatus } from "@/services/email/transport";
 
 /**
  * Team invitation service (4.ACCOUNT-MODEL-15, Phase D D2a; email delivery
- * TEAM-INVITATION-EMAIL-1).
+ * TEAM-INVITATION-EMAIL-1; lifecycle rules TEAM-INVITATION-LIFECYCLE-2).
  *
- * Create / list / revoke / accept invites. The raw token is returned ONCE at
- * creation; only its SHA-256 hash is stored. The route layer owns authorization
- * (`requireAccountRole`); this service owns the invite rules + the membership
- * write on accept.
+ * Create / list / revoke / accept / change-role / replace-email. The raw token
+ * is returned ONCE at creation; only its SHA-256 hash is stored. The route
+ * layer owns authorization (`requireAccountRole`); this service owns the
+ * invite rules + the membership write on accept.
+ *
+ * Lifecycle (TEAM-INVITATION-LIFECYCLE-2 — locked product rules):
+ *   - Pending invitations NEVER expire automatically. They stay active until
+ *     accepted, canceled (revoked), or replaced by an email change. Historical
+ *     'expired' rows remain refusable history and are never reactivated.
+ *   - A ROLE change updates the pending invitation in place — same id, email,
+ *     token hash, and link; NO new email is sent. Acceptance always applies
+ *     the role stored on the invitation at accept time.
+ *   - An EMAIL change REPLACES the invitation: the old one is revoked (its
+ *     link dies), a brand-new token/invitation is issued for the new address
+ *     with the same role, and a new invitation email is sent.
  *
  * Delivery semantics (TEAM-INVITATION-EMAIL-1): the DB invitation is the
  * durable source of truth; email is external delivery, attempted AFTER the
@@ -40,9 +51,6 @@ import type { EmailDeliveryStatus } from "@/services/email/transport";
  * are refused (`rate_limited`) before a row or email exists. The rows
  * themselves are the counter (cross-instance safe; no in-memory state).
  */
-
-export const INVITE_TTL_DAYS = 7;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Rolling send-throttle window + caps (modest; team cap is 5, business 25). */
 export const INVITE_SEND_WINDOW_MINUTES = 60;
@@ -178,7 +186,6 @@ export async function createInvitation(input: {
 
   const rawToken = generateRawToken();
   const tokenHash = hashInviteToken(rawToken);
-  const expiresAt = new Date(now.getTime() + INVITE_TTL_DAYS * MS_PER_DAY).toISOString();
 
   let invitation: AccountInvitationRecord;
   try {
@@ -188,7 +195,6 @@ export async function createInvitation(input: {
       role: input.role,
       tokenHash,
       invitedByUserId: input.inviterUserId,
-      expiresAt,
     });
   } catch (err) {
     if ((err as Error).message === invitationsRepo.DUPLICATE_PENDING_INVITE) {
@@ -235,7 +241,6 @@ export async function createInvitation(input: {
     inviterName,
     role: input.role,
     acceptUrl: `${publicAppOrigin()}${acceptPath}`,
-    expiresInDays: INVITE_TTL_DAYS,
   });
   const delivery = await sendTransactionalEmail(
     { to: email, subject: rendered.subject, html: rendered.html, text: rendered.text },
@@ -287,6 +292,97 @@ export async function revokeInvitation(input: {
   return { ok: true };
 }
 
+// ── change role / replace email (TEAM-INVITATION-LIFECYCLE-2) ────────────────
+
+export type ChangeInvitationRoleResult =
+  | { ok: true; invitation: AccountInvitationRecord }
+  | { ok: false; reason: "not_found" | "not_pending" };
+
+/**
+ * Change a PENDING invitation's role in place: same id, same email, same token
+ * hash, same link. NO email is sent — the existing invitation link remains
+ * active, and acceptance applies whatever role is stored at accept time.
+ */
+export async function changeInvitationRole(input: {
+  accountId: string;
+  invitationId: string;
+  role: InvitationRole;
+}): Promise<ChangeInvitationRoleResult> {
+  const invite = await invitationsRepo.getByIdServiceRole(input.invitationId);
+  // Account-scoped like revoke — never touch another account's invite.
+  if (!invite || invite.accountId !== input.accountId) {
+    return { ok: false, reason: "not_found" };
+  }
+  if (invite.status !== "pending") {
+    return { ok: false, reason: "not_pending" };
+  }
+  const updated = await invitationsRepo.updatePendingRoleServiceRole(
+    input.invitationId,
+    input.role,
+  );
+  // The pending row can settle between the read and the filtered update.
+  if (!updated) return { ok: false, reason: "not_pending" };
+  return { ok: true, invitation: updated };
+}
+
+export type ReplaceInvitationEmailResult =
+  | Extract<CreateInvitationResult, { ok: true }>
+  | { ok: false; reason: CreateInvitationReason | "not_found" | "not_pending" | "same_email" };
+
+/**
+ * Change the INVITED EMAIL by replacing the invitation: revoke the old one
+ * (its link stops working immediately), then create a brand-new invitation —
+ * new token, same role — for the new address, which also sends the new
+ * invitation email and returns the new one-time copyable link.
+ *
+ * Ordering: revoke FIRST, then create. This keeps the one-pending-per-email
+ * rule and the seat math correct (the old pending invite no longer occupies a
+ * seat when the replacement is counted). If the create then refuses (e.g. the
+ * new address is already a member), the old invitation stays revoked — the
+ * inviter asked to stop that address's invite either way — and the UI surfaces
+ * the typed reason.
+ *
+ * Email delivery failure does NOT invalidate the new invitation (same
+ * persist-first semantics as createInvitation).
+ */
+export async function replaceInvitationEmail(input: {
+  accountId: string;
+  invitationId: string;
+  newEmail: string;
+  inviterUserId: string;
+  inviter?: { email: string | null; displayName: string | null };
+  now?: Date;
+}): Promise<ReplaceInvitationEmailResult> {
+  const invite = await invitationsRepo.getByIdServiceRole(input.invitationId);
+  if (!invite || invite.accountId !== input.accountId) {
+    return { ok: false, reason: "not_found" };
+  }
+  if (invite.status !== "pending") {
+    return { ok: false, reason: "not_pending" };
+  }
+  const newEmail = normalizeEmail(input.newEmail);
+  if (newEmail === normalizeEmail(invite.email)) {
+    // Not a change — refuse rather than silently kill a working link.
+    return { ok: false, reason: "same_email" };
+  }
+
+  await invitationsRepo.markRevokedServiceRole(
+    input.invitationId,
+    (input.now ?? new Date()).toISOString(),
+  );
+
+  const created = await createInvitation({
+    accountId: input.accountId,
+    inviterUserId: input.inviterUserId,
+    email: newEmail,
+    role: invite.role, // preserve the currently selected role
+    inviter: input.inviter,
+    now: input.now,
+  });
+  if (!created.ok) return created;
+  return created;
+}
+
 // ── accept ───────────────────────────────────────────────────────────────────
 
 export type AcceptInvitationReason =
@@ -319,18 +415,16 @@ export async function acceptInvitation(input: {
   const invite = await invitationsRepo.getByTokenHashServiceRole(tokenHash);
   if (!invite) return { ok: false, reason: "not_found" };
 
-  // Lifecycle: only a pending, non-expired invite accepts. An already-accepted
-  // invite re-presented by the SAME user is idempotent (handled below after the
-  // membership check); any other terminal state is refused.
+  // Lifecycle: only a PENDING invite accepts. Pending invitations never expire
+  // (TEAM-INVITATION-LIFECYCLE-2) — no age or expires_at check. Historical
+  // 'expired' rows (pre-rule) remain refusable history and are never
+  // reactivated. An already-accepted invite re-presented by the SAME user is
+  // idempotent (handled below after the membership check); any other terminal
+  // state is refused.
   if (invite.status === "revoked") return { ok: false, reason: "revoked" };
   if (invite.status === "expired") return { ok: false, reason: "expired" };
   if (invite.status === "accepted" && invite.acceptedByUserId !== input.userId) {
     return { ok: false, reason: "already_accepted" };
-  }
-
-  if (invite.status === "pending" && new Date(invite.expiresAt).getTime() < now.getTime()) {
-    await invitationsRepo.markExpiredServiceRole(invite.id);
-    return { ok: false, reason: "expired" };
   }
 
   // Email match — the accepting user's session email must equal the invite email.

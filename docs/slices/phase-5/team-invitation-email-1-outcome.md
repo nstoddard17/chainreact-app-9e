@@ -1,5 +1,12 @@
 # TEAM-INVITATION-EMAIL-1 — Team invitation email delivery (outcome)
 
+> **Superseded in part by
+> [`team-invitation-lifecycle-2-outcome.md`](./team-invitation-lifecycle-2-outcome.md)
+> (2026-07-25):** invitations no longer expire (the 7-day TTL and all its
+> wording are removed), and pending invites gained in-place role change +
+> replace-on-email-change management. Delivery/transport/security content
+> below remains accurate.
+
 **Status:** LIVE IN PRODUCTION and delivery-verified. Pushed to `v2-main` and
 deployed 2026-07-25 with Marcus's explicit approval; a real production
 invitation email was delivered the same day (see

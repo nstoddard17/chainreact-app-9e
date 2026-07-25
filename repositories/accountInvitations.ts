@@ -20,7 +20,12 @@ export interface AccountInvitationRecord {
   role: InvitationRole;
   status: InvitationStatus;
   invitedByUserId: string | null;
-  expiresAt: string;
+  /**
+   * Always null for rows created after TEAM-INVITATION-LIFECYCLE-2 — pending
+   * invitations no longer expire. Historical accepted/revoked/expired rows
+   * keep their original recorded value for audit.
+   */
+  expiresAt: string | null;
   acceptedByUserId: string | null;
   acceptedAt: string | null;
   revokedAt: string | null;
@@ -34,7 +39,7 @@ interface AccountInvitationsRow {
   role: InvitationRole;
   status: InvitationStatus;
   invited_by_user_id: string | null;
-  expires_at: string;
+  expires_at: string | null;
   accepted_by_user_id: string | null;
   accepted_at: string | null;
   revoked_at: string | null;
@@ -60,14 +65,17 @@ function rowToRecord(row: AccountInvitationsRow): AccountInvitationRecord {
 /** A duplicate-pending insert maps to this stable error code (unique index). */
 export const DUPLICATE_PENDING_INVITE = "DUPLICATE_PENDING_INVITE" as const;
 
-/** Insert a pending invite. Throws `DUPLICATE_PENDING_INVITE` on the partial-unique clash. */
+/**
+ * Insert a pending invite. Throws `DUPLICATE_PENDING_INVITE` on the
+ * partial-unique clash. Non-expiring (`expires_at` stays NULL) —
+ * TEAM-INVITATION-LIFECYCLE-2.
+ */
 export async function insertPending(input: {
   accountId: string;
   email: string;
   role: InvitationRole;
   tokenHash: string;
   invitedByUserId: string | null;
-  expiresAt: string;
 }): Promise<AccountInvitationRecord> {
   const supabase = getServiceRoleClient(
     `account_invitations: insertPending for account ${input.accountId}`,
@@ -80,7 +88,6 @@ export async function insertPending(input: {
       role: input.role,
       token_hash: input.tokenHash,
       invited_by_user_id: input.invitedByUserId,
-      expires_at: input.expiresAt,
     })
     .select()
     .single<AccountInvitationsRow>();
@@ -253,16 +260,29 @@ export async function markRevokedServiceRole(
   }
 }
 
-export async function markExpiredServiceRole(invitationId: string): Promise<void> {
+/**
+ * Update a PENDING invite's role in place (TEAM-INVITATION-LIFECYCLE-2).
+ * Same id, email, token hash, and link — only the role changes. Filtered to
+ * status='pending'; returns null when no pending row matched (settled/absent).
+ */
+export async function updatePendingRoleServiceRole(
+  invitationId: string,
+  role: InvitationRole,
+): Promise<AccountInvitationRecord | null> {
   const supabase = getServiceRoleClient(
-    `account_invitations: markExpired ${invitationId}`,
+    `account_invitations: updatePendingRole ${invitationId}`,
   );
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("account_invitations")
-    .update({ status: "expired" })
+    .update({ role })
     .eq("id", invitationId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select()
+    .maybeSingle<AccountInvitationsRow>();
   if (error) {
-    throw new Error(`account_invitations.markExpiredServiceRole failed: ${error.message}`);
+    throw new Error(
+      `account_invitations.updatePendingRoleServiceRole failed: ${error.message}`,
+    );
   }
+  return data ? rowToRecord(data) : null;
 }
