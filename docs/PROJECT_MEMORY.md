@@ -11,20 +11,33 @@
 
 - **LIVE in production** at `https://chainreact.app`, deploying from `v2-main` →
   [`docs/slices/phase-4/v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md).
-  Vercel log review still manual. **Smoke caveat:** `npm run smoke:prod` public project
-  currently shows 9 failures — ALL one pre-existing stale assertion (heading exact `"Sign in"`
-  vs the page's "Sign in to your account"), NOT a regression; pages serve correctly. Needs a
-  smoke-copy fix → see Open risks.
+  Vercel log review still manual. **Smoke caveat (corrected 2026-07-25 by direct measurement):**
+  the public project now passes in full — the previously recorded 9 stale-sign-in-copy failures
+  no longer reproduce. The one standing failure is `auth-setup`: Cloudflare Turnstile issues no
+  token to an automated browser, so the password form's submit never enables. Authenticated
+  smoke therefore needs a session minted via the app's own `/auth/callback` recovery-link path
+  (the captcha-free harness in `tests/e2e/helpers/supabaseAdmin.ts`), run with
+  `--project=authenticated --no-deps`.
 - **Document Builder RELEASED GLOBALLY (2026-07-24, prod).** No beta/allowlist/staged rollout.
   `ENABLE_DOCUMENT_BUILDER=true` in Vercel Production; `.env.example` default-OFF. Release
   commit `e55f30b50` (DOC-FINAL-ACCEPTANCE-1) → [`dual-builder-final-acceptance.md`](./slices/phase-5/dual-builder-final-acceptance.md).
   Flag is a pure server-resolved render gate: disabling it + redeploy returns users to Visual
   mode and deletes no workflow/presentation data. Authenticated in-prod behavior UNVERIFIED by
   the release (no smoke creds) → see Open risks.
-- **Push state:** `origin/v2-main` is at `d2e0ab10d` — **deployed to prod 2026-07-24**
-  (Marcus-approved push of `e55f30b50` DOC-FINAL + 2 Fleetio commits `8ccc6c3e4` / `d2e0ab10d`,
-  incl. "publish Fleetio to the prod Apps catalog"). Local HEAD is ahead again (unrelated
-  concurrent docs commits). **Push posture unchanged:** local work stays push-gated (commit
+- **Builder-view release LIVE (2026-07-25, prod).** Shared builder header tabs (Builder/Runs/
+  Data Map/History/Settings in BOTH view modes) + the new-workflow Visual-vs-Document chooser +
+  an optional account-wide default builder view. Migration
+  `20260803000000_user_profiles_default_builder_view` is **applied in production**;
+  production-browser-certified after deploy. Authoritative detail →
+  [`v2-go-live-status.md`](./slices/phase-4/v2-go-live-status.md) ·
+  [`builder-view-default-and-header-tabs.md`](./slices/phase-5/builder-view/builder-view-default-and-header-tabs.md).
+- **Push state:** `origin/v2-main` is at `b8fbf625d` — the builder-view release
+  (`1eddd8dee`, **deployed to prod 2026-07-25**) plus a later docs-only invitation closeout.
+  **Local `v2-main` has diverged** from origin: releases are now cut by cherry-picking the
+  batch's commits onto a clean branch off `origin/v2-main` (concurrent sessions interleave
+  commits on local `v2-main`), so local `v2-main` holds original-hash duplicates and currently
+  also lacks the concurrent journey-4 invitation fix. Never push local `v2-main` directly —
+  extract a clean branch. **Push posture unchanged:** local work stays push-gated (commit
   locally, don't push by default); Marcus's explicit per-batch approval of a verified batch
   authorizes a `v2-main` push **which deploys to prod** (no staging env yet). Per-batch; does
   not carry over.

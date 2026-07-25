@@ -121,6 +121,53 @@ the redirect target or logs. 15 callback tests + full auth suite, `tsc`, eslint,
 - **Connected-app recovery UX gap:** no obvious **Reconnect** affordance and **no Disconnect** action on connected app cards (`markDisconnected()` is repo-only dead code; no disconnect API route). Recovering a broken token relies on the non-discoverable "Connect another → same workspace" workaround. A scoped recovery-UX slice (visible Reconnect + auth-error clarity; Disconnect designed separately) is queued, not yet built.
 - **Observed on localhost — UNDIAGNOSED, needs investigation before the Reconnect UX:** during a Slack OAuth reconnect on localhost while signed in as one user, the app afterward showed a *different* signed-in user plus a "Connected to slack" banner. Not yet reproduced or root-caused; flagged as a potential auth/session-integrity concern. Production smoke (run as the dedicated smoke account) was unaffected.
 
+## Builder-view release — LIVE (2026-07-25, BUILDER-VIEW-RELEASE-1)
+
+**Result: ✅ live and production-verified.** Deployed application commit
+**`1eddd8dee`** on `v2-main` (Vercel deployment `dpl_8ATd3tjAuHs8Qpkfved5buRt6hzg`,
+status Ready, built from that commit). `origin/v2-main` may now be **newer** than
+`1eddd8dee` — a docs-only invitation closeout (`b8fbf625d`) landed on top
+afterward; the builder-view commits remain ancestors of the remote branch.
+
+**What shipped:**
+- Shared `Builder | Runs | Data Map | History | Settings` header tabs, in **both**
+  Visual and Document modes.
+- A first-open Visual-vs-Document chooser on newly created workflows.
+- An optional account-wide **default builder view** (null ≡ "Ask each time").
+- Preference controls in Account Settings → Profile **and** builder → Settings.
+
+**Database:** `20260803000000_user_profiles_default_builder_view.sql` is **applied
+in production** — it was already applied before this application release, so no
+migration was pushed during it. Read-only verification confirmed the column is
+nullable, CHECK-constrained to `visual|document`, with `user_profiles` RLS intact.
+
+**Feature flag:** `ENABLE_DOCUMENT_BUILDER=true` in Vercel Production at release
+verification time; unchanged by the release. Flag-off + redeploy remains the
+mitigation path; the additive column must not be dropped to revert the app.
+
+**Production browser verification — passed** for: the chooser, the saved default,
+Account/builder settings synchronization, the shared tabs (including Runs staying
+selected across mode switches), chooser keyboard focus, Escape dismissal, and
+back/forward not re-showing a resolved chooser.
+
+**Production smoke:** public **14/14 passed**; authenticated **11 passed, 8
+environment-gated skips**; **1 known failure** — the automated password-form
+auth-setup blocked by Cloudflare Turnstile, **unchanged from the pre-release
+baseline** and not release-caused. No new failures, no new 5xx.
+
+**Runtime logs:** a **sampled** window (not an exhaustive historical review) showed
+no release-caused errors — no missing-column, CHECK, RLS, preference-write,
+hydration, or redirect-loop failures.
+
+**No rollback or mitigation was used.**
+
+**Not validated:** live workflow execution and Slack message posting — those smoke
+paths are intentionally environment-gated and were skipped.
+
+Full detail (implementation, local browser certification, release evidence, and
+remaining non-blocking gaps):
+[builder-view-default-and-header-tabs.md](../phase-5/builder-view/builder-view-default-and-header-tabs.md).
+
 ## What remains deferred (unchanged)
 - **Live-provider validation** — OAuth connect/refresh/revoke, webhook delivery+dedup, Stripe checkout/webhook round-trips, per-provider live testing. Not started.
 - **Developer-portal redirect URLs** — leave as-is until testing a specific provider.
@@ -129,4 +176,4 @@ the redirect target or logs. 15 callback tests + full auth suite, `tsc`, eslint,
 
 ## Honesty / verification notes
 - The ✅ rows were **actually run** this session (curl GETs against the live domain + HTML marker scan). The ⏳ rows were **not** run — they require auth/mutation or Vercel access I don't have, and are not claimed as passing.
-- This doc is committed **locally only** (not pushed). Pushing it to `v2-main` will trigger a Vercel production redeploy (harmless docs change) — push when ready.
+- This doc has since been pushed and lives on `origin/v2-main`. Note that pushing docs to `v2-main` triggers a Vercel production redeploy (harmless for a docs-only change). The 2026-07-25 builder-view section above is **local and unpushed** at the time of writing.

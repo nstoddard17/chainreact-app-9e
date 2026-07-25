@@ -1,5 +1,11 @@
 # Builder view choice + header tabs (BUILDER-TABS-HEADER-1 · BUILDER-VIEW-DEFAULT-1)
 
+> ✅ **RELEASED TO PRODUCTION 2026-07-25** — application commit `1eddd8dee` on
+> `v2-main`, production-browser-verified. Details + exactly what was and was not
+> validated: [§ Production release](#production-release--2026-07-25-builder-view-release-1).
+> Sections below describe the implementation and the pre-release local
+> certification; where they predate the release they are marked.
+
 Two local commits. Everything is gated on `ENABLE_DOCUMENT_BUILDER` exactly like
 the existing Visual/Document toggle — flag off keeps the builder behavior
 identical (chooser never shows, preference rows hidden, view locked to visual).
@@ -125,8 +131,8 @@ schema-parse with a null fallback and the builder route wraps the read in
 try/catch → a briefly missing/inaccessible column degrades to "no default",
 never a broken page. Recommended production order: (1) apply migration,
 (2) verify column exists + profiles readable, (3) deploy app commits,
-(4) production smoke + authenticated checks. **Not performed — awaiting
-Marcus's authorization.**
+(4) production smoke + authenticated checks. **Executed 2026-07-25 in that
+order** — see [§ Production release](#production-release--2026-07-25-builder-view-release-1).
 
 ## Remaining limitations
 
@@ -144,7 +150,7 @@ Marcus's authorization.**
   loads; the theoretical SSR-vs-localStorage mismatch predates this arc
   (device-pref layer) and is unchanged.
 
-## Release-readiness verdict
+## Release-readiness verdict (pre-release, 2026-08-03 — superseded by the release below)
 
 **Code-ready.** Both features + QA fixes are browser-certified with the flag
 on and off, the migration is deploy-order-safe, and all gates pass locally.
@@ -153,6 +159,92 @@ commits sit between/above these commits on `v2-main` (see the batch Owner
 Report) — releasing ONLY this work requires either the concurrent work to
 ship first or a cherry-pick release worktree. Production remains unverified
 until after an authorized deploy.
+
+_Resolved as predicted:_ the cherry-pick release worktree was the path taken.
+
+## Production release — 2026-07-25 (BUILDER-VIEW-RELEASE-1)
+
+**Result: released and verified in production.** Shipped on Marcus's explicit
+per-batch authorization.
+
+**Commits released** (`v2-main`, fast-forward, never force-pushed):
+
+| Released commit | Content                                                          |
+| --------------- | ---------------------------------------------------------------- |
+| `7ea72d910`     | shared builder header tabs (BUILDER-TABS-HEADER-1)               |
+| `808e859c2`     | chooser + saved builder-view default (BUILDER-VIEW-DEFAULT-1)    |
+| `45061fc9f`     | browser-QA fixes (BUILDER-VIEW-QA-1)                             |
+| `1eddd8dee`     | QA + release documentation — **the deployed application commit** |
+
+These are cherry-picks: `origin/v2-main` advanced mid-release (a concurrent
+invitation-email fix), so the prepared branch was rebuilt on the new base and
+the four commits re-applied **with zero conflicts**. The resulting tree is
+byte-identical to the locally certified tree apart from that unrelated
+invitation work, so the browser certification above carries over. Hashes
+elsewhere in this document (`a152c0fe4` etc.) are the original local-branch
+hashes of the same changes.
+
+**Deployment:** Vercel `dpl_8ATd3tjAuHs8Qpkfved5buRt6hzg` — status **Ready**,
+build log confirms it cloned `v2-main` at commit `1eddd8d`, aliased to
+`chainreact.app`. Public surfaces (`/`, `/help`, `/auth/sign-in`) returned 200;
+`/workflows` unauthenticated still redirects to sign-in.
+
+**Migration:** `20260803000000_user_profiles_default_builder_view.sql` was
+**already applied in production before this application release** (it went in
+with an earlier `--include-all` push batch). `supabase db push --dry-run`
+reported "Remote database is up to date" — zero pending migrations — so
+`npm run db:push` was **not** run during the release. Read-only metadata
+verification against the production project confirmed: column present, type
+`text`, **nullable**, no default; CHECK constraint allows exactly
+`visual|document`; RLS enabled with `user_profiles_{select,update}_own` intact;
+profile rows readable and updatable.
+
+**Feature flag:** `ENABLE_DOCUMENT_BUILDER=true` in Vercel Production at
+verification time; **not changed by the release**. Turning it to `false` +
+redeploy remains the fast product-level mitigation (a redeploy is required for
+the change to take effect), and flag-off behavior is locally browser-certified
+above. The additive column must NOT be dropped to revert the app — old code
+never selects it.
+
+**Production browser verification** (real authenticated session on
+`chainreact.app`, disposable workflows only, all deleted afterward): chooser
+appears on a workflow created through the real Create button and offers both
+views; choosing Document without "Always use this view" opens Document and the
+next new workflow asks again; choosing WITH it persists the account default and
+the next new workflow skips the chooser; Account Settings → Profile and builder
+Settings → Your preferences show the same saved value, and setting "Ask each
+time" brings the chooser back; exactly one shared tab strip in both modes with
+all five tabs, Runs staying selected across Visual↔Document switches, the canvas
+bar keeping its tags + "+ Add action", and no horizontal overflow at 1440px;
+chooser takes keyboard focus on open, Escape dismisses it without saving,
+back/forward never re-opens a resolved chooser, `?created=1` is stripped, and
+existing workflows never show it. The test account's preference was restored to
+"Ask each time" at the end.
+
+**Production smoke** (`npm run smoke:prod`):
+
+- Public project — **14/14 passed**.
+- Authenticated project — **11 passed, 8 skipped**; every skip is an
+  environment-gated opt-in (live execution / Slack channel), not a failure.
+- Auth-setup (password form) — **1 failure, known and unchanged from the
+  pre-release baseline**: Cloudflare Turnstile issues no token to an automated
+  browser, so the submit button never enables. Not release-caused. The
+  authenticated project was run with a session minted through the app's own
+  `/auth/callback` recovery-link path (the established captcha-free harness).
+- **No new failures and no new 5xx.**
+
+**Logs:** the deployment build log is clean, and a **sampled** window of runtime
+logs showed no missing-column, CHECK-constraint, RLS, preference-write,
+hydration, or `created=1` redirect errors. This was a live/recent-log sample —
+**not** an exhaustive historical review.
+
+**No rollback or mitigation was used at any point.**
+
+**Not validated by this release:** live workflow execution and Slack message
+posting (their smoke paths are intentionally environment-gated and were
+skipped); flag-off behavior in production (deliberately not exercised during a
+successful release — it rests on the local certification above); exhaustive
+historical log review.
 
 ## Deferred
 
