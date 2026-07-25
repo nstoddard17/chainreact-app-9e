@@ -1,6 +1,7 @@
 import { AccountSwitcher } from "./AccountSwitcher";
 import { AppPageContext } from "./AppPageContext";
 import { NotificationBell } from "./NotificationBell";
+import { UsageMeter } from "./UsageMeter";
 import { UserMenu } from "./UserMenu";
 import type { NotificationPreview } from "./notificationPreview";
 
@@ -21,9 +22,13 @@ import type { NotificationPreview } from "./notificationPreview";
  * page-context label, so the caller's active Personal/Team/Org account is always
  * visible + switchable.
  *
+ * The design's task-usage progress meter is now REAL and included
+ * (HEADER-USAGE-VISIBILITY-1): `UsageMeter` self-fetches the active
+ * account's tasks + AI-credits remaining and renders nothing when the
+ * data is unavailable.
+ *
  * Excluded design elements (would be fake on V2 today; documented in
- * the slice plan): global ⌘K search, task-usage progress meter, Help
- * button, theme toggle.
+ * the slice plan): global ⌘K search, Help button, theme toggle.
  *
  * Server component — the user-menu popover and the page-context
  * `usePathname` reader are client islands inside the children.
@@ -49,6 +54,7 @@ export function AppTopBar({
         <AppPageContext />
       </div>
       <div className="flex items-center gap-2">
+        <UsageMeter />
         <NotificationBell
           unreadCount={unreadNotifications}
           recentNotifications={recentNotifications}
