@@ -18,15 +18,19 @@ nothing pushed. Supersedes the expiry behavior described in
    `/api/accounts/[id]/invitations/[invitationId]` with `{ role }`): same
    invitation id, email, token hash, and link; **no new email**. Acceptance
    applies the role stored on the invitation at accept time.
-3. **Email change REPLACES the invitation** (`replaceInvitationEmail`, PATCH
-   with `{ email }`): the old invite is revoked first (its link dies
-   immediately), a new invitation with a fresh token is created for the new
-   address **with the same role**, the new invitation email is sent, and the
-   new one-time copyable link is returned. Email delivery failure leaves the
-   new invitation valid (same persist-first semantics as create). A same-email
-   "change" is refused (`INVITATION_SAME_EMAIL`) so a working link is never
-   killed as a no-op. Revoke-first ordering keeps the one-pending-per-email
-   index and seat math correct.
+3. **Email change REPLACES the invitation ATOMICALLY** (LIFECYCLE-2A:
+   `replaceInvitationEmail` → the `replace_account_invitation` RPC, migration
+   `20260805000000`): the revoke of the old invite and the insert of the new
+   one (fresh token, **same role** — preserved server-side, new address)
+   happen in ONE database transaction. Either both commit or neither does —
+   there is never a committed state where the old invite is revoked with no
+   replacement, and the old token stays active until the replacement commits.
+   A duplicate-pending clash on the new address rolls everything back (proven
+   against the real DB in the dev-DB suite). The new invitation email is sent
+   only after the transaction commits; delivery failure leaves the new
+   invitation valid (persist-first). A same-email "change" is refused
+   (`INVITATION_SAME_EMAIL`) so a working link is never killed as a no-op.
+   The RPC is service-role-only EXECUTE (also test-asserted).
 4. **Cancel revokes immediately** (existing DELETE route, unchanged; UI label
    is now "Cancel").
 5. **Unchanged security invariants:** POST-only acceptance, session-email

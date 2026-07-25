@@ -14,12 +14,15 @@ const mockListPending = jest.fn();
 const mockMarkAccepted = jest.fn();
 const mockMarkRevoked = jest.fn();
 const mockUpdatePendingRole = jest.fn();
+const mockReplaceRpc = jest.fn();
 const mockCountPending = jest.fn();
 const mockCountRecentByInviter = jest.fn();
 const mockCountRecentForAccount = jest.fn();
 
 jest.mock("@/repositories/accountInvitations", () => ({
   DUPLICATE_PENDING_INVITE: "DUPLICATE_PENDING_INVITE",
+  REPLACE_NOT_PENDING: "REPLACE_NOT_PENDING",
+  replaceInvitationServiceRole: (...a: unknown[]) => mockReplaceRpc(...a),
   insertPending: (...a: unknown[]) => mockInsertPending(...a),
   getByTokenHashServiceRole: (...a: unknown[]) => mockGetByTokenHash(...a),
   getByIdServiceRole: (...a: unknown[]) => mockGetById(...a),
@@ -104,7 +107,7 @@ function pendingInvite(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   [
     mockInsertPending, mockGetByTokenHash, mockGetById, mockListPending,
-    mockMarkAccepted, mockMarkRevoked, mockUpdatePendingRole, mockGetDeletionStatus,
+    mockMarkAccepted, mockMarkRevoked, mockUpdatePendingRole, mockReplaceRpc, mockGetDeletionStatus,
     mockGetAccountById, mockIsMemberSR, mockInsertMember, mockFindUserByEmail,
     mockNotify, mockSetActiveAccount, mockCountMembers, mockCountPending,
     mockCountRecentByInviter, mockCountRecentForAccount, mockSendEmail,
@@ -485,25 +488,63 @@ describe("changeInvitationRole (TEAM-INVITATION-LIFECYCLE-2)", () => {
   });
 });
 
-describe("replaceInvitationEmail (TEAM-INVITATION-LIFECYCLE-2)", () => {
-  it("revokes the old invite, issues a NEW token for the new email with the SAME role, and emails it", async () => {
+describe("replaceInvitationEmail (TEAM-INVITATION-LIFECYCLE-2A — atomic)", () => {
+  beforeEach(() => {
+    // The atomic RPC returns the NEW invitation row (role preserved in-DB).
+    mockReplaceRpc.mockImplementation(async (i: { newEmail: string }) =>
+      pendingInvite({ id: "inv-2", email: i.newEmail, role: "admin" }),
+    );
+  });
+
+  it("replaces in ONE atomic RPC — new token for the new email, role preserved, emailed after commit", async () => {
     mockGetById.mockResolvedValueOnce(pendingInvite({ role: "admin", email: "old@example.com" }));
     const res = await replaceInvitationEmail({
       accountId: ACCOUNT, invitationId: "inv-1", newEmail: "New@Example.com", inviterUserId: INVITER,
     });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    // Old link dies…
-    expect(mockMarkRevoked).toHaveBeenCalledWith("inv-1", expect.any(String));
-    // …new invitation for the normalized new address, role preserved…
-    const insertArg = mockInsertPending.mock.calls[0][0];
-    expect(insertArg.email).toBe("new@example.com");
-    expect(insertArg.role).toBe("admin");
-    // …with a fresh token (hash of the returned raw token), emailed to the new address.
-    expect(insertArg.tokenHash).toBe(hashInviteToken(res.acceptToken));
+    // ONE atomic call carries both durable changes — no separate revoke or insert.
+    expect(mockReplaceRpc).toHaveBeenCalledTimes(1);
+    const rpcArg = mockReplaceRpc.mock.calls[0][0] as {
+      invitationId: string; accountId: string; newEmail: string; newTokenHash: string;
+    };
+    expect(rpcArg.invitationId).toBe("inv-1");
+    expect(rpcArg.accountId).toBe(ACCOUNT);
+    expect(rpcArg.newEmail).toBe("new@example.com"); // normalized
+    expect(rpcArg.newTokenHash).toBe(hashInviteToken(res.acceptToken)); // fresh token
+    expect(mockMarkRevoked).not.toHaveBeenCalled();
+    expect(mockInsertPending).not.toHaveBeenCalled();
+    // Email goes to the new address, only after the RPC resolved.
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     expect((mockSendEmail.mock.calls[0][0] as { to: string }).to).toBe("new@example.com");
+    expect(res.invitation.role).toBe("admin");
     expect(res.acceptPath).toContain(encodeURIComponent(res.acceptToken));
+  });
+
+  it("ROLLBACK: a duplicate-pending clash inside the RPC leaves the old invitation pending — typed refusal, no email", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockReplaceRpc.mockReset();
+    mockReplaceRpc.mockRejectedValueOnce(new Error("DUPLICATE_PENDING_INVITE"));
+    const res = await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "taken@example.com", inviterUserId: INVITER,
+    });
+    expect(res).toEqual({ ok: false, reason: "duplicate_pending" });
+    // The app layer never issued a separate revoke, so the in-DB rollback is
+    // the ONLY thing that could have touched the old row — it stays pending.
+    expect(mockMarkRevoked).not.toHaveBeenCalled();
+    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("ROLLBACK: the row settling mid-flight (RPC not-pending) maps to not_pending with nothing changed", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockReplaceRpc.mockReset();
+    mockReplaceRpc.mockRejectedValueOnce(new Error("REPLACE_NOT_PENDING"));
+    const res = await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "new@example.com", inviterUserId: INVITER,
+    });
+    expect(res).toEqual({ ok: false, reason: "not_pending" });
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it("email delivery failure leaves the NEW invitation valid (ok with status 'failed')", async () => {
@@ -514,7 +555,31 @@ describe("replaceInvitationEmail (TEAM-INVITATION-LIFECYCLE-2)", () => {
     });
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.emailDelivery).toEqual({ status: "failed" });
-    expect(mockInsertPending).toHaveBeenCalledTimes(1);
+    expect(mockReplaceRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("pre-checks refuse a frozen account / already-member / throttled inviter WITHOUT touching the invite", async () => {
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockGetAccountById.mockResolvedValueOnce({ id: ACCOUNT, name: "Acme", type: "team", deletionStatus: "pending_deletion" });
+    expect(await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "n@example.com", inviterUserId: INVITER,
+    })).toEqual({ ok: false, reason: "account_frozen" });
+
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockFindUserByEmail.mockResolvedValueOnce(INVITEE);
+    mockIsMemberSR.mockResolvedValueOnce(true);
+    expect(await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "member@example.com", inviterUserId: INVITER,
+    })).toEqual({ ok: false, reason: "already_member" });
+
+    mockGetById.mockResolvedValueOnce(pendingInvite());
+    mockCountRecentByInviter.mockResolvedValueOnce(10);
+    expect(await replaceInvitationEmail({
+      accountId: ACCOUNT, invitationId: "inv-1", newEmail: "n2@example.com", inviterUserId: INVITER,
+    })).toEqual({ ok: false, reason: "rate_limited" });
+
+    expect(mockReplaceRpc).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it("refuses a no-op change to the SAME email without killing the working link", async () => {

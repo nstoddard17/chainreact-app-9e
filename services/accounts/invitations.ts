@@ -157,30 +157,8 @@ export async function createInvitation(input: {
     }
   }
 
-  // Durable send throttle (TEAM-INVITATION-EMAIL-1): every create attempts an
-  // outbound email, so rapid repeated creates are refused before a row or email
-  // exists. Counts invitation rows created inside the rolling window (any
-  // status — a revoked invite still consumed a send), per inviter and per
-  // account. DB-backed, so it holds across serverless instances.
-  const sinceIso = new Date(
-    now.getTime() - INVITE_SEND_WINDOW_MINUTES * 60 * 1000,
-  ).toISOString();
-  const [inviterRecent, accountRecent] = await Promise.all([
-    invitationsRepo.countCreatedSinceByInviterServiceRole(input.inviterUserId, sinceIso),
-    invitationsRepo.countCreatedSinceForAccountServiceRole(input.accountId, sinceIso),
-  ]);
-  if (
-    inviterRecent >= INVITE_SEND_LIMIT_PER_INVITER ||
-    accountRecent >= INVITE_SEND_LIMIT_PER_ACCOUNT
-  ) {
-    console.warn(
-      JSON.stringify({
-        event: "account.invite.rate_limited",
-        accountId: input.accountId,
-        inviterRecent,
-        accountRecent,
-      }),
-    );
+  // Durable send throttle (TEAM-INVITATION-EMAIL-1) — see sendThrottleExceeded.
+  if (await sendThrottleExceeded(input.inviterUserId, input.accountId, now)) {
     return { ok: false, reason: "rate_limited" };
   }
 
@@ -204,19 +182,92 @@ export async function createInvitation(input: {
   }
 
   const acceptPath = acceptPathFor(rawToken);
+  const delivery = await notifyAndEmailInvitee({
+    account,
+    invitation,
+    email,
+    existingUserId,
+    acceptPath,
+    role: input.role,
+    inviter: input.inviter,
+  });
 
-  // Best-effort in-app notification for an already-registered invitee. Never
-  // blocks invite creation.
-  if (existingUserId) {
+  return {
+    ok: true,
+    invitation,
+    acceptToken: rawToken,
+    acceptPath,
+    emailDelivery: { status: delivery.status },
+  };
+}
+
+/**
+ * Durable send throttle (TEAM-INVITATION-EMAIL-1): every create/replacement
+ * attempts an outbound email, so rapid repeated sends are refused before a row
+ * or email exists. Counts invitation rows created inside the rolling window
+ * (any status — a revoked invite still consumed a send), per inviter and per
+ * account. DB-backed, so it holds across serverless instances.
+ */
+async function sendThrottleExceeded(
+  inviterUserId: string,
+  accountId: string,
+  now: Date,
+): Promise<boolean> {
+  const sinceIso = new Date(
+    now.getTime() - INVITE_SEND_WINDOW_MINUTES * 60 * 1000,
+  ).toISOString();
+  const [inviterRecent, accountRecent] = await Promise.all([
+    invitationsRepo.countCreatedSinceByInviterServiceRole(inviterUserId, sinceIso),
+    invitationsRepo.countCreatedSinceForAccountServiceRole(accountId, sinceIso),
+  ]);
+  if (
+    inviterRecent >= INVITE_SEND_LIMIT_PER_INVITER ||
+    accountRecent >= INVITE_SEND_LIMIT_PER_ACCOUNT
+  ) {
+    console.warn(
+      JSON.stringify({
+        event: "account.invite.rate_limited",
+        accountId,
+        inviterRecent,
+        accountRecent,
+      }),
+    );
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Post-persist delivery tail shared by create and email-replacement: the
+ * best-effort in-app notification for an already-registered invitee, then the
+ * transactional email. Runs only AFTER the invitation row committed. The full
+ * accept URL is built from the canonical configured origin (publicAppOrigin —
+ * never request-derived). sendTransactionalEmail never throws and logs its own
+ * SAFE structured warning on failure (opaque ids only — never the address,
+ * token, URL, or body).
+ */
+async function notifyAndEmailInvitee(args: {
+  account: { name: string };
+  invitation: AccountInvitationRecord;
+  email: string;
+  existingUserId: string | null;
+  acceptPath: string;
+  role: InvitationRole;
+  inviter?: { email: string | null; displayName: string | null };
+}): Promise<{ status: EmailDeliveryStatus }> {
+  if (args.existingUserId) {
     try {
       await notificationsRepo.create({
-        userId: existingUserId,
+        userId: args.existingUserId,
         type: "account_invitation",
         severity: "warning",
         title: "You've been invited to a team",
-        body: `You've been invited to join ${account.name} on ChainReact.`,
-        actionUrl: acceptPath,
-        metadata: { accountId: input.accountId, invitationId: invitation.id },
+        body: `You've been invited to join ${args.account.name} on ChainReact.`,
+        actionUrl: args.acceptPath,
+        metadata: {
+          accountId: args.invitation.accountId,
+          invitationId: args.invitation.id,
+        },
       });
     } catch (err) {
       console.warn(
@@ -228,36 +279,23 @@ export async function createInvitation(input: {
     }
   }
 
-  // Transactional email (TEAM-INVITATION-EMAIL-1) — attempted only after the
-  // invitation persisted. Works whether or not the address has a ChainReact
-  // account. The full accept URL is built from the canonical configured origin
-  // (publicAppOrigin — never request-derived). sendTransactionalEmail never
-  // throws and logs its own SAFE structured warning on failure (opaque ids
-  // only — never the address, token, URL, or body).
   const inviterName =
-    input.inviter?.displayName?.trim() || input.inviter?.email || null;
+    args.inviter?.displayName?.trim() || args.inviter?.email || null;
   const rendered = renderTeamInvitationEmail({
-    teamName: account.name,
+    teamName: args.account.name,
     inviterName,
-    role: input.role,
-    acceptUrl: `${publicAppOrigin()}${acceptPath}`,
+    role: args.role,
+    acceptUrl: `${publicAppOrigin()}${args.acceptPath}`,
   });
   const delivery = await sendTransactionalEmail(
-    { to: email, subject: rendered.subject, html: rendered.html, text: rendered.text },
+    { to: args.email, subject: rendered.subject, html: rendered.html, text: rendered.text },
     {
       template: "team_invitation",
-      invitationId: invitation.id,
-      accountId: input.accountId,
+      invitationId: args.invitation.id,
+      accountId: args.invitation.accountId,
     },
   );
-
-  return {
-    ok: true,
-    invitation,
-    acceptToken: rawToken,
-    acceptPath,
-    emailDelivery: { status: delivery.status },
-  };
+  return { status: delivery.status };
 }
 
 // ── list / revoke ────────────────────────────────────────────────────────────
@@ -330,20 +368,22 @@ export type ReplaceInvitationEmailResult =
   | { ok: false; reason: CreateInvitationReason | "not_found" | "not_pending" | "same_email" };
 
 /**
- * Change the INVITED EMAIL by replacing the invitation: revoke the old one
- * (its link stops working immediately), then create a brand-new invitation —
- * new token, same role — for the new address, which also sends the new
- * invitation email and returns the new one-time copyable link.
+ * Change the INVITED EMAIL by replacing the invitation (TEAM-INVITATION-
+ * LIFECYCLE-2A — ATOMIC): revoke the old invite and create the brand-new one
+ * (new token, same role, new address) in ONE database transaction via the
+ * `replace_account_invitation` RPC. Either both durable changes commit or
+ * neither does — there is never a committed state where the old invite is
+ * revoked but no replacement exists, and the old token stays active until the
+ * replacement commits.
  *
- * Ordering: revoke FIRST, then create. This keeps the one-pending-per-email
- * rule and the seat math correct (the old pending invite no longer occupies a
- * seat when the replacement is counted). If the create then refuses (e.g. the
- * new address is already a member), the old invitation stays revoked — the
- * inviter asked to stop that address's invite either way — and the UI surfaces
- * the typed reason.
+ * Pre-checks (reads only, nothing mutated on refusal): scope + pending +
+ * same-email guard, frozen account, already-member for the new address, and
+ * the durable send throttle. No member-limit re-check: the replacement is
+ * one-for-one, so the seat count is unchanged.
  *
- * Email delivery failure does NOT invalidate the new invitation (same
- * persist-first semantics as createInvitation).
+ * The new invitation email is sent only AFTER the transaction committed;
+ * delivery failure does NOT invalidate the new invitation (same persist-first
+ * semantics as createInvitation).
  */
 export async function replaceInvitationEmail(input: {
   accountId: string;
@@ -366,21 +406,70 @@ export async function replaceInvitationEmail(input: {
     return { ok: false, reason: "same_email" };
   }
 
-  await invitationsRepo.markRevokedServiceRole(
-    input.invitationId,
-    (input.now ?? new Date()).toISOString(),
-  );
+  const now = input.now ?? new Date();
 
-  const created = await createInvitation({
-    accountId: input.accountId,
-    inviterUserId: input.inviterUserId,
+  const account = await accountsRepo.getByIdServiceRole(input.accountId);
+  if (!account || account.deletionStatus === "pending_deletion") {
+    return { ok: false, reason: "account_frozen" };
+  }
+
+  const existingUserId = await usersRepo.findUserIdByEmailServiceRole(newEmail);
+  if (
+    existingUserId &&
+    (await membershipsRepo.isMemberServiceRole(input.accountId, existingUserId))
+  ) {
+    return { ok: false, reason: "already_member" };
+  }
+
+  if (await sendThrottleExceeded(input.inviterUserId, input.accountId, now)) {
+    return { ok: false, reason: "rate_limited" };
+  }
+
+  const rawToken = generateRawToken();
+  const tokenHash = hashInviteToken(rawToken);
+
+  let invitation: AccountInvitationRecord;
+  try {
+    invitation = await invitationsRepo.replaceInvitationServiceRole({
+      invitationId: input.invitationId,
+      accountId: input.accountId,
+      newEmail,
+      newTokenHash: tokenHash,
+      invitedByUserId: input.inviterUserId,
+      nowIso: now.toISOString(),
+    });
+  } catch (err) {
+    const message = (err as Error).message;
+    // Both failures ROLLED BACK inside the RPC — the old invitation is still
+    // pending and its link still works.
+    if (message === invitationsRepo.REPLACE_NOT_PENDING) {
+      return { ok: false, reason: "not_pending" };
+    }
+    if (message === invitationsRepo.DUPLICATE_PENDING_INVITE) {
+      return { ok: false, reason: "duplicate_pending" };
+    }
+    throw err;
+  }
+
+  // Post-commit delivery only — the transaction above has already settled.
+  const acceptPath = acceptPathFor(rawToken);
+  const delivery = await notifyAndEmailInvitee({
+    account,
+    invitation,
     email: newEmail,
-    role: invite.role, // preserve the currently selected role
+    existingUserId,
+    acceptPath,
+    role: invitation.role,
     inviter: input.inviter,
-    now: input.now,
   });
-  if (!created.ok) return created;
-  return created;
+
+  return {
+    ok: true,
+    invitation,
+    acceptToken: rawToken,
+    acceptPath,
+    emailDelivery: { status: delivery.status },
+  };
 }
 
 // ── accept ───────────────────────────────────────────────────────────────────
