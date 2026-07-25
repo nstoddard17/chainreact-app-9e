@@ -16,6 +16,7 @@ import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequ
 import { AccountSettings } from "@/features/account/AccountSettings";
 import type { AccountBillingView } from "@/features/account/AccountSections";
 import { resolveAccountSection } from "@/features/account/accountNav";
+import { isDocumentBuilderEnabled } from "@/services/workflows/documentBuilderFlags";
 import { getSecurityAccessSummary } from "@/features/account/securitySummary";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -191,6 +192,9 @@ export default async function AccountPage({ searchParams }: Props) {
           signInMethod={security.signInMethod}
           billing={billing}
           initialSection={initialSection}
+          // BUILDER-VIEW-DEFAULT-1 — the preference row exists only while the
+          // Document Builder flag is on (one view ⇒ nothing to choose).
+          builderViewPreferenceEnabled={isDocumentBuilderEnabled()}
         />
       </main>
     </AppShell>

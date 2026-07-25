@@ -118,7 +118,8 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
     try {
       const { workflowId } = await createWorkflowFromTemplateApi(templateId, { targetAccountId: accountId });
       flash("Workflow created — opening the builder…");
-      router.push(`/workflows/${workflowId}`);
+      // BUILDER-VIEW-DEFAULT-1 — one-shot creation marker (view chooser).
+      router.push(`/workflows/${workflowId}?created=1`);
     } catch (err) {
       flash(err instanceof TemplateApiError ? err.message : "Couldn't use that template.", "error");
       setBusyId(null);

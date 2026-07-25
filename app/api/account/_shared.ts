@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import type { AccountRecord } from "@/contracts/accounts";
 import { NotificationPreferencesSchema } from "@/contracts/notificationPreferences";
+import { DefaultBuilderViewSchema } from "@/contracts/builderViewPreference";
 
 /**
  * Shared route-layer helpers for /api/account.
@@ -186,6 +187,15 @@ export type UpdateDisplayNameBody = z.infer<typeof UpdateDisplayNameBodySchema>;
  */
 export const UpdateNotificationPreferencesBodySchema =
   NotificationPreferencesSchema.strict();
+
+/**
+ * Body for PATCH /api/account/builder-view — the caller's own default builder
+ * view (BUILDER-VIEW-DEFAULT-1). `null` clears the default (→ ask on new
+ * workflows); `.strict()` rejects unknown keys so a malformed payload 400s.
+ */
+export const UpdateBuilderViewBodySchema = z
+  .object({ defaultBuilderView: DefaultBuilderViewSchema })
+  .strict();
 
 /**
  * Body for PATCH /api/account/password — current-password step-up + new password

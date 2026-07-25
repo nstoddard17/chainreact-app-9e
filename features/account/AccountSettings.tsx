@@ -48,6 +48,8 @@ interface Props {
   userEmail: string;
   /** The caller's stored display name (`user_profiles.display_name`), or null. */
   displayName: string | null;
+  /** BUILDER-VIEW-DEFAULT-1 — shows the default-builder-view preference row. */
+  builderViewPreferenceEnabled?: boolean;
   /** Whether the signed-in email is verified (`user.email_confirmed_at`). */
   emailVerified: boolean;
   /** User-facing sign-in method label, e.g. "Email & password". */
@@ -83,6 +85,7 @@ export function AccountSettings({
   purgeAfter,
   userEmail,
   displayName,
+  builderViewPreferenceEnabled,
   emailVerified,
   signInMethod,
   billing,
@@ -158,6 +161,7 @@ export function AccountSettings({
             email={userEmail}
             role={active?.role ?? null}
             initialDisplayName={displayName}
+            {...(builderViewPreferenceEnabled ? { builderViewPreferenceEnabled } : {})}
           />
         )}
         {section === "notifications" && <NotificationsSection />}

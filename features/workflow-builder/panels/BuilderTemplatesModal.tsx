@@ -93,7 +93,8 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
           workflowId,
           template.id,
         );
-        router.push(`/workflows/${createdId}`);
+        // BUILDER-VIEW-DEFAULT-1 — one-shot creation marker (view chooser).
+        router.push(`/workflows/${createdId}?created=1`);
       } catch (err) {
         setActionError(err instanceof TemplateApiError ? err.message : "Couldn't create the workflow.");
         setBusyId(null);

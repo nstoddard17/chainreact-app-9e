@@ -68,7 +68,7 @@ describe("AnonymousDraftRestorer — happy path", () => {
 
     render(<AnonymousDraftRestorer reason="activate" />);
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/workflows/wf-new"));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/workflows/wf-new?created=1"));
 
     expect(mockCreateWorkflow).toHaveBeenCalledWith({ name: "Notify #wins on a 5-star review" });
     const def = mockUpdateWorkflow.mock.calls[0][1].draftDefinition;
@@ -117,7 +117,7 @@ describe("AnonymousDraftRestorer — idempotency (Scope A)", () => {
     const retry = await screen.findByTestId("anonymous-restore-retry");
     await userEvent.click(retry);
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/workflows/wf-created"));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/workflows/wf-created?created=1"));
     // createWorkflow called exactly ONCE across both attempts — no duplicate.
     expect(mockCreateWorkflow).toHaveBeenCalledTimes(1);
     expect(mockGetWorkflow).toHaveBeenCalledWith("wf-created");
@@ -136,7 +136,7 @@ describe("AnonymousDraftRestorer — idempotency (Scope A)", () => {
 
     render(<AnonymousDraftRestorer />);
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/workflows/wf-fresh"));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/workflows/wf-fresh?created=1"));
     expect(mockCreateWorkflow).toHaveBeenCalledTimes(1);
     expect(readRestoreTarget()).toBe("");
   });

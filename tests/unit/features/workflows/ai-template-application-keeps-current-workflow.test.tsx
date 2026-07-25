@@ -131,7 +131,7 @@ describe("AI template application keeps the current workflow (regression)", () =
 
     await user.click(screen.getByTestId("guidance-template-create-new"));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new-1"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new-1?created=1"));
     expect(mockUseTemplate).toHaveBeenCalledTimes(1);
     expect(mockUseTemplate).toHaveBeenCalledWith(MATCH.templateId, { targetAccountId: "acct-1" });
     // The in-place handler was NOT used for the explicit create-new choice.

@@ -23,6 +23,7 @@ export function BuilderTabPanels({
   onNameSaved,
   historyPanel,
   onBackToBuilder,
+  builderViewPreferenceEnabled,
 }: {
   activeTab: BuilderTab;
   providerLabels: Readonly<Record<string, string>>;
@@ -36,6 +37,8 @@ export function BuilderTabPanels({
   historyPanel?: ReactNode;
   /** "Open failed step" returns to the Builder tab so the reveal lands. */
   onBackToBuilder: () => void;
+  /** BUILDER-VIEW-DEFAULT-1 — shows the default-view row in Settings (flag on). */
+  builderViewPreferenceEnabled?: boolean;
 }) {
   if (activeTab === "builder") return null;
   return (
@@ -63,6 +66,7 @@ export function BuilderTabPanels({
           settings={settings}
           providerLabels={providerLabels}
           {...(onNameSaved ? { onNameSaved } : {})}
+          {...(builderViewPreferenceEnabled ? { builderViewPreferenceEnabled } : {})}
         />
       )}
     </div>

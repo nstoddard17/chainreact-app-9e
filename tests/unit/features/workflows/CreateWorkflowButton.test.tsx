@@ -61,7 +61,7 @@ describe("CreateWorkflowButton", () => {
 
     await waitFor(() => {
       expect(mockCreateWorkflow).toHaveBeenCalledWith({ name: "Onboarding" });
-      expect(mockPush).toHaveBeenCalledWith("/workflows/wf-1");
+      expect(mockPush).toHaveBeenCalledWith("/workflows/wf-1?created=1");
     });
     // BUILDER-LIST-CACHE — invalidate the Router Cache before navigating so the
     // list + new builder detail are fresh, not a stale cached payload.

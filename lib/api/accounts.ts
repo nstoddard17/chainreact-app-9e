@@ -1,7 +1,9 @@
 import type { AccountSummary, UserAccountsResult } from "@/services/accounts/accountList";
 import type { NotificationPreferences } from "@/contracts/notificationPreferences";
+import type { DefaultBuilderView } from "@/contracts/builderViewPreference";
 
 export type { NotificationPreferences };
+export type { DefaultBuilderView };
 
 /**
  * Typed client for the account APIs (4.ACCOUNT-MODEL-18).
@@ -357,6 +359,34 @@ export async function updateNotificationPreferences(
   if (!res.ok) throw await parseError(res);
   const body = (await res.json()) as { ok: true; preferences: NotificationPreferences };
   return body.preferences;
+}
+
+// ── Default builder view (BUILDER-VIEW-DEFAULT-1) ──────────────────────────────
+
+/** GET /api/account/builder-view — the caller's own default ("visual" | "document" | null = ask). */
+export async function getDefaultBuilderView(): Promise<DefaultBuilderView> {
+  const res = await fetch("/api/account/builder-view");
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { ok: true; defaultBuilderView: DefaultBuilderView };
+  return body.defaultBuilderView;
+}
+
+/**
+ * PATCH /api/account/builder-view — set (or clear with null) the caller's own
+ * default builder view. Returns the canonical stored value; failures surface
+ * as `AccountApiError`.
+ */
+export async function updateDefaultBuilderView(
+  defaultBuilderView: DefaultBuilderView,
+): Promise<DefaultBuilderView> {
+  const res = await fetch("/api/account/builder-view", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ defaultBuilderView }),
+  });
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { ok: true; defaultBuilderView: DefaultBuilderView };
+  return body.defaultBuilderView;
 }
 
 // ── Personal account deletion (4.ACCOUNT-SETTINGS-1) ───────────────────────────

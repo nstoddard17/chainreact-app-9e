@@ -14,6 +14,8 @@ import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import type { BuilderTab } from "./canvas/BuilderTabPlaceholder";
 import { BuilderTabStrip } from "./layout/BuilderTabStrip";
 import { BuilderTabPanels } from "./layout/BuilderTabPanels";
+import { BuilderViewChooser } from "./panels/BuilderViewChooser";
+import { updateDefaultBuilderView } from "@/lib/api/accounts";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
@@ -218,6 +220,20 @@ interface Props {
    * today: no toggle, no Document surface mounted.
    */
   documentBuilderEnabled?: boolean;
+  /**
+   * BUILDER-VIEW-DEFAULT-1 — the user's saved default builder view from
+   * `user_profiles.default_builder_view`, resolved server-side by the route.
+   * `null`/undefined = no default chosen (a just-created workflow asks).
+   * Ignored while the Document Builder flag is off.
+   */
+  defaultBuilderView?: BuilderViewMode | null;
+  /**
+   * BUILDER-VIEW-DEFAULT-1 — true when the route was reached straight from a
+   * creation flow (`?created=1`). With the flag on and no saved default, the
+   * builder shows the one-time view chooser. Never persisted; the param is
+   * stripped from the URL after mount.
+   */
+  justCreated?: boolean;
 }
 
 /**
@@ -276,6 +292,8 @@ export function WorkflowBuilder({
   initialFocus,
   canUseAdvancedBranching,
   documentBuilderEnabled,
+  defaultBuilderView,
+  justCreated,
 }: Props) {
   const router = useRouter();
   const hydrate = useGraphSlice((s) => s.hydrate);
@@ -296,14 +314,65 @@ export function WorkflowBuilder({
 
   // 5.DUAL-BUILDER-1 CS-1 — which surface renders the center workspace. The
   // SAME graphSlice draft backs both; switching is pure client view state
-  // (never saves, hydrates, resets, or clones the workflow). Device-local
-  // preference: per-workflow key first, device-wide fallback, invalid → visual.
+  // (never saves, hydrates, resets, or clones the workflow).
+  // BUILDER-VIEW-DEFAULT-1 resolution: per-workflow key (last used on THIS
+  // workflow, this device) → the user's saved server default → device-wide
+  // key → visual.
   const [builderView, setBuilderView] = useState<BuilderViewMode>(() =>
-    documentBuilderEnabled ? readBuilderViewPref(workflow.id) : "visual",
+    documentBuilderEnabled
+      ? readBuilderViewPref(workflow.id, defaultBuilderView ?? null)
+      : "visual",
   );
   useEffect(() => {
-    setBuilderView(documentBuilderEnabled ? readBuilderViewPref(workflow.id) : "visual");
-  }, [workflow.id, documentBuilderEnabled]);
+    setBuilderView(
+      documentBuilderEnabled
+        ? readBuilderViewPref(workflow.id, defaultBuilderView ?? null)
+        : "visual",
+    );
+  }, [workflow.id, documentBuilderEnabled, defaultBuilderView]);
+
+  // BUILDER-VIEW-DEFAULT-1 — one-time view chooser: only for a just-created
+  // workflow, only while the flag is on, only when the user has NO saved
+  // default. Dismissing keeps the current view and saves nothing (the next
+  // new workflow asks again). Choosing switches immediately; "always use
+  // this" additionally saves the account-level default (fail-safe: a failed
+  // save never blocks building — the chooser simply asks again next time).
+  const [showViewChooser, setShowViewChooser] = useState(
+    () =>
+      documentBuilderEnabled === true &&
+      justCreated === true &&
+      (defaultBuilderView ?? null) === null,
+  );
+  const handleChooseView = useCallback(
+    (view: BuilderViewMode, rememberAsDefault: boolean) => {
+      setShowViewChooser(false);
+      setBuilderView(view);
+      writeBuilderViewPref(view, workflow.id);
+      emitDocumentBuilderEvent("builder_view_switched", { to: view });
+      if (rememberAsDefault) {
+        void updateDefaultBuilderView(view).catch(() => {
+          // Preference save failed (offline / transient). Building continues
+          // in the chosen view; with no stored default the chooser will ask
+          // again on the next new workflow — never a blocking error here.
+        });
+      }
+    },
+    [workflow.id],
+  );
+  // Strip the one-shot ?created marker so refresh/back doesn't re-trigger the
+  // chooser. Same history.replaceState idiom as useInitialBuilderFocus.
+  useEffect(() => {
+    if (!justCreated || typeof window === "undefined") return;
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("created")) {
+        url.searchParams.delete("created");
+        window.history.replaceState(window.history.state, "", url.toString());
+      }
+    } catch {
+      // URL manipulation is best-effort — never break the builder over it.
+    }
+  }, [justCreated]);
   const handleSetBuilderView = useCallback(
     (view: BuilderViewMode) => {
       setBuilderView(view);
@@ -1137,6 +1206,7 @@ export function WorkflowBuilder({
               unpublishedChanges: workflow.unpublishedChanges,
             }}
             onNameSaved={setWorkflowName}
+            builderViewPreferenceEnabled={documentBuilderEnabled === true && !localOnly}
             historyPanel={
               <HistoryPanel
                 items={agentChanges}
@@ -1237,6 +1307,15 @@ export function WorkflowBuilder({
           previewDiff={previewDiffGraph}
         />
         )}
+        {/* BUILDER-VIEW-DEFAULT-1 — one-time view chooser for a just-created
+            workflow (flag on, no saved default). Never for anonymous local-only
+            drafts (no account to save a preference to). */}
+        {showViewChooser && !localOnly ? (
+          <BuilderViewChooser
+            onChoose={handleChooseView}
+            onDismiss={() => setShowViewChooser(false)}
+          />
+        ) : null}
         {addPanelMode !== null ? (
           <AddNodePanel
             mode={addPanelMode}

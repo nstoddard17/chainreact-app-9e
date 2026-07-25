@@ -16,6 +16,9 @@ import {
   SettingsRow,
   SettingsSection,
 } from "./settingsParts";
+// BUILDER-VIEW-DEFAULT-1 — the shared per-user default-view selector (same
+// control as Account settings → Profile; one source of truth for the save).
+import { DefaultBuilderViewControl } from "@/features/account/DefaultBuilderViewControl";
 
 /**
  * Slice 4.BUILDER-SETTINGS-2 — the workflow Settings tab as a workflow-LEVEL
@@ -64,11 +67,18 @@ export function SettingsPanel({
   settings,
   providerLabels,
   onNameSaved,
+  builderViewPreferenceEnabled,
 }: {
   settings?: WorkflowSettingsMeta;
   providerLabels?: Readonly<Record<string, string>>;
   /** Called after a successful name save so the parent can sync the header. */
   onNameSaved?: (name: string) => void;
+  /**
+   * BUILDER-VIEW-DEFAULT-1 — shows the per-USER default-builder-view row
+   * (Document Builder flag on). A user preference surfaced here for
+   * convenience — it is NOT per-workflow state.
+   */
+  builderViewPreferenceEnabled?: boolean;
 }) {
   const workflowId = useGraphSlice((s) => s.workflowId);
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
@@ -249,6 +259,22 @@ export function SettingsPanel({
             note="Managed by your account membership."
           />
         </SettingsSection>
+
+        {/* BUILDER-VIEW-DEFAULT-1 — the same per-user preference as Account
+            settings → Profile ("Ask each time" / Visual / Document); rendered
+            here so you can change it without leaving the builder. */}
+        {builderViewPreferenceEnabled && (
+          <SettingsSection title="Your preferences">
+            <div className="flex flex-col gap-1.5" data-testid="settings-builder-view-row">
+              <span className="text-[12px]" style={{ color: "var(--builder-muted)" }}>
+                Default builder view — how the builder opens for you (all workflows, this
+                account). &ldquo;Ask each time&rdquo; shows a one-time choice on each new
+                workflow.
+              </span>
+              <DefaultBuilderViewControl />
+            </div>
+          </SettingsSection>
+        )}
 
         <DangerZone workflowId={workflowId} workflowName={settings?.name ?? "this workflow"} />
       </div>

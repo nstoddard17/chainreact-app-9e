@@ -139,7 +139,7 @@ it("Use calls the API and navigates to the created workflow", async () => {
   const card = screen.getByText("Failed payment recovery").closest("[data-testid='template-card']")!;
   fireEvent.click(within(card as HTMLElement).getByTestId("template-use"));
   await waitFor(() => expect(api.useTemplate).toHaveBeenCalledWith("off-1", { targetAccountId: ACCOUNT }));
-  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new");
+  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new?created=1");
 });
 
 it("Fork calls the API, refetches own templates, and switches to the mine tab", async () => {
@@ -229,7 +229,7 @@ it("opens the details dialog from the Details button and uses the template from 
   // confirming Use from the dialog creates + navigates.
   fireEvent.click(screen.getByTestId("template-details-use"));
   await waitFor(() => expect(api.useTemplate).toHaveBeenCalledWith("off-1", { targetAccountId: ACCOUNT }));
-  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-x");
+  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-x?created=1");
 });
 
 it("clicking a card title opens the details dialog", () => {
@@ -344,5 +344,5 @@ it("detail + Use still work after filtering", async () => {
   fireEvent.click(within(card as HTMLElement).getByTestId("template-details"));
   fireEvent.click(screen.getByTestId("template-details-use"));
   await waitFor(() => expect(api.useTemplate).toHaveBeenCalledWith("off-1", { targetAccountId: ACCOUNT }));
-  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-z");
+  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-z?created=1");
 });
