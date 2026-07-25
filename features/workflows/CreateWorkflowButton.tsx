@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Input } from "@/components/ui/input";
 import { createWorkflow, WorkflowApiError } from "@/lib/api/workflows";
 
 /**
@@ -66,7 +67,10 @@ export function CreateWorkflowButton() {
       <label htmlFor="new-workflow-name" className="text-sm font-medium">
         Workflow name
       </label>
-      <input
+      {/* Shared Input primitive: carries bg-background/text tokens so the
+          field themes correctly on the dark app surface (a raw <input> got
+          the browser's white background under inherited white text). */}
+      <Input
         id="new-workflow-name"
         type="text"
         value={name}
@@ -76,7 +80,6 @@ export function CreateWorkflowButton() {
         maxLength={120}
         autoFocus
         disabled={pending}
-        className="rounded border border-input px-3 py-2 text-sm"
       />
       {error && (
         <span role="alert" className="text-xs text-destructive">
