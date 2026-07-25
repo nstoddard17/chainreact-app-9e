@@ -7,6 +7,7 @@
  */
 import { render, screen } from "@testing-library/react";
 import { WorkflowsStatCards } from "@/features/workflows/WorkflowsStatCards";
+import { computeAccountUsageSummary } from "@/core/billing/accountUsageSummary";
 import type { WorkflowListItem } from "@/contracts/workflow";
 
 function wf(
@@ -75,5 +76,78 @@ describe("WorkflowsStatCards", () => {
     expect(cards.textContent).toMatch(/lifetime/i);
     expect(cards.textContent).not.toMatch(/today/i);
     expect(cards.textContent).not.toMatch(/24h/i);
+  });
+
+  // DASHBOARD-USAGE-VISIBILITY-1 — the optional tasks / AI-credits usage cards.
+  const NOW = new Date("2026-07-15T12:00:00Z");
+  const usageOf = (
+    tasks: { used: number; limit: number } | null,
+    aiCredits: { used: number; limit: number } | null,
+    billingMode: "standard" | "internal_free" = "standard",
+  ) =>
+    computeAccountUsageSummary({
+      billingMode,
+      tasks: tasks ? { ...tasks, periodStartedAt: "2026-07-01T00:00:00Z" } : null,
+      aiCredits: aiCredits
+        ? { ...aiCredits, periodStartedAt: "2026-07-01T00:00:00Z" }
+        : null,
+      now: NOW,
+    });
+
+  it("renders tasks-left and AI-credits-left cards from real usage", () => {
+    render(
+      <WorkflowsStatCards
+        workflows={[wf("1", "active", 10, 10)]}
+        usage={usageOf({ used: 30, limit: 100 }, { used: 5, limit: 200 })}
+      />,
+    );
+    const tasksCard = screen.getByTestId("workflows-stat-tasks-left");
+    expect(tasksCard).toHaveTextContent("70");
+    expect(tasksCard).toHaveTextContent("30 of 100 used");
+    expect(tasksCard.textContent).toMatch(/resets Aug 1/);
+    const aiCard = screen.getByTestId("workflows-stat-ai-credits-left");
+    expect(aiCard).toHaveTextContent("195");
+    expect(aiCard).toHaveTextContent("5 of 200 used");
+  });
+
+  it("shows exhaustion copy when a dimension is over its limit", () => {
+    render(
+      <WorkflowsStatCards
+        workflows={[wf("1", "active", 10, 10)]}
+        usage={usageOf({ used: 100, limit: 100 }, { used: 0, limit: 200 })}
+      />,
+    );
+    const tasksCard = screen.getByTestId("workflows-stat-tasks-left");
+    expect(tasksCard).toHaveTextContent("0");
+    expect(tasksCard.textContent).toMatch(/No tasks left this period/);
+  });
+
+  it("omits usage cards entirely when usage is absent or unavailable — never fakes zeros", () => {
+    const { rerender } = render(
+      <WorkflowsStatCards workflows={[wf("1", "active", 10, 10)]} />,
+    );
+    expect(screen.queryByTestId("workflows-stat-tasks-left")).toBeNull();
+    expect(screen.queryByTestId("workflows-stat-ai-credits-left")).toBeNull();
+
+    rerender(
+      <WorkflowsStatCards
+        workflows={[wf("1", "active", 10, 10)]}
+        usage={usageOf(null, null)}
+      />,
+    );
+    expect(screen.queryByTestId("workflows-stat-tasks-left")).toBeNull();
+    expect(screen.queryByTestId("workflows-stat-ai-credits-left")).toBeNull();
+  });
+
+  it("labels an internal_free account's usage as not billed", () => {
+    render(
+      <WorkflowsStatCards
+        workflows={[wf("1", "active", 10, 10)]}
+        usage={usageOf({ used: 1, limit: 100 }, { used: 0, limit: 200 }, "internal_free")}
+      />,
+    );
+    expect(
+      screen.getByTestId("workflows-stat-tasks-left").textContent,
+    ).toMatch(/not billed/);
   });
 });

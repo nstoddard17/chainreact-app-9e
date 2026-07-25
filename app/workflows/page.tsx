@@ -8,6 +8,9 @@ import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
 import { resolveAccountPlan } from "@/services/billing/planCapabilities";
+import { getUsage, getBillingModeServiceRole } from "@/repositories/accountBilling";
+import { getAiCreditUsage } from "@/repositories/accountBillingAiCredits";
+import { computeAccountUsageSummary } from "@/core/billing/accountUsageSummary";
 import { computeViewerCanRunEditBatch, toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
@@ -65,6 +68,9 @@ export default async function WorkflowsPage() {
     unreadNotifications,
     recentNotificationRecords,
     planResolution,
+    billingUsage,
+    aiCreditUsage,
+    billingMode,
   ] = await Promise.all([
     workflowsRepo.listByAccount(ownerAccount.id),
     // 4.ACCOUNT-SWITCHER-1: run stats scoped to the active account (matches
@@ -79,7 +85,35 @@ export default async function WorkflowsPage() {
     // PRICING-LOCK: plan-aware folder cap so the create-folder affordance honors Pro's 25
     // (not the personal-type default of 10). Fails closed to "free" inside the resolver.
     resolveAccountPlan(ownerAccount.id),
+    // DASHBOARD-USAGE-VISIBILITY-1 — the same fail-open, membership-scoped reads
+    // Account Settings uses (RLS-scoped row; explicit non-secret columns; null →
+    // the usage cards simply don't render, never faked zeros).
+    getUsage(ownerAccount.id).catch(() => null),
+    getAiCreditUsage(ownerAccount.id).catch(() => null),
+    // Display-only billing status so an internal_free account is labeled honestly
+    // ("not billed"). Membership-scoped account id; fail-safe to "standard".
+    getBillingModeServiceRole(ownerAccount.id).catch(() => "standard" as const),
   ]);
+  // One display-safe summary for BOTH billing dimensions — identical period math to
+  // the billing page and the deduct RPCs, so the dashboard can never disagree.
+  const usageSummary = computeAccountUsageSummary({
+    billingMode,
+    tasks: billingUsage
+      ? {
+          used: billingUsage.tasksUsed,
+          limit: billingUsage.tasksLimit,
+          periodStartedAt: billingUsage.periodStartedAt,
+        }
+      : null,
+    aiCredits: aiCreditUsage
+      ? {
+          used: aiCreditUsage.aiCreditsUsed,
+          limit: aiCreditUsage.aiCreditsLimit,
+          periodStartedAt: aiCreditUsage.aiCreditsPeriodStartedAt,
+        }
+      : null,
+    now: new Date(),
+  });
   // CS-5b — accurate per-row run/edit eligibility in bounded queries (flag OFF → conservative, no DB).
   const viewerCanRunEdit = await computeViewerCanRunEditBatch(records, user.id);
   const workflows = records.map((r) => toWorkflowListItem(r, runStats, user.id, viewerCanRunEdit));
@@ -146,6 +180,7 @@ export default async function WorkflowsPage() {
           initialOnboarding={onboarding}
           initialCollaborationOnboarding={collaborationOnboarding}
           onboardingVideo={onboarding ? getOnboardingVideoConfig() : null}
+          usage={usageSummary}
         />
       </main>
     </AppShell>
