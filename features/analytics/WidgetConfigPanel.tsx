@@ -55,6 +55,7 @@ const METRICS_BY_TYPE: Record<AnalyticsWidgetType, { id: AnalyticsMetric; label:
   heatmap: [{ id: "by_time", label: "When things ran (day & week)" }],
   activity: [{ id: "events", label: "Recent runs feed" }],
   note: [],
+  insight: [], // configured via InsightConfigPanel; this panel never opens for it
 };
 
 const SOURCE_SCOPED: ReadonlySet<AnalyticsMetric> = new Set<AnalyticsMetric>([

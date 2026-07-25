@@ -39,6 +39,7 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
     description: "Your workflows and their runs.",
     credentialMode: "internal",
     connectionRequired: false,
+    exposure: "public",
   },
   datasets: [
     {
@@ -72,6 +73,13 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           dimensionable: true,
           cardinality: "low",
           filterable: true,
+          // The run domain's two terminal statuses (contracts/analyticsQuery.ts
+          // AnalyticsRunStatusSchema) — declared so the builder renders a real
+          // choice list, never a free-text status box.
+          values: [
+            { id: "succeeded", label: "Succeeded" },
+            { id: "failed", label: "Failed" },
+          ],
           nullable: false,
           measurable: false,
           distinctCountable: false,
@@ -83,6 +91,16 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           dimensionable: true,
           cardinality: "low",
           filterable: true,
+          // Mirrors contracts/workflow.ts WorkflowRunTriggeredBySchema.
+          values: [
+            { id: "manual", label: "Manual" },
+            { id: "test", label: "Test" },
+            { id: "webhook", label: "Webhook" },
+            { id: "scheduled", label: "Scheduled" },
+            { id: "retry", label: "Retry" },
+            { id: "api_key", label: "API key" },
+            { id: "unknown", label: "Unknown" },
+          ],
           nullable: false,
           measurable: false,
           distinctCountable: false,

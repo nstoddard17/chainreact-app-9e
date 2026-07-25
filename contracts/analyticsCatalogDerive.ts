@@ -47,6 +47,8 @@ export interface ResolvedFilter {
   valueType: "entity_ids" | "category_values" | "boolean";
   optionsSource?: string | null;
   maxSelections: number;
+  /** category filters: declared value list; absent when account-specific. */
+  values?: readonly { id: string; label: string }[];
 }
 
 export interface ResolvedDatasetCapabilities {
@@ -141,6 +143,7 @@ export function deriveDatasetCapabilities(
         optionsSource: f.kind === "entity" ? (f.optionsSource ?? null) : undefined,
         maxSelections:
           f.kind === "boolean" ? 1 : (f.maxSelections ?? MAX_FILTER_SELECTIONS),
+        ...(f.kind === "category" && f.values ? { values: f.values } : {}),
       });
     }
   }

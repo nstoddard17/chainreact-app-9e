@@ -42,7 +42,8 @@ describe("AnalyticsFieldSchema — invalid states are unrepresentable", () => {
 
 describe("AnalyticsSourceDefinitionSchema", () => {
   it("internal sources have no provider/connection; provider sources need providerId", () => {
-    const base = { id: "s", label: "S" };
+    // exposure is REQUIRED (CD-3A) — a source never defaults to visible.
+    const base = { id: "s", label: "S", exposure: "public" };
     expect(
       AnalyticsSourceDefinitionSchema.safeParse({
         ...base, providerId: null, credentialMode: "internal", connectionRequired: false,

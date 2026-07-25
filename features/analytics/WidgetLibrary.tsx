@@ -18,6 +18,7 @@ export interface WidgetLibraryEntry {
 }
 
 export const WIDGET_LIBRARY: readonly WidgetLibraryEntry[] = [
+  { type: "insight", name: "Custom insight", desc: "Build a chart from ChainReact or one of your connected apps.", icon: "Sparkle" },
   { type: "stat", name: "Number with trend", desc: "Big number + sparkline + change vs last period.", icon: "Bolt" },
   { type: "line", name: "Line chart", desc: "Runs over time, successful vs failed.", icon: "History" },
   { type: "bar", name: "Top list", desc: "Top automations by runs, or connected apps.", icon: "Layers" },

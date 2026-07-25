@@ -56,6 +56,8 @@ const DEFAULT_METRIC_BY_TYPE: Record<AnalyticsWidgetType, AnalyticsWidget["confi
   table: "top_workflows",
   activity: "events",
   note: undefined,
+  // Custom Insights bind through config.insight, not an internal metric.
+  insight: undefined,
 };
 
 const DEFAULT_SIZE_BY_TYPE: Record<AnalyticsWidgetType, AnalyticsWidgetSize> = {
@@ -67,6 +69,7 @@ const DEFAULT_SIZE_BY_TYPE: Record<AnalyticsWidgetType, AnalyticsWidgetSize> = {
   table: "m",
   activity: "m",
   note: "m",
+  insight: "m",
 };
 
 /** Build a fresh widget for a newly-added type with sensible defaults. */

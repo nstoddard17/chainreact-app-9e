@@ -11,6 +11,7 @@ import { AppShell } from "@/components/app-shell/AppShell";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 import { exposedConnectedAppSources } from "@/features/analytics/connectedAppSources";
+import { buildClientAnalyticsCatalog } from "@/services/analytics/insights/clientProjection";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -42,16 +43,29 @@ const DEFAULT_RANGE = "7d" as const;
 async function resolveConnectedProviders(
   accountId: string,
   userId: string,
+  extraProviders: readonly { provider: string; personal: boolean }[] = [],
 ): Promise<Record<string, boolean>> {
+  const wanted = new Map<string, { provider: string; personal: boolean }>();
+  for (const source of exposedConnectedAppSources()) {
+    wanted.set(source.provider, {
+      provider: source.provider,
+      personal: source.visibility === "personal",
+    });
+  }
+  // Custom Insight catalog sources (CD-3A) may name providers the fixed-widget
+  // UI doesn't expose; resolve those too so the builder can show connect state.
+  for (const extra of extraProviders) {
+    if (!wanted.has(extra.provider)) wanted.set(extra.provider, extra);
+  }
   const entries = await Promise.all(
-    exposedConnectedAppSources().map(async (source) => {
+    [...wanted.values()].map(async ({ provider, personal }) => {
       const integration = await getActiveForExecution(
         accountId,
-        source.provider,
+        provider,
         null,
-        source.visibility === "personal" ? { connectedByUserId: userId } : undefined,
+        personal ? { connectedByUserId: userId } : undefined,
       );
-      return [source.provider, integration !== null] as const;
+      return [provider, integration !== null] as const;
     }),
   );
   return Object.fromEntries(entries);
@@ -66,6 +80,15 @@ export default async function AnalyticsPage() {
 
   const resolved = await resolveActiveAccount(user.id);
   const account = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
+
+  // Client-safe Custom Insight catalog, filtered to this environment's
+  // exposure (production never sees preview/uncertified sources).
+  const insightCatalog = buildClientAnalyticsCatalog();
+  const insightProviders = insightCatalog.sources.flatMap((s) =>
+    s.providerId !== null
+      ? [{ provider: s.providerId, personal: s.credentialMode === "personal" }]
+      : [],
+  );
 
   const [
     dashboards,
@@ -83,7 +106,7 @@ export default async function AnalyticsPage() {
     requireAccountRole(user.id, account.id, ["owner", "admin"]),
     // Connection status for each exposed connected-app provider (drives the
     // config panel's connect note). Account vs personal pin per descriptor.
-    resolveConnectedProviders(account.id, user.id),
+    resolveConnectedProviders(account.id, user.id, insightProviders),
     notificationsRepo.countUnreadForUser(user.id),
     notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT }),
   ]);
@@ -106,6 +129,7 @@ export default async function AnalyticsPage() {
         accountName={account.name}
         canManage={canManage}
         connectedProviders={connectedProviders}
+        insightCatalog={insightCatalog}
         initialDashboards={dashboards}
         initialOverview={overview}
         initialRange={DEFAULT_RANGE}

@@ -1267,3 +1267,31 @@
   .ob-animate-check-pop { animation: ob-check-pop 0.32s cubic-bezier(0.2, 1.4, 0.4, 1); }
   .ob-animate-celebrate { animation: ob-celebrate 0.7s ease; }
 }
+
+/* ── Custom Insight series palette (ANALYTICS-CONNECTED-DATA-CD-3A) ──────────
+   8 categorical slots for multi-series insight charts. Fixed hue ORDER (never
+   cycled); the dark column is the same eight hues re-stepped for the dark
+   card surface. Validated (CVD-adjacent-pair + normal-vision + contrast) for
+   both surfaces with the dataviz palette validator; light-mode slots 3–5 sit
+   under 3:1 contrast, which is covered by the chart's text legend + table
+   view (the relief rule). */
+:root {
+  --insight-series-1: #2a78d6;
+  --insight-series-2: #eb6834;
+  --insight-series-3: #1baf7a;
+  --insight-series-4: #eda100;
+  --insight-series-5: #e87ba4;
+  --insight-series-6: #008300;
+  --insight-series-7: #4a3aa7;
+  --insight-series-8: #e34948;
+}
+.dark {
+  --insight-series-1: #3987e5;
+  --insight-series-2: #d95926;
+  --insight-series-3: #199e70;
+  --insight-series-4: #c98500;
+  --insight-series-5: #d55181;
+  --insight-series-6: #008300;
+  --insight-series-7: #9085e9;
+  --insight-series-8: #e66767;
+}

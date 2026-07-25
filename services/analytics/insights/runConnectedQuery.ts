@@ -12,6 +12,11 @@ import { validateConnectedQuery } from "./validateQuery";
 import { buildInsightsCacheKey, queryInsightsWithCache } from "./cache";
 import { coalesceInflight } from "./coalesce";
 import { consumeInsightsProviderBudget } from "./rateLimit";
+import {
+  currentInsightsEnvironment,
+  isSourceExposed,
+  type InsightsEnvironment,
+} from "./exposure";
 
 /**
  * Connected-analytics orchestrator (CD-1; CD-2 added the provider pipeline):
@@ -30,9 +35,14 @@ import { consumeInsightsProviderBudget } from "./rateLimit";
 export async function runConnectedAnalyticsQuery(
   ctx: AnalyticsExecutionContext,
   query: ConnectedAnalyticsQuery,
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; environment?: InsightsEnvironment } = {},
 ): Promise<ConnectedAnalyticsResult> {
-  if (!getInsightSource(query.source)) {
+  const source = getInsightSource(query.source);
+  // Exposure is enforced here, not only in the UI: a hidden source — or a
+  // preview (uncertified) source in production — is indistinguishable from a
+  // source that doesn't exist (CD-3A).
+  const environment = opts.environment ?? currentInsightsEnvironment();
+  if (!source || !isSourceExposed(source.source.exposure, environment)) {
     throw new ConnectedAnalyticsError("That data source isn't available.", "UNKNOWN_SOURCE");
   }
   const reg = getInsightDataset(query.source, query.dataset);

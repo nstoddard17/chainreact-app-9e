@@ -4,6 +4,10 @@ import type {
   AnalyticsRange,
   AnalyticsWidget,
 } from "@/contracts/analytics";
+import type {
+  ConnectedAnalyticsQuery,
+  ConnectedAnalyticsResult,
+} from "@/contracts/connectedAnalytics";
 import type { NormalizedAnalyticsResult } from "@/services/analytics/sources/types";
 
 /**
@@ -148,4 +152,56 @@ export async function querySourceData(
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as SourceQueryOutcome;
+}
+
+/**
+ * Connected Custom Insight query (Slice ANALYTICS-CONNECTED-DATA-CD-3A).
+ *
+ * POST /api/analytics/insights/query — one typed wire for every catalog
+ * source. Source-level states (missing connection, rate limit, mixed
+ * currency, invalid/obsolete saved config, …) come back as a discriminated
+ * `{ ok: false, code, message }` so widgets render safe local states; only
+ * request-level failures (401/403) throw. An `AbortSignal` cancels superseded
+ * preview requests — `AbortError` propagates to the caller's catch.
+ */
+export type InsightQueryOutcome =
+  | { ok: true; result: ConnectedAnalyticsResult }
+  | { ok: false; code: string; message: string; retryAfterSeconds?: number };
+
+export async function queryInsight(
+  query: ConnectedAnalyticsQuery,
+  opts: { refresh?: boolean; signal?: AbortSignal } = {},
+): Promise<InsightQueryOutcome> {
+  const res = await fetch(`/api/analytics/insights/query${opts.refresh ? "?refresh=1" : ""}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(query),
+    ...(opts.signal ? { signal: opts.signal } : {}),
+  });
+  if (res.ok) {
+    const body = (await res.json()) as { result: ConnectedAnalyticsResult };
+    return { ok: true, result: body.result };
+  }
+  if (res.status === 401 || res.status === 403) throw await parseError(res);
+  let code = "ANALYTICS_QUERY_FAILED";
+  let message = "Couldn't load this insight.";
+  let retryAfterSeconds: number | undefined;
+  try {
+    const body = (await res.json()) as {
+      error?: string;
+      code?: string;
+      retryAfterSeconds?: number;
+    };
+    if (typeof body.code === "string" && body.code) code = body.code;
+    if (typeof body.error === "string" && body.error) message = body.error;
+    if (typeof body.retryAfterSeconds === "number") retryAfterSeconds = body.retryAfterSeconds;
+  } catch {
+    // Non-JSON body — keep generic copy.
+  }
+  return {
+    ok: false,
+    code,
+    message,
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+  };
 }

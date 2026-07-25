@@ -1,4 +1,5 @@
 import {
+  AnalyticsWidgetSchema,
   AnalyticsWidgetsSchema,
   type AnalyticsDashboard,
   type AnalyticsWidget,
@@ -47,10 +48,18 @@ export const DEFAULT_OVERVIEW_WIDGETS: readonly AnalyticsWidget[] = [
 ];
 
 function toDashboard(record: AnalyticsDashboardRecord): AnalyticsDashboard {
-  // Defensive: a malformed/legacy widgets blob degrades to an empty board
-  // rather than throwing during render.
+  // Defensive: malformed/legacy widget entries are dropped INDIVIDUALLY
+  // (CD-3A) — one bad blob (e.g. an obsolete insight config shape) costs that
+  // widget, never the whole board. A non-array blob still degrades to empty.
   const parsed = AnalyticsWidgetsSchema.safeParse(record.widgets);
-  const widgets = parsed.success ? parsed.data : [];
+  const widgets = parsed.success
+    ? parsed.data
+    : Array.isArray(record.widgets)
+      ? record.widgets
+          .map((w) => AnalyticsWidgetSchema.safeParse(w))
+          .flatMap((r) => (r.success ? [r.data] : []))
+          .slice(0, 48)
+      : [];
   return {
     id: record.id,
     name: record.name,

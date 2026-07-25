@@ -19,6 +19,9 @@ import { WidgetBody } from "./widgetBodies";
 import { ConnectedAppWidgetBody } from "./ConnectedAppWidgetBody";
 import { WidgetLibrary } from "./WidgetLibrary";
 import { WidgetConfigPanel } from "./WidgetConfigPanel";
+import { InsightConfigPanel } from "./insights/InsightConfigPanel";
+import { InsightWidgetBody } from "./insights/InsightWidgetBody";
+import type { InsightCatalog } from "./insights/insightCatalog";
 import {
   RANGE_OPTIONS,
   makeWidget,
@@ -55,6 +58,11 @@ interface Props {
    * connection; personal providers reflect this viewer's own.
    */
   connectedProviders: Record<string, boolean>;
+  /**
+   * Client-safe Custom Insight catalog, already filtered server-side to this
+   * environment's exposure (production never receives preview sources).
+   */
+  insightCatalog: InsightCatalog;
   initialDashboards: readonly Dashboard[];
   initialOverview: AnalyticsOverview;
   initialRange: AnalyticsRange;
@@ -64,6 +72,7 @@ export function AnalyticsDashboard({
   accountName,
   canManage,
   connectedProviders,
+  insightCatalog,
   initialDashboards,
   initialOverview,
   initialRange,
@@ -400,14 +409,22 @@ export function AnalyticsDashboard({
               widget={w}
               isEditing={editing}
               isDragging={draggingState === w.id}
-              {...(rangeLabel ? { rangeLabel } : {})}
+              {...(rangeLabel && w.type !== "insight" ? { rangeLabel } : {})}
               onResize={handleResize}
               onRemove={handleRemove}
               onRename={handleRename}
               onConfigure={(id) => setConfiguringId(id)}
               onMove={handleMove}
             >
-              {widgetSourceKind(w.config) === "connected_app" ? (
+              {w.type === "insight" ? (
+                <InsightWidgetBody
+                  widget={w}
+                  catalog={insightCatalog}
+                  connectedProviders={connectedProviders}
+                  canManage={canManage}
+                  reloadKey={reloadKey}
+                />
+              ) : widgetSourceKind(w.config) === "connected_app" ? (
                 <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
               ) : (
                 <WidgetBody overview={loadingData ? null : overview} widget={w} />
@@ -428,15 +445,28 @@ export function AnalyticsDashboard({
       )}
 
       {showLibrary && <WidgetLibrary onAdd={handleAdd} onClose={() => setShowLibrary(false)} />}
-      {configuringWidget && (
-        <WidgetConfigPanel
-          widget={configuringWidget}
-          workflows={overview?.workflows ?? []}
-          connectedProviders={connectedProviders}
-          onClose={() => setConfiguringId(null)}
-          onSave={(config) => handleConfigSave(configuringWidget.id, config)}
-        />
-      )}
+      {configuringWidget &&
+        (configuringWidget.type === "insight" ? (
+          <InsightConfigPanel
+            widget={configuringWidget}
+            catalog={insightCatalog}
+            connectedProviders={connectedProviders}
+            internalEntityOptions={(overview?.workflows ?? []).map((wf) => ({
+              value: wf.workflowId,
+              label: wf.name,
+            }))}
+            onClose={() => setConfiguringId(null)}
+            onSave={(config) => handleConfigSave(configuringWidget.id, config)}
+          />
+        ) : (
+          <WidgetConfigPanel
+            widget={configuringWidget}
+            workflows={overview?.workflows ?? []}
+            connectedProviders={connectedProviders}
+            onClose={() => setConfiguringId(null)}
+            onSave={(config) => handleConfigSave(configuringWidget.id, config)}
+          />
+        ))}
     </main>
   );
 }
