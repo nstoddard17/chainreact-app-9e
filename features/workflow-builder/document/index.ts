@@ -28,6 +28,8 @@ export {
 export {
   readBuilderViewPref,
   writeBuilderViewPref,
+  markViewChooserResolved,
+  hasResolvedViewChooser,
   type BuilderViewMode,
 } from "./documentViewPref";
 export {

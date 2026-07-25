@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type { BuilderViewMode } from "../document/documentViewPref";
 
@@ -28,6 +28,14 @@ export function BuilderViewChooser({
 }) {
   const [remember, setRemember] = useState(false);
 
+  // BUILDER-VIEW-QA-1 (keyboard defect): move focus INTO the dialog on open —
+  // without this, keyboard focus stays on the page behind the overlay and
+  // Tab never reaches the options, making the chooser mouse-only.
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === "Escape") {
       e.stopPropagation();
@@ -47,6 +55,7 @@ export function BuilderViewChooser({
         aria-label="Choose your builder view"
         data-testid="builder-view-chooser"
         tabIndex={-1}
+        ref={dialogRef}
         onKeyDown={handleKeyDown}
         className="w-full max-w-md rounded-lg p-5"
         style={{
