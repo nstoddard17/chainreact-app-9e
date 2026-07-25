@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { AnalyticsWidget } from "@/contracts/analytics";
 import { InsightWidgetConfigSchema } from "@/contracts/analytics";
+import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
 import { findDataset, findSource, type InsightCatalog } from "./insightCatalog";
 import { insightQueryFromConfig } from "./insightQueryFromConfig";
 import { useInsightQuery } from "./useInsightQuery";
@@ -25,6 +26,7 @@ export function InsightWidgetBody({
   connectedProviders,
   canManage,
   reloadKey,
+  onResult,
 }: {
   widget: AnalyticsWidget;
   catalog: InsightCatalog;
@@ -32,6 +34,12 @@ export function InsightWidgetBody({
   canManage: boolean;
   /** Dashboard-level "Refresh" — re-runs cache-first (widget refresh bypasses). */
   reloadKey: number;
+  /**
+   * Reports the currently-rendered result up to the dashboard so the widget
+   * header can offer "Export CSV" over exactly what is on screen — no refetch,
+   * no second copy of the data (CD-5A). Null while there is nothing to export.
+   */
+  onResult?: (widgetId: string, result: ConnectedAnalyticsResult | null) => void;
 }) {
   const parsed = useMemo(
     () =>
@@ -67,6 +75,22 @@ export function InsightWidgetBody({
       retry();
     }
   }, [reloadKey, retry]);
+
+  // Publish the rendered result upward for the header's Export CSV action. Held
+  // in a ref so a parent that re-creates the callback each render can't loop.
+  const reportedResult =
+    state.status === "ok" ? state.result : state.status === "loading" ? state.prior : null;
+  const onResultRef = useRef(onResult);
+  onResultRef.current = onResult;
+  useEffect(() => {
+    onResultRef.current?.(widget.id, reportedResult);
+  }, [widget.id, reportedResult]);
+  useEffect(
+    () => () => {
+      onResultRef.current?.(widget.id, null);
+    },
+    [widget.id],
+  );
 
   if (widget.config.insight === undefined) {
     return (

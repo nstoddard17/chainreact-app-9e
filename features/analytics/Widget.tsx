@@ -39,6 +39,11 @@ export interface WidgetProps {
   onRename: (id: string, title: string) => void;
   onConfigure: (id: string) => void;
   onMove: (phase: "start" | "end" | "drop", id: string) => void;
+  /**
+   * Offered only when the widget currently has exportable data on screen
+   * (CD-5A). Absent for widget types that have no per-widget export.
+   */
+  onExportCsv?: (id: string) => void;
   children: ReactNode;
 }
 
@@ -53,6 +58,7 @@ export function Widget({
   onRename,
   onConfigure,
   onMove,
+  onExportCsv,
   children,
 }: WidgetProps) {
   const [renaming, setRenaming] = useState(false);
@@ -132,6 +138,20 @@ export function Widget({
             <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
               {rangeLabel}
             </span>
+          )}
+          {/* Export is a READ action over data already on screen, so it is not
+              gated on edit mode or the manage role — matching the dashboard's
+              own Export button, which every member can already use (CD-5A). */}
+          {onExportCsv && !isEditing && (
+            <button
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/15 hover:text-primary"
+              onClick={() => onExportCsv(widget.id)}
+              title="Download this widget's data as CSV"
+              aria-label={`Export CSV: ${widget.title}`}
+            >
+              <AnalyticsIcon name="Database" size={11} />
+            </button>
           )}
           {isEditing && (
             <>

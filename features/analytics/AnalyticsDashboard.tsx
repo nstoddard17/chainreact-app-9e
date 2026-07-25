@@ -21,6 +21,9 @@ import { WidgetLibrary } from "./WidgetLibrary";
 import { WidgetConfigPanel } from "./WidgetConfigPanel";
 import { InsightConfigPanel } from "./insights/InsightConfigPanel";
 import { InsightWidgetBody } from "./insights/InsightWidgetBody";
+import { exportInsightCsv } from "./insights/exportInsightCsv";
+import { isIncompleteResult } from "@/core/analytics/insightCsv";
+import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
 import type { InsightCatalog } from "./insights/insightCatalog";
 import {
   RANGE_OPTIONS,
@@ -87,6 +90,31 @@ export function AnalyticsDashboard({
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  /**
+   * The result each Insight widget currently has on screen, published upward by
+   * `InsightWidgetBody` so the header's Export CSV works over exactly what is
+   * rendered — never a refetch (CD-5A). Runtime-only; never persisted.
+   */
+  const [insightResults, setInsightResults] = useState<
+    Record<string, ConnectedAnalyticsResult>
+  >({});
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const handleInsightResult = useCallback(
+    (widgetId: string, result: ConnectedAnalyticsResult | null) => {
+      setInsightResults((prev) => {
+        if (result === null) {
+          if (!(widgetId in prev)) return prev;
+          const next = { ...prev };
+          delete next[widgetId];
+          return next;
+        }
+        if (prev[widgetId] === result) return prev;
+        return { ...prev, [widgetId]: result };
+      });
+    },
+    [],
+  );
 
   const [editing, setEditing] = useState(false);
   const [draftWidgets, setDraftWidgets] = useState<readonly AnalyticsWidget[]>([]);
@@ -264,6 +292,31 @@ export function AnalyticsDashboard({
 
   const exportDashboard = () => {
     if (active) downloadDashboardExport(active, range, overview);
+  };
+
+  /**
+   * Per-widget CSV (CD-5A) — serializes the bounded result already on screen.
+   * No request is made, so exporting cannot re-query a provider, spend the rate
+   * limiter, or touch the snapshot cache. Distinct from `exportDashboard`,
+   * which saves the dashboard's CONFIGURATION as JSON.
+   */
+  const exportWidgetCsv = (id: string) => {
+    const result = insightResults[id];
+    if (!result) {
+      setExportStatus("There's no data to export yet.");
+      return;
+    }
+    const widget = widgets.find((w) => w.id === id);
+    try {
+      exportInsightCsv(result, widget ? { widgetTitle: widget.title } : {});
+      setExportStatus(
+        isIncompleteResult(result)
+          ? "CSV downloaded. This data is partial or cached — the file records that."
+          : "CSV downloaded.",
+      );
+    } catch {
+      setExportStatus("Couldn't create the CSV.");
+    }
   };
 
   const rangeLabel = RANGE_OPTIONS.find((r) => r.id === range)?.label;
@@ -446,6 +499,11 @@ export function AnalyticsDashboard({
       {dataError && <ErrorBanner message={dataError} onRetry={reloadData} retryLabel="Retry" />}
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
 
+      {/* Export outcome — announced, never an alert() and never silent. */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {exportStatus ?? ""}
+      </div>
+
       {/* Grid */}
       {widgets.length === 0 ? (
         <EmptyDashboard
@@ -469,6 +527,9 @@ export function AnalyticsDashboard({
               onRename={handleRename}
               onConfigure={(id) => setConfiguringId(id)}
               onMove={handleMove}
+              {...(w.type === "insight" && insightResults[w.id]
+                ? { onExportCsv: exportWidgetCsv }
+                : {})}
             >
               {w.type === "insight" ? (
                 <InsightWidgetBody
@@ -477,6 +538,7 @@ export function AnalyticsDashboard({
                   connectedProviders={connectedProviders}
                   canManage={canManage}
                   reloadKey={reloadKey}
+                  onResult={handleInsightResult}
                 />
               ) : widgetSourceKind(w.config) === "connected_app" ? (
                 <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
