@@ -527,6 +527,31 @@ export async function listActiveByAccount(
 }
 
 /**
+ * Service-role, ANALYTICS-ONLY narrow read (ANALYTICS-FLEXIBILITY-CS-1 safety
+ * fix): the analytics overview's "connected apps" widget needs ONLY the
+ * provider key of each active connection — not the full `IntegrationRecord`
+ * that `listActiveByAccount`'s `select('*')` materializes (token/scope/
+ * metadata columns never even leave the DB here). Same caller contract as
+ * `listActiveByAccount`: the account MUST be membership-verified upstream.
+ */
+export async function listActiveProvidersByAccount(
+  accountId: string,
+): Promise<readonly { provider: string }[]> {
+  const supabase = getServiceRoleClient(
+    `integrations: listActiveProvidersByAccount ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("provider")
+    .eq("account_id", accountId)
+    .is("disconnected_at", null);
+  if (error) {
+    throw new Error(`integrations listActiveProviders failed: ${error.message}`);
+  }
+  return (data ?? []) as readonly { provider: string }[];
+}
+
+/**
  * Service-role: the set of distinct user ids that have an ACTIVE connection for
  * `provider` in `accountId` (Slice 4.TEAM-WORKFLOWS-CREDENTIAL-SHARING-5B / CS-4b).
  *

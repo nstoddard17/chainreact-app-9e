@@ -13,6 +13,11 @@ import type { AnalyticsRunRow } from "@/repositories/workflowRuns";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as integrationsRepo from "@/repositories/integrations";
 import { getProvider } from "@/integrations/_registry";
+import {
+  avgDurationMsOrNull,
+  runDurationMs,
+  successRateOrNull,
+} from "./metricDefinitions";
 
 /**
  * Account-scoped analytics aggregation (Slice ANALYTICS-1).
@@ -124,13 +129,9 @@ function utcDateKey(ms: number): string {
   return new Date(startOfUtcDay(ms)).toISOString().slice(0, 10);
 }
 
-function durationMs(startedAt: string, finishedAt: string | null): number | null {
-  if (!finishedAt) return null;
-  const s = Date.parse(startedAt);
-  const f = Date.parse(finishedAt);
-  if (Number.isNaN(s) || Number.isNaN(f)) return null;
-  return f >= s ? f - s : 0;
-}
+// Canonical metric math is shared with the flexible query engine
+// (ANALYTICS-FLEXIBILITY-CS-1) — see services/analytics/metricDefinitions.ts.
+const durationMs = runDurationMs;
 
 function totalsFor(runs: readonly AnalyticsRunRow[], activeWorkflows: number, totalWorkflows: number, connectedApps: number): AnalyticsTotals {
   let succeeded = 0;
@@ -149,8 +150,11 @@ function totalsFor(runs: readonly AnalyticsRunRow[], activeWorkflows: number, to
     runs: total,
     succeeded,
     failed: total - succeeded,
-    successRate: total > 0 ? succeeded / total : 0,
-    avgDurationMs: durCount > 0 ? Math.round(durSum / durCount) : null,
+    // Canonical zero-run rule is null (metricDefinitions.ts); this legacy
+    // contract predates it with a non-nullable successRate, so coerce AT THIS
+    // EDGE only. Pinned by tests/unit/services/analytics/analyticsQueryParity.test.ts.
+    successRate: successRateOrNull(succeeded, total - succeeded) ?? 0,
+    avgDurationMs: avgDurationMsOrNull(durSum, durCount),
     activeWorkflows,
     totalWorkflows,
     connectedApps,
@@ -316,14 +320,22 @@ export async function getAnalyticsOverview(
   const fetchSince = new Date(analyticsFetchSince(range, now)).toISOString();
   const ANALYTICS_RUN_CAP = 5000;
 
-  const [runs, workflows, integrations] = await Promise.all([
+  // ANALYTICS-FLEXIBILITY-CS-1 safety fixes:
+  //   - fetch CAP+1 and trim, so `truncated` is exact (a legitimately-exactly-
+  //     5000-row account is no longer falsely flagged);
+  //   - narrow readers — the overview needs (id,name,state) per workflow and
+  //     the provider key per integration, not `select('*')` rows dragging
+  //     `draft_definition` / token-metadata columns out of the DB.
+  const [fetchedRuns, workflows, integrations] = await Promise.all([
     workflowRunsRepo.listForAnalytics(accountId, {
       since: fetchSince,
-      limit: ANALYTICS_RUN_CAP,
+      limit: ANALYTICS_RUN_CAP + 1,
     }),
-    workflowsRepo.listByAccount(accountId),
-    integrationsRepo.listActiveByAccount(accountId),
+    workflowsRepo.listSummariesByAccount(accountId),
+    integrationsRepo.listActiveProvidersByAccount(accountId),
   ]);
+  const truncated = fetchedRuns.length > ANALYTICS_RUN_CAP;
+  const runs = truncated ? fetchedRuns.slice(0, ANALYTICS_RUN_CAP) : fetchedRuns;
 
   const apps: RawAnalyticsApp[] = integrations.map((i) => ({
     provider: i.provider,
@@ -336,6 +348,6 @@ export async function getAnalyticsOverview(
     runs,
     workflows: workflows.map((w) => ({ id: w.id, name: w.name, state: w.state })),
     apps,
-    truncated: runs.length >= ANALYTICS_RUN_CAP,
+    truncated,
   });
 }

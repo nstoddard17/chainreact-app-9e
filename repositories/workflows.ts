@@ -216,6 +216,66 @@ export async function listNamesByIds(
   return (data ?? []) as readonly { id: string; name: string }[];
 }
 
+/**
+ * Narrow analytics projection of a workflow — id + current name + lifecycle
+ * state only (ANALYTICS-FLEXIBILITY-CS-1). Never the draft_definition blob.
+ */
+export interface WorkflowAnalyticsRef {
+  id: string;
+  name: string;
+  state: WorkflowState;
+}
+
+/**
+ * Fetch `(id, name, state)` for an explicit id set WITHIN one account
+ * (ANALYTICS-FLEXIBILITY-CS-1). The analytics query service uses this to prove
+ * every client-selected workflow id belongs to the caller's resolved account
+ * BEFORE any id reaches the aggregation RPC — a cross-account or nonexistent id
+ * simply comes back missing (RLS returns zero rows for foreign accounts, and
+ * the explicit `account_id` predicate is defense in depth), so the service can
+ * fail with one non-leaking error. Soft-deleted rows are INCLUDED on purpose:
+ * a deleted workflow's runs remain valid history and label as "… (deleted)".
+ */
+export async function listByIdsForAccount(
+  accountId: string,
+  ids: readonly string[],
+): Promise<readonly WorkflowAnalyticsRef[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id,name,state")
+    .eq("account_id", accountId)
+    .in("id", ids as string[]);
+  if (error) {
+    throw new Error(`workflows.listByIdsForAccount failed: ${error.message}`);
+  }
+  return (data ?? []) as readonly WorkflowAnalyticsRef[];
+}
+
+/**
+ * Narrow account-wide listing for the analytics overview
+ * (ANALYTICS-FLEXIBILITY-CS-1 safety fix): the overview only needs
+ * `(id, name, state)`, so don't drag every row's `draft_definition` JSONB
+ * through `listByAccount`'s `select('*')`. RLS + the explicit account
+ * predicate scope it exactly like `listByAccount`; soft-deleted rows are
+ * excluded to match its default.
+ */
+export async function listSummariesByAccount(
+  accountId: string,
+): Promise<readonly WorkflowAnalyticsRef[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id,name,state")
+    .eq("account_id", accountId)
+    .neq("state", "deleted");
+  if (error) {
+    throw new Error(`workflows.listSummariesByAccount failed: ${error.message}`);
+  }
+  return (data ?? []) as readonly WorkflowAnalyticsRef[];
+}
+
 export async function updateName(
   workflowId: string,
   name: string,
