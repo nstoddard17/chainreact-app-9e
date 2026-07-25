@@ -106,6 +106,7 @@ describe("client projection", () => {
     expect(json).not.toContain("executionMode");
     expect(json).not.toContain("local_sql");
     expect(json).not.toContain("adapter");
-    expect(listInsightSources().map((s) => s.source.id)).toEqual(["chainreact"]);
+    // CD-2 registered Stripe; ordering stays deterministic (id-sorted).
+    expect(listInsightSources().map((s) => s.source.id)).toEqual(["chainreact", "stripe"]);
   });
 });

@@ -139,7 +139,8 @@ export function deriveDatasetCapabilities(
         valueType:
           f.kind === "entity" ? "entity_ids" : f.kind === "boolean" ? "boolean" : "category_values",
         optionsSource: f.kind === "entity" ? (f.optionsSource ?? null) : undefined,
-        maxSelections: f.kind === "boolean" ? 1 : MAX_FILTER_SELECTIONS,
+        maxSelections:
+          f.kind === "boolean" ? 1 : (f.maxSelections ?? MAX_FILTER_SELECTIONS),
       });
     }
   }

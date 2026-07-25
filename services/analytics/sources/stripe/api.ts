@@ -48,6 +48,12 @@ export interface WindowScanInput {
   /** Inclusive upper bound on `created`, Unix seconds. */
   lteSec: number;
   maxPages?: number;
+  /**
+   * Optional server-side single-customer filter (CD-2 connected dataset).
+   * Passed straight to Stripe's `customer` list param — the customer id never
+   * enters a fact; facts stay the same 4 non-identifying fields.
+   */
+  customer?: string;
 }
 
 /**
@@ -69,6 +75,7 @@ export async function scanChargesWindow(
       createdGte: input.gteSec,
       createdLte: input.lteSec,
       limit: PAGE_SIZE,
+      ...(input.customer ? { customer: input.customer } : {}),
       ...(startingAfter ? { startingAfter } : {}),
     });
 

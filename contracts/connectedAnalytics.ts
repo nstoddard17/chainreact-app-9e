@@ -177,13 +177,26 @@ export type ConnectedAnalyticsErrorCode =
   | "INVALID_QUERY"
   | "UNKNOWN_ENTITY"
   | "MISSING_CREDENTIAL"
+  /** Connection exists but must be re-authorized (401/expired). */
+  | "RECONNECT_REQUIRED"
+  /** Provider-side 429 OR ChainReact's protective limiter (see retryAfterSeconds). */
+  | "RATE_LIMITED"
+  /** Monetary measure over >1 currency with no single-currency filter (CD-2). */
+  | "MIXED_CURRENCY"
   | "PROVIDER_ERROR";
 
 export class ConnectedAnalyticsError extends Error {
   readonly code: ConnectedAnalyticsErrorCode;
-  constructor(message: string, code: ConnectedAnalyticsErrorCode) {
+  /** For RATE_LIMITED: seconds until the caller may retry (protective limiter). */
+  readonly retryAfterSeconds?: number;
+  constructor(
+    message: string,
+    code: ConnectedAnalyticsErrorCode,
+    opts: { retryAfterSeconds?: number } = {},
+  ) {
     super(message);
     this.name = "ConnectedAnalyticsError";
     this.code = code;
+    if (opts.retryAfterSeconds !== undefined) this.retryAfterSeconds = opts.retryAfterSeconds;
   }
 }

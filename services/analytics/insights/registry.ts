@@ -13,6 +13,7 @@ import type {
 } from "@/contracts/connectedAnalytics";
 import { getOptionsResolver } from "@/services/options/_registry";
 import { chainreactCatalog, chainreactWorkflowRunsAdapter } from "./chainreact";
+import { stripeInsightsCatalog, stripePaymentsAdapter } from "./stripe";
 
 /**
  * Connected-analytics CATALOG + ADAPTER registry (CD-1).
@@ -146,6 +147,7 @@ function registerSource(
 
 // ── Static registrations (approved sources only) ─────────────────────────────
 registerSource(chainreactCatalog, [chainreactWorkflowRunsAdapter]);
+registerSource(stripeInsightsCatalog, [stripePaymentsAdapter]);
 
 // ── Lookups ──────────────────────────────────────────────────────────────────
 

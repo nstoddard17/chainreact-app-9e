@@ -24,10 +24,12 @@ export async function POST(request: Request) {
   const body = await parseBody(request, ConnectedAnalyticsQuerySchema);
   if (!body.ok) return body.response;
 
+  const refresh = new URL(request.url).searchParams.get("refresh") === "1";
   try {
     const result = await runConnectedAnalyticsQuery(
       { accountId: auth.accountId, userId: auth.userId },
       body.data,
+      { refresh },
     );
     return NextResponse.json({ result });
   } catch (err) {
@@ -36,6 +38,19 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: "One or more selected items were not found.", code: "UNKNOWN_ENTITY" },
           { status: 400 },
+        );
+      }
+      if (err.code === "RATE_LIMITED") {
+        // Provider 429s OR ChainReact's protective limiter; retry hint when known.
+        return NextResponse.json(
+          {
+            error: err.message,
+            code: err.code,
+            ...(err.retryAfterSeconds !== undefined
+              ? { retryAfterSeconds: err.retryAfterSeconds }
+              : {}),
+          },
+          { status: 429 },
         );
       }
       return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });

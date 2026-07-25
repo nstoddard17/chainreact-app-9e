@@ -71,6 +71,23 @@ describe("POST /api/analytics/insights/query", () => {
     expect(a).toEqual({ error: "One or more selected items were not found.", code: "UNKNOWN_ENTITY" });
   });
 
+  it("RATE_LIMITED → 429 with retryAfterSeconds; MIXED_CURRENCY → 400 (CD-2)", async () => {
+    mockRun.mockRejectedValueOnce(
+      new ConnectedAnalyticsError("Try again shortly.", "RATE_LIMITED", { retryAfterSeconds: 42 }),
+    );
+    const limited = await post(BODY);
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({
+      error: "Try again shortly.", code: "RATE_LIMITED", retryAfterSeconds: 42,
+    });
+    mockRun.mockRejectedValueOnce(
+      new ConnectedAnalyticsError("Filter to one currency.", "MIXED_CURRENCY"),
+    );
+    const mixed = await post(BODY);
+    expect(mixed.status).toBe(400);
+    expect((await mixed.json()).code).toBe("MIXED_CURRENCY");
+  });
+
   it("200 wraps the result; unexpected error → generic 500 without internals", async () => {
     mockRun.mockResolvedValueOnce({ kind: "kpi", value: 3 });
     const ok = await post(BODY);

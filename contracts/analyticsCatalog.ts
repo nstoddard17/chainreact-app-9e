@@ -81,6 +81,8 @@ export const AnalyticsFieldSchema = z
      * null = CD-3 supplies the picker from an existing safe listing (e.g. the
      * account workflow list) — never a client-invented list. */
     optionsSource: z.string().max(80).nullable().optional(),
+    /** Filter selection cap override (default 20; e.g. 1 = single-select). */
+    maxSelections: z.number().int().min(1).max(20).optional(),
     distinctCountable: z.boolean().default(false),
   })
   .strict()
