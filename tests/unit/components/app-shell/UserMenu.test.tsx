@@ -59,6 +59,9 @@ describe("UserMenu", () => {
     // Contact support is a real mailto to the staffed support mailbox.
     const support = screen.getByTestId("app-shell-contact-support");
     expect(support).toHaveAttribute("href", "mailto:support@chainreact.app");
+    // Help Center links to the real public /help route (HELP-CENTER-1).
+    const help = screen.getByTestId("app-shell-help-center");
+    expect(help).toHaveAttribute("href", "/help");
     // Still no fake settings-hub / billing items (no backing route yet).
     expect(
       content.querySelector("[data-testid='app-shell-settings']"),

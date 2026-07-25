@@ -117,6 +117,19 @@ export function UserMenu({ userEmail }: Props) {
           Account settings
         </Link>
         {/*
+         * Help Center: the public /help route (HELP-CENTER-1) — searchable
+         * how-to articles. Works for authenticated users too, so it sits
+         * with the other support entries in the established support menu.
+         */}
+        <Link
+          href="/help"
+          data-testid="app-shell-help-center"
+          onClick={() => setOpen(false)}
+          className="block w-full rounded-sm px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+        >
+          Help Center
+        </Link>
+        {/*
          * Contact support: a real mailto to the staffed support@chainreact.app
          * mailbox, so a signed-in user hitting a problem has an in-product way
          * to reach a human from every authenticated surface (the user menu is

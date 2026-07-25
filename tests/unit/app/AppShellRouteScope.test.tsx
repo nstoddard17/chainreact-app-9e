@@ -140,6 +140,7 @@ jest.mock("@/services/analytics/analyticsOverview", () => ({
 
 import { AppShell } from "@/components/app-shell/AppShell";
 import { MarketingHome } from "@/features/marketing/MarketingHome";
+import { HelpCenterPage } from "@/features/marketing/HelpCenterPage";
 
 function containsElement(
   node: unknown,
@@ -215,6 +216,16 @@ describe("AppShell — route scope: EXCLUDED", () => {
     const result = await HomePage();
     expect(containsElement(result, AppShell)).toBe(false);
     expect(containsElement(result, MarketingHome)).toBe(true);
+  });
+
+  it("/help (public Help Center, HELP-CENTER-1) does NOT render AppShell — renders HelpCenterPage", async () => {
+    // Public marketing-surface route: no auth gate, works signed-in or out.
+    // (This file's registry mock returns no providers, so the page renders
+    // with an empty integration-help section — that path is valid.)
+    const { default: HelpPage } = await import("@/app/help/page");
+    const result = HelpPage();
+    expect(containsElement(result, AppShell)).toBe(false);
+    expect(containsElement(result, HelpCenterPage)).toBe(true);
   });
 
   it("/integrations (legacy redirect) never reaches a render — server-redirects to /apps", async () => {

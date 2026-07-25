@@ -31,6 +31,8 @@ const NAV_COLS: ReadonlyArray<{
     links: [
       { label: "Try it free", href: "/auth/sign-up", internal: true },
       { label: "Sign in", href: "/auth/sign-in", internal: true },
+      // Public Help Center (HELP-CENTER-1) — searchable how-to articles.
+      { label: "Help Center", href: "/help", internal: true },
       // Real staffed mailbox — external mailto renders as a plain <a>.
       { label: "Contact support", href: "mailto:support@chainreact.app" },
     ],

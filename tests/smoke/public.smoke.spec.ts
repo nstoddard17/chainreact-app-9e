@@ -62,6 +62,22 @@ test.describe("Public smoke", () => {
     await assertNoServerError(page);
   });
 
+  test("/help (Help Center) loads", async ({ page }) => {
+    await gotoOk(page, "/help");
+    await expect(page.getByTestId("help-center-page")).toBeVisible();
+    await expect(page.getByTestId("help-search-input")).toBeVisible();
+    await assertNoServerError(page);
+  });
+
+  test("/help article loads", async ({ page }) => {
+    await gotoOk(page, "/help/create-your-first-workflow");
+    await expect(page.getByTestId("help-article-page")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Create your first workflow" }),
+    ).toBeVisible();
+    await assertNoServerError(page);
+  });
+
   for (const route of [
     "/workflows",
     "/runs",
