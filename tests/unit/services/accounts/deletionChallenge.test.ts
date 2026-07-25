@@ -38,7 +38,7 @@ jest.mock("@/services/email/sendTransactionalEmail", () => ({
 }));
 
 import {
-  consumeDeletionAuthorization,
+  resolveDeletionAuthorization,
   requestDeletionChallenge,
   verifyDeletionChallenge,
 } from "@/services/accounts/deletionChallenge";
@@ -450,10 +450,11 @@ describe("verifyDeletionChallenge", () => {
   });
 });
 
-// ── Consume ───────────────────────────────────────────────────────────────────
 
-describe("consumeDeletionAuthorization", () => {
-  const consumeInput = {
+// ── Resolve (read-only; the DB transaction is the spender) ────────────────────
+
+describe("resolveDeletionAuthorization", () => {
+  const resolveInput = {
     userId: USER_ID,
     sessionId: SESSION_ID,
     verifiedEmail: EMAIL,
@@ -482,49 +483,39 @@ describe("consumeDeletionAuthorization", () => {
     };
   }
 
-  it("spends a live verified authorization exactly once", async () => {
-    const row = verifiedRow();
-    repo.getOpenChallenge.mockResolvedValueOnce(row);
-    repo.consumeVerifiedChallenge.mockResolvedValueOnce({
-      ...row,
-      consumedAt: NOW.toISOString(),
-    });
-
-    expect(await consumeDeletionAuthorization(consumeInput)).toEqual({
+  it("returns a handle carrying the id + every binding digest", async () => {
+    repo.getOpenChallenge.mockResolvedValueOnce(verifiedRow());
+    const result = await resolveDeletionAuthorization(resolveInput);
+    expect(result).toEqual({
       ok: true,
-      challengeId: "chal-1",
-    });
-    expect(repo.consumeVerifiedChallenge).toHaveBeenCalledWith({
-      id: "chal-1",
-      consumedAt: NOW.toISOString(),
-    });
-  });
-
-  it("refuses the REPLAY — the atomic compare-and-set returns nothing the second time", async () => {
-    const row = verifiedRow();
-    repo.getOpenChallenge.mockResolvedValue(row);
-    repo.consumeVerifiedChallenge.mockResolvedValueOnce({
-      ...row,
-      consumedAt: NOW.toISOString(),
-    });
-    expect((await consumeDeletionAuthorization(consumeInput)).ok).toBe(true);
-
-    repo.consumeVerifiedChallenge.mockResolvedValueOnce(null);
-    expect(await consumeDeletionAuthorization(consumeInput)).toEqual({
-      ok: false,
-      reason: "no_authorization",
+      authorization: {
+        challengeId: "chal-1",
+        userId: USER_ID,
+        purpose: "delete_account",
+        sessionBinding: deriveSessionBinding(SESSION_ID),
+        emailBinding: deriveEmailBinding(EMAIL),
+      },
     });
   });
 
-  it("refuses an UNVERIFIED challenge — verification is what authorizes, not existence", async () => {
+  it("DOES NOT consume — spending is the transaction's job, not this read's", async () => {
+    repo.getOpenChallenge.mockResolvedValueOnce(verifiedRow());
+    await resolveDeletionAuthorization(resolveInput);
+    // The whole point of 1A: resolving must leave the challenge untouched, so a
+    // later refusal cannot have burned it.
+    expect(repo.consumeVerifiedChallenge).not.toHaveBeenCalled();
+    expect(repo.invalidateChallenge).not.toHaveBeenCalled();
+    expect(repo.invalidateOpenChallenges).not.toHaveBeenCalled();
+  });
+
+  it("refuses an UNVERIFIED challenge — verification is what authorizes", async () => {
     repo.getOpenChallenge.mockResolvedValueOnce(
       verifiedRow({ verifiedAt: null, verificationExpiresAt: null }),
     );
-    expect(await consumeDeletionAuthorization(consumeInput)).toEqual({
+    expect(await resolveDeletionAuthorization(resolveInput)).toEqual({
       ok: false,
       reason: "no_authorization",
     });
-    expect(repo.consumeVerifiedChallenge).not.toHaveBeenCalled();
   });
 
   it("refuses once the post-verification window elapsed", async () => {
@@ -534,34 +525,40 @@ describe("consumeDeletionAuthorization", () => {
         verificationExpiresAt: "2026-07-24T11:55:00.000Z",
       }),
     );
-    expect(await consumeDeletionAuthorization(consumeInput)).toEqual({
+    expect(await resolveDeletionAuthorization(resolveInput)).toEqual({
       ok: false,
       reason: "expired",
     });
-    expect(repo.consumeVerifiedChallenge).not.toHaveBeenCalled();
   });
 
   it("refuses a verification made in a DIFFERENT session (cross-session replay)", async () => {
     repo.getOpenChallenge.mockResolvedValueOnce(verifiedRow());
     expect(
-      await consumeDeletionAuthorization({ ...consumeInput, sessionId: "other-session" }),
+      await resolveDeletionAuthorization({ ...resolveInput, sessionId: "other-session" }),
     ).toEqual({ ok: false, reason: "no_authorization" });
-    expect(repo.consumeVerifiedChallenge).not.toHaveBeenCalled();
   });
 
   it("refuses when the account email changed between verification and confirmation", async () => {
     repo.getOpenChallenge.mockResolvedValueOnce(verifiedRow());
     expect(
-      await consumeDeletionAuthorization({
-        ...consumeInput,
+      await resolveDeletionAuthorization({
+        ...resolveInput,
         verifiedEmail: "moved@example.com",
       }),
     ).toEqual({ ok: false, reason: "no_authorization" });
   });
 
+  it("refuses an already-consumed challenge (the replay path)", async () => {
+    repo.getOpenChallenge.mockResolvedValueOnce(verifiedRow({ consumedAt: "spent" }));
+    expect(await resolveDeletionAuthorization(resolveInput)).toEqual({
+      ok: false,
+      reason: "no_authorization",
+    });
+  });
+
   it("refuses when there is no challenge at all", async () => {
     repo.getOpenChallenge.mockResolvedValueOnce(null);
-    expect(await consumeDeletionAuthorization(consumeInput)).toEqual({
+    expect(await resolveDeletionAuthorization(resolveInput)).toEqual({
       ok: false,
       reason: "no_authorization",
     });
@@ -571,7 +568,7 @@ describe("consumeDeletionAuthorization", () => {
     const key = process.env.SENSITIVE_ACTION_CHALLENGE_KEY;
     delete process.env.SENSITIVE_ACTION_CHALLENGE_KEY;
     try {
-      expect(await consumeDeletionAuthorization(consumeInput)).toEqual({
+      expect(await resolveDeletionAuthorization(resolveInput)).toEqual({
         ok: false,
         reason: "not_configured",
       });

@@ -33,9 +33,13 @@ jest.mock("@/repositories/accounts", () => ({
 }));
 
 const mockInsertPending = jest.fn();
+// ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A: freeze + audit row + (optional)
+// challenge consumption are ONE transactional RPC now.
+const mockScheduleAtomic = jest.fn();
 const mockMarkPendingCancelled = jest.fn();
 jest.mock("@/repositories/accountDeletions", () => ({
   insertPending: (...a: unknown[]) => mockInsertPending(...a),
+  scheduleAccountDeletionAtomic: (...a: unknown[]) => mockScheduleAtomic(...a),
   markPendingCancelled: (...a: unknown[]) => mockMarkPendingCancelled(...a),
 }));
 
@@ -68,8 +72,8 @@ function personalAccount(deletionStatus = "active") {
 
 /** Assert that the request produced ZERO side effects of any kind. */
 function expectNoSideEffects() {
-  expect(mockSetDeletionPending).not.toHaveBeenCalled(); // no freeze
-  expect(mockInsertPending).not.toHaveBeenCalled(); // no pending-deletion record
+  expect(mockScheduleAtomic).not.toHaveBeenCalled(); // no freeze, no audit row,
+  // and (1A) no challenge consumed — the transaction was never entered
   expect(mockCancelForDeletion).not.toHaveBeenCalled(); // no Stripe call
   expect(mockClearDeletion).not.toHaveBeenCalled();
   expect(mockMarkPendingCancelled).not.toHaveBeenCalled();
@@ -85,6 +89,13 @@ beforeEach(() => {
   mockGetByIdServiceRole.mockResolvedValue(personalAccount());
   mockSetDeletionPending.mockResolvedValue(personalAccount("pending_deletion"));
   mockInsertPending.mockResolvedValue({});
+  mockScheduleAtomic.mockReset().mockImplementation(async (input) => ({
+    outcome: "scheduled",
+    accountId: input.accountId,
+    deletionStatus: "pending_deletion",
+    deletionRequestedAt: input.requestedAt,
+    purgeAfter: input.purgeAfter,
+  }));
   mockCancelForDeletion.mockResolvedValue({ ok: true, outcome: "canceled" });
   mockListOwnedTeamOrg.mockResolvedValue([]);
 });
@@ -186,8 +197,7 @@ describe("blocked while the owner still owns other accounts", () => {
       requestedByUserId: OWNER_ID,
     }).catch(() => undefined);
 
-    expect(mockSetDeletionPending).not.toHaveBeenCalled();
-    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockScheduleAtomic).not.toHaveBeenCalled();
   });
 });
 
@@ -199,7 +209,7 @@ describe("allowed when the owner owns nothing else", () => {
     });
 
     expect(state.deletionStatus).toBe("pending_deletion");
-    expect(mockSetDeletionPending).toHaveBeenCalledTimes(1);
+    expect(mockScheduleAtomic).toHaveBeenCalledTimes(1);
     expect(mockCancelForDeletion).toHaveBeenCalledWith(PERSONAL_ID);
   });
 
@@ -283,7 +293,6 @@ describe("scope of the guard", () => {
     expect(state.deletionStatus).toBe("pending_deletion");
     // The retry ran; no new freeze/audit row was written.
     expect(mockCancelForDeletion).toHaveBeenCalledWith(PERSONAL_ID);
-    expect(mockSetDeletionPending).not.toHaveBeenCalled();
-    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockScheduleAtomic).not.toHaveBeenCalled();
   });
 });

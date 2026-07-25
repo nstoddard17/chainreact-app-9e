@@ -18,6 +18,29 @@ import { cancelSubscriptionForAccountDeletion } from "@/services/billing/subscri
  * cancelling an already-active account returns current state without a second
  * write.
  *
+ * ── Transaction boundary (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A) ───────────────────
+ * `requestAccountDeletion` performs its DURABLE work in exactly ONE database
+ * transaction, via the `schedule_account_deletion` RPC:
+ *
+ *     BEGIN
+ *       SELECT accounts … FOR UPDATE          -- serializes concurrent submissions
+ *       (already pending?)                    -- → already_pending, nothing spent
+ *       (owner still owns a Team/Business?)   -- → owned_accounts_block, nothing spent
+ *       UPDATE sensitive_action_challenges    -- spend the verified email authorization
+ *         SET consumed_at … WHERE consumed_at IS NULL AND <every binding matches>
+ *       UPDATE accounts SET deletion_status = 'pending_deletion' …
+ *       INSERT INTO account_deletions (status = 'pending') …
+ *     COMMIT
+ *
+ * So the authorization, the freeze, and the audit row always agree. Two concurrent
+ * final submissions produce exactly ONE transition (the second sees `already_pending`
+ * and spends nothing). Any refusal or write failure rolls the consumption back, leaving
+ * the user's code valid until its normal expiry.
+ *
+ * OUTSIDE the transaction, deliberately: the Stripe cancellation (external, retry-safe,
+ * must not hold a transaction open) and the read-only eligibility read that lets the
+ * sole-owner refusal carry an actionable account list.
+ *
  * ── Billing wind-down (ACCOUNT-BILLING-LIFECYCLE-1) ─────────────────────────────────────
  * Ordering is FREEZE FIRST, then cancel Stripe:
  *
@@ -112,6 +135,23 @@ export interface AccountDeletionState {
   billingCancellation?: BillingCancellationOutcome;
 }
 
+/**
+ * The verified email challenge to spend ATOMICALLY with the transition
+ * (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A). Resolved read-only by
+ * `services/accounts/deletionChallenge.ts`; the actual consumption happens inside
+ * the same DB transaction as the freeze, so a refusal or a write failure leaves
+ * the user's code untouched and still usable.
+ *
+ * Null for system / admin callers that carry no user-facing authorization.
+ */
+export interface DeletionAuthorizationHandle {
+  challengeId: string;
+  userId: string;
+  purpose: string;
+  sessionBinding: string;
+  emailBinding: string;
+}
+
 export interface RequestAccountDeletionInput {
   accountId: string;
   /** The user who requested it (self-serve) or null for a system/admin action. */
@@ -120,6 +160,25 @@ export interface RequestAccountDeletionInput {
   gracePeriodDays?: number;
   /** Injected for deterministic tests; defaults to the current time. */
   now?: Date;
+  /** Spent in the same transaction as the freeze. See the type doc. */
+  authorization?: DeletionAuthorizationHandle | null;
+}
+
+/**
+ * Thrown when the final deletion request carried no live, verified, correctly
+ * bound authorization at the moment the transaction tried to spend it.
+ *
+ * Distinct from "the caller never verified": this is specifically the atomic
+ * consume losing — the challenge expired, was invalidated, or another request
+ * spent it first. The route projects it to the same non-enumerating 401 as every
+ * other authorization failure.
+ */
+export class DeletionAuthorizationRequiredError extends Error {
+  readonly code = "VERIFICATION_REQUIRED" as const;
+  constructor() {
+    super("Verify a code sent to your email before deleting your account.");
+    this.name = "DeletionAuthorizationRequiredError";
+  }
 }
 
 export interface CancelAccountDeletionInput {
@@ -239,12 +298,19 @@ export async function requestAccountDeletion(
     // strand an already-frozen account mid-wind-down (unable to ever finish cancelling its
     // subscription) if ownership somehow changed after the freeze — the opposite of the
     // guard's purpose, which is to protect teams, not to keep billing a departing customer.
+    //
+    // No authorization is spent here either: there is no transition to authorize, so a
+    // caller who arrives with a valid code keeps it.
     const billingCancellation = await windDownBilling(input.accountId);
     return { ...toState(account), billingCancellation };
   }
 
-  // PRECONDITION — before every side effect: no freeze, no audit row, no Stripe call, no
-  // membership change, no worklist entry can happen if this throws.
+  // PRECONDITION — read-only, and BEFORE anything is spent or written. Running it here
+  // (rather than only inside the transaction) is what lets the refusal carry the actionable
+  // list of accounts to resolve. The transaction re-checks it as well, so a user who
+  // acquires Team/Business ownership between this read and the write is still blocked —
+  // and, because the check lives inside the same transaction, their verification code is
+  // NOT consumed by that refusal.
   await assertOwnerMayDeletePersonalAccount(account);
 
   const now = input.now ?? new Date();
@@ -252,26 +318,62 @@ export async function requestAccountDeletion(
   const requestedAt = now.toISOString();
   const purgeAfter = new Date(now.getTime() + graceDays * MS_PER_DAY).toISOString();
 
-  // 1. Freeze first — local, durable, reversible, and independent of Stripe.
-  const frozen = await accountsRepo.setDeletionPendingServiceRole({
+  // 1. ONE transaction: spend the authorization + freeze the account + write the audit
+  //    row. Freeze-first ordering is preserved (this is still entirely local, durable,
+  //    reversible, and independent of Stripe) — what changed is that the three writes can
+  //    no longer disagree. See repositories/accountDeletions.ts and the RPC migration.
+  const scheduled = await accountDeletionsRepo.scheduleAccountDeletionAtomic({
     accountId: input.accountId,
     requestedByUserId: input.requestedByUserId,
     requestedAt,
     purgeAfter,
+    challenge: input.authorization ?? null,
   });
 
-  await accountDeletionsRepo.insertPending({
-    accountId: input.accountId,
-    ownerUserId: frozen.ownerUserId,
-    requestedByUserId: input.requestedByUserId,
-    requestedAt,
-    purgeAfter,
-  });
+  switch (scheduled.outcome) {
+    case "no_authorization":
+      // Nothing was written and nothing was spent — the caller must re-verify.
+      throw new DeletionAuthorizationRequiredError();
+    case "owned_accounts_block": {
+      // Lost the race with an ownership change. Re-read the list so the refusal is
+      // actionable; the transaction already rolled back, so the code is still valid.
+      const owned = await accountsRepo.listOwnedTeamOrgAccountSummaries(account.ownerUserId);
+      throw new OwnedAccountsBlockDeletionError(owned);
+    }
+    case "account_not_found":
+      throw new Error(
+        `requestAccountDeletion: account ${input.accountId} vanished mid-request.`,
+      );
+    case "already_pending": {
+      // A concurrent submission won. Exactly one transition exists, this call made no
+      // second one and spent no authorization — but the (idempotent) billing wind-down
+      // still runs so the outcome is reported honestly either way.
+      const billingCancellation = await windDownBilling(input.accountId);
+      return {
+        accountId: input.accountId,
+        deletionStatus: "pending_deletion",
+        deletionRequestedAt: scheduled.deletionRequestedAt,
+        purgeAfter: scheduled.purgeAfter,
+        billingCancellation,
+      };
+    }
+    case "scheduled":
+      break;
+  }
 
-  // 2. Then cancel billing, reporting the real outcome (success OR failure) upward.
+  // 2. Then cancel billing, reporting the real outcome (success OR failure) upward. This
+  //    is deliberately OUTSIDE the transaction: it is an external call that must not hold
+  //    a DB transaction open, and the freeze must already be durable before we touch
+  //    Stripe (a failure here is reported, never rolled back into an un-frozen account).
   const billingCancellation = await windDownBilling(input.accountId);
 
-  return { ...toState(frozen), billingCancellation };
+  return {
+    accountId: input.accountId,
+    deletionStatus: "pending_deletion",
+    deletionRequestedAt: scheduled.deletionRequestedAt,
+    purgeAfter: scheduled.purgeAfter,
+    billingCancellation,
+  };
 }
 
 /**

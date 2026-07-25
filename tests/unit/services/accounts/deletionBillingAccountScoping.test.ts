@@ -28,9 +28,13 @@ jest.mock("@/repositories/accounts", () => ({
 }));
 
 const mockInsertPending = jest.fn();
+// ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A: freeze + audit row + (optional)
+// challenge consumption are ONE transactional RPC now.
+const mockScheduleAtomic = jest.fn();
 const mockMarkPendingCancelled = jest.fn();
 jest.mock("@/repositories/accountDeletions", () => ({
   insertPending: (...a: unknown[]) => mockInsertPending(...a),
+  scheduleAccountDeletionAtomic: (...a: unknown[]) => mockScheduleAtomic(...a),
   markPendingCancelled: (...a: unknown[]) => mockMarkPendingCancelled(...a),
 }));
 
@@ -117,6 +121,13 @@ beforeEach(() => {
     );
   mockClearDeletion.mockReset();
   mockInsertPending.mockReset().mockResolvedValue({});
+  mockScheduleAtomic.mockReset().mockImplementation(async (input) => ({
+    outcome: "scheduled",
+    accountId: input.accountId,
+    deletionStatus: "pending_deletion",
+    deletionRequestedAt: input.requestedAt,
+    purgeAfter: input.purgeAfter,
+  }));
   mockMarkPendingCancelled.mockReset();
 });
 
@@ -194,8 +205,7 @@ it("repeating the deletion request cancels at most once more and never fans out 
 
   expect(again.deletionStatus).toBe("pending_deletion");
   // No second freeze / second audit row.
-  expect(mockSetDeletionPending).toHaveBeenCalledTimes(1);
-  expect(mockInsertPending).toHaveBeenCalledTimes(1);
+  expect(mockScheduleAtomic).toHaveBeenCalledTimes(1);
   // Still strictly scoped.
   expect(stripeCalls.some((c) => c.path.includes(TEAM_SUB))).toBe(false);
 });

@@ -1,7 +1,8 @@
 # Rule: Account-Deletion Verification (Universal Email Code)
 
-**Slice:** ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1
-**Status:** implemented, local-only (not pushed / not deployed at time of writing)
+**Slices:** ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1 (universal email code) ·
+ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A (atomic consume + transition)
+**Status:** implemented
 
 This is the contract for **how a user proves they may delete their ChainReact
 account**. It replaces the password re-auth that used to guard
@@ -132,11 +133,47 @@ protection stands, re-evaluated at deletion time:
 - purge ordering, ledger anonymization, and the renewable-subscription fail-closed
   guard in the purge cron.
 
-**Ordering: consume, then transition.** The authorization is spent *before* the
-lifecycle call. A replay therefore finds nothing to spend, and the account can never
-be marked "scheduled" while the challenge still looks unused. The cost — a failed
-deletion burns the code — is the correct trade: a burned code is an inconvenience, a
-replayable one is a vulnerability.
+### Transaction boundary (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A)
+
+The consumption, the freeze, and the audit row are **one database transaction** —
+the `schedule_account_deletion` security-definer RPC
+(`supabase/migrations/20260807000000_schedule_account_deletion_rpc.sql`):
+
+```
+BEGIN
+  SELECT accounts … FOR UPDATE          -- serializes concurrent submissions
+  (already pending?)                    -- → already_pending; nothing spent, nothing written
+  (owner still owns a Team/Business?)   -- → owned_accounts_block; nothing spent
+  UPDATE sensitive_action_challenges    -- spend, re-asserting EVERY binding
+    SET consumed_at … WHERE consumed_at IS NULL AND verified_at IS NOT NULL AND …
+  UPDATE accounts SET deletion_status = 'pending_deletion' …
+  INSERT INTO account_deletions (status = 'pending') …
+COMMIT
+```
+
+Outside the transaction, deliberately: the Stripe cancellation (external and
+retry-safe — it must not hold a transaction open, and the freeze must already be
+durable before we touch Stripe) and the read-only eligibility read that lets the
+sole-owner refusal carry an actionable account list.
+
+Guarantees:
+
+| Property | How |
+|---|---|
+| A refusal never burns the user's code | consumption is inside the transaction that refuses |
+| A failed durable write never leaves an authorization spent | rollback takes the consume with it |
+| Two concurrent submissions ⇒ one transition | `FOR UPDATE` + `already_pending` branch |
+| A successful request consumes exactly once | `WHERE consumed_at IS NULL` compare-and-set |
+| A replay creates no second transition | spent challenge ⇒ `no_authorization` / `already_pending` |
+| The account is never scheduled while the code stays reusable | both writes commit together |
+| The code is never permanently spent with no transition | both writes roll back together |
+
+**Why this replaced consume-then-write.** The first implementation spent the code in
+its own call before the lifecycle write. That was replay-safe, but the failure paths
+disagreed: a sole-owner refusal — or any failed durable write — burned the code while
+scheduling nothing, and the freeze and its audit row could diverge. Replay protection
+did not weaken: it has always lived at the compare-and-set, which is now simply
+inside the transaction.
 
 **Verification alone never deletes.** The typed `DELETE` is still required, exact and
 case-sensitive.
@@ -199,8 +236,11 @@ from sign-in and invitation subjects.
 
 - `core/security/sensitiveActionChallenge.ts` — pure crypto + policy + state evaluation
 - `core/auth/accessTokenClaims.ts` — `session_id` / `aal` claim reader
-- `repositories/security/sensitiveActionChallenges.ts` — service-role store, atomic CAS
-- `services/accounts/deletionChallenge.ts` — request / verify / consume
+- `repositories/security/sensitiveActionChallenges.ts` — service-role challenge store
+- `repositories/accountDeletions.ts` — `scheduleAccountDeletionAtomic` (the RPC wrapper)
+- `services/accounts/deletionChallenge.ts` — request / verify / resolve (never consumes)
+- `services/accounts/accountDeletion.ts` — the lifecycle; owns the transaction boundary
+- `supabase/migrations/20260807000000_schedule_account_deletion_rpc.sql` — the transaction
 - `services/email/templates/accountDeletionVerification.ts` — the email
 - `app/api/account/delete/**` — the routes
 - `features/account/AccountDeletionVerification.tsx` — the universal UI

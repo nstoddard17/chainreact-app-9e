@@ -14,6 +14,10 @@ const mockClearDeletion = jest.fn();
 
 const mockInsertPending = jest.fn();
 const mockMarkPendingCancelled = jest.fn();
+// ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A: the freeze + audit row + (optional)
+// challenge consumption are now ONE transactional RPC, so the service calls this
+// instead of setDeletionPendingServiceRole + insertPending.
+const mockScheduleAtomic = jest.fn();
 
 // ACCOUNT-BILLING-LIFECYCLE-2 — the canonical sole-owner precondition now lives in this
 // service, so it reads owned Team/Business accounts before any write.
@@ -30,6 +34,7 @@ jest.mock("@/repositories/accounts", () => ({
 jest.mock("@/repositories/accountDeletions", () => ({
   insertPending: (...a: unknown[]) => mockInsertPending(...a),
   markPendingCancelled: (...a: unknown[]) => mockMarkPendingCancelled(...a),
+  scheduleAccountDeletionAtomic: (...a: unknown[]) => mockScheduleAtomic(...a),
 }));
 
 // ACCOUNT-BILLING-LIFECYCLE-1 — the deletion request cancels the account's ChainReact
@@ -87,6 +92,13 @@ beforeEach(() => {
   mockClearDeletion.mockReset();
   mockInsertPending.mockReset();
   mockMarkPendingCancelled.mockReset();
+  mockScheduleAtomic.mockReset().mockImplementation(async (input) => ({
+    outcome: "scheduled",
+    accountId: input.accountId,
+    deletionStatus: "pending_deletion",
+    deletionRequestedAt: input.requestedAt,
+    purgeAfter: input.purgeAfter,
+  }));
   mockCancelForDeletion
     .mockReset()
     .mockResolvedValue({ ok: true, outcome: "not_applicable" });
@@ -100,8 +112,6 @@ beforeEach(() => {
 describe("requestAccountDeletion", () => {
   it("freezes an active account and writes a pending audit row with the grace deadline", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
-    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
-    mockInsertPending.mockResolvedValueOnce({});
 
     const now = new Date("2026-05-31T00:00:00.000Z");
     const state = await requestAccountDeletion({
@@ -115,19 +125,17 @@ describe("requestAccountDeletion", () => {
     const expectedPurge = new Date(
       now.getTime() + DEFAULT_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
-    expect(mockSetDeletionPending).toHaveBeenCalledWith({
+    // ONE transactional call carries the freeze AND the audit row.
+    expect(mockScheduleAtomic).toHaveBeenCalledWith({
       accountId: ACCOUNT_ID,
       requestedByUserId: OWNER_ID,
       requestedAt: now.toISOString(),
       purgeAfter: expectedPurge,
+      challenge: null,
     });
-    expect(mockInsertPending).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accountId: ACCOUNT_ID,
-        ownerUserId: OWNER_ID,
-        purgeAfter: expectedPurge,
-      }),
-    );
+    // The two separate non-transactional writes are gone.
+    expect(mockSetDeletionPending).not.toHaveBeenCalled();
+    expect(mockInsertPending).not.toHaveBeenCalled();
   });
 
   it("is idempotent: requesting an already-pending account does not write again", async () => {
@@ -140,16 +148,13 @@ describe("requestAccountDeletion", () => {
     });
 
     expect(state.deletionStatus).toBe("pending_deletion");
-    expect(mockSetDeletionPending).not.toHaveBeenCalled();
-    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockScheduleAtomic).not.toHaveBeenCalled();
   });
 
   // ── Billing wind-down (ACCOUNT-BILLING-LIFECYCLE-1) ────────────────────────
 
   it("cancels the ChainReact subscription for the SAME account, AFTER the freeze committed", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
-    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
-    mockInsertPending.mockResolvedValueOnce({});
     mockCancelForDeletion.mockResolvedValueOnce({ ok: true, outcome: "canceled" });
 
     const state = await requestAccountDeletion({
@@ -162,15 +167,13 @@ describe("requestAccountDeletion", () => {
     expect(mockCancelForDeletion).toHaveBeenCalledWith(ACCOUNT_ID);
     expect(state.billingCancellation).toEqual({ status: "canceled", reason: null });
     // Freeze-first ordering: the lifecycle writes happened before the Stripe call.
-    expect(firstCallOrder(mockSetDeletionPending)).toBeLessThan(
+    expect(firstCallOrder(mockScheduleAtomic)).toBeLessThan(
       firstCallOrder(mockCancelForDeletion),
     );
   });
 
   it("a FREE account needs no Stripe cancellation and still reports success", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
-    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
-    mockInsertPending.mockResolvedValueOnce({});
     mockCancelForDeletion.mockResolvedValueOnce({ ok: true, outcome: "not_applicable" });
 
     const state = await requestAccountDeletion({
@@ -184,8 +187,6 @@ describe("requestAccountDeletion", () => {
 
   it("reports a Stripe failure as FAILED while still freezing the account", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
-    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
-    mockInsertPending.mockResolvedValueOnce({});
     mockCancelForDeletion.mockResolvedValueOnce({
       ok: false,
       reason: "stripe_unavailable",
@@ -198,7 +199,7 @@ describe("requestAccountDeletion", () => {
 
     // The freeze is REAL — the safety property committed regardless of Stripe.
     expect(state.deletionStatus).toBe("pending_deletion");
-    expect(mockSetDeletionPending).toHaveBeenCalled();
+    expect(mockScheduleAtomic).toHaveBeenCalled();
     // ...and the billing failure is reported, not swallowed.
     expect(state.billingCancellation).toEqual({
       status: "failed",
@@ -208,8 +209,6 @@ describe("requestAccountDeletion", () => {
 
   it("never throws out of the billing step — a thrown Stripe error becomes a FAILED outcome", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
-    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
-    mockInsertPending.mockResolvedValueOnce({});
     mockCancelForDeletion.mockRejectedValueOnce(new Error("network down"));
 
     const state = await requestAccountDeletion({
@@ -235,8 +234,7 @@ describe("requestAccountDeletion", () => {
     expect(mockCancelForDeletion).toHaveBeenCalledWith(ACCOUNT_ID);
     expect(state.billingCancellation).toEqual({ status: "canceled", reason: null });
     // No duplicate freeze / duplicate audit row.
-    expect(mockSetDeletionPending).not.toHaveBeenCalled();
-    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockScheduleAtomic).not.toHaveBeenCalled();
   });
 
   it("does not touch billing when the account does not exist", async () => {
@@ -249,8 +247,6 @@ describe("requestAccountDeletion", () => {
 
   it("honors a custom grace period", async () => {
     mockGetDeletionStatus.mockResolvedValueOnce("active");
-    mockSetDeletionPending.mockResolvedValueOnce(pendingAccountRecord());
-    mockInsertPending.mockResolvedValueOnce({});
 
     const now = new Date("2026-05-31T00:00:00.000Z");
     await requestAccountDeletion({
@@ -263,7 +259,7 @@ describe("requestAccountDeletion", () => {
     const expectedPurge = new Date(
       now.getTime() + 7 * 24 * 60 * 60 * 1000,
     ).toISOString();
-    expect(mockSetDeletionPending).toHaveBeenCalledWith(
+    expect(mockScheduleAtomic).toHaveBeenCalledWith(
       expect.objectContaining({ purgeAfter: expectedPurge }),
     );
   });

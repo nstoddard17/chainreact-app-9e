@@ -27,9 +27,11 @@ jest.mock("@/services/accounts/ensurePersonalAccount", () => ({
   ensurePersonalAccount: (...a: unknown[]) => mockEnsurePersonalAccount(...a),
 }));
 
-const mockConsume = jest.fn();
+// ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A: the route RESOLVES the authorization
+// read-only; the spending happens inside the deletion transaction.
+const mockResolve = jest.fn();
 jest.mock("@/services/accounts/deletionChallenge", () => ({
-  consumeDeletionAuthorization: (...a: unknown[]) => mockConsume(...a),
+  resolveDeletionAuthorization: (...a: unknown[]) => mockResolve(...a),
 }));
 
 const mockRequestAccountDeletion = jest.fn();
@@ -47,7 +49,19 @@ jest.mock("@/repositories/accounts", () => ({
 }));
 
 import { POST } from "@/app/api/account/delete/route";
-import { OwnedAccountsBlockDeletionError } from "@/services/accounts/accountDeletion";
+import {
+  DeletionAuthorizationRequiredError,
+  OwnedAccountsBlockDeletionError,
+} from "@/services/accounts/accountDeletion";
+
+/** A resolved-but-unspent authorization handle, as the real service returns it. */
+const AUTHORIZATION = {
+  challengeId: "chal-1",
+  userId: "user-1",
+  purpose: "delete_account",
+  sessionBinding: "session-digest",
+  emailBinding: "email-digest",
+};
 
 const USER_ID = "user-1";
 const ACCOUNT_ID = "acct-1";
@@ -85,7 +99,7 @@ beforeEach(() => {
   mockGetUser.mockReset();
   mockGetSession.mockReset();
   mockEnsurePersonalAccount.mockReset();
-  mockConsume.mockReset();
+  mockResolve.mockReset();
   mockRequestAccountDeletion.mockReset();
   // Default: the user owns no team/org accounts → deletion proceeds.
   mockListOwnedTeamOrg.mockReset().mockResolvedValue([]);
@@ -143,7 +157,7 @@ describe("POST /api/account/delete — universal email-code authorization", () =
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
     const res = await POST(req({ confirmText: "DELETE" }));
     expect(res.status).toBe(401);
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
 
@@ -151,25 +165,25 @@ describe("POST /api/account/delete — universal email-code authorization", () =
     signedIn();
     const res = await POST(req({ confirmText: "DELETE", password: "hunter2" }));
     expect(res.status).toBe(400);
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
 
   it("400s anything other than the exact word DELETE, before the authorization is spent", async () => {
     for (const confirmText of ["delete", " DELETE ", "delete my account", "DELETE ME", ""]) {
-      mockConsume.mockClear();
+      mockResolve.mockClear();
       mockRequestAccountDeletion.mockClear();
       signedIn();
       const res = await POST(req({ confirmText }));
       expect(res.status).toBe(400);
-      expect(mockConsume).not.toHaveBeenCalled();
+      expect(mockResolve).not.toHaveBeenCalled();
       expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
     }
   });
 
   it("401s when there is no verified authorization and never freezes the account", async () => {
     signedIn();
-    mockConsume.mockResolvedValueOnce({ ok: false, reason: "no_authorization" });
+    mockResolve.mockResolvedValueOnce({ ok: false, reason: "no_authorization" });
     const res = await POST(req({ confirmText: "DELETE" }));
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -181,7 +195,7 @@ describe("POST /api/account/delete — universal email-code authorization", () =
     const codes: string[] = [];
     for (const reason of ["no_authorization", "expired"]) {
       signedIn();
-      mockConsume.mockResolvedValueOnce({ ok: false, reason });
+      mockResolve.mockResolvedValueOnce({ ok: false, reason });
       const res = await POST(req({ confirmText: "DELETE" }));
       codes.push((await res.json()).code);
     }
@@ -191,7 +205,7 @@ describe("POST /api/account/delete — universal email-code authorization", () =
 
   it("503s a misconfigured challenge subsystem rather than deleting unverified", async () => {
     signedIn();
-    mockConsume.mockResolvedValueOnce({ ok: false, reason: "not_configured" });
+    mockResolve.mockResolvedValueOnce({ ok: false, reason: "not_configured" });
     const res = await POST(req({ confirmText: "DELETE" }));
     expect(res.status).toBe(503);
     expect((await res.json()).code).toBe("VERIFICATION_UNAVAILABLE");
@@ -203,13 +217,13 @@ describe("POST /api/account/delete — universal email-code authorization", () =
     const res = await POST(req({ confirmText: "DELETE" }));
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("MFA_REQUIRED");
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
     expect(mockRequestAccountDeletion).not.toHaveBeenCalled();
   });
 
   it("allows an MFA-enrolled user at AAL2 (code AND assurance, not code INSTEAD OF assurance)", async () => {
     signedIn({ factors: [{ status: "verified", factor_type: "totp" }], aal: "aal2" });
-    mockConsume.mockResolvedValueOnce({ ok: true, challengeId: "c1" });
+    mockResolve.mockResolvedValueOnce({ ok: true, authorization: AUTHORIZATION });
     mockRequestAccountDeletion.mockResolvedValueOnce({
       deletionStatus: "pending_deletion",
       deletionRequestedAt: "t",
@@ -224,12 +238,12 @@ describe("POST /api/account/delete — universal email-code authorization", () =
     const res = await POST(req({ confirmText: "DELETE" }));
     expect(res.status).toBe(401);
     expect((await res.json()).code).toBe("SESSION_UNAVAILABLE");
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
   });
 
   it("freezes the account on the happy path, consuming the caller's OWN session authorization", async () => {
     signedIn({ email: "owner@example.com" });
-    mockConsume.mockResolvedValueOnce({ ok: true, challengeId: "chal-1" });
+    mockResolve.mockResolvedValueOnce({ ok: true, authorization: AUTHORIZATION });
     mockRequestAccountDeletion.mockResolvedValueOnce({
       deletionStatus: "pending_deletion",
       deletionRequestedAt: "2026-05-31T00:00:00.000Z",
@@ -246,7 +260,7 @@ describe("POST /api/account/delete — universal email-code authorization", () =
       billingCancellation: "canceled",
     });
     // Every binding comes from the verified session — nothing from the body.
-    expect(mockConsume).toHaveBeenCalledWith({
+    expect(mockResolve).toHaveBeenCalledWith({
       userId: USER_ID,
       sessionId: SESSION_ID,
       verifiedEmail: "owner@example.com",
@@ -254,27 +268,49 @@ describe("POST /api/account/delete — universal email-code authorization", () =
     expect(mockRequestAccountDeletion).toHaveBeenCalledWith({
       accountId: ACCOUNT_ID,
       requestedByUserId: USER_ID,
+      authorization: AUTHORIZATION,
     });
   });
 
-  it("consumes the authorization BEFORE the lifecycle transition (replay can't reuse it)", async () => {
+  it("RESOLVES the authorization and hands it to the lifecycle — the route never spends it", async () => {
+    // 1A: consumption moved INTO the deletion transaction. The route's job is to
+    // resolve read-only and pass the handle down, so a downstream refusal can roll
+    // the consumption back with everything else.
     const order: string[] = [];
     signedIn();
-    mockConsume.mockImplementationOnce(async () => {
-      order.push("consume");
-      return { ok: true, challengeId: "c1" };
+    mockResolve.mockImplementationOnce(async () => {
+      order.push("resolve");
+      return { ok: true, authorization: AUTHORIZATION };
     });
     mockRequestAccountDeletion.mockImplementationOnce(async () => {
       order.push("delete");
       return { deletionStatus: "pending_deletion", deletionRequestedAt: "t", purgeAfter: "t2" };
     });
     await POST(req({ confirmText: "DELETE" }));
-    expect(order).toEqual(["consume", "delete"]);
+    expect(order).toEqual(["resolve", "delete"]);
+    // The handle is threaded through so the transaction can spend it atomically.
+    expect(mockRequestAccountDeletion).toHaveBeenCalledWith({
+      accountId: ACCOUNT_ID,
+      requestedByUserId: USER_ID,
+      authorization: AUTHORIZATION,
+    });
+  });
+
+  it("401s (non-enumerating) when the TRANSACTION found nothing to spend", async () => {
+    // The atomic consume lost the race / the code expired between resolve and spend.
+    signedIn();
+    mockResolve.mockResolvedValueOnce({ ok: true, authorization: AUTHORIZATION });
+    mockRequestAccountDeletion.mockRejectedValueOnce(
+      new DeletionAuthorizationRequiredError(),
+    );
+    const res = await POST(req({ confirmText: "DELETE" }));
+    expect(res.status).toBe(401);
+    expect((await res.json()).code).toBe("VERIFICATION_REQUIRED");
   });
 
   it("a REPLAY of the same request fails once the authorization is spent", async () => {
     signedIn();
-    mockConsume.mockResolvedValueOnce({ ok: true, challengeId: "c1" });
+    mockResolve.mockResolvedValueOnce({ ok: true, authorization: AUTHORIZATION });
     mockRequestAccountDeletion.mockResolvedValueOnce({
       deletionStatus: "pending_deletion",
       deletionRequestedAt: "t",
@@ -284,7 +320,7 @@ describe("POST /api/account/delete — universal email-code authorization", () =
 
     // Second attempt: the atomic consume finds nothing left to spend.
     signedIn();
-    mockConsume.mockResolvedValueOnce({ ok: false, reason: "no_authorization" });
+    mockResolve.mockResolvedValueOnce({ ok: false, reason: "no_authorization" });
     const replay = await POST(req({ confirmText: "DELETE" }));
     expect(replay.status).toBe(401);
     expect(mockRequestAccountDeletion).toHaveBeenCalledTimes(1);
@@ -301,7 +337,7 @@ describe("POST /api/account/delete — universal email-code authorization", () =
 
   it("never echoes a code, address, or session id in any response", async () => {
     signedIn({ email: "owner@example.com" });
-    mockConsume.mockResolvedValueOnce({ ok: false, reason: "no_authorization" });
+    mockResolve.mockResolvedValueOnce({ ok: false, reason: "no_authorization" });
     const res = await POST(req({ confirmText: "DELETE" }));
     const text = JSON.stringify(await res.json());
     expect(text).not.toContain("owner@example.com");
@@ -317,7 +353,7 @@ describe("POST /api/account/delete — eligibility checks re-run at deletion tim
     // route PROJECTS the service's typed refusal into HTTP 409 — and because the check
     // runs at DELETION time, a team acquired after the code was verified still blocks.
     signedIn();
-    mockConsume.mockResolvedValueOnce({ ok: true, challengeId: "c1" });
+    mockResolve.mockResolvedValueOnce({ ok: true, authorization: AUTHORIZATION });
     mockRequestAccountDeletion.mockRejectedValueOnce(
       new OwnedAccountsBlockDeletionError([
         { id: "team-1", name: "Acme Team", type: "team" },
@@ -352,7 +388,7 @@ describe("POST /api/account/delete — eligibility checks re-run at deletion tim
 describe("POST /api/account/delete — billing cancellation outcome", () => {
   function happyPath(billingCancellation: unknown) {
     signedIn({ email: "owner@example.com" });
-    mockConsume.mockResolvedValueOnce({ ok: true, challengeId: "c1" });
+    mockResolve.mockResolvedValueOnce({ ok: true, authorization: AUTHORIZATION });
     mockRequestAccountDeletion.mockResolvedValueOnce({
       deletionStatus: "pending_deletion",
       deletionRequestedAt: "2026-05-31T00:00:00.000Z",

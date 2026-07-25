@@ -38,9 +38,13 @@ jest.mock("@/repositories/accountMemberships", () => ({
 }));
 
 const mockInsertPending = jest.fn();
+// ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A: freeze + audit row + (optional)
+// challenge consumption are ONE transactional RPC now.
+const mockScheduleAtomic = jest.fn();
 const mockMarkPendingCancelled = jest.fn();
 jest.mock("@/repositories/accountDeletions", () => ({
   insertPending: (...a: unknown[]) => mockInsertPending(...a),
+  scheduleAccountDeletionAtomic: (...a: unknown[]) => mockScheduleAtomic(...a),
   markPendingCancelled: (...a: unknown[]) => mockMarkPendingCancelled(...a),
 }));
 
@@ -112,6 +116,13 @@ beforeEach(() => {
     );
   mockGetRoleSR.mockReset().mockResolvedValue("member");
   mockInsertPending.mockReset().mockResolvedValue({});
+  mockScheduleAtomic.mockReset().mockImplementation(async (input) => ({
+    outcome: "scheduled",
+    accountId: input.accountId,
+    deletionStatus: "pending_deletion",
+    deletionRequestedAt: input.requestedAt,
+    purgeAfter: input.purgeAfter,
+  }));
   mockMarkPendingCancelled.mockReset();
   mockCancelForDeletion.mockReset().mockResolvedValue({ ok: true, outcome: "canceled" });
 });
@@ -137,7 +148,7 @@ describe("the documented happy sequence", () => {
     await expect(deleteOwnersPersonalAccount()).rejects.toBeInstanceOf(
       OwnedAccountsBlockDeletionError,
     );
-    expect(mockSetDeletionPending).not.toHaveBeenCalled();
+    expect(mockScheduleAtomic).not.toHaveBeenCalled();
     expect(mockCancelForDeletion).not.toHaveBeenCalled();
 
     // 2. Transfer to an active successor succeeds...
@@ -173,7 +184,7 @@ describe("transfer to an INELIGIBLE successor does not unlock deletion", () => {
     await expect(deleteOwnersPersonalAccount()).rejects.toBeInstanceOf(
       OwnedAccountsBlockDeletionError,
     );
-    expect(mockSetDeletionPending).not.toHaveBeenCalled();
+    expect(mockScheduleAtomic).not.toHaveBeenCalled();
   });
 
   it("leaves the team's billing and the owner's billing untouched", async () => {

@@ -6,8 +6,9 @@ import {
   RequestDeletionBodySchema,
   toDeletionStatusResponse,
 } from "@/app/api/account/_shared";
-import { consumeDeletionAuthorization } from "@/services/accounts/deletionChallenge";
+import { resolveDeletionAuthorization } from "@/services/accounts/deletionChallenge";
 import {
+  DeletionAuthorizationRequiredError,
   OwnedAccountsBlockDeletionError,
   requestAccountDeletion,
 } from "@/services/accounts/accountDeletion";
@@ -48,16 +49,22 @@ function accountTypeLabel(type: OwnedAccountSummary["type"]): string {
  *      the user has MFA enrolled (the email code is layered on top of the
  *      existing assurance contract, never instead of it).
  *   3. Exact typed confirmation `DELETE` (anti-accidental, case-sensitive).
- *   4. ATOMIC consumption of the verified challenge — compare-and-set on
- *      `consumed_at`, so a replay of this request finds nothing to spend.
+ *   4. ATOMIC consumption of the verified challenge — a compare-and-set on
+ *      `consumed_at` performed in the SAME transaction as the freeze, so a replay
+ *      of this request finds nothing to spend.
  *
- * ── Ordering: consume, THEN transition ─────────────────────────────────────────
- * The authorization is spent BEFORE `requestAccountDeletion` runs. If the
- * lifecycle transition then fails, the account is NOT marked as scheduled and the
- * challenge is (correctly) used up — the user requests a new code. The inverse
- * ordering would leave a window in which one code could schedule deletion twice.
- * Consuming an authorization is not itself destructive: every rule downstream is
- * still enforced, and a blocked request simply costs the user a fresh code.
+ * ── Ordering: resolve, then consume-AND-transition together ───────────────────
+ * (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A.) The route RESOLVES the
+ * authorization read-only, then hands it to `requestAccountDeletion`, which spends
+ * it inside the same DB transaction that freezes the account and writes the audit
+ * row (`schedule_account_deletion`). All three writes share one outcome.
+ *
+ * The earlier consume-then-write sequence was replay-safe but had inconsistent
+ * failure outcomes: a sole-owner refusal, or any failed durable write, burned the
+ * user's code while scheduling nothing. Now a refusal rolls the consumption back
+ * with everything else and the code stays usable until it expires normally.
+ * Replay protection is unchanged — it has always lived at the compare-and-set,
+ * which is now simply inside the transaction.
  *
  * Self-serve scope: the account is resolved from the session user id — the body
  * carries NO account id, so a caller can only ever request deletion of their own
@@ -81,8 +88,10 @@ export async function POST(request: Request): Promise<Response> {
   const body = await parseAccountBody(request, RequestDeletionBodySchema);
   if (!body.ok) return body.response;
 
-  // Step-up: spend the verified, session-bound, purpose-bound email challenge.
-  const authorization = await consumeDeletionAuthorization({
+  // Step-up: RESOLVE the verified, session-bound, purpose-bound email challenge.
+  // This does NOT spend it — the transaction below does, atomically with the
+  // freeze, so a refusal further down leaves the user's code usable.
+  const authorization = await resolveDeletionAuthorization({
     userId: auth.userId,
     sessionId: stepUp.sessionId,
     verifiedEmail: auth.email,
@@ -123,14 +132,31 @@ export async function POST(request: Request): Promise<Response> {
     state = await requestAccountDeletion({
       accountId: auth.account.id,
       requestedByUserId: auth.userId,
+      authorization: authorization.authorization,
     });
   } catch (err) {
+    // The atomic transaction found no live authorization to spend (expired,
+    // invalidated, or another request won the race). Nothing was written. Same
+    // non-enumerating answer as the resolve-time refusal above.
+    if (err instanceof DeletionAuthorizationRequiredError) {
+      console.info(
+        JSON.stringify({
+          event: "account.delete.request.authorization_failed",
+          reason: "consume_lost",
+        }),
+      );
+      return NextResponse.json(
+        { error: err.message, code: "VERIFICATION_REQUIRED" },
+        { status: 401 },
+      );
+    }
     // The canonical sole-owner precondition refused. Nothing was frozen, no subscription
     // was touched, no audit row exists — project it as an actionable 409 with the accounts
     // to resolve. Names are the caller's OWN accounts, so returning them is authorized;
     // no other account's data, no ids beyond the ones they already navigate by, and no
-    // Stripe/billing detail is disclosed. The consumed authorization is deliberately NOT
-    // restored: a fresh code is cheap, a re-usable authorization is not.
+    // Stripe/billing detail is disclosed. The user's verification code is NOT spent by
+    // this refusal (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A) — they can resolve the
+    // ownership and finish with the same code.
     if (err instanceof OwnedAccountsBlockDeletionError) {
       return NextResponse.json(
         {

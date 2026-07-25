@@ -358,39 +358,57 @@ function rejectionToVerifyFailure(
   }
 }
 
-// ── Consume ───────────────────────────────────────────────────────────────────
+// ── Resolve (the spender is the DB transaction, not this module) ──────────────
 
-export interface ConsumeDeletionAuthorizationInput {
+export interface ResolveDeletionAuthorizationInput {
   userId: string;
   sessionId: string;
   verifiedEmail: string | null;
   now?: Date;
 }
 
-export type ConsumeDeletionAuthorizationResult =
-  | { ok: true; challengeId: string }
+/**
+ * A resolved-but-NOT-yet-spent authorization. Carries the challenge id plus the
+ * binding digests, so the transaction that spends it can re-assert every binding
+ * in SQL rather than trusting this read.
+ */
+export interface DeletionAuthorizationHandle {
+  challengeId: string;
+  userId: string;
+  purpose: string;
+  sessionBinding: string;
+  emailBinding: string;
+}
+
+export type ResolveDeletionAuthorizationResult =
+  | { ok: true; authorization: DeletionAuthorizationHandle }
   | { ok: false; reason: "no_authorization" | "expired" | "not_configured" };
 
 /**
- * Spend the verified authorization. Called by the final deletion request BEFORE
- * the lifecycle transition.
+ * Resolve — but do NOT spend — the caller's verified deletion authorization
+ * (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A).
  *
- * Consume-first is intentional. The compare-and-set on `consumed_at` is the only
- * thing standing between one authorization and unlimited replays, so it must win
- * the race even if everything downstream then fails. The cost is that a failed
- * deletion burns the code and the user requests a new one — which is the correct
- * trade: a burned code is an inconvenience, a replayable one is a vulnerability.
- * It also guarantees the pairing the spec demands in the other direction: we can
- * never end up with an account marked "scheduled for deletion" while the
- * challenge still looks unused.
+ * ── Why this no longer consumes ────────────────────────────────────────────────
+ * The first implementation spent the challenge here, before the lifecycle call.
+ * That made a replay impossible, but it gave the failure paths inconsistent
+ * outcomes: the sole-owner refusal, or any failed durable write, burned the user's
+ * code while scheduling nothing. Consumption now happens inside the SAME
+ * transaction as the freeze and the audit-row insert
+ * (`schedule_account_deletion`), so all three share one outcome and a refusal
+ * leaves the code usable until its normal expiry.
  *
- * Bindings are re-checked on the row this call actually consumed — the atomic
- * update is keyed on the id, and the returned row is then verified to belong to
- * this user, this session, this purpose, and this (still-current) email.
+ * Replay protection is unchanged and still lives at the compare-and-set: the
+ * transaction's `UPDATE … WHERE consumed_at IS NULL` is what serializes spenders,
+ * and this read is only an early, friendly refusal. Nothing here is trusted — the
+ * bindings it returns are re-asserted in SQL by the spender.
+ *
+ * Every binding is derived from the CURRENT session and the CURRENT verified
+ * email, so a challenge belonging to another user, session, purpose, or a since-
+ * changed address resolves to the same generic refusal.
  */
-export async function consumeDeletionAuthorization(
-  input: ConsumeDeletionAuthorizationInput,
-): Promise<ConsumeDeletionAuthorizationResult> {
+export async function resolveDeletionAuthorization(
+  input: ResolveDeletionAuthorizationInput,
+): Promise<ResolveDeletionAuthorizationResult> {
   if (!isChallengeKeyConfigured()) return { ok: false, reason: "not_configured" };
 
   const now = input.now ?? new Date();
@@ -416,31 +434,15 @@ export async function consumeDeletionAuthorization(
     };
   }
 
-  const consumed = await challengesRepo.consumeVerifiedChallenge({
-    id: row!.id,
-    consumedAt: now.toISOString(),
-  });
-  if (!consumed) {
-    // Another request already spent it — this is the replay path.
-    log("account.delete.authorization.replay_refused", { purpose: PURPOSE });
-    return { ok: false, reason: "no_authorization" };
-  }
-
-  // Re-assert every binding on the row we actually consumed. Belt-and-braces
-  // against a row swapped underneath us between read and update.
-  const postCheck = evaluateChallengeForConsumption(
-    { ...consumed, consumedAt: null },
-    bindings,
-    now,
-  );
-  if (postCheck) {
-    log("account.delete.authorization.post_check_failed", {
-      purpose: PURPOSE,
-      reason: postCheck,
-    });
-    return { ok: false, reason: "no_authorization" };
-  }
-
-  log("account.delete.authorization.consumed", { purpose: PURPOSE });
-  return { ok: true, challengeId: consumed.id };
+  log("account.delete.authorization.resolved", { purpose: PURPOSE });
+  return {
+    ok: true,
+    authorization: {
+      challengeId: row!.id,
+      userId: bindings.userId,
+      purpose: bindings.purpose,
+      sessionBinding: bindings.sessionBinding,
+      emailBinding: bindings.emailBinding,
+    },
+  };
 }

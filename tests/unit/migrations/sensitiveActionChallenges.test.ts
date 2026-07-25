@@ -126,6 +126,87 @@ describe("sensitive_action_challenges migration (static guards)", () => {
 });
 
 /**
+ * ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A — the atomic
+ * consume-and-schedule RPC. Static guards for the security fences and for the
+ * three writes that must share one transaction; its runtime behavior is proved
+ * against real Postgres in
+ * tests/integration/accounts/deletionAuthorizationAtomicity.dev.test.ts.
+ */
+describe("schedule_account_deletion RPC (static guards)", () => {
+  const rpc = readFileSync(
+    join(MIGRATIONS, "20260807000000_schedule_account_deletion_rpc.sql"),
+    "utf8",
+  );
+  const rpcCode = rpc.replace(/--[^\n]*/g, "");
+
+  it("is SECURITY DEFINER with a pinned search_path", () => {
+    expect(rpcCode).toMatch(/SECURITY\s+DEFINER/i);
+    expect(rpcCode).toMatch(/SET\s+search_path\s*=\s*public/i);
+  });
+
+  it("is EXECUTE-able by service_role ONLY", () => {
+    expect(rpcCode).toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.schedule_account_deletion[\s\S]*?FROM\s+PUBLIC,\s*anon,\s*authenticated/i,
+    );
+    expect(rpcCode).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.schedule_account_deletion[\s\S]*?TO\s+service_role/i,
+    );
+    expect(rpcCode).not.toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.schedule_account_deletion[\s\S]*?TO\s+(anon|authenticated)\b/i,
+    );
+  });
+
+  it("locks the account row so concurrent submissions serialize", () => {
+    expect(rpcCode).toMatch(/FROM\s+public\.accounts\s+WHERE\s+id\s*=\s*p_account_id\s+FOR\s+UPDATE/i);
+  });
+
+  it("performs ALL THREE writes — consume, freeze, audit row — in the one function", () => {
+    expect(rpcCode).toMatch(/UPDATE\s+public\.sensitive_action_challenges[\s\S]*?SET\s+consumed_at/i);
+    expect(rpcCode).toMatch(/UPDATE\s+public\.accounts[\s\S]*?deletion_status\s*=\s*'pending_deletion'/i);
+    expect(rpcCode).toMatch(/INSERT\s+INTO\s+public\.account_deletions/i);
+  });
+
+  it("re-asserts EVERY challenge binding in the consuming UPDATE", () => {
+    const consume = /UPDATE\s+public\.sensitive_action_challenges[\s\S]*?RETURNING/i.exec(rpcCode)![0];
+    expect(consume).toMatch(/user_id\s*=\s*p_challenge_user_id/i);
+    expect(consume).toMatch(/purpose\s*=\s*p_challenge_purpose/i);
+    expect(consume).toMatch(/session_binding\s*=\s*p_challenge_session_binding/i);
+    expect(consume).toMatch(/email_binding\s*=\s*p_challenge_email_binding/i);
+    // Single-use + verified + still inside both windows.
+    expect(consume).toMatch(/consumed_at\s+IS\s+NULL/i);
+    expect(consume).toMatch(/invalidated_at\s+IS\s+NULL/i);
+    expect(consume).toMatch(/verified_at\s+IS\s+NOT\s+NULL/i);
+    expect(consume).toMatch(/verification_expires_at\s*>\s*p_requested_at/i);
+    expect(consume).toMatch(/expires_at\s*>\s*p_requested_at/i);
+  });
+
+  it("re-checks the sole-owner precondition BEFORE consuming anything", () => {
+    const ownerGuard = rpcCode.indexOf("owned_accounts_block");
+    const consume = rpcCode.search(/UPDATE\s+public\.sensitive_action_challenges/i);
+    expect(ownerGuard).toBeGreaterThan(-1);
+    expect(consume).toBeGreaterThan(-1);
+    // The refusal returns before the consume statement is ever reached.
+    expect(ownerGuard).toBeLessThan(consume);
+    expect(rpcCode).toMatch(/owned\.type\s+IN\s*\(\s*'team',\s*'organization'\s*\)/i);
+  });
+
+  it("short-circuits an already-pending account without consuming or re-writing", () => {
+    const pendingBranch = rpcCode.indexOf("already_pending");
+    const consume = rpcCode.search(/UPDATE\s+public\.sensitive_action_challenges/i);
+    expect(pendingBranch).toBeLessThan(consume);
+  });
+
+  it("makes the challenge optional so system/admin paths still work", () => {
+    expect(rpcCode).toMatch(/IF\s+p_challenge_id\s+IS\s+NOT\s+NULL\s+THEN/i);
+  });
+
+  it("does NOT perform external billing work inside the transaction", () => {
+    expect(rpcCode).not.toMatch(/stripe/i);
+    expect(rpcCode).not.toMatch(/http|net\./i);
+  });
+});
+
+/**
  * Account-deletion MEMBERSHIP contract (unchanged by this slice, re-proved here).
  *
  * A user who is only a MEMBER of someone else's team must, on final purge, lose

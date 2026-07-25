@@ -50,6 +50,93 @@ function rowToRecord(row: AccountDeletionsRow): AccountDeletionRecord {
   };
 }
 
+/**
+ * ATOMIC: spend the caller's verified deletion authorization AND perform the
+ * durable pending-deletion transition in ONE transaction
+ * (ACCOUNT-DELETION-UNIVERSAL-VERIFICATION-1A).
+ *
+ * A single PostgREST RPC call is one transaction, so the challenge consumption,
+ * the `accounts` freeze, and the `account_deletions` audit row share one outcome:
+ * all three commit, or none of them do. That is what makes the two failure modes
+ * of the previous consume-then-write sequence impossible — an eligibility refusal
+ * can no longer burn the user's code, and a failed write can no longer leave an
+ * authorization permanently spent with no deletion scheduled.
+ *
+ * `challenge` is optional: system / admin / billing-retry paths pass null and only
+ * the transition is performed. When present, every binding is re-asserted inside
+ * the SQL, so this cannot spend a challenge belonging to another user, session,
+ * purpose, or a since-changed email address.
+ *
+ * Outcomes are DATA, not exceptions — each one is a legitimate state the caller
+ * must project into its own contract (409 owned-teams, 401 unverified, idempotent
+ * already-pending, …).
+ */
+export type ScheduleDeletionOutcome =
+  | "scheduled"
+  | "already_pending"
+  | "no_authorization"
+  | "owned_accounts_block"
+  | "account_not_found";
+
+export interface ScheduleDeletionResult {
+  outcome: ScheduleDeletionOutcome;
+  accountId: string | null;
+  deletionStatus: string | null;
+  deletionRequestedAt: string | null;
+  purgeAfter: string | null;
+}
+
+interface ScheduleDeletionRow {
+  out_outcome: ScheduleDeletionOutcome;
+  out_account_id: string | null;
+  out_deletion_status: string | null;
+  out_deletion_requested_at: string | null;
+  out_purge_after: string | null;
+}
+
+export async function scheduleAccountDeletionAtomic(input: {
+  accountId: string;
+  requestedByUserId: string | null;
+  requestedAt: string;
+  purgeAfter: string;
+  challenge: {
+    challengeId: string;
+    userId: string;
+    purpose: string;
+    sessionBinding: string;
+    emailBinding: string;
+  } | null;
+}): Promise<ScheduleDeletionResult> {
+  const supabase = getServiceRoleClient(
+    `account_deletions: scheduleAccountDeletionAtomic for account ${input.accountId}`,
+  );
+  const { data, error } = await supabase
+    .rpc("schedule_account_deletion", {
+      p_account_id: input.accountId,
+      p_requested_by_user_id: input.requestedByUserId,
+      p_requested_at: input.requestedAt,
+      p_purge_after: input.purgeAfter,
+      p_challenge_id: input.challenge?.challengeId ?? null,
+      p_challenge_user_id: input.challenge?.userId ?? null,
+      p_challenge_purpose: input.challenge?.purpose ?? null,
+      p_challenge_session_binding: input.challenge?.sessionBinding ?? null,
+      p_challenge_email_binding: input.challenge?.emailBinding ?? null,
+    })
+    .single<ScheduleDeletionRow>();
+  if (error || !data) {
+    throw new Error(
+      `account_deletions.scheduleAccountDeletionAtomic failed: ${error?.message ?? "no row"}`,
+    );
+  }
+  return {
+    outcome: data.out_outcome,
+    accountId: data.out_account_id,
+    deletionStatus: data.out_deletion_status,
+    deletionRequestedAt: data.out_deletion_requested_at,
+    purgeAfter: data.out_purge_after,
+  };
+}
+
 /** Append a new `pending` deletion-audit row. */
 export async function insertPending(input: {
   accountId: string;
