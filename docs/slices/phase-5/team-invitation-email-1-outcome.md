@@ -1,10 +1,12 @@
 # TEAM-INVITATION-EMAIL-1 — Team invitation email delivery (outcome)
 
-**Status:** implemented, locally verified (unit layer green; live provider send
-blocked on a valid key — see [Owner setup](#owner-setup-still-required)).
+**Status:** LIVE IN PRODUCTION and delivery-verified. Pushed to `v2-main` and
+deployed 2026-07-25 with Marcus's explicit approval; a real production
+invitation email was delivered the same day (see
+[Production verification](#production-verification-2026-07-25)).
 **Scope:** invitation email delivery + acceptance-flow verification. Builds on
 4.ACCOUNT-MODEL-15 (invitation backend), 4.TEAM-PAGE-1 (invite UI), 5.ONBOARD-4
-(accept page). No migration. Nothing pushed.
+(accept page). No migration.
 
 ## What shipped
 
@@ -79,21 +81,22 @@ blocked on a valid key — see [Owner setup](#owner-setup-still-required)).
 BOTH email vars must be set or the transport reports `not_configured`; the
 invitation + copy link still work (this is the intended local-dev behavior).
 
-## Owner setup still required
+## Owner setup — COMPLETE (2026-07-25)
 
-1. In Resend: verify the `chainreact.app` sending domain (DNS: SPF + DKIM
-   records shown in the Resend dashboard under Domains → Add Domain), then
-   create a production API key.
-2. Set `RESEND_API_KEY` + `TRANSACTIONAL_EMAIL_FROM` in the Vercel Production
-   scope. The `RESEND_API_KEY` currently in `.env.local` is **invalid** — a
-   live probe on 2026-07-24 returned Resend `validation_error: "API key is
-   invalid"` (that probe also confirmed the transport's typed, non-retried
-   handling of a permanent 4xx against the real provider).
-3. Test-mode delivery without customer addresses: with any valid key, send
-   from Resend's sandbox sender `onboarding@resend.dev` to the Resend account
-   owner's own address (no verified domain needed). A ready-made script shape
-   for this lives in this slice's history: render `teamInvitation` with a FAKE
-   token and call `sendViaResend` directly — no invitation row involved.
+Marcus configured `RESEND_API_KEY` + `TRANSACTIONAL_EMAIL_FROM` in the Vercel
+Production scope on 2026-07-25 (values never inspected or logged by tooling).
+Historical note: the `RESEND_API_KEY` that sat in `.env.local` on 2026-07-24
+was invalid — a live probe returned Resend `validation_error: "API key is
+invalid"` (that probe also confirmed the transport's typed, non-retried
+handling of a permanent 4xx against the real provider). Local dev remains
+`not_configured` unless both vars are set locally, which is the intended
+copy-link fallback mode.
+
+Test-mode delivery without customer addresses (repeatable): sign in as the
+production smoke account, create a disposable smoke-prefixed team, invite an
+owner-controlled address, read `emailDelivery.status` from the create
+response, then REVOKE the invitation (the emailed link then renders the
+friendly revoked page). Never log the `acceptToken`/`acceptPath`.
 
 ## Failure semantics (what the inviter sees)
 
@@ -132,7 +135,33 @@ subjects, bodies, and the API key never appear in logs, errors, or responses.
   fail-closed). Run with
   `npx playwright test tests/e2e/team-invitation-new-user-journey.spec.ts --workers=1`
   once `supabase start` is healthy.
-- Live provider delivery: attempted once via the real transport + template to
-  the approved smoke address; blocked by the invalid local API key (above). No
-  real email has been delivered yet — do not treat delivery as
-  production-verified until the owner-setup steps are done.
+- Live provider delivery (2026-07-24 attempt): blocked by the then-invalid
+  local API key — superseded by the production verification below.
+
+## Production verification (2026-07-25)
+
+Pushed `e2347bd29..7cf122d16` to `origin/v2-main` (12-commit stack including
+this slice; Marcus explicitly approved pushing everything). Pre-push: `npx tsc
+--noEmit` clean on HEAD; CD-2's `analytics_provider_rate_limits` table
+confirmed present on the live DB (read-only probe) before deploying its code.
+
+- **Deploy:** confirmed live via the stack's new public `/help` route going
+  404 → 200 on chainreact.app (~4 min after push).
+- **Public smoke:** `playwright.smoke.config.ts --project public` — 14/14
+  passed against the deployed app.
+- **Authenticated smoke sign-in caveat:** the form-based `auth-setup` project
+  currently FAILS against production — Cloudflare Turnstile does not issue a
+  token to the automated browser (headless or headed), so the submit button
+  never enables. Worked around (no app change) with the same technique as
+  `tests/e2e/helpers/supabaseAdmin.ts`: service-role `generateLink(recovery)`
+  driven through the app's own `/auth/callback`.
+- **Real production delivery: PROVEN.** As the smoke account: created a
+  disposable "Smoke Test Invite Team" (201), invited an owner-controlled
+  address (201) — **`emailDelivery.status: "sent"`** (production Resend
+  accepted the message; the email arrived from the configured sender). The
+  invitation was then revoked (200) so the emailed link renders the friendly
+  revoked page, and the smoke account's personal account was re-activated
+  (200). Residue: the smoke-prefixed team row remains on the smoke account;
+  the invited address received one real email + one in-app notification.
+- The new-user Playwright journey spec remains **not executed** (local
+  Docker/Supabase e2e stack down); unchanged from the local-batch report.
