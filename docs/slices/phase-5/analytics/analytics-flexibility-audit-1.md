@@ -6,22 +6,22 @@ changes in this slice. Nothing pushed, deployed, or migrated.**
 **Branch:** `v2-main` (local)
 
 **Doc location note:** the prior Analytics arc docs live in
-[`docs/slices/phase-4/analytics/`](../phase-4/analytics/) (ANALYTICS-1 closeout +
+[`docs/slices/phase-4/analytics/`](../../phase-4/analytics/) (ANALYTICS-1 closeout +
 observability decision). Current planning work lands in `docs/slices/phase-5/`
 alongside the other active phase-5 plans, so this doc lives here and links back to
 the phase-4 analytics docs as parents.
 
 **Source of truth (verified current state):**
-[analyticsOverview.ts](../../../services/analytics/analyticsOverview.ts) (internal metric engine) ·
-[data/route.ts](../../../app/api/analytics/data/route.ts) + [_shared.ts](../../../app/api/analytics/_shared.ts) (overview route + gates) ·
-[dashboards.ts](../../../services/analytics/dashboards.ts) + [repositories/analyticsDashboards.ts](../../../repositories/analyticsDashboards.ts) (dashboard CRUD) ·
-[contracts/analytics.ts](../../../contracts/analytics.ts) (widget/range/overview contracts) ·
-[AnalyticsDashboard.tsx](../../../features/analytics/AnalyticsDashboard.tsx) · [WidgetConfigPanel.tsx](../../../features/analytics/WidgetConfigPanel.tsx) · [widgetBodies.tsx](../../../features/analytics/widgetBodies.tsx) · [charts.tsx](../../../components/analytics/charts.tsx) (UI) ·
-[querySource.ts](../../../services/analytics/sources/querySource.ts) + [registry.ts](../../../services/analytics/sources/registry.ts) + [cache.ts](../../../services/analytics/sources/cache.ts) (connected-app sources) ·
-[repositories/workflowRuns.ts](../../../repositories/workflowRuns.ts) (`listForAnalytics`) ·
-[20260507000001_workflow_runs.sql](../../../supabase/migrations/20260507000001_workflow_runs.sql) + successors (run schema) ·
-[engineTypes.ts](../../../services/execution/engineTypes.ts) (`RunTriggerSource`, `RunFailureCode`) ·
-[analytics-closeout.md](../phase-4/analytics/analytics-closeout.md) · [analytics-observability-product-decision.md](../phase-4/analytics/analytics-observability-product-decision.md) (prior decisions)
+[analyticsOverview.ts](../../../../services/analytics/analyticsOverview.ts) (internal metric engine) ·
+[data/route.ts](../../../../app/api/analytics/data/route.ts) + [_shared.ts](../../../../app/api/analytics/_shared.ts) (overview route + gates) ·
+[dashboards.ts](../../../../services/analytics/dashboards.ts) + [repositories/analyticsDashboards.ts](../../../../repositories/analyticsDashboards.ts) (dashboard CRUD) ·
+[contracts/analytics.ts](../../../../contracts/analytics.ts) (widget/range/overview contracts) ·
+[AnalyticsDashboard.tsx](../../../../features/analytics/AnalyticsDashboard.tsx) · [WidgetConfigPanel.tsx](../../../../features/analytics/WidgetConfigPanel.tsx) · [widgetBodies.tsx](../../../../features/analytics/widgetBodies.tsx) · [charts.tsx](../../../../components/analytics/charts.tsx) (UI) ·
+[querySource.ts](../../../../services/analytics/sources/querySource.ts) + [registry.ts](../../../../services/analytics/sources/registry.ts) + [cache.ts](../../../../services/analytics/sources/cache.ts) (connected-app sources) ·
+[repositories/workflowRuns.ts](../../../../repositories/workflowRuns.ts) (`listForAnalytics`) ·
+[20260507000001_workflow_runs.sql](../../../../supabase/migrations/20260507000001_workflow_runs.sql) + successors (run schema) ·
+[engineTypes.ts](../../../../services/execution/engineTypes.ts) (`RunTriggerSource`, `RunFailureCode`) ·
+[analytics-closeout.md](../../phase-4/analytics/analytics-closeout.md) · [analytics-observability-product-decision.md](../../phase-4/analytics/analytics-observability-product-decision.md) (prior decisions)
 
 ---
 
@@ -62,12 +62,12 @@ UI, task-usage measure, error dimension, rollup tables) stacks on top in order.
 
 ## 2. Context & prior decisions
 
-- **ANALYTICS-1** built the current page ([closeout](../phase-4/analytics/analytics-closeout.md)):
+- **ANALYTICS-1** built the current page ([closeout](../../phase-4/analytics/analytics-closeout.md)):
   backend engine `c76f5499e`, UI `9505eb2ee`. ANALYTICS-SOURCES-1/-GITHUB-1/-CACHE-1
   added the connected-app source registry, GitHub adapter, snapshot cache, and UI
   exposure.
 - **Observability decision (2026-06-26, durable):**
-  [analytics-observability-product-decision.md](../phase-4/analytics/analytics-observability-product-decision.md)
+  [analytics-observability-product-decision.md](../../phase-4/analytics/analytics-observability-product-decision.md)
   bars customer-facing "Workflow Health" widgets (`runs_by_status`, `p95_duration`,
   `failures_by_workflow`, reconnect counts, provider-wide failure rates). **Tension:**
   this brief's examples ("Which workflows fail most often?", "Which providers are
@@ -78,43 +78,43 @@ UI, task-usage measure, error dimension, rollup tables) stacks on top in order.
   Provider-**wide** (cross-account) failure rates remain out of scope regardless.
 - **Task billing:** live billing is still flat 1-task-per-run pre-deduct;
   reserve/reconcile columns exist on the run row as foundation
-  ([20260525000002](../../../supabase/migrations/20260525000002_reserve_reconcile_billing.sql) header notes).
+  ([20260525000002](../../../../supabase/migrations/20260525000002_reserve_reconcile_billing.sql) header notes).
   This constrains how honestly "tasks used" can be charted today (§7).
 
 ---
 
 ## 3. Current user experience (verified)
 
-A user lands on `/analytics` ([page.tsx](../../../app/analytics/page.tsx)) and gets a
+A user lands on `/analytics` ([page.tsx](../../../../app/analytics/page.tsx)) and gets a
 server-seeded default "Overview" dashboard (11 widgets,
-[dashboards.ts:25-47](../../../services/analytics/dashboards.ts)). They can:
+[dashboards.ts:25-47](../../../../services/analytics/dashboards.ts)). They can:
 
 - Switch a **global range**: Today / 7 days / 30 days / 90 days / Year — 5 presets,
-  no custom range ([dashboardHelpers.tsx:42-48](../../../features/analytics/dashboardHelpers.tsx)).
+  no custom range ([dashboardHelpers.tsx:42-48](../../../../features/analytics/dashboardHelpers.tsx)).
 - Create/switch/delete **multiple dashboards** (tab bar,
-  [AnalyticsDashboard.tsx:311-359](../../../features/analytics/AnalyticsDashboard.tsx));
+  [AnalyticsDashboard.tsx:311-359](../../../../features/analytics/AnalyticsDashboard.tsx));
   the default board can't be deleted; boards cap at 48 widgets
-  ([contracts/analytics.ts:141](../../../contracts/analytics.ts)).
+  ([contracts/analytics.ts:141](../../../../contracts/analytics.ts)).
 - In **edit mode** (owner/admin only): add one of 8 widget types, remove, drag-reorder
   (HTML5 DnD, no touch), resize via a size `<select>` (6 fixed footprints,
-  [Widget.tsx:13-29](../../../features/analytics/Widget.tsx)), rename widgets inline,
+  [Widget.tsx:13-29](../../../../features/analytics/Widget.tsx)), rename widgets inline,
   save atomically ("Done editing" → one PATCH).
 - Configure a widget: metric (only `stat`: 4 choices, `bar`: 2 — every other type is
-  single-metric, [WidgetConfigPanel.tsx:41-58](../../../features/analytics/WidgetConfigPanel.tsx));
+  single-metric, [WidgetConfigPanel.tsx:41-58](../../../../features/analytics/WidgetConfigPanel.tsx));
   workflow binding **"All workflows" or exactly one** (scalar metrics only,
-  [WidgetConfigPanel.tsx:60-64,436-454](../../../features/analytics/WidgetConfigPanel.tsx));
+  [WidgetConfigPanel.tsx:60-64,436-454](../../../../features/analytics/WidgetConfigPanel.tsx));
   or switch the data source to a connected app (stat/line/bar only).
 - **Refresh** (manual), **Export** (client JSON, excludes connected-app data,
-  [dashboardHelpers.tsx:19-40](../../../features/analytics/dashboardHelpers.tsx)).
+  [dashboardHelpers.tsx:19-40](../../../../features/analytics/dashboardHelpers.tsx)).
 
 They cannot: select several workflows, choose what becomes a series, change
 granularity, compare periods, filter (status/source/test), click into runs, or
-rename a dashboard (API exists — [contracts/analytics.ts:170](../../../contracts/analytics.ts),
-[lib/api/analytics.ts:80](../../../lib/api/analytics.ts) — but no UI control calls it;
+rename a dashboard (API exists — [contracts/analytics.ts:170](../../../../contracts/analytics.ts),
+[lib/api/analytics.ts:80](../../../../lib/api/analytics.ts) — but no UI control calls it;
 creation uses `window.prompt`).
 
 Members (non-owner/admin) get a clean read-only view (`canManage` computed
-server-side, [page.tsx:83,90](../../../app/analytics/page.tsx)); route enforcement is
+server-side, [page.tsx:83,90](../../../../app/analytics/page.tsx)); route enforcement is
 authoritative regardless (§8).
 
 ---
@@ -147,11 +147,11 @@ GET /api/analytics/data?range=7d
   this path. Every range change re-fetches and re-reduces.
 - The fetch window is always `min(prevSince, heatmapStart)` — enough history for the
   previous-period trend *and* the 16-week heatmap regardless of selected range
-  ([analyticsOverview.ts:107-111](../../../services/analytics/analyticsOverview.ts)).
+  ([analyticsOverview.ts:107-111](../../../../services/analytics/analyticsOverview.ts)).
 - One payload is fetched per range and **shared by every internal widget**
-  ([AnalyticsDashboard.tsx:97-121,413](../../../features/analytics/AnalyticsDashboard.tsx));
+  ([AnalyticsDashboard.tsx:97-121,413](../../../../features/analytics/AnalyticsDashboard.tsx));
   the client never aggregates runs, only maps arrays to chart props.
-- `truncated: runs.length >= 5000` ([analyticsOverview.ts:339](../../../services/analytics/analyticsOverview.ts))
+- `truncated: runs.length >= 5000` ([analyticsOverview.ts:339](../../../../services/analytics/analyticsOverview.ts))
   is delivered in the contract but **never rendered anywhere in the UI** — an
   over-cap account silently under-counts. Also a `>=` false-positive at exactly
   5,000 rows.
@@ -159,23 +159,23 @@ GET /api/analytics/data?range=7d
 ### Connected-app analytics — per-widget fetch
 
 `GET /api/analytics/sources/[provider]/data` → `requireAccount()` → allow-listed
-filter params (25 fixed keys, [route.ts:57](../../../app/api/analytics/sources/%5Bprovider%5D/data/route.ts)) →
+filter params (25 fixed keys, [route.ts:57](../../../../app/api/analytics/sources/%5Bprovider%5D/data/route.ts)) →
 `queryAnalyticsSource` (registry+metric validation *before* I/O,
-[querySource.ts:50-108](../../../services/analytics/sources/querySource.ts)) →
+[querySource.ts:50-108](../../../../services/analytics/sources/querySource.ts)) →
 TTL snapshot cache with personal-credential isolation baked into the cache key
-([cache.ts:114-230](../../../services/analytics/sources/cache.ts)) → typed errors map
+([cache.ts:114-230](../../../../services/analytics/sources/cache.ts)) → typed errors map
 to HTTP 200 `{ok:false,code,message}` safe widget states. Each `connected_app`
 widget fetches independently (N widgets = N requests,
-[ConnectedAppWidgetBody.tsx:81-108](../../../features/analytics/ConnectedAppWidgetBody.tsx)).
+[ConnectedAppWidgetBody.tsx:81-108](../../../../features/analytics/ConnectedAppWidgetBody.tsx)).
 25 provider adapters are registered and exposed (~110 metric options). This layer
 matches its closeout description and is **worth preserving as-is**; the stale
 "NOT exposed in the UI yet" comment at
-[contracts/analytics.ts:76-77](../../../contracts/analytics.ts) should be fixed.
+[contracts/analytics.ts:76-77](../../../../contracts/analytics.ts) should be fixed.
 
 ### Charts
 
 All custom inline SVG, no chart library
-([charts.tsx](../../../components/analytics/charts.tsx)): `MetricNumber`,
+([charts.tsx](../../../../components/analytics/charts.tsx)): `MetricNumber`,
 `Sparkline`, `LineChart` (already accepts `series: LineSeries[]` — N-series capable,
 :104-118), `BarChart`, `DonutChart`, `Heatmap`. Blockers for a series model: only 3
 rotating `SERIES_COLORS` (:25), `preserveAspectRatio="none"` distortion (:144), no
@@ -193,9 +193,9 @@ admin gate in V2 yet. Not part of this redesign, but flagged (§8, §24).
 ## 5. Current metric & visualization inventory
 
 Range presets: `today | 7d | 30d | 90d | ytd`
-([AnalyticsRangeSchema](../../../contracts/analytics.ts)). All internal metrics:
+([AnalyticsRangeSchema](../../../../contracts/analytics.ts)). All internal metrics:
 account-scoped to the session's active account; **test runs excluded**
-(`is_test`, [analyticsOverview.ts:271-272](../../../services/analytics/analyticsOverview.ts));
+(`is_test`, [analyticsOverview.ts:271-272](../../../../services/analytics/analyticsOverview.ts));
 `running`/`queued` excluded at SQL; retries are just normal runs
 (`triggered_by='retry'`, not surfaced); server-calculated; per-widget
 customization = title/size/(sometimes metric)/(sometimes one-workflow binding).
@@ -215,13 +215,13 @@ customization = title/size/(sometimes metric)/(sometimes one-workflow binding).
 | Note | free text | — | — | — | text ✓ |
 
 Declared-but-unbacked metrics (deliberately not offered): `time_saved`, `by_owner`,
-`errors` ([contracts/analytics.ts:43-45](../../../contracts/analytics.ts)).
+`errors` ([contracts/analytics.ts:43-45](../../../../contracts/analytics.ts)).
 
 **Ambiguity check on "meaningful numbers" (§6 confirmed definitions):**
 
 - **"Success rate"** — `succeeded/(succeeded+failed)`, honest, because V2's terminal
   status domain is exactly `succeeded|failed` (no canceled state;
-  [workflowRuns.ts:29](../../../repositories/workflowRuns.ts)). "Failed" therefore
+  [workflowRuns.ts:29](../../../../repositories/workflowRuns.ts)). "Failed" therefore
   means "every non-succeeded terminal run".
 - **"Avg run time"** — includes failed runs (any row with `finished_at`); excludes
   never-finished rows from the denominator. Reasonable; should be stated in UI copy
@@ -242,7 +242,7 @@ Declared-but-unbacked metrics (deliberately not offered): `time_saved`, `by_owne
 ## 6. Confirmed definitions — where computed
 
 All in the pure `buildAnalyticsOverview`
-([analyticsOverview.ts:268-303](../../../services/analytics/analyticsOverview.ts)):
+([analyticsOverview.ts:268-303](../../../../services/analytics/analyticsOverview.ts)):
 `totalsFor` :135-158 (rate, durations), `buildRunsOverTime` :160-187 (UTC buckets;
 note the no-op weekly-alignment ternary at :168 — weekly buckets start at `since`'s
 day, not a week boundary), `buildWorkflowStats` :189-218, `buildHeatmap` :232-251,
@@ -257,13 +257,13 @@ per-account timezone is a documented follow-up (:33-34).
 ## 7. Available-data catalog
 
 Sources: `workflow_runs`
-([20260507000001](../../../supabase/migrations/20260507000001_workflow_runs.sql) +
+([20260507000001](../../../../supabase/migrations/20260507000001_workflow_runs.sql) +
 ~10 successor migrations), `workflows`
-([20260506000000](../../../supabase/migrations/20260506000000_workflows.sql)),
-`task_usage_events` ([20260525000000](../../../supabase/migrations/20260525000000_task_usage_events.sql)),
+([20260506000000](../../../../supabase/migrations/20260506000000_workflows.sql)),
+`task_usage_events` ([20260525000000](../../../../supabase/migrations/20260525000000_task_usage_events.sql)),
 `integrations`, `workflow_run_stats` view
-([20260529000000](../../../supabase/migrations/20260529000000_workflow_run_stats_view.sql),
-[20260604000000](../../../supabase/migrations/20260604000000_workflow_run_stats_account.sql)).
+([20260529000000](../../../../supabase/migrations/20260529000000_workflow_run_stats_view.sql),
+[20260604000000](../../../../supabase/migrations/20260604000000_workflow_run_stats_account.sql)).
 
 Classification: **1 = available & trustworthy now · 2 = available, needs
 normalization · 3 = derivable · 4 = missing but collectable · 5 = not appropriate ·
@@ -283,7 +283,7 @@ normalization · 3 = derivable · 4 = missing but collectable · 5 = not appropr
 | Task usage / run | `actual_task_cost`, `estimated_task_cost` (nullable) | 2 | NULL for test/legacy/fatal-early rows; live billing still flat 1/run — chart as "recorded task charges" with that caveat, or defer |
 | Task usage / node+provider | `task_usage_events` (`provider`, `node_id`, `tasks_charged`, indexed by workflow) | 2 | richest provider attribution that exists; append-only ledger |
 | Provider (per run) | — | 4 | NOT on the run row; trigger provider only inside `trigger_event` jsonb; per-action needs `steps[].nodeId`→definition join or the ledger. Collectable later as denormalized columns |
-| Error category | `fatal_error.code` / `steps[].error.code` / `error_classification` — all jsonb | 2/4 | canonical `RunFailureCode` union exists ([engineTypes.ts:16-107](../../../services/execution/engineTypes.ts)) but no queryable column; needs a normalized `failure_code text` column (backfillable from jsonb) before an error dimension is honest |
+| Error category | `fatal_error.code` / `steps[].error.code` / `error_classification` — all jsonb | 2/4 | canonical `RunFailureCode` union exists ([engineTypes.ts:16-107](../../../../services/execution/engineTypes.ts)) but no queryable column; needs a normalized `failure_code text` column (backfillable from jsonb) before an error dimension is honest |
 | Node-level status | `steps[].status` jsonb | 2 | not independently queryable |
 | Node-level durations | — | 4 | `steps[]` has no timestamps |
 | Triggering user | `triggered_by_user_id` (NULL for non-human) | 1/6 | **provenance, not ownership**; member-level analytics is a privacy/product decision (§25 D7) |
@@ -308,21 +308,21 @@ Verified strong (details in the tests audit, §22):
 
 - **No analytics route accepts an account or workflow id for scoping.** Scope is
   always `requireAccount()` → `resolveActiveAccount(user.id)` with membership +
-  freeze re-verified server-side ([_shared.ts:37-69](../../../app/api/analytics/_shared.ts),
-  [activeAccount.ts:87-140](../../../services/accounts/activeAccount.ts)). URL/body
+  freeze re-verified server-side ([_shared.ts:37-69](../../../../app/api/analytics/_shared.ts),
+  [activeAccount.ts:87-140](../../../../services/accounts/activeAccount.ts)). URL/body
   tampering cannot cross accounts.
 - **Dashboard writes** resolve the dashboard's owning account server-side
   (`authorizeDashboardWrite` → 404 non-member no-leak, 403 member-without-role);
   reads are any-member via RLS. Writes are service-role only (no authenticated
   write grant) — proven by the gated DB suite
-  [analytics-dashboards-account.test.ts](../../../tests/integration/security/analytics-dashboards-account.test.ts).
+  [analytics-dashboards-account.test.ts](../../../../tests/integration/security/analytics-dashboards-account.test.ts).
 - **`workflow_runs` is locked down**: authenticated SELECT grant revoked
-  (V2-READY-51, [20260701000000](../../../supabase/migrations/20260701000000_revoke_authenticated_workflow_runs_select.sql));
+  (V2-READY-51, [20260701000000](../../../../supabase/migrations/20260701000000_revoke_authenticated_workflow_runs_select.sql));
   service-role readers + membership-gated repos are the only path; cross-account
-  reads proven denied ([workflow-runs-account-rls.test.ts](../../../tests/integration/security/workflow-runs-account-rls.test.ts)).
+  reads proven denied ([workflow-runs-account-rls.test.ts](../../../../tests/integration/security/workflow-runs-account-rls.test.ts)).
 - **Personal-credential connected-app snapshots** are per-user in both cache key and
   RLS — co-members can't read them
-  ([analytics-source-snapshots-account.test.ts](../../../tests/integration/security/analytics-source-snapshots-account.test.ts)).
+  ([analytics-source-snapshots-account.test.ts](../../../../tests/integration/security/analytics-source-snapshots-account.test.ts)).
 - **Manual-run attribution** (`triggered_by_user_id`) is provenance only; nothing in
   analytics treats it as ownership. Background runs have NULL user and aggregate
   fine.
@@ -350,7 +350,7 @@ Verified strong (details in the tests audit, §22):
 1. One shared overview payload with fixed shape — every internal widget is a view
    over the same 10 precomputed aggregates; no widget can ask a different question.
 2. No filters anywhere (status, trigger source, test-inclusion, workflow set).
-3. Series are hardcoded in widget bodies ([widgetBodies.tsx:98-105,116-119](../../../features/analytics/widgetBodies.tsx));
+3. Series are hardcoded in widget bodies ([widgetBodies.tsx:98-105,116-119](../../../../features/analytics/widgetBodies.tsx));
    the N-series-capable `LineChart` is never fed user-chosen series.
 4. Workflow binding is one-or-all, single `<select>`; only for 3 scalar metrics.
 5. Granularity is server-fixed (daily; weekly only past 92 days); heatmap fixed 16
@@ -370,8 +370,8 @@ Verified strong (details in the tests audit, §22):
     `window.prompt`/`confirm`.
 12. Resize is a dropdown, reorder is desktop-only HTML5 DnD (no touch); `xl`/`w`
     spans clamp awkwardly on 1–2-column mobile grids
-    ([Widget.tsx:13-20](../../../features/analytics/Widget.tsx),
-    [AnalyticsDashboard.tsx:396](../../../features/analytics/AnalyticsDashboard.tsx)).
+    ([Widget.tsx:13-20](../../../../features/analytics/Widget.tsx),
+    [AnalyticsDashboard.tsx:396](../../../../features/analytics/AnalyticsDashboard.tsx)).
 13. 3-color series palette; no tooltips/legend toggling/hover detail.
 14. `WidgetConfigPanel.tsx` (458 lines, ~23 `useState`s, ~50-prop drill into
     `WidgetConnectedAppConfig`) is the monolith where per-provider filter logic
@@ -459,7 +459,7 @@ uses today.
    `INVALID_QUERY` error surfaced in the panel ("Success rate can't be split by
    status"). No silent fallback (product guardrail).
 4. Save → widget persists as `config.insight` (additive Zod schema in
-   [contracts/analytics.ts](../../../contracts/analytics.ts), same JSONB column, no
+   [contracts/analytics.ts](../../../../contracts/analytics.ts), same JSONB column, no
    migration — the ANALYTICS-1 closeout's forward path).
 5. The widget body fetches `POST /api/analytics/query` per widget (like
    connected-app widgets today), renders via the existing SVG chart primitives fed
@@ -567,7 +567,7 @@ Server obligations (all already precedented in the codebase):
 
 - **Account scope is never client-supplied** — same `requireAccount()` gate; the
   service applies `account_id` itself (pattern of
-  [_shared.ts](../../../app/api/analytics/_shared.ts)).
+  [_shared.ts](../../../../app/api/analytics/_shared.ts)).
 - **Membership-validate `workflowIds`/series ids** against the account's workflows
   before they reach SQL (closes the §8 gap).
 - **Validate the measure×dimension×display matrix** from one exported capability
@@ -587,7 +587,7 @@ Server obligations (all already precedented in the codebase):
   selected.
 - **Result shape:** reuse/extend the existing `NormalizedAnalyticsResult` concept
   (kind/dimensions/measures/rows/totals/truncated/warnings,
-  [sources/types.ts](../../../services/analytics/sources/types.ts)) so internal and
+  [sources/types.ts](../../../../services/analytics/sources/types.ts)) so internal and
   connected-app widgets converge on one renderable shape.
 
 **Where it computes (recommendation):** a dedicated
@@ -705,7 +705,7 @@ heuristic (fetch cap+1).
 ## 21. Error / empty / loading / partial-data states
 
 Adopt the connected-app widget's proven state machine
-([ConnectedAppWidgetBody.tsx](../../../features/analytics/ConnectedAppWidgetBody.tsx))
+([ConnectedAppWidgetBody.tsx](../../../../features/analytics/ConnectedAppWidgetBody.tsx))
 for insight widgets: loading (skeleton, reduced-motion-aware) · error (typed code →
 safe message + Retry; one failing widget never crashes the board) · empty ("No runs
 match these filters yet" — honest zero vs no-data distinction per §13.6) · partial
@@ -717,14 +717,14 @@ errors render inline with the plain-language invalid-combination copy. Global
 
 ## 22. Testing strategy (required tests for the implementation slices)
 
-Follow [testing-strategy.md](../../rules/testing-strategy.md): mock only external
+Follow [testing-strategy.md](../../../rules/testing-strategy.md): mock only external
 boundaries; prove the calculation and authorization rules themselves.
 
 **Query service (pure + DB-gated):**
 - Account-scoped aggregation correctness: seeded two-account dataset → each account
   sees only its own aggregates; cross-account request impossible by construction
   (no account param) — extend the gated DB suite pattern of
-  [workflow-run-stats-account.test.ts](../../../tests/integration/security/workflow-run-stats-account.test.ts).
+  [workflow-run-stats-account.test.ts](../../../../tests/integration/security/workflow-run-stats-account.test.ts).
 - A live two-account HTTP test through the new route (closes today's route-level
   gap found in §8).
 - Exact selected workflows → exact series (ids in = series out, order preserved);

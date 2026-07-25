@@ -6,7 +6,7 @@ pushed, deployed, or applied to any database.**
 **Date:** 2026-07-24 · **Branch:** `v2-main` (local)
 **Parents:** [analytics-flexibility-audit-1.md](./analytics-flexibility-audit-1.md) ·
 [analytics-flexibility-cs1-outcome.md](./analytics-flexibility-cs1-outcome.md) ·
-[analytics-closeout.md](../phase-4/analytics/analytics-closeout.md)
+[analytics-closeout.md](../../phase-4/analytics/analytics-closeout.md)
 
 **Labeling convention used throughout:** claims are tagged
 **[Verified]** (read in repo code this audit), **[Provider fact]** (from the
@@ -15,15 +15,15 @@ provider research docs already in this repo — `integrations/*/research.md`,
 certification]** (must be proven against the live provider before shipping).
 
 **Source of truth (verified current state):**
-[sources/types.ts](../../../services/analytics/sources/types.ts) (adapter/metric/result contracts) ·
-[sources/registry.ts](../../../services/analytics/sources/registry.ts) (26 approved adapters) ·
-[querySource.ts](../../../services/analytics/sources/querySource.ts) + [cache.ts](../../../services/analytics/sources/cache.ts) (validation + TTL snapshot cache) ·
-[connectedAppSources.ts](../../../features/analytics/connectedAppSources.ts) (UI catalog, 25 providers) ·
-[WidgetConfigPanel.tsx](../../../features/analytics/WidgetConfigPanel.tsx) (config UX) ·
-[credentialSharing.ts](../../../core/integrations/credentialSharing.ts) (account/personal policy) ·
-[resolveOptionsSource.ts](../../../services/options/resolveOptionsSource.ts) + [_registry.ts](../../../services/options/_registry.ts) (entity pickers) ·
-[insightQuery.ts](../../../services/analytics/insightQuery.ts) + [contracts/analyticsQuery.ts](../../../contracts/analyticsQuery.ts) (CS-1 engine) ·
-per-provider: [motive/manifest.ts](../../../integrations/motive/manifest.ts), [quickbooks/manifest.ts](../../../integrations/quickbooks/manifest.ts), [stripe/manifest.ts](../../../integrations/stripe/manifest.ts), [shopify/manifest.ts](../../../integrations/shopify/manifest.ts), [hubspot/manifest.ts](../../../integrations/hubspot/manifest.ts), [fleetio/manifest.ts](../../../integrations/fleetio/manifest.ts) + their `api/` wrappers and `research.md` docs (details cited inline).
+[sources/types.ts](../../../../services/analytics/sources/types.ts) (adapter/metric/result contracts) ·
+[sources/registry.ts](../../../../services/analytics/sources/registry.ts) (26 approved adapters) ·
+[querySource.ts](../../../../services/analytics/sources/querySource.ts) + [cache.ts](../../../../services/analytics/sources/cache.ts) (validation + TTL snapshot cache) ·
+[connectedAppSources.ts](../../../../features/analytics/connectedAppSources.ts) (UI catalog, 25 providers) ·
+[WidgetConfigPanel.tsx](../../../../features/analytics/WidgetConfigPanel.tsx) (config UX) ·
+[credentialSharing.ts](../../../../core/integrations/credentialSharing.ts) (account/personal policy) ·
+[resolveOptionsSource.ts](../../../../services/options/resolveOptionsSource.ts) + [_registry.ts](../../../../services/options/_registry.ts) (entity pickers) ·
+[insightQuery.ts](../../../../services/analytics/insightQuery.ts) + [contracts/analyticsQuery.ts](../../../../contracts/analyticsQuery.ts) (CS-1 engine) ·
+per-provider: [motive/manifest.ts](../../../../integrations/motive/manifest.ts), [quickbooks/manifest.ts](../../../../integrations/quickbooks/manifest.ts), [stripe/manifest.ts](../../../../integrations/stripe/manifest.ts), [shopify/manifest.ts](../../../../integrations/shopify/manifest.ts), [hubspot/manifest.ts](../../../../integrations/hubspot/manifest.ts), [fleetio/manifest.ts](../../../../integrations/fleetio/manifest.ts) + their `api/` wrappers and `research.md` docs (details cited inline).
 
 ---
 
@@ -86,12 +86,12 @@ implementation. The previous CS-2A UI slice is **superseded** by CD-3.
 Widget config `{provider, metricKey, filters}` → `GET
 /api/analytics/sources/[provider]/data` (`requireAccount`, session-derived
 account+user) → `queryAnalyticsSource`
-([querySource.ts:50-108](../../../services/analytics/sources/querySource.ts)) —
+([querySource.ts:50-108](../../../../services/analytics/sources/querySource.ts)) —
 registry/metric/filter-key validation before any I/O → `queryWithCache`
-([cache.ts:114-230](../../../services/analytics/sources/cache.ts)) → adapter
+([cache.ts:114-230](../../../../services/analytics/sources/cache.ts)) → adapter
 `query()` → `NormalizedAnalyticsResult` (shape/dimensions/measures/rows/totals/
 freshness/warnings/truncated,
-[types.ts:98-108](../../../services/analytics/sources/types.ts)).
+[types.ts:98-108](../../../../services/analytics/sources/types.ts)).
 
 ### 3.2 Cache & credential model
 
@@ -111,7 +111,7 @@ freshness/warnings/truncated,
 Only **Google Analytics** uses a provider-side aggregation endpoint (GA4
 `runReport`; scalar = no-dimension total, series = `date` dimension, ≤500 rows,
 re-bucketed client-side —
-[google-analytics/api.ts:41-93](../../../services/analytics/sources/google-analytics/api.ts)).
+[google-analytics/api.ts:41-93](../../../../services/analytics/sources/google-analytics/api.ts)).
 Everything else reduces client-side over bounded reads, in three patterns:
 
 1. **One-window-list-bucketed** — Stripe (`/v1/charges`, cap 20×100=2,000
@@ -119,10 +119,10 @@ Everything else reduces client-side over bounded reads, in three patterns:
    Calendar (6×250=1,500 events), Trello, file providers.
 2. **Per-bucket count fan-out** — HubSpot (`POST /crm/v3/objects/{t}/search`
    reading only `total`, one call per bucket,
-   [hubspot/index.ts:315-321](../../../services/analytics/sources/hubspot/index.ts)),
+   [hubspot/index.ts:315-321](../../../../services/analytics/sources/hubspot/index.ts)),
    GitHub (`/search/issues total_count`), Gmail/Outlook (`messages.list`
    counts, Gmail series capped at **300 messages/bucket**,
-   [gmail/api.ts:18-22](../../../services/analytics/sources/gmail/api.ts)).
+   [gmail/api.ts:18-22](../../../../services/analytics/sources/gmail/api.ts)).
 3. **Traversals** — Dropbox (10,000-entry cap), Google Drive (25-call BFS
    budget), OneDrive: the real scan-cost cliffs on large accounts.
 
@@ -203,14 +203,14 @@ and there's no concept of a *dataset* the user explores — only metric ids.
 ## 5. Provider-by-provider data capability matrix
 
 Credential classes verified at
-[credentialSharing.ts:47-127](../../../core/integrations/credentialSharing.ts):
+[credentialSharing.ts:47-127](../../../../core/integrations/credentialSharing.ts):
 **account** — stripe :52, shopify :53, hubspot :54, quickbooks :59, motive :64,
 fleetio :76; **personal** — gmail :79, google-calendar :83.
 
 ### 5.1 Motive (fleet telematics) — account-class, **no analytics adapter yet**
 
 - **[Verified]** OAuth2 + rotating refresh; scopes requested
-  ([manifest.ts:77-92](../../../integrations/motive/manifest.ts)):
+  ([manifest.ts:77-92](../../../../integrations/motive/manifest.ts)):
   `companies.read`, `fuel_purchases.manage`, `vehicles.manage`,
   `users.manage`, `messages.manage`, `company_webhooks.manage`,
   `inspection_reports.read`, `hos_logs.hos_violation`,
@@ -242,7 +242,7 @@ fleetio :76; **personal** — gmail :79, google-calendar :83.
 
 - **[Verified]** OAuth2, rolling 100-day refresh, realm-scoped; single scope
   `com.intuit.quickbooks.accounting`
-  ([manifest.ts:75](../../../integrations/quickbooks/manifest.ts)) —
+  ([manifest.ts:75](../../../../integrations/quickbooks/manifest.ts)) —
   read-sufficient for the wrapped datasets.
 - **Datasets** (`integrations/_shared/quickbooks/`, projections :102-163
   **[Verified]**): **Invoice** — `txnDate`, `dueDate`, `totalAmount`,
@@ -265,7 +265,7 @@ fleetio :76; **personal** — gmail :79, google-calendar :83.
 ### 5.3 Stripe — account-class, **adapter shipped**
 
 - **[Verified]** OAuth Connect, `read_write` scope
-  ([manifest.ts:90](../../../integrations/stripe/manifest.ts)). Charge facts:
+  ([manifest.ts:90](../../../../integrations/stripe/manifest.ts)). Charge facts:
   `created` (unix), `amount` (**minor units**), `status`, `paid`, `refunded`,
   `customer`, `currency` (`api/charges.ts:43-58`); server-side `customer` +
   `created[gte/lte]` filters; cursor pagination. **No balance_transactions /
@@ -281,7 +281,7 @@ fleetio :76; **personal** — gmail :79, google-calendar :83.
 
 - **[Verified]** Per-shop OAuth, non-refreshable offline token; scopes incl.
   `read_orders/products/customers/inventory`
-  ([manifest.ts:91-126](../../../integrations/shopify/manifest.ts)). Order
+  ([manifest.ts:91-126](../../../../integrations/shopify/manifest.ts)). Order
   facts: `created_at`, `total_price`, `financial_status`,
   `fulfillment_status`, `currency`; analytics scan ≤2,500 orders/window.
   Products (price, inventory, type, vendor) and customers (`total_spent`,
@@ -295,7 +295,7 @@ fleetio :76; **personal** — gmail :79, google-calendar :83.
 ### 5.5 HubSpot — account-class, **adapter shipped**
 
 - **[Verified]** 18 scopes incl. deals/contacts/companies/tickets read
-  ([manifest.ts:96-124](../../../integrations/hubspot/manifest.ts)); Search
+  ([manifest.ts:96-124](../../../../integrations/hubspot/manifest.ts)); Search
   API with `filterGroups`, exact `total`, `after` cursor, ≤100/page, **~5
   req/s search rate limit** (`objectSearch.ts:28-30`). Current metrics are
   **deliberately count-only** (`properties:[]`) — no deal amounts read.
@@ -307,7 +307,7 @@ fleetio :76; **personal** — gmail :79, google-calendar :83.
 ### 5.6 Fleetio — account-class (credential-paste), **no adapter**
 
 - **[Verified]** API-key + Account-Token, no scope negotiation (inherits the
-  pasted user's role, [manifest.ts:24-27](../../../integrations/fleetio/manifest.ts));
+  pasted user's role, [manifest.ts:24-27](../../../../integrations/fleetio/manifest.ts));
   wrapped: vehicles (status, `current_meter_value`, `meter_unit`), vehicle
   statuses, meter entries, accounts; keyset pagination ≤100/page; work
   orders/service/fuel entries **researched but unwrapped**
