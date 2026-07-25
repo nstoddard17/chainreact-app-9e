@@ -15,6 +15,8 @@ const mockMarkAccepted = jest.fn();
 const mockMarkRevoked = jest.fn();
 const mockMarkExpired = jest.fn();
 const mockCountPending = jest.fn();
+const mockCountRecentByInviter = jest.fn();
+const mockCountRecentForAccount = jest.fn();
 
 jest.mock("@/repositories/accountInvitations", () => ({
   DUPLICATE_PENDING_INVITE: "DUPLICATE_PENDING_INVITE",
@@ -23,9 +25,17 @@ jest.mock("@/repositories/accountInvitations", () => ({
   getByIdServiceRole: (...a: unknown[]) => mockGetById(...a),
   listPendingForAccountServiceRole: (...a: unknown[]) => mockListPending(...a),
   countPendingForAccountServiceRole: (...a: unknown[]) => mockCountPending(...a),
+  countCreatedSinceByInviterServiceRole: (...a: unknown[]) => mockCountRecentByInviter(...a),
+  countCreatedSinceForAccountServiceRole: (...a: unknown[]) => mockCountRecentForAccount(...a),
   markAcceptedServiceRole: (...a: unknown[]) => mockMarkAccepted(...a),
   markRevokedServiceRole: (...a: unknown[]) => mockMarkRevoked(...a),
   markExpiredServiceRole: (...a: unknown[]) => mockMarkExpired(...a),
+}));
+
+// External email boundary — the ONLY email mock (template + origin run real).
+const mockSendEmail = jest.fn();
+jest.mock("@/services/email/sendTransactionalEmail", () => ({
+  sendTransactionalEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
 
 const mockGetDeletionStatus = jest.fn();
@@ -94,6 +104,7 @@ beforeEach(() => {
     mockMarkAccepted, mockMarkRevoked, mockMarkExpired, mockGetDeletionStatus,
     mockGetAccountById, mockIsMemberSR, mockInsertMember, mockFindUserByEmail,
     mockNotify, mockSetActiveAccount, mockCountMembers, mockCountPending,
+    mockCountRecentByInviter, mockCountRecentForAccount, mockSendEmail,
   ].forEach((m) => m.mockReset());
 
   mockGetDeletionStatus.mockResolvedValue("active");
@@ -101,6 +112,10 @@ beforeEach(() => {
   // Default well under the 5-member team cap so unrelated tests don't trip it.
   mockCountMembers.mockResolvedValue(1);
   mockCountPending.mockResolvedValue(0);
+  // Default well under the send throttle so unrelated tests don't trip it.
+  mockCountRecentByInviter.mockResolvedValue(0);
+  mockCountRecentForAccount.mockResolvedValue(0);
+  mockSendEmail.mockResolvedValue({ status: "sent" });
   mockFindUserByEmail.mockResolvedValue(null);
   mockIsMemberSR.mockResolvedValue(false);
   mockSetActiveAccount.mockResolvedValue({ ok: true, account: {} });
@@ -182,6 +197,145 @@ describe("createInvitation", () => {
       accountId: ACCOUNT, inviterUserId: INVITER, email: "ghost@example.com", role: "member",
     });
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+});
+
+describe("createInvitation — email delivery (TEAM-INVITATION-EMAIL-1)", () => {
+  const PREV_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+  });
+  afterAll(() => {
+    if (PREV_APP_URL === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = PREV_APP_URL;
+  });
+
+  it("emails a brand-new address (no user row): full canonical URL, team name, safe metadata", async () => {
+    mockFindUserByEmail.mockResolvedValue(null);
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "Ghost@Example.com", role: "admin",
+      inviter: { email: "owner@acme.com", displayName: "Pat Owner" },
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.emailDelivery).toEqual({ status: "sent" });
+    expect(mockNotify).not.toHaveBeenCalled(); // no account → no in-app notification
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const [message, meta] = mockSendEmail.mock.calls[0] as [
+      { to: string; subject: string; html: string; text: string },
+      Record<string, string>,
+    ];
+    expect(message.to).toBe("ghost@example.com"); // normalized
+    expect(message.subject).toContain("Acme");
+    // The emailed link is the CANONICAL configured origin + acceptPath — never request-derived.
+    expect(message.text).toContain(`http://localhost:3000${res.acceptPath}`);
+    expect(message.html).toContain("Acme");
+    expect(message.html).toContain("Pat Owner");
+    // Observability metadata is opaque ids only — no address, token, or URL.
+    expect(JSON.stringify(meta)).not.toContain("ghost@example.com");
+    expect(JSON.stringify(meta)).not.toContain(res.acceptToken);
+    expect(meta.template).toBe("team_invitation");
+  });
+
+  it("emails an EXISTING user too — alongside the in-app notification", async () => {
+    mockFindUserByEmail.mockResolvedValueOnce(INVITEE);
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "invitee@example.com", role: "member",
+    });
+    expect(res.ok).toBe(true);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("email failure leaves the invitation intact and returns the link with status 'failed'", async () => {
+    mockSendEmail.mockResolvedValueOnce({ status: "failed", reason: "provider_500" });
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.emailDelivery).toEqual({ status: "failed" });
+    expect(res.acceptPath).toContain("token=");
+    // Exactly ONE invitation was persisted — delivery failure never re-inserts or revokes.
+    expect(mockInsertPending).toHaveBeenCalledTimes(1);
+    expect(mockMarkRevoked).not.toHaveBeenCalled();
+  });
+
+  it("surfaces 'not_configured' for an environment without email credentials", async () => {
+    mockSendEmail.mockResolvedValueOnce({ status: "not_configured" });
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member",
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.emailDelivery).toEqual({ status: "not_configured" });
+  });
+
+  it("sends NO email when the invite is refused (duplicate / already-member / team-full)", async () => {
+    mockInsertPending.mockRejectedValueOnce(new Error("DUPLICATE_PENDING_INVITE"));
+    await createInvitation({ accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member" });
+
+    mockFindUserByEmail.mockResolvedValueOnce(INVITEE);
+    mockIsMemberSR.mockResolvedValueOnce(true);
+    await createInvitation({ accountId: ACCOUNT, inviterUserId: INVITER, email: "invitee@example.com", role: "member" });
+
+    mockCountMembers.mockResolvedValueOnce(5);
+    await createInvitation({ accountId: ACCOUNT, inviterUserId: INVITER, email: "y@example.com", role: "member" });
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("never logs the raw token or the full accept URL on delivery failure", async () => {
+    mockSendEmail.mockResolvedValueOnce({ status: "failed", reason: "provider_500" });
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const logged = [
+      ...(console.warn as jest.Mock).mock.calls,
+      ...(console.info as jest.Mock).mock.calls,
+    ]
+      .flat()
+      .map(String)
+      .join("\n");
+    expect(logged).not.toContain(res.acceptToken);
+    expect(logged).not.toContain("/invitations/accept?token=");
+  });
+});
+
+describe("createInvitation — durable send throttle", () => {
+  it("refuses when the inviter is over the rolling per-inviter cap (no row, no email)", async () => {
+    mockCountRecentByInviter.mockResolvedValueOnce(10);
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member",
+    });
+    expect(res).toEqual({ ok: false, reason: "rate_limited" });
+    expect(mockInsertPending).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the account is over the rolling per-account cap", async () => {
+    mockCountRecentForAccount.mockResolvedValueOnce(20);
+    const res = await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member",
+    });
+    expect(res).toEqual({ ok: false, reason: "rate_limited" });
+    expect(mockInsertPending).not.toHaveBeenCalled();
+  });
+
+  it("counts against a rolling window derived from now", async () => {
+    const now = new Date("2026-07-24T12:00:00.000Z");
+    await createInvitation({
+      accountId: ACCOUNT, inviterUserId: INVITER, email: "x@example.com", role: "member", now,
+    });
+    expect(mockCountRecentByInviter).toHaveBeenCalledWith(
+      INVITER,
+      "2026-07-24T11:00:00.000Z", // 60-minute window
+    );
+    expect(mockCountRecentForAccount).toHaveBeenCalledWith(
+      ACCOUNT,
+      "2026-07-24T11:00:00.000Z",
+    );
   });
 });
 

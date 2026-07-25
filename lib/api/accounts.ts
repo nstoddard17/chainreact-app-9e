@@ -551,12 +551,21 @@ export interface InvitationSummary {
   createdAt: string;
 }
 
+export type InvitationEmailDeliveryStatus = "sent" | "failed" | "not_configured";
+
 export interface CreatedInvitation {
   invitation: InvitationSummary;
   /** Raw accept token — returned ONCE on create, never stored. */
   acceptToken: string;
   /** App path carrying the raw token, e.g. `/invitations/accept?token=…`. */
   acceptPath: string;
+  /**
+   * Outcome of the transactional invitation email (TEAM-INVITATION-EMAIL-1).
+   * "sent" only when the provider accepted the message. The invitation exists
+   * regardless — on "failed"/"not_configured" the UI surfaces the copy link as
+   * the delivery path.
+   */
+  emailDelivery: { status: InvitationEmailDeliveryStatus };
 }
 
 /** GET /api/accounts/[id]/members — roster of an account the caller belongs to. */
@@ -594,8 +603,19 @@ export async function createInvitation(
     },
   );
   if (!res.ok) throw await parseError(res);
-  const body = (await res.json()) as CreatedInvitation;
-  return body;
+  const body = (await res.json()) as Omit<CreatedInvitation, "emailDelivery"> & {
+    emailDelivery?: { status?: InvitationEmailDeliveryStatus };
+  };
+  // Missing/unknown delivery info degrades to "failed" — the UI then leads
+  // with the copy link, which is always a safe instruction.
+  const status = body.emailDelivery?.status;
+  return {
+    ...body,
+    emailDelivery: {
+      status:
+        status === "sent" || status === "not_configured" ? status : "failed",
+    },
+  };
 }
 
 /** DELETE /api/accounts/[id]/invitations/[invitationId] — revoke a pending invite. */

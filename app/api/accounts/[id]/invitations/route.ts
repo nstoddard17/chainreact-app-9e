@@ -9,15 +9,21 @@ import {
   createInvitation,
   listInvitations,
 } from "@/services/accounts/invitations";
+import { getDisplayName } from "@/repositories/userProfiles";
 
 /**
- * /api/accounts/[id]/invitations (4.ACCOUNT-MODEL-15, D2a).
+ * /api/accounts/[id]/invitations (4.ACCOUNT-MODEL-15, D2a; email delivery
+ * TEAM-INVITATION-EMAIL-1).
  *   POST — create an invite (owner/admin). Body { email, role: 'admin'|'member' }.
  *   GET  — list pending invites (owner/admin).
  *
- * Backend-only (no UI). The owner is the session user; the account id is the path
- * segment; the role is checked via `requireAccountRole`. 'owner' is not invitable
- * (the role enum excludes it). The raw accept token is returned ONLY on create.
+ * The inviter is the session user; the account id is the path segment; the role
+ * is checked via `requireAccountRole`. 'owner' is not invitable (the role enum
+ * excludes it). The raw accept token is returned ONLY on create. Creation also
+ * attempts a transactional email to the invited address; delivery outcome comes
+ * back as `emailDelivery.status` and NEVER turns a persisted invitation into an
+ * error response (a 5xx here would push the UI into a retry that trips the
+ * duplicate-pending rule).
  */
 
 const CreateInviteBodySchema = z.object({
@@ -66,11 +72,22 @@ export async function POST(
   const body = await parseAccountBody(request, CreateInviteBodySchema);
   if (!body.ok) return body.response;
 
+  // Safe inviter identity for the email body: session email + the caller's OWN
+  // profile display name (session-client read, RLS-gated to auth.uid()).
+  // Best-effort — a profile read failure must not block the invite.
+  let inviterDisplayName: string | null = null;
+  try {
+    inviterDisplayName = await getDisplayName(auth.userId);
+  } catch {
+    inviterDisplayName = null;
+  }
+
   const result = await createInvitation({
     accountId,
     inviterUserId: auth.userId,
     email: body.data.email,
     role: body.data.role,
+    inviter: { email: auth.email, displayName: inviterDisplayName },
   });
 
   if (!result.ok) {
@@ -104,6 +121,15 @@ export async function POST(
           { error: "Owner is not an invitable role.", code: "OWNER_NOT_INVITABLE" },
           { status: 400 },
         );
+      case "rate_limited":
+        return NextResponse.json(
+          {
+            error:
+              "Too many invitations sent recently. Wait a bit before inviting more people.",
+            code: "INVITE_RATE_LIMITED",
+          },
+          { status: 429 },
+        );
     }
   }
 
@@ -111,9 +137,11 @@ export async function POST(
     {
       ok: true,
       invitation: inviteProjection(result.invitation),
-      // Raw token / accept link — available ONLY here (never stored, no email sent).
+      // Raw token / accept link — available ONLY here (never stored).
       acceptToken: result.acceptToken,
       acceptPath: result.acceptPath,
+      // Delivery outcome only — never provider internals or message ids.
+      emailDelivery: { status: result.emailDelivery.status },
     },
     { status: 201 },
   );

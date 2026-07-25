@@ -170,6 +170,54 @@ export async function countPendingForAccountServiceRole(
   return count ?? 0;
 }
 
+/**
+ * Count invitations CREATED for the account since `sinceIso`, ANY status
+ * (TEAM-INVITATION-EMAIL-1). Input to the durable invitation-send throttle:
+ * every create attempts an outbound email, so revoked/expired/accepted rows
+ * inside the window still represent a consumed send. Durable across serverless
+ * instances because the invitation rows themselves are the counter.
+ */
+export async function countCreatedSinceForAccountServiceRole(
+  accountId: string,
+  sinceIso: string,
+): Promise<number> {
+  const supabase = getServiceRoleClient(
+    `account_invitations: countCreatedSince for account ${accountId}`,
+  );
+  const { count, error } = await supabase
+    .from("account_invitations")
+    .select("*", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .gte("created_at", sinceIso);
+  if (error) {
+    throw new Error(
+      `account_invitations.countCreatedSinceForAccountServiceRole failed: ${error.message}`,
+    );
+  }
+  return count ?? 0;
+}
+
+/** Per-inviter companion to `countCreatedSinceForAccountServiceRole` (spans accounts). */
+export async function countCreatedSinceByInviterServiceRole(
+  inviterUserId: string,
+  sinceIso: string,
+): Promise<number> {
+  const supabase = getServiceRoleClient(
+    `account_invitations: countCreatedSince by inviter`,
+  );
+  const { count, error } = await supabase
+    .from("account_invitations")
+    .select("*", { count: "exact", head: true })
+    .eq("invited_by_user_id", inviterUserId)
+    .gte("created_at", sinceIso);
+  if (error) {
+    throw new Error(
+      `account_invitations.countCreatedSinceByInviterServiceRole failed: ${error.message}`,
+    );
+  }
+  return count ?? 0;
+}
+
 export async function markAcceptedServiceRole(
   invitationId: string,
   acceptedByUserId: string,

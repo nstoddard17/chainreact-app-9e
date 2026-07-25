@@ -68,12 +68,13 @@ describe("listInvitations", () => {
 });
 
 describe("createInvitation", () => {
-  it("POSTs email+role and returns invitation + token + path", async () => {
+  it("POSTs email+role and returns invitation + token + path + delivery status", async () => {
     const payload = {
       ok: true,
       invitation: { id: "i1", email: "a@b.c", role: "member", status: "pending", expiresAt: "e", createdAt: "c" },
       acceptToken: "raw-token",
       acceptPath: "/invitations/accept?token=raw-token",
+      emailDelivery: { status: "sent" },
     };
     mockFetch.mockResolvedValueOnce(ok(payload, 201));
     const r = await createInvitation("acct1", "a@b.c", "member");
@@ -85,6 +86,18 @@ describe("createInvitation", () => {
         body: JSON.stringify({ email: "a@b.c", role: "member" }),
       }),
     );
+  });
+
+  it("degrades a missing/unknown emailDelivery to 'failed' (UI then leads with the copy link)", async () => {
+    const payload = {
+      ok: true,
+      invitation: { id: "i1", email: "a@b.c", role: "member", status: "pending", expiresAt: "e", createdAt: "c" },
+      acceptToken: "raw-token",
+      acceptPath: "/invitations/accept?token=raw-token",
+    };
+    mockFetch.mockResolvedValueOnce(ok(payload, 201));
+    const r = await createInvitation("acct1", "a@b.c", "member");
+    expect(r.emailDelivery).toEqual({ status: "failed" });
   });
 
   it("maps 409 (team_member_limit_reached) → CONFLICT and keeps the server message", async () => {

@@ -12,12 +12,24 @@ import { Input } from "@/components/ui/input";
 import { ROLE_COPY } from "./roleCopy";
 
 /**
- * Invite-by-copy-link bar (Slice 4.TEAM-PAGE-1).
+ * Invite bar (Slice 4.TEAM-PAGE-1; email delivery TEAM-INVITATION-EMAIL-1).
  *
- * Creates a pending invite and surfaces the one-time accept link for the
- * inviter to copy and share manually. NO outbound email is sent (the backend
- * has no email infra; the raw token is returned only on create). The full URL
- * is built from `window.location.origin + acceptPath` at copy time.
+ * Submitting creates a durable pending invite AND emails the invited address a
+ * ChainReact-branded invitation. Email is the primary delivery channel; the
+ * one-time copyable accept link stays as a fallback in every outcome:
+ *
+ *   - `sent`            → "Invitation emailed to …" + link as a backup.
+ *   - `failed`          → warning: the invite EXISTS but the email didn't go
+ *                         out — the owner shares the link manually. Explicitly
+ *                         tells them NOT to resubmit (a resubmit would hit the
+ *                         duplicate-pending-invite rule, not resend).
+ *   - `not_configured`  → local/dev without email credentials: same manual-link
+ *                         guidance, neutral wording.
+ *
+ * The full URL is built from `window.location.origin + acceptPath` at render
+ * time (the inviter is on the canonical origin; the emailed link is built
+ * server-side from the configured origin). Delivery outcome is announced via
+ * an `aria-live` region.
  *
  * Disabled at the team member cap — the parent passes `disabled` so the control
  * can't even attempt a call the server would reject with TEAM_MEMBER_LIMIT_REACHED.
@@ -77,6 +89,8 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
     }
   }
 
+  const delivery = result?.emailDelivery.status ?? null;
+
   return (
     <div
       data-testid="team-invite-bar"
@@ -86,7 +100,7 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
         <Input
           type="email"
           aria-label="Invite by email"
-          placeholder="Invite by email — they'll need this address to accept"
+          placeholder="Invite by email — we'll send them an invitation"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={disabled || pending}
@@ -103,7 +117,7 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
           <option value="admin">As Admin</option>
         </select>
         <Button type="submit" disabled={disabled || pending}>
-          {pending ? "Creating…" : "Create invite link"}
+          {pending ? "Sending…" : "Send invite"}
         </Button>
       </form>
 
@@ -113,8 +127,9 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
       </p>
 
       <p className="text-xs text-muted-foreground">
-        We don&apos;t email invites yet — create the link and share it with your
-        teammate. They&apos;ll accept while signed in with the invited email.
+        We&apos;ll email the invitation. Your teammate accepts while signed in
+        with the invited address — new to ChainReact, they can create an account
+        with it.
       </p>
 
       {error && (
@@ -123,15 +138,43 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
         </p>
       )}
 
+      {/* Screen-reader announcement of the delivery outcome. Visually the
+          panels below carry the same information. */}
+      <p aria-live="polite" role="status" className="sr-only">
+        {result
+          ? delivery === "sent"
+            ? `Invitation emailed to ${result.invitation.email}.`
+            : `Invitation created for ${result.invitation.email}, but the email was not sent. Copy the invitation link to share it.`
+          : ""}
+      </p>
+
       {result && (
         <div
           data-testid="team-invite-link"
-          className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3"
+          className={
+            delivery === "sent"
+              ? "flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3"
+              : "flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3"
+          }
         >
-          <span className="text-xs font-medium text-foreground">
-            Invite link for {result.invitation.email} ({result.invitation.role}) —
-            expires {result.invitation.expiresAt.slice(0, 10)}
-          </span>
+          {delivery === "sent" ? (
+            <span data-testid="team-invite-delivery" className="text-xs font-medium text-foreground">
+              Invitation emailed to {result.invitation.email} (
+              {result.invitation.role}) — expires{" "}
+              {result.invitation.expiresAt.slice(0, 10)}. They can sign in or
+              create an account with that address. Backup link:
+            </span>
+          ) : (
+            <span data-testid="team-invite-delivery" className="text-xs font-medium text-foreground">
+              {delivery === "not_configured"
+                ? "Invitation created. Email sending isn't configured in this environment — "
+                : "The invitation was created, but the email couldn't be sent — "}
+              copy this link and send it to {result.invitation.email} yourself (
+              {result.invitation.role}, expires{" "}
+              {result.invitation.expiresAt.slice(0, 10)}). Don&apos;t submit the
+              form again — the invitation already exists.
+            </span>
+          )}
           <div className="flex items-center gap-2">
             <input
               readOnly

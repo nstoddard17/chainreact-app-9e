@@ -11,26 +11,43 @@ import * as usersRepo from "@/repositories/users";
 import * as notificationsRepo from "@/repositories/notifications";
 import { setActiveAccount } from "@/services/accounts/activeAccount";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
+import { publicAppOrigin } from "@/services/email/appOrigin";
+import { sendTransactionalEmail } from "@/services/email/sendTransactionalEmail";
+import { renderTeamInvitationEmail } from "@/services/email/templates/teamInvitation";
+import type { EmailDeliveryStatus } from "@/services/email/transport";
 
 /**
- * Team invitation service (4.ACCOUNT-MODEL-15, Phase D D2a).
+ * Team invitation service (4.ACCOUNT-MODEL-15, Phase D D2a; email delivery
+ * TEAM-INVITATION-EMAIL-1).
  *
- * Create / list / revoke / accept invites. Backend-only — NO outbound email (the
- * raw token is returned ONCE at creation; only its SHA-256 hash is stored). The
- * route layer owns authorization (`requireAccountRole`); this service owns the
- * invite rules + the membership write on accept.
+ * Create / list / revoke / accept invites. The raw token is returned ONCE at
+ * creation; only its SHA-256 hash is stored. The route layer owns authorization
+ * (`requireAccountRole`); this service owns the invite rules + the membership
+ * write on accept.
  *
- * Abuse / rate-limiting (TODO before public UI launch — no rate-limit infra
- * exists yet): the existing protections are (1) email is normalized
- * (trim+lowercase), (2) the DB partial-unique index blocks duplicate PENDING
- * invites per (account,email), (3) the raw token is never stored and is exposed
- * only in the create response. A future slice should add per-account / per-user
- * invite-creation limits (and, with the email-infra slice, send throttling)
- * before the visible invite UI (D3) ships.
+ * Delivery semantics (TEAM-INVITATION-EMAIL-1): the DB invitation is the
+ * durable source of truth; email is external delivery, attempted AFTER the
+ * invitation persists. A provider failure never deletes/revokes the invitation
+ * and never fails the create — the caller receives the created invitation plus
+ * a typed `emailDelivery.status` so the UI can fall back to the one-time
+ * copyable link.
+ *
+ * Abuse controls: (1) email is normalized (trim+lowercase), (2) the DB
+ * partial-unique index blocks duplicate PENDING invites per (account,email),
+ * (3) the raw token is never stored and is exposed only in the create
+ * response, (4) a DURABLE send throttle counts invitation rows created inside
+ * the rolling window — per inviter and per account — so rapid repeated sends
+ * are refused (`rate_limited`) before a row or email exists. The rows
+ * themselves are the counter (cross-instance safe; no in-memory state).
  */
 
 export const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Rolling send-throttle window + caps (modest; team cap is 5, business 25). */
+export const INVITE_SEND_WINDOW_MINUTES = 60;
+export const INVITE_SEND_LIMIT_PER_INVITER = 10;
+export const INVITE_SEND_LIMIT_PER_ACCOUNT = 20;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -55,7 +72,8 @@ export type CreateInvitationReason =
   | "account_frozen"
   | "already_member"
   | "duplicate_pending"
-  | "team_member_limit_reached";
+  | "team_member_limit_reached"
+  | "rate_limited";
 
 export type CreateInvitationResult =
   | {
@@ -65,6 +83,12 @@ export type CreateInvitationResult =
       acceptToken: string;
       /** Internal app path carrying the raw token. */
       acceptPath: string;
+      /**
+       * Outcome of the transactional email attempt. "sent" only when the
+       * provider accepted the message; "not_configured" in environments with
+       * no email transport. Never affects whether the invitation persisted.
+       */
+      emailDelivery: { status: EmailDeliveryStatus };
     }
   | { ok: false; reason: CreateInvitationReason };
 
@@ -73,6 +97,13 @@ export async function createInvitation(input: {
   inviterUserId: string;
   email: string;
   role: InvitationRole;
+  /**
+   * Safe display identity of the inviter for the email body (session email +
+   * their own profile display name — both resolved by the route from the
+   * verified session, never from request input). Optional: absent → generic
+   * "You've been invited" copy.
+   */
+  inviter?: { email: string | null; displayName: string | null };
   now?: Date;
 }): Promise<CreateInvitationResult> {
   // owner is never invitable (route validates; this is the service floor).
@@ -116,6 +147,33 @@ export async function createInvitation(input: {
     if (memberCount + pendingCount + 1 > limit) {
       return { ok: false, reason: "team_member_limit_reached" };
     }
+  }
+
+  // Durable send throttle (TEAM-INVITATION-EMAIL-1): every create attempts an
+  // outbound email, so rapid repeated creates are refused before a row or email
+  // exists. Counts invitation rows created inside the rolling window (any
+  // status — a revoked invite still consumed a send), per inviter and per
+  // account. DB-backed, so it holds across serverless instances.
+  const sinceIso = new Date(
+    now.getTime() - INVITE_SEND_WINDOW_MINUTES * 60 * 1000,
+  ).toISOString();
+  const [inviterRecent, accountRecent] = await Promise.all([
+    invitationsRepo.countCreatedSinceByInviterServiceRole(input.inviterUserId, sinceIso),
+    invitationsRepo.countCreatedSinceForAccountServiceRole(input.accountId, sinceIso),
+  ]);
+  if (
+    inviterRecent >= INVITE_SEND_LIMIT_PER_INVITER ||
+    accountRecent >= INVITE_SEND_LIMIT_PER_ACCOUNT
+  ) {
+    console.warn(
+      JSON.stringify({
+        event: "account.invite.rate_limited",
+        accountId: input.accountId,
+        inviterRecent,
+        accountRecent,
+      }),
+    );
+    return { ok: false, reason: "rate_limited" };
   }
 
   const rawToken = generateRawToken();
@@ -164,7 +222,37 @@ export async function createInvitation(input: {
     }
   }
 
-  return { ok: true, invitation, acceptToken: rawToken, acceptPath };
+  // Transactional email (TEAM-INVITATION-EMAIL-1) — attempted only after the
+  // invitation persisted. Works whether or not the address has a ChainReact
+  // account. The full accept URL is built from the canonical configured origin
+  // (publicAppOrigin — never request-derived). sendTransactionalEmail never
+  // throws and logs its own SAFE structured warning on failure (opaque ids
+  // only — never the address, token, URL, or body).
+  const inviterName =
+    input.inviter?.displayName?.trim() || input.inviter?.email || null;
+  const rendered = renderTeamInvitationEmail({
+    teamName: account.name,
+    inviterName,
+    role: input.role,
+    acceptUrl: `${publicAppOrigin()}${acceptPath}`,
+    expiresInDays: INVITE_TTL_DAYS,
+  });
+  const delivery = await sendTransactionalEmail(
+    { to: email, subject: rendered.subject, html: rendered.html, text: rendered.text },
+    {
+      template: "team_invitation",
+      invitationId: invitation.id,
+      accountId: input.accountId,
+    },
+  );
+
+  return {
+    ok: true,
+    invitation,
+    acceptToken: rawToken,
+    acceptPath,
+    emailDelivery: { status: delivery.status },
+  };
 }
 
 // ── list / revoke ────────────────────────────────────────────────────────────

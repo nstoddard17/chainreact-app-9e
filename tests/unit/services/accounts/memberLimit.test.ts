@@ -34,6 +34,9 @@ jest.mock("@/repositories/accountInvitations", () => ({
   insertPending: (...a: unknown[]) => mockInsertPending(...a),
   getByTokenHashServiceRole: (...a: unknown[]) => mockGetByTokenHash(...a),
   countPendingForAccountServiceRole: (...a: unknown[]) => mockCountPending(...a),
+  // Send-throttle counters (TEAM-INVITATION-EMAIL-1) — always under the cap here.
+  countCreatedSinceByInviterServiceRole: jest.fn(async () => 0),
+  countCreatedSinceForAccountServiceRole: jest.fn(async () => 0),
   markAcceptedServiceRole: (...a: unknown[]) => mockMarkAccepted(...a),
   markExpiredServiceRole: jest.fn(),
 }));
@@ -59,6 +62,10 @@ jest.mock("@/repositories/users", () => ({
 jest.mock("@/repositories/notifications", () => ({ create: jest.fn() }));
 jest.mock("@/services/accounts/activeAccount", () => ({
   setActiveAccount: jest.fn(async () => ({ ok: true, account: {} })),
+}));
+// External email boundary — out of scope for the member-limit tests.
+jest.mock("@/services/email/sendTransactionalEmail", () => ({
+  sendTransactionalEmail: jest.fn(async () => ({ status: "sent" })),
 }));
 
 import { createInvitation, acceptInvitation } from "@/services/accounts/invitations";

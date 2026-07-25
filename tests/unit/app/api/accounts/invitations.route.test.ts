@@ -26,6 +26,11 @@ jest.mock("@/services/accounts/invitations", () => ({
   revokeInvitation: (...a: unknown[]) => mockRevoke(...a),
 }));
 
+const mockGetDisplayName = jest.fn();
+jest.mock("@/repositories/userProfiles", () => ({
+  getDisplayName: (...a: unknown[]) => mockGetDisplayName(...a),
+}));
+
 import { POST, GET } from "@/app/api/accounts/[id]/invitations/route";
 import { DELETE } from "@/app/api/accounts/[id]/invitations/[invitationId]/route";
 
@@ -59,6 +64,8 @@ beforeEach(() => {
   mockCreate.mockReset();
   mockList.mockReset();
   mockRevoke.mockReset();
+  mockGetDisplayName.mockReset();
+  mockGetDisplayName.mockResolvedValue(null);
 });
 
 describe("POST /api/accounts/[id]/invitations", () => {
@@ -88,7 +95,7 @@ describe("POST /api/accounts/[id]/invitations", () => {
 
   it("requires owner/admin role from requireAccountRole", async () => {
     asOwner();
-    mockCreate.mockResolvedValueOnce({ ok: true, invitation: inv(), acceptToken: "raw", acceptPath: "/x" });
+    mockCreate.mockResolvedValueOnce(createdOk());
     await POST(req({ email: "a@b.com", role: "member" }), params());
     expect(mockRequireRole).toHaveBeenCalledWith(USER, ACCOUNT, ["owner", "admin"]);
   });
@@ -109,18 +116,50 @@ describe("POST /api/accounts/[id]/invitations", () => {
 
   it("201s on success and returns the accept link (raw token exposed only here)", async () => {
     asOwner();
-    mockCreate.mockResolvedValueOnce({
-      ok: true, invitation: inv(), acceptToken: "raw-token", acceptPath: "/invitations/accept?token=raw-token",
-    });
+    mockGetDisplayName.mockResolvedValueOnce("Marcus L");
+    mockCreate.mockResolvedValueOnce(createdOk());
     const res = await POST(req({ email: "A@B.com", role: "admin" }), params());
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.acceptToken).toBe("raw-token");
     expect(body.acceptPath).toContain("token=");
+    expect(body.emailDelivery).toEqual({ status: "sent" });
     expect(mockCreate).toHaveBeenCalledWith({
       accountId: ACCOUNT, inviterUserId: USER, email: "A@B.com", role: "admin",
+      inviter: { email: null, displayName: "Marcus L" },
     });
+  });
+
+  it("passes emailDelivery.status through verbatim on failure — still 201 (no retry-inducing 5xx)", async () => {
+    asOwner();
+    mockCreate.mockResolvedValueOnce(createdOk({ emailDelivery: { status: "failed" } }));
+    const res = await POST(req({ email: "a@b.com", role: "member" }), params());
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.emailDelivery).toEqual({ status: "failed" });
+    // The invitation + one-time link are still returned so the UI can fall
+    // back to manual link sharing instead of retrying the create.
+    expect(body.acceptPath).toContain("token=");
+  });
+
+  it("tolerates a display-name read failure (invite still created)", async () => {
+    asOwner();
+    mockGetDisplayName.mockRejectedValueOnce(new Error("profile read down"));
+    mockCreate.mockResolvedValueOnce(createdOk());
+    const res = await POST(req({ email: "a@b.com", role: "member" }), params());
+    expect(res.status).toBe(201);
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ inviter: { email: null, displayName: null } }),
+    );
+  });
+
+  it("429 INVITE_RATE_LIMITED when the send throttle refuses", async () => {
+    asOwner();
+    mockCreate.mockResolvedValueOnce({ ok: false, reason: "rate_limited" });
+    const res = await POST(req({ email: "a@b.com", role: "member" }), params());
+    expect(res.status).toBe(429);
+    expect((await res.json()).code).toBe("INVITE_RATE_LIMITED");
   });
 
   it("403 ACCOUNT_PENDING_DELETION when the account is frozen", async () => {
@@ -204,5 +243,16 @@ function inv() {
   return {
     id: "inv-1", email: "a@b.com", role: "member", status: "pending",
     expiresAt: "2999-01-01T00:00:00.000Z", createdAt: "2026-05-31T00:00:00.000Z",
+  };
+}
+
+function createdOk(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true,
+    invitation: inv(),
+    acceptToken: "raw-token",
+    acceptPath: "/invitations/accept?token=raw-token",
+    emailDelivery: { status: "sent" },
+    ...overrides,
   };
 }
