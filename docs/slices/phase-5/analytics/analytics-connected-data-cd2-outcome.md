@@ -156,9 +156,12 @@ aggregates; limiter table unreachable by anon/authenticated (gated DB-proven).
   test account is required; all provider-boundary behavior is fixture-proven
   and the limiter is live-DB-proven. Do not expose the dataset in CD-3 UI
   defaults before a live pass.
-- **Full `npm test`: launched after the CD-2 commit; totals reported in the
-  Owner Report** (repo baseline: ~20 known unrelated failing suites +
-  the parallel-arc breakage above).
+- **Full `npm test`: NOT run — stopped shortly after launch at Marcus's
+  direction** (his standing preference across this arc). Coverage claims rest
+  on the focused + regression runs above (30 new unit tests, 3 gated live-DB
+  tests, and the 99-suite / 1,308-test analytics+contracts regression tree).
+  Repo baseline for any future full run: ~20 known unrelated failing suites +
+  the parallel-arc breakage above.
 
 ## CD-3 boundary
 
