@@ -13,12 +13,16 @@ const BASE = {
   inviterName: "Pat Owner",
   role: "member" as const,
   acceptUrl: "https://chainreact.app/invitations/accept?token=tok-123",
+  invitationRef: "ab12cd34",
+  sentAtIso: "2026-07-26T14:05:00.000Z",
 };
 
 describe("renderTeamInvitationEmail", () => {
   it("renders subject, HTML, and plain text with team, role, and URL", () => {
     const r = renderTeamInvitationEmail(BASE);
-    expect(r.subject).toBe("You've been invited to join Acme Rockets on ChainReact");
+    expect(r.subject).toBe(
+      "You've been invited to join Acme Rockets on ChainReact (invite ab12cd34)",
+    );
 
     for (const body of [r.html, r.text]) {
       expect(body).toContain("Acme Rockets");
@@ -70,6 +74,22 @@ describe("renderTeamInvitationEmail", () => {
       teamName: "Acme\r\nBcc: victim@example.com",
     });
     expect(evil.subject).not.toMatch(/[\r\n]/);
+  });
+
+  it("distinguishes successive invitations: unique subject ref + sent timestamp + newest-wins note (HUMAN-JOURNEY-4)", () => {
+    const first = renderTeamInvitationEmail(BASE);
+    const second = renderTeamInvitationEmail({ ...BASE, invitationRef: "ef56gh78" });
+    // Distinct subjects → mail clients never thread two invitations together.
+    expect(first.subject).not.toBe(second.subject);
+    expect(second.subject).toContain("(invite ef56gh78)");
+
+    for (const body of [first.html, first.text]) {
+      expect(body).toContain("Invitation reference ab12cd34");
+      expect(body).toContain("Jul 26, 2026, 14:05 UTC");
+      expect(body).toMatch(/use the most recent one/i);
+    }
+    // The reference is opaque — never the token from the accept URL.
+    expect(BASE.acceptUrl).not.toContain(BASE.invitationRef);
   });
 
   it("contains no unrelated account data and no secret-shaped content", () => {

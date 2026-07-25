@@ -286,6 +286,12 @@ async function notifyAndEmailInvitee(args: {
     inviterName,
     role: args.role,
     acceptUrl: `${publicAppOrigin()}${args.acceptPath}`,
+    // Short OPAQUE per-invitation reference (id-derived — never the token or
+    // its hash) + sent timestamp, so successive invitation emails are
+    // distinguishable and never Gmail-threaded into one conversation
+    // (TEAM-INVITATION-HUMAN-JOURNEY-4).
+    invitationRef: args.invitation.id.slice(0, 8),
+    sentAtIso: args.invitation.createdAt,
   });
   const delivery = await sendTransactionalEmail(
     { to: args.email, subject: rendered.subject, html: rendered.html, text: rendered.text },

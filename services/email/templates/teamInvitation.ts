@@ -24,6 +24,17 @@ export interface TeamInvitationEmailInput {
   role: "admin" | "member";
   /** Full canonical accept URL (origin + /invitations/accept?token=…). */
   acceptUrl: string;
+  /**
+   * Short OPAQUE per-invitation reference (derived from the invitation id —
+   * NEVER the token or its hash). Rendered in the subject and body so a
+   * recipient — and Gmail's conversation threading — can tell invitation
+   * emails apart when several were sent for the same team
+   * (TEAM-INVITATION-HUMAN-JOURNEY-4: identical subjects were threaded and a
+   * recipient followed an older, already-used invitation's link).
+   */
+  invitationRef: string;
+  /** When this invitation was created (ISO). Shown as a sent timestamp. */
+  sentAtIso: string;
 }
 
 export interface RenderedTransactionalEmail {
@@ -54,11 +65,25 @@ const ROLE_LINE: Record<TeamInvitationEmailInput["role"], string> = {
     "You've been invited as a Member — you'll be able to collaborate on the team's workflows.",
 };
 
+/** Human-readable UTC stamp, e.g. "Jul 26, 2026, 14:05 UTC". Falls back to the raw value. */
+function toSentStamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return toSubjectSafe(iso);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
 export function renderTeamInvitationEmail(
   input: TeamInvitationEmailInput,
 ): RenderedTransactionalEmail {
   const teamPlain = toSubjectSafe(input.teamName);
-  const subject = `You've been invited to join ${teamPlain} on ChainReact`;
+  const refPlain = toSubjectSafe(input.invitationRef);
+  // The ref in the SUBJECT makes every invitation email unique, so mail
+  // clients (Gmail especially) don't collapse successive invitations into one
+  // thread where an older, already-used link is easy to click by mistake.
+  const subject = `You've been invited to join ${teamPlain} on ChainReact (invite ${refPlain})`;
+  const sentStamp = toSentStamp(input.sentAtIso);
 
   const inviterPlain = input.inviterName ? toSubjectSafe(input.inviterName) : null;
   const introPlain = inviterPlain
@@ -69,6 +94,11 @@ export function renderTeamInvitationEmail(
   // TEAM-INVITATION-LIFECYCLE-2: invitations do not expire — no expiry wording.
   const validityLine =
     "This invitation stays active until it's accepted or canceled by the team.";
+  // TEAM-INVITATION-HUMAN-JOURNEY-4: identify THIS message so the newest
+  // invitation is unmistakable even when older invitation emails exist.
+  const referenceLine = `Invitation reference ${refPlain} · sent ${sentStamp}.`;
+  const newestLine =
+    "If you received more than one invitation email for this team, use the most recent one — earlier links may already be used or canceled.";
   const identityLine =
     "To accept, sign in — or create a free ChainReact account — using the email address this invitation was sent to.";
   const securityLine =
@@ -84,6 +114,8 @@ export function renderTeamInvitationEmail(
     "",
     identityLine,
     validityLine,
+    referenceLine,
+    newestLine,
     "",
     securityLine,
     "",
@@ -109,7 +141,9 @@ export function renderTeamInvitationEmail(
     <p style="margin:0 0 6px;font-size:12px;color:#6b7280;">Or paste this link into your browser:</p>
     <p style="margin:0 0 20px;font-size:12px;word-break:break-all;"><a href="${urlAttr}" style="color:#6366f1;">${urlAttr}</a></p>
     <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#4b5563;">${escapeHtml(identityLine)}</p>
-    <p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#4b5563;">${escapeHtml(validityLine)}</p>
+    <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#4b5563;">${escapeHtml(validityLine)}</p>
+    <p style="margin:0 0 6px;font-size:12px;line-height:1.6;color:#6b7280;">${escapeHtml(referenceLine)}</p>
+    <p style="margin:0 0 20px;font-size:12px;line-height:1.6;color:#6b7280;">${escapeHtml(newestLine)}</p>
     <hr style="border:none;border-top:1px solid #e4e7ec;margin:0 0 16px;" />
     <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">${escapeHtml(securityLine)}</p>
   </div>
