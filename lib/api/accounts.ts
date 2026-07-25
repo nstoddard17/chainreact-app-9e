@@ -547,7 +547,8 @@ export interface InvitationSummary {
   email: string;
   role: string;
   status: string;
-  expiresAt: string;
+  /** Null since TEAM-INVITATION-LIFECYCLE-2 — pending invites don't expire. */
+  expiresAt: string | null;
   createdAt: string;
 }
 
@@ -608,6 +609,62 @@ export async function createInvitation(
   };
   // Missing/unknown delivery info degrades to "failed" — the UI then leads
   // with the copy link, which is always a safe instruction.
+  const status = body.emailDelivery?.status;
+  return {
+    ...body,
+    emailDelivery: {
+      status:
+        status === "sent" || status === "not_configured" ? status : "failed",
+    },
+  };
+}
+
+/**
+ * PATCH /api/accounts/[id]/invitations/[invitationId] { role } — change a
+ * pending invite's role IN PLACE (TEAM-INVITATION-LIFECYCLE-2). Same token and
+ * link; no new email is sent.
+ */
+export async function changeInvitationRole(
+  accountId: string,
+  invitationId: string,
+  role: TeamManageableRole,
+): Promise<InvitationSummary> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/invitations/${encodeURIComponent(invitationId)}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ role }),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as { invitation: InvitationSummary };
+  return body.invitation;
+}
+
+/**
+ * PATCH /api/accounts/[id]/invitations/[invitationId] { email } — REPLACE the
+ * invite for a new address (TEAM-INVITATION-LIFECYCLE-2): the old link stops
+ * working; a new token/link/email is issued with the same role. Returns the
+ * new one-time link + delivery status (same shape as create).
+ */
+export async function changeInvitationEmail(
+  accountId: string,
+  invitationId: string,
+  email: string,
+): Promise<CreatedInvitation> {
+  const res = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/invitations/${encodeURIComponent(invitationId)}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email }),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  const body = (await res.json()) as Omit<CreatedInvitation, "emailDelivery"> & {
+    emailDelivery?: { status?: InvitationEmailDeliveryStatus };
+  };
   const status = body.emailDelivery?.status;
   return {
     ...body,

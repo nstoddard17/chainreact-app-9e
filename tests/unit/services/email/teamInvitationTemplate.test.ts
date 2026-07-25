@@ -13,11 +13,10 @@ const BASE = {
   inviterName: "Pat Owner",
   role: "member" as const,
   acceptUrl: "https://chainreact.app/invitations/accept?token=tok-123",
-  expiresInDays: 7,
 };
 
 describe("renderTeamInvitationEmail", () => {
-  it("renders subject, HTML, and plain text with team, role, URL, and expiry", () => {
+  it("renders subject, HTML, and plain text with team, role, and URL", () => {
     const r = renderTeamInvitationEmail(BASE);
     expect(r.subject).toBe("You've been invited to join Acme Rockets on ChainReact");
 
@@ -26,7 +25,6 @@ describe("renderTeamInvitationEmail", () => {
       expect(body).toContain("Pat Owner");
       expect(body).toContain("Member");
       expect(body).toContain(BASE.acceptUrl);
-      expect(body).toContain("expires in 7 days");
       // The recipient may have no account yet — the path is spelled out.
       expect(body).toMatch(/create a free ChainReact account/i);
       expect(body).toMatch(/email address this invitation was sent to/i);
@@ -34,6 +32,15 @@ describe("renderTeamInvitationEmail", () => {
       // in the HTML body).
       expect(body).toMatch(/weren(?:'|&#39;)t expecting this invitation/i);
     }
+  });
+
+  it("contains NO expiry wording — invitations are non-expiring (TEAM-INVITATION-LIFECYCLE-2)", () => {
+    const r = renderTeamInvitationEmail(BASE);
+    const all = r.subject + r.html + r.text;
+    expect(all.toLowerCase()).not.toContain("expire");
+    expect(all).not.toMatch(/seven days|7 days|7-day/i);
+    // Instead it states the invitation stays active.
+    expect(r.text).toMatch(/stays active until it(?:'|&#39;)s accepted or canceled/i);
   });
 
   it("describes the admin role in plain language", () => {

@@ -160,9 +160,9 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
           {delivery === "sent" ? (
             <span data-testid="team-invite-delivery" className="text-xs font-medium text-foreground">
               Invitation emailed to {result.invitation.email} (
-              {result.invitation.role}) — expires{" "}
-              {result.invitation.expiresAt.slice(0, 10)}. They can sign in or
-              create an account with that address. Backup link:
+              {result.invitation.role}). It stays active until accepted or
+              canceled. They can sign in or create an account with that address.
+              Backup link:
             </span>
           ) : (
             <span data-testid="team-invite-delivery" className="text-xs font-medium text-foreground">
@@ -170,9 +170,9 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
                 ? "Invitation created. Email sending isn't configured in this environment — "
                 : "The invitation was created, but the email couldn't be sent — "}
               copy this link and send it to {result.invitation.email} yourself (
-              {result.invitation.role}, expires{" "}
-              {result.invitation.expiresAt.slice(0, 10)}). Don&apos;t submit the
-              form again — the invitation already exists.
+              {result.invitation.role}). It stays active until accepted or
+              canceled. Don&apos;t submit the form again — the invitation
+              already exists.
             </span>
           )}
           <div className="flex items-center gap-2">

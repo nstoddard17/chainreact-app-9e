@@ -32,6 +32,7 @@ export interface TeamInvitationView {
   email: string;
   role: string;
   status: string;
-  expiresAt: string;
+  /** Null since TEAM-INVITATION-LIFECYCLE-2 — pending invites don't expire. */
+  expiresAt: string | null;
   createdAt: string;
 }

@@ -20,10 +20,14 @@ jest.mock("@/services/accounts/accountAuthz", () => ({
 const mockCreate = jest.fn();
 const mockList = jest.fn();
 const mockRevoke = jest.fn();
+const mockChangeRole = jest.fn();
+const mockReplaceEmail = jest.fn();
 jest.mock("@/services/accounts/invitations", () => ({
   createInvitation: (...a: unknown[]) => mockCreate(...a),
   listInvitations: (...a: unknown[]) => mockList(...a),
   revokeInvitation: (...a: unknown[]) => mockRevoke(...a),
+  changeInvitationRole: (...a: unknown[]) => mockChangeRole(...a),
+  replaceInvitationEmail: (...a: unknown[]) => mockReplaceEmail(...a),
 }));
 
 const mockGetDisplayName = jest.fn();
@@ -32,7 +36,7 @@ jest.mock("@/repositories/userProfiles", () => ({
 }));
 
 import { POST, GET } from "@/app/api/accounts/[id]/invitations/route";
-import { DELETE } from "@/app/api/accounts/[id]/invitations/[invitationId]/route";
+import { DELETE, PATCH } from "@/app/api/accounts/[id]/invitations/[invitationId]/route";
 
 const USER = "owner-1";
 const ACCOUNT = "team-1";
@@ -64,9 +68,18 @@ beforeEach(() => {
   mockCreate.mockReset();
   mockList.mockReset();
   mockRevoke.mockReset();
+  mockChangeRole.mockReset();
+  mockReplaceEmail.mockReset();
   mockGetDisplayName.mockReset();
   mockGetDisplayName.mockResolvedValue(null);
 });
+
+function patchReq(body: unknown) {
+  return new Request(
+    `https://app.test/api/accounts/${ACCOUNT}/invitations/inv-1`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}
 
 describe("POST /api/accounts/[id]/invitations", () => {
   it("401s an unauthenticated caller", async () => {
@@ -239,10 +252,84 @@ describe("DELETE /api/accounts/[id]/invitations/[invitationId]", () => {
   });
 });
 
-function inv() {
+describe("PATCH /api/accounts/[id]/invitations/[invitationId] (TEAM-INVITATION-LIFECYCLE-2)", () => {
+  it("403s a member for both role and email changes", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: false, reason: "forbidden" });
+    const res = await PATCH(patchReq({ role: "admin" }), params({ invitationId: "inv-1" }));
+    expect(res.status).toBe(403);
+    expect(mockChangeRole).not.toHaveBeenCalled();
+    expect(mockReplaceEmail).not.toHaveBeenCalled();
+  });
+
+  it("400s a body with neither or both of role/email", async () => {
+    asOwner();
+    expect((await PATCH(patchReq({}), params({ invitationId: "inv-1" }))).status).toBe(400);
+    asOwner();
+    expect(
+      (await PATCH(patchReq({ role: "admin", email: "x@y.z" }), params({ invitationId: "inv-1" }))).status,
+    ).toBe(400);
+    expect(mockChangeRole).not.toHaveBeenCalled();
+    expect(mockReplaceEmail).not.toHaveBeenCalled();
+  });
+
+  it("role change → in-place update; returns the invitation; never calls the email replacer", async () => {
+    asOwner();
+    mockChangeRole.mockResolvedValueOnce({ ok: true, invitation: inv({ role: "admin" }) });
+    const res = await PATCH(patchReq({ role: "admin" }), params({ invitationId: "inv-1" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.invitation.role).toBe("admin");
+    // No token/link fields on a role change — the existing link stays active.
+    expect(body.acceptToken).toBeUndefined();
+    expect(body.acceptPath).toBeUndefined();
+    expect(mockChangeRole).toHaveBeenCalledWith({ accountId: ACCOUNT, invitationId: "inv-1", role: "admin" });
+    expect(mockReplaceEmail).not.toHaveBeenCalled();
+  });
+
+  it("email change → replacement with NEW one-time link + delivery status", async () => {
+    asOwner();
+    mockReplaceEmail.mockResolvedValueOnce({
+      ok: true,
+      invitation: inv({ email: "new@b.com" }),
+      acceptToken: "new-raw-token",
+      acceptPath: "/invitations/accept?token=new-raw-token",
+      emailDelivery: { status: "sent" },
+    });
+    const res = await PATCH(patchReq({ email: "New@B.com" }), params({ invitationId: "inv-1" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.acceptToken).toBe("new-raw-token");
+    expect(body.emailDelivery).toEqual({ status: "sent" });
+    expect(mockReplaceEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: ACCOUNT, invitationId: "inv-1", newEmail: "New@B.com", inviterUserId: USER,
+      }),
+    );
+  });
+
+  it("maps not_found → 404, same_email → 400, duplicate → 409, rate_limited → 429", async () => {
+    const cases: Array<[Record<string, unknown>, string, number]> = [
+      [{ ok: false, reason: "not_found" }, "INVITATION_NOT_FOUND", 404],
+      [{ ok: false, reason: "same_email" }, "INVITATION_SAME_EMAIL", 400],
+      [{ ok: false, reason: "duplicate_pending" }, "DUPLICATE_PENDING_INVITE", 409],
+      [{ ok: false, reason: "rate_limited" }, "INVITE_RATE_LIMITED", 429],
+    ];
+    for (const [serviceResult, code, status] of cases) {
+      asOwner();
+      mockReplaceEmail.mockResolvedValueOnce(serviceResult);
+      const res = await PATCH(patchReq({ email: "n@b.com" }), params({ invitationId: "inv-1" }));
+      expect(res.status).toBe(status);
+      expect((await res.json()).code).toBe(code);
+    }
+  });
+});
+
+function inv(overrides: Record<string, unknown> = {}) {
   return {
     id: "inv-1", email: "a@b.com", role: "member", status: "pending",
-    expiresAt: "2999-01-01T00:00:00.000Z", createdAt: "2026-05-31T00:00:00.000Z",
+    expiresAt: null, createdAt: "2026-05-31T00:00:00.000Z",
+    ...overrides,
   };
 }
 

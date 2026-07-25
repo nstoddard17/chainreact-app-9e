@@ -1,7 +1,16 @@
 # TEAM-INVITATION-EMAIL-1 — Team invitation email delivery (outcome)
 
+> **Superseded in part by
+> [`team-invitation-lifecycle-2-outcome.md`](./team-invitation-lifecycle-2-outcome.md)
+> (2026-07-25):** invitations no longer expire (the 7-day TTL and all its
+> wording are removed), and pending invites gained in-place role change +
+> replace-on-email-change management. Delivery/transport/security content
+> below remains accurate.
+
 **Status:** implemented, locally verified (unit layer green; live provider send
-blocked on a valid key — see [Owner setup](#owner-setup-still-required)).
+was blocked on a then-invalid local key — production delivery has since been
+verified; the fuller production-verification narrative lives on the local
+docs branch and ships separately).
 **Scope:** invitation email delivery + acceptance-flow verification. Builds on
 4.ACCOUNT-MODEL-15 (invitation backend), 4.TEAM-PAGE-1 (invite UI), 5.ONBOARD-4
 (accept page). No migration. Nothing pushed.
