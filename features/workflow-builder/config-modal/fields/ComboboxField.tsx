@@ -22,6 +22,9 @@ import type { FieldRendererProps } from "./types";
 import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
 import type { OptionItem } from "@/lib/api/options";
 import { normalizeDependsOn } from "@/contracts/actionMeta";
+// REACT-AGENT-REVIEW-RECOVERY-MERGE-1 — one source for the account-scoped reconnect deep link,
+// shared with the React rail's recovery block so both surfaces point at the same place.
+import { reconnectHrefForProvider } from "@/core/workflows/options/optionsRecovery";
 import { useGraphSlice } from "../../state/graphSlice";
 import { useConfigSlice } from "../../state/configSlice";
 import { useResourceLabelCache } from "../../state/resourceLabelCache";
@@ -284,7 +287,7 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
               Apps to load options.
             </span>
             <a
-              href="/apps"
+              href={reconnectHrefForProvider(state.provider)}
               data-testid="combobox-disconnected-link"
               className="font-medium text-foreground underline underline-offset-2"
             >
@@ -303,7 +306,7 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
           >
             <span>{state.message}</span>
             <a
-              href="/apps"
+              href={reconnectHrefForProvider(state.provider)}
               data-testid="combobox-reconnect-link"
               className="font-medium text-foreground underline underline-offset-2"
             >
@@ -374,6 +377,20 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
         >
           {state.message}
         </p>
+        {/* REACT-AGENT-REVIEW-RECOVERY-MERGE-1 — the tray can now send a user straight here, so this
+            state must not be a dead end. `owner-must-connect` is the CREATOR's own missing
+            connection: they can fix it, so give them the account-scoped link. `owner-gated` is
+            someone else's personal credential — there is no action this user can take, and we do
+            NOT offer a retry or a link that would imply otherwise. */}
+        {mustConnect ? (
+          <a
+            href={reconnectHrefForProvider(state.provider)}
+            data-testid="combobox-owner-connect-link"
+            className="text-xs font-medium text-foreground underline underline-offset-2"
+          >
+            Connect {state.provider} in Apps
+          </a>
+        ) : null}
       </FieldShell>
     );
   }

@@ -100,6 +100,26 @@ builder metadata) and the route's own sanitized message. This is enforced by tes
 `tests/unit/core/workflows/options/optionsRecovery.test.ts` and
 `tests/integration/features/workflow-builder/hermes-guidance/react-agent-resolver-recovery.test.ts`.
 
+## Interaction with the post-approval review tray
+
+REACT-AGENT-REVIEW-RECOVERY-MERGE-1 combined this contract with the collapsible review tray
+(REACT-AGENT-REVIEW-TRAY-UX-1). Two consequences are durable:
+
+1. **The config rail is now a navigation DESTINATION.** Selecting a tray issue reveals a specific
+   field, so whatever that field renders on resolver failure *is* the recovery experience. The
+   config-modal `ComboboxField` therefore has to satisfy this contract too, not just the rail setup
+   cards. Its reconnect affordances deep-link through the shared `reconnectHrefForProvider`, and an
+   `OWNER_MUST_CONNECT` state (the creator's own missing connection) offers that link — while
+   `NOT_WORKFLOW_OWNER` deliberately offers nothing, because there is no action that user can take.
+   Manual entry there remains gated on the field's `allowManualEntry` contract; a picker whose meta
+   does not declare it (e.g. `typeform:formId`, `mailchimp:audience_id`) correctly does not offer it.
+2. **A session that begins already navigated must not expand over the field it revealed.** The rail's
+   `Add to draft & open step` applies the preview *and* reveals a field, which starts a new review
+   session. `useAgentReviewSession` carries that `focus` alongside the session token, and
+   `useAgentReviewTray` opens **collapsed with that issue selected** when the focus matches an issue
+   — including on first mount, since the tray usually MOUNTS on a new session rather than bumping its
+   token. Every ordinary apply still opens expanded.
+
 ## Where this applies
 
 Both React-rail setup cards (`BuilderPreviewSetupCard`, `BuilderNodeSetupCard`) via

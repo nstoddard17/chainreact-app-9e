@@ -38,6 +38,7 @@ import {
 import { buildAgentSetupIssues } from "@/core/workflows/agentSetupIssues";
 import { useGraphSlice, type ApplyAdditivePatchOutcome } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
+import { useAgentReviewSession } from "./useAgentReviewSession";
 import { useWorkflowCheckpoints } from "./useWorkflowCheckpoints";
 import type { RequiredFieldsByType } from "../validation/collectBuilderValidationIssues";
 
@@ -124,16 +125,13 @@ export function useBuilderPreview({
   // short-lived "Added from preview" badge on those cards AND the post-apply required-field hint
   // list. Lifetime is tied to the notice: cleared on dismiss / workflow switch / a new preview.
   const [appliedNodeIds, setAppliedNodeIds] = useState<readonly string[]>([]);
-  // REACT-AGENT-REVIEW-TRAY-UX-1 — a monotonic token identifying the CURRENT review
-  // session. Every notice-producing path (apply / stale / failed / restore / template)
-  // sets `appliedNodeIds`, so its identity change is exactly "a new review session
-  // began" — the review tray uses this (and only this) to reset its expanded /
-  // selected-issue / scroll presentation state. Ordinary issue-list churn as the user
-  // fills fields never changes it.
-  const [reviewSessionToken, setReviewSessionToken] = useState(0);
-  useEffect(() => {
-    setReviewSessionToken((token) => token + 1);
-  }, [appliedNodeIds]);
+  // REACT-AGENT-REVIEW-TRAY-UX-1 + -RECOVERY-MERGE-1 — the current review session's identity
+  // (token) and the field it opened straight into, if any. See `useAgentReviewSession`.
+  const {
+    token: reviewSessionToken,
+    focus: reviewSessionFocus,
+    setFocus: setReviewSessionFocus,
+  } = useAgentReviewSession(appliedNodeIds);
   // HERMES-AGENT-GUIDED-PREVIEW-SETUP — ephemeral guided-setup values for the CURRENT holographic
   // preview, keyed by previewId → fieldName → value. Preview-only: never written to configSlice / the
   // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
@@ -373,6 +371,7 @@ export function useBuilderPreview({
     if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
       setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
       setAppliedNodeIds([]);
+      setReviewSessionFocus(null);
       if (agentChangeId) {
         agentChanges.emitApplyFailed({
           agentChangeId,
@@ -462,11 +461,17 @@ export function useBuilderPreview({
         if (focusNodeId) config.revealNode({ nodeId: openId, initialValues, fieldKey: focusTarget!.fieldName });
         else config.openNode({ nodeId: openId, initialValues });
       }
+      // Only a RESOLVED focus target counts: an unresolvable one fell back to the generic open, so
+      // the session did not start on a specific field and the tray should expand as usual.
+      setReviewSessionFocus(
+        focusNodeId ? { nodeId: focusNodeId, fieldKey: focusTarget!.fieldName } : null,
+      );
     } else {
       // No patch could be built, or nothing safe to apply (e.g. trigger-only into a graph that
       // already has a trigger). Surface a safe, non-scary notice.
       setApplyNotice("ChainReact could not safely apply this preview.");
       setAppliedNodeIds([]);
+      setReviewSessionFocus(null);
       if (agentChangeId) {
         agentChanges.emitApplyFailed({
           agentChangeId,
@@ -477,7 +482,7 @@ export function useBuilderPreview({
     setPreviewOverlay(null);
     setPreviewConfig({});
     return outcome?.ok === true;
-  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges]);
+  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges, setReviewSessionFocus]);
 
   // REACT-AGENT-APPLY-MODES-1 — the three explicit apply-mode handlers wired to the rail picker.
   // Availability (enabled / disabled-reason / confirmation) is decided deterministically in
@@ -603,8 +608,9 @@ export function useBuilderPreview({
     applyNotice,
     appliedConfigHints,
     agentSetupIssues,
-    // REACT-AGENT-REVIEW-TRAY-UX-1 — identifies the current review session for the tray.
+    // REACT-AGENT-REVIEW-TRAY-UX-1 / -RECOVERY-MERGE-1 — review-session identity for the tray.
     reviewSessionToken,
+    reviewSessionFocus,
     previewConfig,
     // REACT-CONFIG-COVERAGE-1 — plan-config values the user supplied in their request, keyed by
     // preview node id, for the setup card's "from your request" display.

@@ -331,7 +331,9 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     // Reconnect path: a link to the Apps page (not a full-page OAuth nav from
     // the builder, which would drop unsaved edits).
     const link = screen.getByTestId("combobox-reconnect-link");
-    expect(link).toHaveAttribute("href", "/apps");
+    // REACT-AGENT-REVIEW-RECOVERY-MERGE-1 — deep-linked to the account-scoped integration (the
+    // review tray can now send a user straight here, so "which connection?" must not be a guess).
+    expect(link).toHaveAttribute("href", "/apps?provider=slack");
     expect(link).toHaveTextContent(/reconnect slack in apps/i);
     // It is NOT the generic error arm — no "Try again" retry button.
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
@@ -384,7 +386,9 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     // Reconnect path: a link to the Apps page (not a full-page OAuth nav from
     // the builder, which would drop unsaved edits) — same as needs-reconnect.
     const link = screen.getByTestId("combobox-disconnected-link");
-    expect(link).toHaveAttribute("href", "/apps");
+    // REACT-AGENT-REVIEW-RECOVERY-MERGE-1 — deep-linked to the account-scoped integration (the
+    // review tray can now send a user straight here, so "which connection?" must not be a guess).
+    expect(link).toHaveAttribute("href", "/apps?provider=slack");
     expect(link).toHaveTextContent(/reconnect slack in apps/i);
     // Not the generic error arm — no "Try again" retry button.
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();

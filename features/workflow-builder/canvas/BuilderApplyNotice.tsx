@@ -68,6 +68,7 @@ export function BuilderApplyNotice({
   setupIssues,
   readiness,
   sessionToken,
+  sessionFocus,
   onOpenIssue,
   onDismiss,
 }: {
@@ -85,10 +86,16 @@ export function BuilderApplyNotice({
    * expanded / selected / scroll state; ordinary issue-list churn never does.
    */
   readonly sessionToken?: number;
+  /**
+   * REACT-AGENT-REVIEW-RECOVERY-MERGE-1 — set when the apply that STARTED this session was itself a
+   * "take me to this field" action (the rail's `Add to draft & open step`). The tray then opens
+   * collapsed on that issue instead of expanding over the field the user was just sent to.
+   */
+  readonly sessionFocus?: { readonly nodeId: string; readonly fieldKey?: string } | null;
   readonly onOpenIssue: (issue: AgentSetupIssue) => void;
   readonly onDismiss: () => void;
 }) {
-  const tray = useAgentReviewTray({ issues: setupIssues, sessionToken: sessionToken ?? 0 });
+  const tray = useAgentReviewTray({ issues: setupIssues, sessionToken: sessionToken ?? 0, sessionFocus });
   const { expanded, summary, getScrollTop, rememberScrollTop } = tray;
 
   const listRef = useRef<HTMLDivElement | null>(null);

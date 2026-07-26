@@ -855,6 +855,7 @@ export function WorkflowBuilder({
     applyNotice,
     agentSetupIssues,
     reviewSessionToken,
+    reviewSessionFocus,
     previewConfig,
     previewPrefilledConfig,
     previewDiffGraph,
@@ -1383,6 +1384,7 @@ export function WorkflowBuilder({
             setupIssues={agentSetupIssues}
             readiness={agentReadiness}
             sessionToken={reviewSessionToken}
+            sessionFocus={reviewSessionFocus}
             onOpenIssue={handleOpenSetupIssue}
             onDismiss={dismissApplyNotice}
           />
