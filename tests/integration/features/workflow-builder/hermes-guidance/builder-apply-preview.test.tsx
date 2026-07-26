@@ -52,6 +52,9 @@ import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
+// REACT-AGENT-REVIEW-TRAY-UX-1 — the review-tray tests "fill in" a field exactly the way the config
+// rail's Save does (draft → graph), so an issue resolves through the real path, not a test shortcut.
+import { commitNodeConfigDraft } from "@/features/workflow-builder/state/commitConfigDraft";
 import type { WorkflowDetail } from "@/contracts/workflow";
 
 const triggerProviders = [{ id: "slack", displayName: "Slack" }];
@@ -793,5 +796,213 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
     // All required filled → no auto-open.
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
+  });
+});
+
+/**
+ * REACT-AGENT-REVIEW-TRAY-UX-1 — the post-approval review loop, driven through the REAL builder.
+ *
+ * The user should be able to repeat: expand tray → pick an issue → tray collapses → fill the
+ * highlighted field → expand again → pick the next one. These tests prove that loop preserves the
+ * review session, the config panel, the selected node, unsaved config values, and issue progress.
+ */
+describe("builder apply-preview — collapsible review tray (REACT-AGENT-REVIEW-TRAY-UX-1)", () => {
+  const requiredFieldsByType = {
+    "gmail:new_email": { displayName: "New Email", requiredFields: [{ name: "label", label: "Label" }] },
+    "slack:send_message": {
+      displayName: "Send Message",
+      requiredFields: [
+        { name: "channel", label: "Channel" },
+        { name: "message", label: "Message" },
+      ],
+    },
+  };
+
+  function renderWithMeta() {
+    return render(
+      <WorkflowBuilder
+        workflow={workflow([], [])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={requiredFieldsByType}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
+  }
+
+  const slackNode = () =>
+    useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message")!;
+
+  function issueRow(fieldPath: string): HTMLElement {
+    const row = screen
+      .getAllByTestId("builder-setup-needed-issue")
+      .find((el) => el.getAttribute("data-field-path") === fieldPath);
+    if (!row) throw new Error(`no review-tray row for field ${fieldPath}`);
+    return row;
+  }
+
+  /** Exactly what the config rail's Save does: commit the in-progress draft into the local graph. */
+  function fillField(nodeId: string, name: string, value: unknown) {
+    act(() => {
+      useConfigSlice.getState().updateField({ nodeId, name, value });
+      commitNodeConfigDraft(nodeId);
+    });
+  }
+
+  it("opens EXPANDED right after the approval, blocked, with every issue listed", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+
+    await screen.findByTestId("builder-review-tray-expanded");
+    expect(screen.getByTestId("builder-review-tray-status")).toHaveTextContent("Blocked");
+    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("3 issues remaining");
+    expect(screen.getAllByTestId("builder-setup-needed-issue")).toHaveLength(3);
+  });
+
+  it("selecting an issue opens the right node, highlights the right field, and collapses the tray", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+
+    await user.click(issueRow("channel"));
+
+    // The EXISTING reveal path ran — correct node selected, correct field highlighted, nothing saved.
+    expect(useConfigSlice.getState().activeNodeId).toBe(slackNode().id);
+    expect(useConfigSlice.getState().focusFieldKey).toBe("channel");
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+    // ...and the tray got out of the way.
+    expect(screen.queryByTestId("builder-review-tray-expanded")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-review-tray-collapsed")).toHaveTextContent("3 issues remaining");
+  });
+
+  it("collapsing does not close the config panel, change the selected node, or end the review", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+    await user.click(issueRow("message"));
+
+    const openNodeId = useConfigSlice.getState().activeNodeId;
+    expect(openNodeId).toBe(slackNode().id);
+
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+    await user.click(screen.getByTestId("builder-review-tray-collapse"));
+
+    expect(useConfigSlice.getState().activeNodeId).toBe(openNodeId);
+    expect(useConfigSlice.getState().focusFieldKey).toBe("message");
+    // The review session is still there (not dismissed), with its issue list intact.
+    expect(screen.getByTestId("builder-apply-notice")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("3 issues remaining");
+  });
+
+  it("keeps unsaved node configuration values through an expand/collapse round-trip", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+    await user.click(issueRow("message"));
+
+    const nodeId = slackNode().id;
+    // An in-progress (NOT committed) config edit — the draft the config panel holds.
+    act(() => useConfigSlice.getState().updateField({ nodeId, name: "message", value: "half typed" }));
+    expect(useConfigSlice.getState().drafts[nodeId]?.isDirty).toBe(true);
+
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+    await user.click(screen.getByTestId("builder-review-tray-collapse"));
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+
+    expect(useConfigSlice.getState().drafts[nodeId]?.values.message).toBe("half typed");
+    expect(useConfigSlice.getState().drafts[nodeId]?.isDirty).toBe(true);
+    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)?.config?.message).toBeUndefined();
+  });
+
+  it("drops the remaining count as a field is completed, WITHOUT re-opening the tray", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+    await user.click(issueRow("channel"));
+    expect(screen.getByTestId("builder-review-tray-collapsed")).toBeInTheDocument();
+
+    fillField(slackNode().id, "channel", "C123");
+
+    // Still collapsed — the count updates in place on the compact bar.
+    await waitFor(() =>
+      expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("2 issues remaining"),
+    );
+    expect(screen.queryByTestId("builder-review-tray-expanded")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-review-tray-status")).toHaveTextContent("Blocked");
+  });
+
+  it("marks the fixed issue Resolved in place when the tray is expanded again, and keeps the rest actionable", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+    await user.click(issueRow("channel"));
+    fillField(slackNode().id, "channel", "C123");
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+
+    expect(screen.getAllByTestId("builder-setup-needed-issue")).toHaveLength(3); // resolved rows keep their place
+    expect(issueRow("channel")).toHaveAttribute("data-resolved", "true");
+    expect(issueRow("message")).toHaveAttribute("data-resolved", "false");
+    expect(screen.getByTestId("builder-setup-needed-blocking")).toHaveTextContent("2 to fix before active");
+  });
+
+  it("runs the whole loop: issue → collapse → fill → expand → next issue, ending in the ready state", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+
+    const gmailId = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "gmail")!.id;
+    const slackId = slackNode().id;
+
+    // 1st issue
+    await user.click(issueRow("label"));
+    expect(useConfigSlice.getState().activeNodeId).toBe(gmailId);
+    expect(screen.getByTestId("builder-review-tray-collapsed")).toBeInTheDocument();
+    fillField(gmailId, "label", "INBOX");
+
+    // 2nd issue
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+    await user.click(issueRow("channel"));
+    expect(useConfigSlice.getState().activeNodeId).toBe(slackId);
+    expect(useConfigSlice.getState().focusFieldKey).toBe("channel");
+    fillField(slackId, "channel", "C123");
+
+    // 3rd issue
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+    await user.click(issueRow("message"));
+    fillField(slackId, "message", "New lead");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("builder-review-tray-status")).toHaveTextContent("Ready"),
+    );
+    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("All setup complete");
+    // Nothing was saved, run, or activated by the review loop itself.
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("Escape collapses the tray without dismissing the review or losing progress", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await screen.findByTestId("builder-review-tray-expanded");
+    await user.click(issueRow("channel"));
+    fillField(slackNode().id, "channel", "C123");
+    await user.click(screen.getByTestId("builder-review-tray-expand"));
+
+    screen.getByTestId("builder-review-tray-collapse").focus();
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByTestId("builder-review-tray-collapsed")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-apply-notice")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("2 issues remaining");
+    // The config panel and its selection are untouched.
+    expect(useConfigSlice.getState().activeNodeId).toBe(slackNode().id);
   });
 });

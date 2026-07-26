@@ -121,6 +121,16 @@ export function useBuilderPreview({
   // short-lived "Added from preview" badge on those cards AND the post-apply required-field hint
   // list. Lifetime is tied to the notice: cleared on dismiss / workflow switch / a new preview.
   const [appliedNodeIds, setAppliedNodeIds] = useState<readonly string[]>([]);
+  // REACT-AGENT-REVIEW-TRAY-UX-1 — a monotonic token identifying the CURRENT review
+  // session. Every notice-producing path (apply / stale / failed / restore / template)
+  // sets `appliedNodeIds`, so its identity change is exactly "a new review session
+  // began" — the review tray uses this (and only this) to reset its expanded /
+  // selected-issue / scroll presentation state. Ordinary issue-list churn as the user
+  // fills fields never changes it.
+  const [reviewSessionToken, setReviewSessionToken] = useState(0);
+  useEffect(() => {
+    setReviewSessionToken((token) => token + 1);
+  }, [appliedNodeIds]);
   // HERMES-AGENT-GUIDED-PREVIEW-SETUP — ephemeral guided-setup values for the CURRENT holographic
   // preview, keyed by previewId → fieldName → value. Preview-only: never written to configSlice / the
   // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
@@ -550,6 +560,8 @@ export function useBuilderPreview({
     applyNotice,
     appliedConfigHints,
     agentSetupIssues,
+    // REACT-AGENT-REVIEW-TRAY-UX-1 — identifies the current review session for the tray.
+    reviewSessionToken,
     previewConfig,
     // REACT-CONFIG-COVERAGE-1 — plan-config values the user supplied in their request, keyed by
     // preview node id, for the setup card's "from your request" display.
