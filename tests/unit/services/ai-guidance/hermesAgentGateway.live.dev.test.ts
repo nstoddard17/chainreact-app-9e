@@ -31,8 +31,16 @@ import {
   type GatewayFetch,
   type GatewayHttpResponse,
 } from "@/services/ai-guidance/gateway/hermesAgentGatewayClient";
-import { getHermesAgentGatewayConfig, HERMES_AGENT_REQUIRED_VARS } from "@/services/ai-guidance/gateway/gatewayConfig";
+import {
+  getHermesAgentGatewayConfig,
+  HERMES_AGENT_REQUIRED_VARS,
+  DEFAULT_TIMEOUT_MS,
+  MAX_TIMEOUT_MS,
+} from "@/services/ai-guidance/gateway/gatewayConfig";
+import { buildCapabilityCatalogKeys } from "@/services/ai-guidance/capabilityCatalog";
+import { buildFieldSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
 import type { WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
+import type { EditableWorkflowGraph } from "@/contracts/editableWorkflowGraph";
 
 /**
  * Load ONLY the gateway CONFIG values from `.env.local` (URL / token / timeout). It deliberately
@@ -138,5 +146,99 @@ describeLive("Hermes Agent gateway LIVE smoke — production Render gateway (opt
       }
     },
     60_000,
+  );
+
+  /**
+   * REACT-AGENT-PRODUCTION-TIMEOUT-1 — the LATENCY case (the one the first smoke could not see).
+   *
+   * The original smoke sends a tiny prose prompt and answers in ~3.5s, which is why a healthy smoke
+   * coexisted with a production failure: the request that actually broke was a builder EDIT turn,
+   * whose prompt carries the full capability catalog + narrowed field schemas + the editable graph
+   * (measured ~45 KB / ~11k tokens versus ~25 KB / ~6k for a first turn). This case reproduces THAT
+   * shape and reports the real round-trip so the configured budget can be judged against evidence
+   * instead of a guess.
+   *
+   * It deliberately runs with the MAXIMUM allowed client deadline, not the configured one — the point
+   * is to MEASURE how long the brain takes, not to re-observe the abort. A run that reports an elapsed
+   * time near or above `DEFAULT_TIMEOUT_MS` means production turns are still at risk and the budget
+   * (or the prompt size) needs another look; that verdict is printed, not asserted, because gateway
+   * latency is not deterministic enough to gate a build on.
+   *
+   * NOTE: this makes a SECOND paid live call per smoke run.
+   */
+  it(
+    "measures real round-trip latency for a full-size EDIT-shaped prompt (budget evidence)",
+    async () => {
+      const cfg = getHermesAgentGatewayConfig();
+      expect(cfg).not.toBeNull();
+      if (!cfg) return;
+
+      const catalog = buildCapabilityCatalogKeys();
+      const goal = "Also email the customer a receipt when the invoice is paid, and log it in Notion.";
+      const fieldSchemaLines = buildFieldSchemaLines(
+        selectRelevantProviders({ texts: [goal], connectedProviders: ["slack", "stripe", "gmail", "notion"] }),
+      );
+      const editableGraph: EditableWorkflowGraph = {
+        schemaVersion: 1,
+        version: "live-smoke-version",
+        nodeCount: 2,
+        edgeCount: 1,
+        nodes: [
+          {
+            ref: "node_1",
+            role: "trigger",
+            kind: "trigger",
+            provider: "stripe",
+            type: "invoice_paid",
+            capabilityKey: "stripe:invoice_paid",
+            config: [],
+          },
+          {
+            ref: "node_2",
+            role: "action",
+            kind: "action",
+            provider: "slack",
+            type: "send_channel_message",
+            capabilityKey: "slack:send_channel_message",
+            config: [],
+          },
+        ],
+        edges: [{ ref: "edge_1", fromRef: "node_1", toRef: "node_2" }],
+      };
+
+      // Measure with the ceiling deadline so the true latency is observable even when it exceeds the
+      // configured default. This never widens production behavior — it is a local, opt-in measurement.
+      const measuringConfig = { ...cfg, timeoutMs: MAX_TIMEOUT_MS };
+
+      const startedAt = Date.now();
+      const res = await requestHermesAgentGuidanceNormalized({
+        request: REQUEST,
+        config: measuringConfig,
+        goalText: goal,
+        capabilityCatalog: catalog,
+        fieldSchemaLines,
+        editableGraph,
+      });
+      const elapsedMs = Date.now() - startedAt;
+
+      const verdict =
+        !res.ok && res.code === "TIMEOUT"
+          ? `OVER BUDGET — exceeded even the ${MAX_TIMEOUT_MS}ms ceiling`
+          : elapsedMs >= DEFAULT_TIMEOUT_MS
+            ? `AT RISK — slower than the ${DEFAULT_TIMEOUT_MS}ms default`
+            : "WITHIN BUDGET";
+      console.log(
+        `[HERMES-AGENT-GATEWAY-SMOKE] EDIT-shaped latency — elapsedMs=${elapsedMs} ` +
+          `catalogKeys=${catalog.length} fieldSchemaLines=${fieldSchemaLines.length} ` +
+          `defaultBudgetMs=${DEFAULT_TIMEOUT_MS} ceilingMs=${MAX_TIMEOUT_MS} result=${res.ok ? "ok" : res.code} ` +
+          `→ ${verdict}`,
+      );
+
+      // Contract only: the client must return a well-formed normalized result either way, and must
+      // never invent guidance when the brain failed.
+      if (res.ok) expect(res.guidanceText.trim().length).toBeGreaterThan(0);
+      else expect(["PROVIDER_ERROR", "INVALID_RESPONSE", "TIMEOUT"]).toContain(res.code);
+    },
+    120_000,
   );
 });

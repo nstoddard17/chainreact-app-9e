@@ -333,6 +333,45 @@ describe("ReactAgent boundary — runAuthorizedCapability audit emission (CS-5d)
     expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "failed", reason: "exec_failed" });
   });
 
+  /**
+   * REACT-AGENT-PRODUCTION-TIMEOUT-1 — `react_agent_audit_events` is the persistent record a
+   * production incident is reconstructed from, so a failure row must say WHICH failure it was.
+   */
+  it("classifyReason refines the failed audit reason; a throw or omission keeps `exec_failed`", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      classifyResult: (r: { ok: boolean }) => (r.ok ? "success" : "failed"),
+      classifyReason: (r: { ok: boolean; code?: string }) => (r.ok ? null : `exec_failed:${r.code}`),
+      exec: async () => ({ ok: false, code: "TIMEOUT" }),
+    });
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "failed", reason: "exec_failed:TIMEOUT" });
+
+    const thrower = recorder();
+    await runAuthorizedCapability({
+      ...QA,
+      auditRecorder: thrower.auditRecorder,
+      classifyResult: () => "failed" as const,
+      classifyReason: () => {
+        throw new Error("classifier bug");
+      },
+      exec: async () => ({ ok: false }),
+    });
+    expect(thrower.record.mock.calls[0]![0]).toMatchObject({ outcome: "failed", reason: "exec_failed" });
+  });
+
+  it("a successful result never carries a reason even with a classifier", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      classifyReason: () => "should-not-appear",
+      exec: async () => ({ ok: true }),
+    });
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "success", reason: null });
+  });
+
   it("defaults a resolved run to `success` when no classifier is given", async () => {
     const { auditRecorder, record } = recorder();
     await runAuthorizedCapability({ ...QA, auditRecorder, exec: async () => ({ ok: false }) });

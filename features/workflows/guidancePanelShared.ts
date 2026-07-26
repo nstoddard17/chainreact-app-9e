@@ -33,9 +33,18 @@ export function asRenderablePreview(value: DraftPreview | null | undefined): Dra
   return Array.isArray(value.nodes) && value.nodes.length > 0 ? value : null;
 }
 
-/** Map an unavailable/transport outcome to safe copy (credits denial keeps its specific message). */
+/**
+ * Map an unavailable/transport outcome to safe copy. Two route codes carry copy the user can ACT on
+ * and are passed through verbatim (both are fixed, server-authored strings — never model text,
+ * provider messages, or internal detail):
+ *   - `AI_CREDITS_EXHAUSTED` — what ran out and where to see usage;
+ *   - `GUIDANCE_TIMEOUT` (REACT-AGENT-PRODUCTION-TIMEOUT-1) — the request was too slow to finish, so
+ *     retrying or asking for a smaller change works. Showing the generic "temporarily unavailable"
+ *     for this made a slow turn look like a dead assistant and sent users off to check their setup.
+ * Everything else stays the deliberately opaque outage copy.
+ */
 export function safeErrorMessage(res: { code: string; message: string } | null): string {
-  if (res && res.code === "AI_CREDITS_EXHAUSTED") return res.message;
+  if (res && (res.code === "AI_CREDITS_EXHAUSTED" || res.code === "GUIDANCE_TIMEOUT")) return res.message;
   return UNAVAILABLE_MESSAGE;
 }
 

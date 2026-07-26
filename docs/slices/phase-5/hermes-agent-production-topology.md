@@ -36,7 +36,7 @@ Vercel ChainReact app
 
 | Piece | File |
 |---|---|
-| Server-only gateway config reader (flag + url + token + timeout; null when off/unconfigured) | [`services/ai-guidance/gateway/gatewayConfig.ts`](../../../services/ai-guidance/gateway/gatewayConfig.ts) |
+| Server-only gateway config reader (flag + url + token + timeout; null when off/unconfigured). **Timeout budget (REACT-AGENT-PRODUCTION-TIMEOUT-1): default 45s, clamped 1s–55s, strictly inside the routes' `maxDuration = 60`** so a slow brain yields ChainReact's typed 503, not a platform 504 | [`services/ai-guidance/gateway/gatewayConfig.ts`](../../../services/ai-guidance/gateway/gatewayConfig.ts) |
 | Safe prompt builder (from de-identified DTO + scrubbed goal text) | [`services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) |
 | Server-only gateway client + `WorkflowGuidanceProvider` impl (advisory; fail-closed) | [`services/ai-guidance/gateway/hermesAgentGatewayClient.ts`](../../../services/ai-guidance/gateway/hermesAgentGatewayClient.ts) |
 | **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
@@ -402,3 +402,51 @@ the regression-localization checklist.
     per-file surgery. Structural scan gained Phase-2 guards (routes/client files deleted, barrel/plan
     cleaned, no client code references the removed endpoints, apply + governed routes survive). `tsc`
     clean; no behaviour change to the rail / repair / apply; no migration.
+21. ✅ **REACT-AGENT-PRODUCTION-TIMEOUT-1 (done, local)** — fixed the production 503 that hit complex
+    builder turns and made the failure diagnosable. **Root cause:** the gateway client's 30s abort
+    (`DEFAULT_TIMEOUT_MS`). A builder EDIT turn sends a structurally larger prompt than a first turn —
+    measured ~45 KB / ~11.3k tokens (512-key capability catalog + field schemas + editable graph) vs
+    ~25 KB / ~6.2k — and the reasoning brain routinely needs more than 30s for it, so it failed
+    deterministically at the deadline. **Fix:** default 30s → **45s**, clamp ceiling 120s → **55s**, and
+    an explicit `export const maxDuration = 60` on BOTH guidance routes, making the budget a two-part
+    invariant (gateway abort < function budget) so a slow brain always returns ChainReact's typed 503
+    rather than a bodyless platform 504; a structure test pins the literal to the shared constant.
+    **Observability (the other half):** every brain failure previously collapsed into one opaque 503 and
+    one `reason: "exec_failed"` audit row — a timeout, a dead gateway, and a malformed envelope were
+    indistinguishable. Now: a distinct `GUIDANCE_TIMEOUT` 503 with actionable copy, a safe server log
+    (typed code + elapsed + request shape; no goal/guidance text, ids, or token), and
+    `reason: "exec_failed:<CODE>"` on the audit row via a new optional `classifyReason` on the governance
+    seam. The opt-in live smoke gained an EDIT-shaped **latency** case (the short-prompt case stayed green
+    all through the incident). **Unproven:** whether 45s is actually enough (no live measurement yet), and
+    whether the Render gateway imposes its own upstream deadline — the new log distinguishes the two.
+    **Not attempted:** shrinking the catalog sent on editing turns (the dominant latency term) — that
+    changes what the model may propose and was kept out of an infrastructure fix. No migration.
+    Closeout: [`react-agent/react-agent-production-timeout-closeout.md`](./react-agent/react-agent-production-timeout-closeout.md).
+22. ✅ **REACT-AGENT-RETRY-BACKOFF-1 (done, local)** — added a NARROWLY bounded retry to the guidance
+    path and corrected the timeout attribution. **Audit first (all proven, not assumed):** the path made
+    exactly ONE Hermes attempt, retried nothing, had no backoff, ignored the incoming request's
+    cancellation signal, never checked remaining budget, had no request id / idempotency key, and had NO
+    secondary model or provider fallback (`resolveServerGuidanceProvider` has zero production callers;
+    the deterministic inferers run only AFTER a successful reply). The repo's `refreshAndRetry` helpers
+    are used by provider/analytics code and were never imported here. **Attribution correction:** Render's
+    `HERMES_AGENT_TIMEOUT_MS=60000` could not have caused the 30s failure — the same variable NAME exists
+    in two processes, and ChainReact reads only the Vercel copy. The boundary that fired was ChainReact's
+    own 30,000 ms client abort. **Retry design:** 1 initial + at most 1 retry (`MAX_TOTAL_ATTEMPTS`, a
+    constant, not config), only for fast transient failures (network reset, immediate 502/503, 429 with a
+    ≤2s `Retry-After`), after a jittered 250–750 ms backoff. NEVER retried: timeout, cancellation, auth /
+    authorization / bad token, 400/404/500, malformed structured output, invalid proposals, any transient
+    failure that took >5s, and any failure without budget for a useful second attempt. **Budget:**
+    `timeoutMs` is now the budget for the WHOLE logical call — each attempt's deadline is what remains and
+    the backoff is charged to it, so retry redistributes the existing budget and can never push into
+    platform-kill territory. **Cancellation:** `request.signal` is threaded route → runner → fetch AND
+    backoff; a cancelled request is the new typed `CANCELLED` code → HTTP 499, never retried, deliberately
+    not error-logged. **Identity + metering:** one `requestId` (uuid) per submission on both attempts
+    (`x-chainreact-request-id` / `x-chainreact-attempt`), ONE audit row carrying the attempts as safe
+    metadata via a new opt-in `classifyMetadata` seam hook, and ONE `aiCreditGate` call — the gate is
+    outside the retry, so at-most-one-credit is structural. **Known gap (documented, not hidden):** the
+    ledger is deduct-only with no refund/release RPC, so with credit enforcement ON a FAILED submission
+    still keeps its credit. Pre-existing, unchanged by retry, inert while enforcement is off; closing it
+    is a billing slice. **Render env:** no change needed — 60s downstream is correctly LONGER than
+    ChainReact's ≤55s, so ChainReact's deadline binds first. An explicit `60000` on VERCEL is clamped to
+    55000 (tested). No migration. 91 targeted suites / 1093 tests green.
+    Closeout: [`react-agent/react-agent-production-timeout-closeout.md`](./react-agent/react-agent-production-timeout-closeout.md).

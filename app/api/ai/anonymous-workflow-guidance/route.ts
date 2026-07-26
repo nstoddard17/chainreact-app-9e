@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runAnonymousWorkflowGuidance } from "@/services/ai-guidance/anonymousGuidance";
@@ -43,6 +44,15 @@ import {
  * loops. When the cap is hit the route returns a typed `limitReached` response with NO model call.
  * Input is size-bounded; recent turns are bounded + sanitized upstream and re-bounded here.
  */
+
+/**
+ * REACT-AGENT-PRODUCTION-TIMEOUT-1 — same serverless budget as the authenticated guidance route.
+ * This route calls the SAME gateway client, so it inherits the same abort deadline and needs the same
+ * headroom; without it a slow brain is killed by the platform (untyped 504) instead of returning the
+ * typed 503 the `/start` panel knows how to render. Static literal required by Next.js; kept in
+ * lockstep with `GUIDANCE_ROUTE_MAX_DURATION_SECONDS` by a structure test.
+ */
+export const maxDuration = 60;
 
 const MAX_GOAL_LENGTH = 2_000;
 
@@ -121,13 +131,30 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const boundedTurns = recentTurns?.slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
+  const brainStartedAt = Date.now();
+  // REACT-AGENT-RETRY-BACKOFF-1 — one logical id per submission (both bounded attempts share it) and
+  // the caller's cancellation signal, so an abandoned request stops rather than retrying into the void.
+  const requestId = randomUUID();
   const guidance = await runAnonymousWorkflowGuidance({
     goalText,
     ...(boundedTurns && boundedTurns.length ? { recentTurns: boundedTurns } : {}),
+    requestId,
+    signal: request.signal,
   });
 
   if (!guidance.ok) {
     // Gateway disabled / transport failure → unavailable. Do NOT consume an attempt for infra errors.
+    // REACT-AGENT-PRODUCTION-TIMEOUT-1 — safe server-side signal so a slow brain is distinguishable
+    // from a dead gateway in production logs. Typed code + elapsed + turn count only: no goal text,
+    // guidance text, prompt, token, cookie, or IP.
+    // A cancelled request is not an incident — the visitor navigated away. Don't page anyone for it.
+    if (guidance.code !== "CANCELLED") {
+      console.error(
+        `[anonymous-workflow-guidance] brain call failed requestId=${requestId} code=${guidance.code} ` +
+          `elapsedMs=${Date.now() - brainStartedAt} recentTurns=${boundedTurns?.length ?? 0} — TIMEOUT means ` +
+          "the request exceeded HERMES_AGENT_TIMEOUT_MS; PROVIDER_ERROR means the Render gateway failed first.",
+      );
+    }
     return NextResponse.json(
       { ok: false, code: "GUIDANCE_UNAVAILABLE", message: "Workflow planning isn't available right now. Please try again later." },
       { status: 503 },

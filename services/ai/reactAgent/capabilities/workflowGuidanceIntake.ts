@@ -38,7 +38,10 @@ import {
 } from "@/services/ai-guidance/guidanceContextPolicy";
 import {
   requestHermesAgentGuidanceNormalized,
+  type GatewayAttemptTelemetry,
   type GatewayFetch,
+  type GatewayRetryDeps,
+  type NormalizedGatewayGuidanceWithTelemetry,
 } from "@/services/ai-guidance/gateway/hermesAgentGatewayClient";
 import {
   getHermesAgentGatewayConfig,
@@ -100,6 +103,16 @@ export interface WorkflowGuidanceIntakeDeps {
   readonly auditRecorder?: ReactAgentAuditRecorder;
   /** Test seam — injected mock gateway fetch (no live call in CI). */
   readonly fetchImpl?: GatewayFetch;
+  /**
+   * REACT-AGENT-RETRY-BACKOFF-1 — ONE logical id for this user submission. Both internal Hermes
+   * attempts carry it, so the two attempts are provably one request rather than two. The governance
+   * row is still written ONCE, for the final outcome.
+   */
+  readonly requestId?: string;
+  /** The incoming request's cancellation signal — aborts the in-flight attempt AND the backoff. */
+  readonly signal?: AbortSignal;
+  /** Test seam — injected clock/sleep/RNG so retry tests never wait real seconds. */
+  readonly retryDeps?: GatewayRetryDeps;
 }
 
 export type WorkflowGuidanceIntakeResult =
@@ -117,8 +130,15 @@ export type WorkflowGuidanceIntakeResult =
       readonly mutationMalformed?: boolean;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
+      /** REACT-AGENT-RETRY-BACKOFF-1 — safe attempt/retry counters for logging + audit metadata. */
+      readonly attemptTelemetry?: GatewayAttemptTelemetry;
     }
-  | { readonly ok: false; readonly code: GuidanceUnavailableCode | "INVALID_SCOPE"; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly code: GuidanceUnavailableCode | "INVALID_SCOPE";
+      readonly message: string;
+      readonly attemptTelemetry?: GatewayAttemptTelemetry;
+    };
 
 /** Static, leak-safe copy. No ids / tokens / config / raw model text. */
 const UNAVAILABLE_MESSAGE =
@@ -171,12 +191,32 @@ export async function runWorkflowGuidanceIntakeCapability(
 
   // Run through the governance allow-list. Scope is shape-validated here; a future route owns the
   // real account-membership authorization. The injected recorder (if any) emits one safe audit row.
-  const outcome = await runAuthorizedCapability<NormalizedGatewayGuidance>({
+  const outcome = await runAuthorizedCapability<NormalizedGatewayGuidanceWithTelemetry>({
     scope: input.scope,
     intent: WORKFLOW_GUIDANCE_INTAKE_INTENT,
     capabilityId: WORKFLOW_GUIDANCE_INTAKE_CAPABILITY_ID,
     ...(deps.auditRecorder ? { auditRecorder: deps.auditRecorder } : {}),
     classifyResult: (r) => (r.ok ? "success" : "failed"),
+    // REACT-AGENT-PRODUCTION-TIMEOUT-1 — persist WHICH failure it was. `code` is the gateway
+    // contract's fixed union (TIMEOUT / PROVIDER_ERROR / INVALID_RESPONSE / PROVIDER_*), never a
+    // provider message or model text, so the audit row stays leak-free while telling a later
+    // investigation whether the brain was slow or the gateway was down.
+    classifyReason: (r) => (r.ok ? null : `exec_failed:${r.code}`),
+    // REACT-AGENT-RETRY-BACKOFF-1 — ONE governance row per user submission, with the internal
+    // attempts represented as safe metadata (fixed keys, numbers + policy enums only — no prompt,
+    // response, provider message, header, id, or user content can reach this).
+    classifyMetadata: (r) => {
+      const t = r.attemptTelemetry;
+      if (!t) return null;
+      return {
+        attempts: t.attempts,
+        retried: t.retried,
+        ...(t.retryReason ? { retryReason: t.retryReason } : {}),
+        ...(t.retrySkippedReason ? { retrySkippedReason: t.retrySkippedReason } : {}),
+        backoffMs: t.backoffMs,
+        elapsedMs: t.elapsedMs,
+      };
+    },
     exec: () =>
       requestHermesAgentGuidanceNormalized({
         request,
@@ -188,6 +228,9 @@ export async function runWorkflowGuidanceIntakeCapability(
         ...(context ? { context } : {}),
         ...(input.editableGraph ? { editableGraph: input.editableGraph } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+        ...(deps.requestId ? { requestId: deps.requestId } : {}),
+        ...(deps.signal ? { signal: deps.signal } : {}),
+        ...(deps.retryDeps ? { retryDeps: deps.retryDeps } : {}),
       }),
   });
 
@@ -195,10 +238,18 @@ export async function runWorkflowGuidanceIntakeCapability(
   if (!outcome.ok) return { ok: false, code: "INVALID_SCOPE", message: UNAVAILABLE_MESSAGE };
 
   const guidance = outcome.result;
-  if (!guidance.ok) return { ok: false, code: guidance.code, message: UNAVAILABLE_MESSAGE };
+  if (!guidance.ok) {
+    return {
+      ok: false,
+      code: guidance.code,
+      message: UNAVAILABLE_MESSAGE,
+      ...(guidance.attemptTelemetry ? { attemptTelemetry: guidance.attemptTelemetry } : {}),
+    };
+  }
 
   return {
     ok: true,
+    ...(guidance.attemptTelemetry ? { attemptTelemetry: guidance.attemptTelemetry } : {}),
     guidanceText: guidance.guidanceText,
     source: guidance.source,
     workflowPlan: guidance.workflowPlan,

@@ -161,7 +161,14 @@ describe("workflow_guidance_intake — audit (safe metadata only)", () => {
       auditKind: "react_agent.workflow_guidance_intake",
       outcome: "success",
     });
-    expect(input).not.toHaveProperty("metadata");
+    // REACT-AGENT-RETRY-BACKOFF-1 — the row previously carried NO metadata at all. It now carries a
+    // small, CLOSED set of attempt counters (so one submission's internal retries are visible in the
+    // single governance row). The no-leak guarantee is unchanged and re-pinned here as an exact key
+    // allow-list: anything new appearing in this object must be a deliberate, reviewed addition.
+    expect(Object.keys(input.metadata as object).sort()).toEqual(
+      ["attempts", "backoffMs", "elapsedMs", "retried"].sort(),
+    );
+    expect(input.metadata).toMatchObject({ attempts: 1, retried: false });
     const serialized = JSON.stringify(input);
     expect(serialized).not.toContain("SECRET-GOAL");
     expect(serialized).not.toContain("ANSWER-TEXT");
@@ -188,5 +195,109 @@ describe("workflow_guidance_intake — audit (safe metadata only)", () => {
     );
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "denied", reason: "invalid_scope" });
+  });
+});
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — a bounded internal retry must stay ONE governance record.
+ *
+ * The risk this pins down: a retry that quietly became "two requests" would double-count the user's
+ * submission in `react_agent_audit_events` and make usage/incident analysis lie. The attempts are
+ * therefore represented as safe METADATA on the single row, never as a second row.
+ */
+describe("workflow_guidance_intake — retry stays one logical request (REACT-AGENT-RETRY-BACKOFF-1)", () => {
+  /** Fails the first call transiently (503), succeeds on the second. */
+  function flakyThenOkFetch(): jest.MockedFunction<GatewayFetch> {
+    let n = 0;
+    return jest.fn<Promise<GatewayHttpResponse>, Parameters<GatewayFetch>>(async () => {
+      n += 1;
+      if (n === 1) {
+        return { ok: false, status: 503, headers: { get: () => null }, json: async () => ({}), text: async () => "" };
+      }
+      const payload = envelope("recovered guidance");
+      return { ok: true, status: 200, headers: { get: () => null }, json: async () => payload, text: async () => JSON.stringify(payload) };
+    });
+  }
+
+  /** No real waiting: injected clock/sleep/RNG. */
+  const fastRetryDeps = {
+    now: () => Date.now(),
+    sleep: async (): Promise<"waited" | "cancelled"> => "waited",
+    random: () => 0.5,
+  };
+
+  it("(#8) two attempts + one final success → exactly ONE audit row, outcome success", async () => {
+    enable();
+    const { auditRecorder, record } = recorder();
+    const fetchImpl = flakyThenOkFetch();
+    const res = await runWorkflowGuidanceIntakeCapability(
+      { scope: SCOPE, goalText: "help" },
+      { fetchImpl, auditRecorder, requestId: "logical-1", retryDeps: fastRetryDeps },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(res.ok).toBe(true);
+    expect(record).toHaveBeenCalledTimes(1); // ONE row for one user submission
+    const row = record.mock.calls[0]![0] as Record<string, unknown>;
+    expect(row).toMatchObject({ capabilityId: "workflow_guidance_intake", outcome: "success" });
+    expect(row.metadata).toMatchObject({ attempts: 2, retried: true, retryReason: "status_503" });
+  });
+
+  it("(#8) the audit metadata carries counters and enums ONLY — no prompt, text, or token", async () => {
+    enable();
+    const { auditRecorder, record } = recorder();
+    await runWorkflowGuidanceIntakeCapability(
+      { scope: SCOPE, goalText: "SECRET-GOAL-TEXT about payroll" },
+      { fetchImpl: flakyThenOkFetch(), auditRecorder, requestId: "logical-2", retryDeps: fastRetryDeps },
+    );
+    const row = record.mock.calls[0]![0] as Record<string, unknown>;
+    const serialized = JSON.stringify(row);
+    expect(serialized).not.toContain("SECRET-GOAL-TEXT");
+    expect(serialized).not.toContain("recovered guidance");
+    expect(serialized).not.toContain(GATEWAY_TOKEN);
+    // Only the documented safe keys.
+    expect(Object.keys(row.metadata as object).sort()).toEqual(
+      ["attempts", "backoffMs", "elapsedMs", "retried", "retryReason"].sort(),
+    );
+  });
+
+  it("(#9-#14) retry exhaustion → still ONE audit row, outcome failed, reason carries the code", async () => {
+    enable();
+    const { auditRecorder, record } = recorder();
+    const always503 = jest.fn<Promise<GatewayHttpResponse>, Parameters<GatewayFetch>>(async () => ({
+      ok: false,
+      status: 503,
+      headers: { get: () => null },
+      json: async () => ({}),
+      text: async () => "",
+    }));
+    const res = await runWorkflowGuidanceIntakeCapability(
+      { scope: SCOPE, goalText: "help" },
+      { fetchImpl: always503, auditRecorder, requestId: "logical-3", retryDeps: fastRetryDeps },
+    );
+
+    expect(always503).toHaveBeenCalledTimes(2); // never a third
+    expect(res).toMatchObject({ ok: false, code: "PROVIDER_ERROR" });
+    expect(record).toHaveBeenCalledTimes(1);
+    const row = record.mock.calls[0]![0] as Record<string, unknown>;
+    expect(row).toMatchObject({ outcome: "failed", reason: "exec_failed:PROVIDER_ERROR" });
+    expect(row.metadata).toMatchObject({ attempts: 2, retrySkippedReason: "attempts_exhausted" });
+  });
+
+  it("(#24,#26) a cancelled request makes no further attempt and records the cancellation once", async () => {
+    enable();
+    const { auditRecorder, record } = recorder();
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = okFetch(envelope("never reached"));
+    const res = await runWorkflowGuidanceIntakeCapability(
+      { scope: SCOPE, goalText: "help" },
+      { fetchImpl, auditRecorder, requestId: "logical-4", signal: controller.signal, retryDeps: fastRetryDeps },
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(res).toMatchObject({ ok: false, code: "CANCELLED" });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "failed", reason: "exec_failed:CANCELLED" });
   });
 });

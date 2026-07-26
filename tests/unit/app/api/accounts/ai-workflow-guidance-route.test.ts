@@ -292,7 +292,10 @@ describe("workflow-guidance route — capability call + safe response", () => {
     await call(ACCOUNT, goodBody);
     const [input, deps] = mockRunner.mock.calls[0]!;
     expect(input).toMatchObject({ scope: { userId: "user-1", accountId: ACCOUNT }, goalText: goodBody.goalText });
-    expect(deps).toEqual({ auditRecorder: reactAgentAuditRecorder });
+    // REACT-AGENT-RETRY-BACKOFF-1 — the dependency set is still exactly specified, it just grew by
+    // the two fields that make one submission traceable and cancellable end-to-end.
+    expect(Object.keys(deps as object).sort()).toEqual(["auditRecorder", "requestId", "signal"]);
+    expect((deps as { auditRecorder: unknown }).auditRecorder).toBe(reactAgentAuditRecorder);
   });
 
   it("passes scope-guard contextInputs (account type + workflow creator) to the runner — never the body", async () => {
@@ -655,12 +658,64 @@ describe("workflow-guidance route — capability call + safe response", () => {
   });
 
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {}); // safe failure log
     mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "downstream SECRET detail" });
     const res = await call(ACCOUNT, goodBody);
+    expect(String(errorSpy.mock.calls[0]?.[0] ?? "")).not.toContain("SECRET");
+    errorSpy.mockRestore();
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body).toMatchObject({ ok: false, code: "GUIDANCE_UNAVAILABLE" });
     expect(JSON.stringify(body)).not.toContain("SECRET");
+  });
+});
+
+/**
+ * REACT-AGENT-PRODUCTION-TIMEOUT-1 — a slow brain must be DISTINGUISHABLE from a dead one, in the
+ * response the user sees and in the server log an investigation reads. Before this, both collapsed
+ * into one opaque `GUIDANCE_UNAVAILABLE` and a production 30s abort was indistinguishable from an
+ * outage.
+ */
+describe("workflow-guidance route — timeout is distinguishable (REACT-AGENT-PRODUCTION-TIMEOUT-1)", () => {
+  let errorSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => errorSpy.mockRestore());
+
+  it("TIMEOUT → 503 GUIDANCE_TIMEOUT with actionable, leak-free copy", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused internal copy" });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: false, code: "GUIDANCE_TIMEOUT" });
+    expect(body.message).toMatch(/try again|smaller/i);
+    // No internal/provider detail, no elapsed time, no ids in the user-facing body.
+    expect(JSON.stringify(body)).not.toMatch(/hermes|gateway|render|openai|elapsed|acct-|user-1/i);
+  });
+
+  it("a non-timeout failure keeps the generic outage code", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "INVALID_RESPONSE", message: "x" });
+    const res = await call(ACCOUNT, goodBody);
+    expect((await res.json()).code).toBe("GUIDANCE_UNAVAILABLE");
+  });
+
+  it("logs the typed code + elapsed + request shape server-side, and no user content", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "x" });
+    await call(ACCOUNT, { goalText: "my very identifying goal text about ACME payroll" });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const line = String(errorSpy.mock.calls[0]![0]);
+    expect(line).toContain("code=TIMEOUT");
+    expect(line).toMatch(/elapsedMs=\d+/);
+    expect(line).toMatch(/editing=(true|false)/);
+    expect(line).not.toContain("ACME payroll");
+    expect(line).not.toContain(ACCOUNT);
+    expect(line).not.toContain("tok"); // never the gateway token
+  });
+
+  it("a successful turn logs nothing", async () => {
+    await call(ACCOUNT, goodBody);
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -759,5 +814,192 @@ describe("workflow-guidance route — official-template decision (REACT-AGENT-TE
     expect(body).not.toHaveProperty("officialTemplateMatches");
     expect(body).not.toHaveProperty("templateFallbackNotice");
     expect(mockRunner).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — route-level guarantees around the bounded internal retry.
+ *
+ * The runner is mocked here (its retry mechanics are proven in
+ * `tests/unit/services/ai-guidance/hermesAgentGatewayRetry.test.ts`); what matters at THIS layer is
+ * that the retry lives strictly INSIDE one gated, metered, audited user submission — the credit gate
+ * is called once, one logical request id is issued, and cancellation is not treated as an outage.
+ */
+describe("workflow-guidance route — retry stays inside one metered submission", () => {
+  let errorSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  const telemetry = (over: Record<string, unknown> = {}) => ({
+    requestId: "rid",
+    attempts: 2,
+    retried: true,
+    retryReason: "status_503",
+    retrySkippedReason: null,
+    backoffMs: 500,
+    elapsedMs: 1_800,
+    remainingBudgetMsAtDecision: 43_000,
+    ...over,
+  });
+
+  it("(#7,#32) a request that retried internally still hits the AI credit gate exactly ONCE", async () => {
+    mockRunner.mockResolvedValueOnce({ ...guidanceOk, attemptTelemetry: telemetry() });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    // The gate runs before the brain call and outside the retry — structurally unreachable twice.
+    expect(mockGate).toHaveBeenCalledTimes(1);
+    expect(mockGate).toHaveBeenCalledWith({ accountId: ACCOUNT, feature: "workflow_guidance", plannedTier: "fast" });
+  });
+
+  it("(#13) retry exhaustion also charges the gate only once (no per-attempt metering)", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: false,
+      code: "PROVIDER_ERROR",
+      message: "x",
+      attemptTelemetry: telemetry({ retrySkippedReason: "attempts_exhausted" }),
+    });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(503);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+  });
+
+  it("(#31) one logical request id is issued per submission and passed to the runner", async () => {
+    await call(ACCOUNT, goodBody);
+    const deps = mockRunner.mock.calls[0]![1] as { requestId?: string; signal?: unknown };
+    expect(typeof deps.requestId).toBe("string");
+    expect(deps.requestId).toMatch(/^[0-9a-f-]{36}$/i);
+    // The caller's cancellation signal reaches the runner (and through it, the fetch + backoff).
+    expect(deps.signal).toBeDefined();
+
+    // A second submission is a DIFFERENT logical request — ids are per-submission, not per-process.
+    mockRunner.mockClear();
+    await call(ACCOUNT, goodBody);
+    const second = (mockRunner.mock.calls[0]![1] as { requestId?: string }).requestId;
+    expect(second).not.toBe(deps.requestId);
+  });
+
+  it("(#8) a recovered retry is logged (a silent recovery would hide a degrading gateway)", async () => {
+    mockRunner.mockResolvedValueOnce({ ...guidanceOk, attemptTelemetry: telemetry() });
+    await call(ACCOUNT, goodBody);
+    expect(errorSpy).not.toHaveBeenCalled(); // not an error — the user got their guidance
+    const line = String(warnSpy.mock.calls[0]![0]);
+    expect(line).toContain("recovered after retry");
+    expect(line).toContain("attempts=2");
+    expect(line).toContain("retryReason=status_503");
+  });
+
+  it("(#14) the failure log distinguishes retry exhaustion from a plain outage", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: false,
+      code: "PROVIDER_ERROR",
+      message: "x",
+      attemptTelemetry: telemetry({ retrySkippedReason: "attempts_exhausted" }),
+    });
+    await call(ACCOUNT, goodBody);
+    const line = String(errorSpy.mock.calls[0]![0]);
+    expect(line).toContain("attempts=2");
+    expect(line).toContain("retryReason=status_503");
+    expect(line).toContain("retrySkipped=attempts_exhausted");
+    expect(line).toContain("creditOutcome=");
+    expect(line).toMatch(/requestId=[0-9a-f-]{36}/i);
+  });
+
+  it("(#28) a skipped retry says WHY in the log (insufficient budget ≠ nothing happened)", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: false,
+      code: "PROVIDER_ERROR",
+      message: "x",
+      attemptTelemetry: telemetry({ attempts: 1, retried: false, retryReason: null, retrySkippedReason: "insufficient_budget" }),
+    });
+    await call(ACCOUNT, goodBody);
+    const line = String(errorSpy.mock.calls[0]![0]);
+    expect(line).toContain("attempts=1");
+    expect(line).toContain("retrySkipped=insufficient_budget");
+  });
+
+  it("(#24,#26) a cancelled request returns 499 and is NOT logged as an incident", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: false,
+      code: "CANCELLED",
+      message: "x",
+      attemptTelemetry: telemetry({ attempts: 1, retried: false, retryReason: null, retrySkippedReason: "cancelled" }),
+    });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(499);
+    expect((await res.json()).code).toBe("GUIDANCE_CANCELLED");
+    expect(errorSpy).not.toHaveBeenCalled();
+    // Still exactly one gate call — cancellation does not re-meter or double-charge.
+    expect(mockGate).toHaveBeenCalledTimes(1);
+  });
+
+  it("(#15,#33,#34) a TIMEOUT is never re-run by the route itself — one runner call, one response", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: false,
+      code: "TIMEOUT",
+      message: "x",
+      attemptTelemetry: telemetry({ attempts: 1, retried: false, retryReason: null, retrySkippedReason: "timeout" }),
+    });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(503);
+    expect((await res.json()).code).toBe("GUIDANCE_TIMEOUT");
+    expect(mockRunner).toHaveBeenCalledTimes(1);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — AI-credit semantics, pinned HONESTLY.
+ *
+ * The requirement "a failed submission consumes no PERMANENT credit" implies a reserve/release (or
+ * refund) model. ChainReact does not have one: `aiCreditGate` is DEDUCT-ONLY (one atomic
+ * `deduct_ai_credits_if_available` RPC) and there is no refund/release RPC anywhere in the repo. So
+ * the achievable invariant today is the one that retry could actually have broken — AT MOST ONE gate
+ * call per user submission — and these tests pin exactly that, plus the fact that no reversal is
+ * attempted (which is also why a double-refund is impossible).
+ *
+ * The residual gap is documented in the closeout: with `ENABLE_AI_CREDIT_ENFORCEMENT=true`, a failed
+ * submission still consumes its credit. That is PRE-EXISTING (unchanged by retry) and inert today
+ * because enforcement is off by default. Closing it needs a deliberate billing slice.
+ */
+describe("workflow-guidance route — AI-credit semantics (documented, incl. the known gap)", () => {
+  let errorSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => errorSpy.mockRestore());
+
+  it.each([
+    ["success", { ...guidanceOk }],
+    ["timeout", { ok: false, code: "TIMEOUT", message: "x" }],
+    ["provider failure", { ok: false, code: "PROVIDER_ERROR", message: "x" }],
+    ["invalid response", { ok: false, code: "INVALID_RESPONSE", message: "x" }],
+  ])("(#7,#32) %s → the credit gate is invoked exactly once, never per attempt", async (_label, runnerResult) => {
+    mockRunner.mockResolvedValueOnce(runnerResult);
+    await call(ACCOUNT, goodBody);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+  });
+
+  it("(#34) no refund/release is attempted on failure — so a double-refund is impossible by construction", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "x" });
+    await call(ACCOUNT, goodBody);
+    // The gate module exposes only `aiCreditGate` (deduct-only). If a refund/release helper is ever
+    // added, this assertion must be revisited together with the failure paths above.
+    expect(mockGate).toHaveBeenCalledTimes(1);
+    expect(mockGate.mock.calls[0]![0]).not.toHaveProperty("refund");
+    expect(mockGate.mock.calls[0]![0]).not.toHaveProperty("release");
+  });
+
+  it("(#13,#18) a failed submission does not re-enter the gate (the known gap is 'not refunded', not 'charged twice')", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "x" });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(503);
+    expect(mockGate).toHaveBeenCalledTimes(1);
   });
 });

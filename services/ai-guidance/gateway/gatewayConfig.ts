@@ -42,7 +42,31 @@ export interface HermesAgentGatewayConfig {
   readonly timeoutMs: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+/**
+ * REACT-AGENT-PRODUCTION-TIMEOUT-1 — the per-request gateway budget.
+ *
+ * The client aborts the gateway call at this deadline; the route then answers 503. It must stay
+ * strictly INSIDE the serverless function budget (`export const maxDuration = 60` on both guidance
+ * routes) so a slow brain produces OUR typed, safe JSON failure instead of a platform
+ * `FUNCTION_INVOCATION_TIMEOUT` (504, no body, unusable in the UI).
+ *
+ * Why 45s and not the original 30s: a builder EDIT turn sends a much larger prompt than a first
+ * "what should I build" turn — the 512-key capability catalog (~14 KB) plus the narrowed field
+ * schemas (~17 KB) plus the editable graph, measured at ~45 KB / ~11k tokens versus ~25 KB / ~6k for
+ * a new-workflow turn. The Hermes Agent's reasoning model routinely needs more than 30s for that,
+ * which made every complex second turn fail at exactly the 30s mark. 45s leaves ~15s of the 60s
+ * function budget for the route's own DB reads and the post-model option-resolver pass.
+ *
+ * `MAX_TIMEOUT_MS` is likewise capped below the function budget: an operator raising
+ * `HERMES_AGENT_TIMEOUT_MS` past it would only trade a typed 503 for an untyped 504. Raising the
+ * ceiling requires raising `maxDuration` on both routes first (guarded by a structure test).
+ */
+export const DEFAULT_TIMEOUT_MS = 45_000;
+export const MIN_TIMEOUT_MS = 1_000;
+export const MAX_TIMEOUT_MS = 55_000;
+
+/** Serverless budget the guidance routes declare. Documented here; the routes need a literal. */
+export const GUIDANCE_ROUTE_MAX_DURATION_SECONDS = 60;
 
 function num(value: string | undefined, fallback: number, min: number, max: number): number {
   const n = Number(value);
@@ -64,7 +88,7 @@ export function getHermesAgentGatewayConfig(): HermesAgentGatewayConfig | null {
   const gatewayUrl = process.env[HERMES_AGENT_ENV.gatewayUrl]?.trim();
   const gatewayToken = process.env[HERMES_AGENT_ENV.gatewayToken]?.trim();
   if (!gatewayUrl || !gatewayToken) return null;
-  const timeoutMs = num(process.env[HERMES_AGENT_ENV.timeoutMs], DEFAULT_TIMEOUT_MS, 1_000, 120_000);
+  const timeoutMs = num(process.env[HERMES_AGENT_ENV.timeoutMs], DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
   return { gatewayUrl, gatewayToken, timeoutMs };
 }
 

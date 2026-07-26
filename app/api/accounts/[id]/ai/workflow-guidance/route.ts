@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -33,6 +34,7 @@ import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
+  type GuidanceAttemptTelemetry,
 } from "@/contracts/aiGuidance";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import {
@@ -91,6 +93,21 @@ import * as accountsRepo from "@/repositories/accounts";
  * workflow. The audit row carries scope ids + registry enums only (no goal/guidance text).
  */
 
+/**
+ * REACT-AGENT-PRODUCTION-TIMEOUT-1 — serverless budget for this route.
+ *
+ * A complex builder turn legitimately takes tens of seconds inside the Hermes Agent (a ~11k-token
+ * EDIT prompt through a reasoning model). Without an explicit budget the platform default decides
+ * when to kill the function, and a kill produces an untyped 504 with no JSON body — the panel can
+ * only render generic "unavailable" copy and nothing is left to diagnose. Declaring it keeps the
+ * gateway's own abort (`HERMES_AGENT_TIMEOUT_MS`, default 45s, hard-capped at 55s in
+ * `gatewayConfig.ts`) strictly inside the budget, so a slow brain always returns OUR typed 503.
+ *
+ * Next.js requires a static literal here, so it cannot import `GUIDANCE_ROUTE_MAX_DURATION_SECONDS`;
+ * `tests/structure/guidance-route-timeout-budget.test.ts` keeps the two in lockstep.
+ */
+export const maxDuration = 60;
+
 const MAX_GOAL_LENGTH = 2_000;
 
 /**
@@ -145,6 +162,18 @@ function aiCreditDenialResponse(gate: Extract<AiCreditGateOutcome, { ok: false }
   );
 }
 
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — the credit outcome as a SAFE enum for the failure log.
+ *
+ * The gate runs ONCE per user submission, before the brain call and outside the retry, so this also
+ * documents the invariant in production output: whatever `attempts=` says, `creditOutcome=` describes
+ * a single gate decision. Carries no counters/limits/account data — just which branch fired.
+ */
+function describeCreditOutcome(gate: AiCreditGateOutcome): string {
+  if (!gate.ok) return `denied_${gate.reason}`;
+  return "skipped" in gate ? `skipped_${gate.reason}` : "charged_once";
+}
+
 /** Safe "guidance unavailable" response — disabled config or a provider/transport failure. */
 function guidanceUnavailableResponse(): NextResponse {
   return NextResponse.json(
@@ -154,6 +183,87 @@ function guidanceUnavailableResponse(): NextResponse {
       message: "Workflow guidance isn't available right now. Please try again later.",
     },
     { status: 503 },
+  );
+}
+
+/**
+ * REACT-AGENT-PRODUCTION-TIMEOUT-1 — the DISTINCT slow-brain failure.
+ *
+ * A timeout is not the same user situation as an outage: nothing is broken, the request was simply
+ * too big/slow to finish in budget, and retrying or asking for a smaller change usually works. It
+ * got the same opaque `GUIDANCE_UNAVAILABLE` copy as a dead gateway, which is why a 30s abort in
+ * production read as "the agent is down". Still 503 (the request produced no guidance) and still
+ * leak-free — a fixed code + fixed copy, no provider status, elapsed time, or internal detail.
+ */
+function guidanceTimeoutResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "GUIDANCE_TIMEOUT",
+      message:
+        "That took longer than the assistant could work on it. Try again, or ask for one smaller change at a time.",
+    },
+    { status: 503 },
+  );
+}
+
+/**
+ * REACT-AGENT-PRODUCTION-TIMEOUT-1 — safe server-side failure signal (Vercel logs only).
+ *
+ * Before this, every brain failure collapsed into one indistinguishable 503 and one
+ * `reason: "exec_failed"` audit row, so production could not tell a timeout from a gateway outage
+ * from a malformed reply — the whole reason this incident had to be diagnosed by stopwatch. Logs the
+ * typed code, the elapsed time, and the request's SHAPE (which is what drives latency). Contains no
+ * goal text, guidance text, prompt, token, account/user/workflow id, config, or provider payload.
+ */
+function logGuidanceFailure(info: {
+  code: string;
+  requestId: string;
+  elapsedMs: number;
+  editing: boolean;
+  catalogKeys: number;
+  fieldSchemaLines: number;
+  recentTurns: number;
+  telemetry?: GuidanceAttemptTelemetry | undefined;
+  creditOutcome: string;
+  httpStatus: number;
+}): void {
+  const t = info.telemetry;
+  console.error(
+    `[workflow-guidance] brain call failed requestId=${info.requestId} code=${info.code} ` +
+      `httpStatus=${info.httpStatus} elapsedMs=${info.elapsedMs} ` +
+      `attempts=${t?.attempts ?? 1} retried=${t?.retried ?? false} retryReason=${t?.retryReason ?? "none"} ` +
+      `retrySkipped=${t?.retrySkippedReason ?? "none"} backoffMs=${t?.backoffMs ?? 0} ` +
+      `remainingBudgetMs=${t?.remainingBudgetMsAtDecision ?? "n/a"} creditOutcome=${info.creditOutcome} ` +
+      `editing=${info.editing} catalogKeys=${info.catalogKeys} fieldSchemaLines=${info.fieldSchemaLines} ` +
+      `recentTurns=${info.recentTurns} — TIMEOUT means the request exceeded HERMES_AGENT_TIMEOUT_MS ` +
+      "in ChainReact; PROVIDER_ERROR with a status_* reason means the Render gateway/agent failed first; " +
+      "retrySkipped=insufficient_budget means a transient failure was NOT retried because too little time remained.",
+  );
+}
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — a retry that SUCCEEDED is invisible to the user by design, so it has
+ * to be visible here: without this line a flaky gateway looks perfectly healthy right up until it
+ * stops recovering. Logged at `warn` (it is not an error — the user got their guidance).
+ */
+function logGuidanceRetryRecovered(info: { requestId: string; telemetry: GuidanceAttemptTelemetry }): void {
+  console.warn(
+    `[workflow-guidance] recovered after retry requestId=${info.requestId} ` +
+      `attempts=${info.telemetry.attempts} retryReason=${info.telemetry.retryReason ?? "none"} ` +
+      `backoffMs=${info.telemetry.backoffMs} elapsedMs=${info.telemetry.elapsedMs}`,
+  );
+}
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — the caller went away mid-flight. Not a failure of ours: no retry, no
+ * incident log, and a typed body nobody will read (the socket is gone) purely so the route always
+ * returns something well-formed.
+ */
+function guidanceCancelledResponse(): NextResponse {
+  return NextResponse.json(
+    { ok: false, code: "GUIDANCE_CANCELLED", message: "The request was cancelled." },
+    { status: 499 },
   );
 }
 
@@ -285,6 +395,13 @@ export async function POST(
   );
 
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
+  //
+  // REACT-AGENT-RETRY-BACKOFF-1 — ONE logical id for this user submission. It is generated HERE, once,
+  // AFTER the credit gate, and shared by both internal Hermes attempts. That ordering is what makes
+  // "at most one AI credit per submission" structural rather than a convention: the gate is outside
+  // the retry, so no retry path can reach it a second time.
+  const requestId = randomUUID();
+  const brainStartedAt = Date.now();
   const result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
@@ -300,13 +417,45 @@ export async function POST(
         ...(ownConnectionProviders.length ? { ownConnectionProviders } : {}),
       },
     },
-    { auditRecorder: reactAgentAuditRecorder },
+    {
+      auditRecorder: reactAgentAuditRecorder,
+      requestId,
+      // REACT-AGENT-RETRY-BACKOFF-1 — the caller's cancellation propagates all the way to the fetch
+      // AND to the retry backoff, so an abandoned request stops immediately instead of sleeping out
+      // a delay and then firing a second model call nobody is waiting for.
+      signal: request.signal,
+    },
   );
 
   if (!result.ok) {
-    // PROVIDER_* / TIMEOUT / INVALID_RESPONSE / INVALID_SCOPE → safe unavailable. The runner already
-    // failed closed; never surface the raw provider envelope or a raw error.
-    return guidanceUnavailableResponse();
+    // PROVIDER_* / TIMEOUT / CANCELLED / INVALID_RESPONSE / INVALID_SCOPE → safe typed failure. The
+    // runner already failed closed; never surface the raw provider envelope or a raw error.
+    // REACT-AGENT-PRODUCTION-TIMEOUT-1: a slow brain gets the distinct, actionable GUIDANCE_TIMEOUT
+    // rather than the generic outage copy. REACT-AGENT-RETRY-BACKOFF-1: the log carries the attempt
+    // counters so retry-exhaustion, a skipped retry, and a plain outage are all distinguishable.
+    const cancelled = result.code === "CANCELLED";
+    const status = cancelled ? 499 : 503;
+    if (!cancelled) {
+      logGuidanceFailure({
+        code: result.code,
+        requestId,
+        httpStatus: status,
+        elapsedMs: Date.now() - brainStartedAt,
+        editing,
+        catalogKeys: builtEditableGraph ? buildCapabilityCatalogKeys().length : 0,
+        fieldSchemaLines: fieldSchemaLines.length,
+        recentTurns: boundedRecentTurns?.length ?? 0,
+        telemetry: result.attemptTelemetry,
+        creditOutcome: describeCreditOutcome(gate),
+      });
+    }
+    if (cancelled) return guidanceCancelledResponse();
+    return result.code === "TIMEOUT" ? guidanceTimeoutResponse() : guidanceUnavailableResponse();
+  }
+
+  // A silent recovery still needs a trace — otherwise a degrading gateway looks perfectly healthy.
+  if (result.attemptTelemetry?.retried) {
+    logGuidanceRetryRecovered({ requestId, telemetry: result.attemptTelemetry });
   }
 
   // REACT-CONFIG-COVERAGE-1 — rebind sensitive-literal placeholders back to the user's exact values

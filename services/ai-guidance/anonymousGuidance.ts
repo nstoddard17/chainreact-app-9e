@@ -50,6 +50,14 @@ export async function runAnonymousWorkflowGuidance(input: {
   recentTurns?: readonly GuidanceConversationTurn[];
   /** Test seam — injected mock gateway fetch (no live call in CI). */
   fetchImpl?: GatewayFetch;
+  /**
+   * REACT-AGENT-RETRY-BACKOFF-1 — one logical id for this submission (shared by both bounded
+   * attempts) and the caller's cancellation signal. The anonymous path gets the SAME bounded retry as
+   * the authenticated one because it uses the same client; wiring the signal is what stops an
+   * abandoned `/start` visitor from still costing a second model call after the backoff.
+   */
+  requestId?: string;
+  signal?: AbortSignal;
 }): Promise<AnonymousGuidanceResult> {
   // Gate BEFORE any network: disabled / unconfigured → unavailable, no fetch.
   if (!isHermesAgentEnabled()) return { ok: false, code: "PROVIDER_DISABLED", message: UNAVAILABLE_MESSAGE };
@@ -64,6 +72,8 @@ export async function runAnonymousWorkflowGuidance(input: {
     // No `context` and no `capabilityCatalog` — anonymous gets no account/credential context. The
     // gateway/Hermes side owns capability knowledge; ChainReact still validates the returned plan.
     ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
+    ...(input.requestId ? { requestId: input.requestId } : {}),
+    ...(input.signal ? { signal: input.signal } : {}),
   });
 
   if (!guidance.ok) return { ok: false, code: guidance.code, message: UNAVAILABLE_MESSAGE };

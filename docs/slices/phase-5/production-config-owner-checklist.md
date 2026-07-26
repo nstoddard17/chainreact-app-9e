@@ -70,6 +70,10 @@ and no [Red-line no-go item](#red-line-no-go-items) is present, you can launch.
       §5): `HERMES_AGENT_ENABLED=true`, `CHAINREACT_AI_GATEWAY_URL`,
       `CHAINREACT_AI_GATEWAY_TOKEN` (optional: `HERMES_AGENT_TIMEOUT_MS`). If the flag is on
       but the gateway URL/token are missing, the rail shows unavailable.
+      **REACT-AGENT-PRODUCTION-TIMEOUT-1:** prefer leaving `HERMES_AGENT_TIMEOUT_MS` UNSET so the
+      code default (45s, clamped to 55s) applies. An explicit `30000` left over from the original
+      default is what made complex builder turns fail with a 503 at the 30-second mark — an
+      explicit value always wins over the fixed default.
 - [ ] **Stripe platform billing vars present** (see §3 for the full gate):
       `STRIPE_SECRET_KEY`, `STRIPE_BILLING_WEBHOOK_SECRET`,
       `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and the six `STRIPE_PRICE_*` ids.

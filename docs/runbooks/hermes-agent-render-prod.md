@@ -46,7 +46,7 @@ build, change, or run a workflow. Guidance is advisory; execution never depends 
 | `HERMES_AGENT_ENABLED` | `true` to enable the gateway path. DEFAULT OFF — without it the client is inert (`PROVIDER_DISABLED`). |
 | `CHAINREACT_AI_GATEWAY_URL` | `https://chainreact-ai-gateway-prod.onrender.com` |
 | `CHAINREACT_AI_GATEWAY_TOKEN` | **Server-only secret.** Must match the gateway's `CHAINREACT_GATEWAY_TOKEN`. Sent as `Authorization: Bearer`. Never `NEXT_PUBLIC_`, never in the browser, never logged. |
-| `HERMES_AGENT_TIMEOUT_MS` | Per-request timeout (default 30000, clamped 1s–120s). |
+| `HERMES_AGENT_TIMEOUT_MS` | Per-request gateway timeout **for the whole logical call** (both bounded attempts + the retry backoff share it). **Default 45000, clamped 1s–55s** (REACT-AGENT-PRODUCTION-TIMEOUT-1 — was 30000/120s). Optional: leave it UNSET and the code default applies. The clamp ceiling deliberately sits below the routes' `maxDuration = 60`, so the client's own abort always fires first and the user gets ChainReact's typed 503 instead of a bodyless platform 504. **An explicit `60000` here is clamped to `55000`** (tested). ⚠️ **Name collision:** Render also has a variable called `HERMES_AGENT_TIMEOUT_MS`. That one belongs to the gateway service and is read by a DIFFERENT process — ChainReact never sees it, and it cannot terminate a ChainReact request. Only the Vercel copy controls the client's abort. |
 
 ### Render gateway (`chainreact-ai-gateway-prod`)
 
@@ -372,3 +372,64 @@ each surfaced by the smoke as a distinct downstream error:
 
 If the smoke regresses, compare its downstream error message against this list to localize which
 hop broke.
+
+### Latency case (REACT-AGENT-PRODUCTION-TIMEOUT-1)
+
+The smoke now runs a SECOND live call (same double opt-in, so it is still one deliberate `npx jest`
+invocation — but it is two paid requests). The first case sends a short prose prompt (~3.5s); the
+second reproduces a builder **EDIT** turn — capability catalog + narrowed field schemas + editable
+graph, ~45 KB / ~11k tokens — and prints the real round-trip:
+
+```
+[HERMES-AGENT-GATEWAY-SMOKE] EDIT-shaped latency — elapsedMs=… catalogKeys=… fieldSchemaLines=…
+  defaultBudgetMs=45000 ceilingMs=55000 result=… → WITHIN BUDGET | AT RISK | OVER BUDGET
+```
+
+It measures with the CEILING deadline (not the configured one) so the true latency is observable
+even when it exceeds the default, and it does not assert on time — gateway latency is not
+deterministic enough to gate a build. `AT RISK` / `OVER BUDGET` is the signal that either the budget
+or the prompt size needs another look. This is the case that would have caught the production
+incident: the short-prompt smoke was green the whole time it was failing.
+
+## 7. Troubleshooting — the panel says guidance is unavailable
+
+The route answers 503 for several distinct situations. Since REACT-AGENT-PRODUCTION-TIMEOUT-1 they are
+distinguishable without a stopwatch — check the Vercel function log first:
+
+```
+[workflow-guidance] brain call failed code=<CODE> elapsedMs=<n> editing=<bool> catalogKeys=<n> …
+```
+
+| Signal | Meaning | Where to fix |
+|---|---|---|
+| response `code: "GUIDANCE_TIMEOUT"`, log `code=TIMEOUT`, `elapsedMs` ≈ `HERMES_AGENT_TIMEOUT_MS` | The brain was still working when ChainReact's own deadline fired. Nothing is broken. | Raise `HERMES_AGENT_TIMEOUT_MS` (≤55s) and/or `maxDuration`; or reduce prompt size. Large `editing=true` + `catalogKeys` values in the log say why the turn was slow. |
+| log `code=PROVIDER_ERROR` with a `status_*` reason | The Render gateway or the private agent failed/timed out FIRST — ChainReact never got a body. | Render side — §6 checklist. Note the gateway may impose its OWN upstream timeout; raising ChainReact's does nothing for this case. |
+| log `code=INVALID_RESPONSE` | Gateway returned 2xx with a malformed/empty envelope. | Render side — agent/model config. |
+| log `code=PROVIDER_DISABLED` / `PROVIDER_NOT_CONFIGURED` | `HERMES_AGENT_ENABLED` off, or the URL/token missing on Vercel. No network happened. | Vercel env (§3). |
+| response `code: "AI_GATE_ERROR"` (no brain log at all) | The credit gate failed before the model call. | Billing/DB — not this path. |
+
+The same typed code is now also persisted on the failure's `react_agent_audit_events` row as
+`reason: "exec_failed:<CODE>"`, so an incident can be reconstructed after the log window closes.
+
+### Bounded retry (REACT-AGENT-RETRY-BACKOFF-1)
+
+One user submission makes **at most 2** Hermes attempts: 1 initial + 1 automatic retry, and only for
+*fast, transient* failures — connection reset / DNS / socket, immediate HTTP 502 or 503, or a 429 whose
+`Retry-After` is ≤2s. Between them is a jittered **250–750 ms** backoff. Everything else — timeout,
+cancellation, auth/authorization failures, 400/404/500, malformed output, invalid proposals — returns
+on the first attempt.
+
+Reading the retry fields in the failure log:
+
+| Field | Meaning |
+|---|---|
+| `attempts=1 retrySkipped=timeout` | The brain was slow. Retry is deliberately refused: the budget is already spent, and a second attempt would only turn a typed 503 into a platform 504. |
+| `attempts=1 retrySkipped=insufficient_budget` | A transient failure happened, but too little time remained for a useful second attempt. If you see this often, the first attempt is eating the budget — look at prompt size, not at the retry policy. |
+| `attempts=1 retrySkipped=slow_failure` | A transient-class failure that took >5s. Treated as not-actually-transient. |
+| `attempts=1 retrySkipped=not_retryable` | Deterministic: auth, bad token, 4xx/500, malformed envelope. Fix the cause; retrying cannot help. |
+| `attempts=2 retrySkipped=attempts_exhausted` | Retried once and still failed. The gateway is genuinely unhealthy — go to §6. |
+| `[workflow-guidance] recovered after retry attempts=2` (**warn**, not error) | The retry worked and the user saw normal guidance. A rising rate of these is an early warning that the gateway is degrading **before** users notice. |
+
+Both attempts share one `requestId` (sent as `x-chainreact-request-id`, with `x-chainreact-attempt:
+1|2`), and the whole submission still produces exactly **one** audit row and **one** AI-credit gate
+call — the retry lives inside the gate, never around it.

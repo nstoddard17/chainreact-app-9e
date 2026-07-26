@@ -135,6 +135,28 @@ export async function runAuthorizedCapability<T>(input: {
   /** CS-5d — map a RESOLVED result to an audit outcome (default `success`). */
   classifyResult?: (result: T) => ReactAgentAuditOutcome;
   /**
+   * REACT-AGENT-PRODUCTION-TIMEOUT-1 — refine the SAFE audit reason for a non-success resolved
+   * result. Default stays the generic `exec_failed`, which made every brain failure (timeout, gateway
+   * outage, malformed reply) indistinguishable in `react_agent_audit_events` — the persistent record
+   * a production incident is reconstructed from. Return a FIXED, enum-like string built from the
+   * capability's own typed failure codes; NEVER raw model text, provider payloads, ids, or messages.
+   * Wrapped fail-safe (a throw → the default reason) and capped at 128 chars by the recorder.
+   */
+  classifyReason?: (result: T) => string | null | undefined;
+  /**
+   * REACT-AGENT-RETRY-BACKOFF-1 — attach SAFE, aggregate metadata to the single audit row (e.g.
+   * `{ attempts: 2, retryReason: "status_503" }`), so one user submission stays ONE governance
+   * record even when it made two internal provider attempts.
+   *
+   * The seam historically attached NO metadata precisely so nothing raw could leak, and that default
+   * is unchanged — this is opt-in per call site. What you return MUST be a small, fixed-key object of
+   * numbers / booleans / policy enums. NEVER a prompt, model output, provider message, header, id, or
+   * anything user-derived. The recorder additionally runs it through the shared `ai_cost_events`
+   * denylist sanitizer, but that is defense in depth, not permission to pass raw data.
+   * Wrapped fail-safe: a throw or a non-object → no metadata, never a broken user path.
+   */
+  classifyMetadata?: (result: T) => Record<string, unknown> | null | undefined;
+  /**
    * CS-7b — derive an OPAQUE `proposed_patch_ref` from a RESOLVED result (e.g. a
    * deterministic content hash of the previewed operations + baseRevision). Called only
    * on the resolved path; must return a safe, one-way ref or `null`/`undefined` when no
@@ -150,18 +172,21 @@ export async function runAuthorizedCapability<T>(input: {
   // Emit at most one audit row per call. The injected recorder is fail-open (CS-5c), but
   // the seam ALSO swallows here as defense in depth — a misbehaving/rejecting recorder must
   // never throw into, or change the outcome of, the agent/user path. Emission is a pure
-  // side effect; no metadata is attached at the seam (so nothing raw can leak). The only
-  // result-derived field is the OPAQUE `proposedPatchRef` (CS-7b), never raw content.
+  // side effect; metadata defaults to NONE (so nothing raw can leak) and is only ever the
+  // small, fixed-key aggregate an opt-in `classifyMetadata` returns (REACT-AGENT-RETRY-BACKOFF-1).
+  // The only other result-derived field is the OPAQUE `proposedPatchRef` (CS-7b), never raw content.
   const emit = async (
     outcome: ReactAgentAuditOutcome,
     reason: string | null,
     proposedPatchRef: string | null = null,
+    metadata: Record<string, unknown> | null = null,
   ): Promise<void> => {
     if (!input.auditRecorder) return;
     try {
-      await input.auditRecorder.record(
-        buildAuditInput(input.scope, input.intent, input.capabilityId, capability, outcome, reason, proposedPatchRef),
-      );
+      await input.auditRecorder.record({
+        ...buildAuditInput(input.scope, input.intent, input.capabilityId, capability, outcome, reason, proposedPatchRef),
+        ...(metadata ? { metadata } : {}),
+      });
     } catch {
       // Fail-open at the seam: audit failures never break Q&A / Explain.
     }
@@ -202,7 +227,30 @@ export async function runAuthorizedCapability<T>(input: {
       proposedPatchRef = null;
     }
   }
-  await emit(outcome, outcome === "success" ? null : "exec_failed", proposedPatchRef);
+  // REACT-AGENT-PRODUCTION-TIMEOUT-1 — a failed outcome may carry a refined, safe reason; a missing
+  // classifier or a throw falls back to the original generic `exec_failed` (behavior unchanged).
+  let reason: string | null = null;
+  if (outcome !== "success") {
+    reason = "exec_failed";
+    if (input.classifyReason) {
+      try {
+        reason = input.classifyReason(result) ?? "exec_failed";
+      } catch {
+        reason = "exec_failed";
+      }
+    }
+  }
+  // REACT-AGENT-RETRY-BACKOFF-1 — opt-in safe aggregate metadata, fail-safe like the ref derivation.
+  let metadata: Record<string, unknown> | null = null;
+  if (input.classifyMetadata) {
+    try {
+      const candidate = input.classifyMetadata(result);
+      metadata = candidate && typeof candidate === "object" && !Array.isArray(candidate) ? candidate : null;
+    } catch {
+      metadata = null;
+    }
+  }
+  await emit(outcome, reason, proposedPatchRef, metadata);
   return { ok: true, result };
 }
 

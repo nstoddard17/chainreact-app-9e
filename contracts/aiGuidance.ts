@@ -80,13 +80,62 @@ export interface WorkflowGuidanceResponse {
   readonly modelTag?: string;
 }
 
-/** Why guidance could not be produced. All safe, non-leaky enums. */
+/**
+ * Why guidance could not be produced. All safe, non-leaky enums.
+ *
+ * `CANCELLED` (REACT-AGENT-RETRY-BACKOFF-1) is distinct from `TIMEOUT` on purpose: the caller went
+ * away (browser navigation, the user hit stop, the rail unmounted), which is not a fault and must
+ * never be retried, never be logged as an incident, and never be confused with our own deadline
+ * firing. Keeping them separate is what lets the retry policy refuse both for different reasons.
+ */
 export type GuidanceUnavailableCode =
   | "PROVIDER_DISABLED"
   | "PROVIDER_NOT_CONFIGURED"
   | "PROVIDER_ERROR"
   | "TIMEOUT"
+  | "CANCELLED"
   | "INVALID_RESPONSE";
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — why a bounded automatic retry happened. Safe, closed enum: it is
+ * logged, audited, and crosses module boundaries, so it can only ever name a transport/status class.
+ */
+export type GuidanceRetryReason = "network_error" | "status_502" | "status_503" | "status_429";
+
+/** Why a retry did NOT happen. `timeout` and `insufficient_budget` are very different signals. */
+export type GuidanceRetrySkipReason =
+  | "not_retryable"
+  | "timeout"
+  | "cancelled"
+  | "slow_failure"
+  | "insufficient_budget"
+  | "retry_after_too_long"
+  | "attempts_exhausted";
+
+/**
+ * REACT-AGENT-RETRY-BACKOFF-1 — safe attempt/retry telemetry for ONE logical user submission.
+ *
+ * Lives in contracts (not in the gateway client) because the route, the capability runner, and the
+ * audit recorder all read it, and the route is structurally forbidden from importing the server-only
+ * gateway client. Numbers and closed enums ONLY — by construction it cannot carry a prompt, a model
+ * response, a provider message, a header, a token, or any user content.
+ */
+export interface GuidanceAttemptTelemetry {
+  /** The ONE logical request id shared by both attempts (null when the caller supplied none). */
+  readonly requestId: string | null;
+  /** Total provider attempts made for this submission (1 or 2 — never more). */
+  readonly attempts: number;
+  readonly retried: boolean;
+  readonly retryReason: GuidanceRetryReason | null;
+  /** Present whenever the first attempt failed and was deliberately not retried. */
+  readonly retrySkippedReason: GuidanceRetrySkipReason | null;
+  /** Actual jittered wait before attempt 2 (0 when no retry). Counted against the same budget. */
+  readonly backoffMs: number;
+  /** Wall-clock across the whole logical call, including backoff. */
+  readonly elapsedMs: number;
+  /** Budget left when the retry decision was taken (null when the first attempt succeeded). */
+  readonly remainingBudgetMsAtDecision: number | null;
+}
 
 /** Discriminated guidance outcome. `reason` (when present) is a safe tag, never a raw error. */
 export type GuidanceResult =
