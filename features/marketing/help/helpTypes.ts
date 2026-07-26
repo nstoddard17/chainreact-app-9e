@@ -20,6 +20,7 @@ export type HelpCategoryId =
   | "getting-started"
   | "workflows"
   | "connecting-apps"
+  | "analytics"
   | "troubleshooting"
   | "accounts-teams"
   | "billing-usage";

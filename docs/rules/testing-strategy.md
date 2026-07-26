@@ -347,6 +347,37 @@ ESM PDF.js bundle (without it, PDF suites fail with
 When running ad-hoc suites, prefer `npm test -- <path>` over bare `npx jest <path>`;
 the bare form lacks the flag and fails any suite that parses PDFs.
 
+## Scope of a verification run (owner policy)
+
+**The full repository suite is NOT the default gate.** A bare `npm test` executes the
+entire inventory; its time and machine cost is out of proportion to the signal for a
+normal batch. The approved default after a meaningful batch is:
+
+```bash
+npx tsc --noEmit
+npm run lint
+npm run lint:structure
+npm run lint:migrations
+npm test -- <the paths your change actually touches>
+```
+
+Rules that go with it:
+
+- **Report exact suite and test totals** for every command run — and never claim a
+  command ran unless it actually ran. If something was skipped, say why.
+- **`lint:structure`:** separate pre-existing baseline failures from new ones by
+  comparing against the base commit. Do not modify unrelated baseline offenders to
+  make the check green.
+- **Docker / Supabase are not started for ordinary verification.** No `supabase start`
+  / `supabase:test:start`, no container repair, no substitute database — unless Marcus
+  explicitly approves it for that batch. This is why some browser certification is
+  legitimately reported as environment-blocked.
+- **Browser (Playwright) tests** run only when the required environment is *already*
+  available without expensive infrastructure recovery, and then only the targeted spec
+  — not the full Playwright suite. **A blocked browser scenario is reported as
+  blocked, never as passed.**
+- **A full-suite run happens only when Marcus explicitly authorizes it for that batch.**
+
 ## Open questions
 
 No open questions remain that block Slice 1.

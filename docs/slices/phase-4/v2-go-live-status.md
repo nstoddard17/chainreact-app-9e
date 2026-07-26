@@ -121,6 +121,37 @@ the redirect target or logs. 15 callback tests + full auth suite, `tsc`, eslint,
 - **Connected-app recovery UX gap:** no obvious **Reconnect** affordance and **no Disconnect** action on connected app cards (`markDisconnected()` is repo-only dead code; no disconnect API route). Recovering a broken token relies on the non-discoverable "Connect another → same workspace" workaround. A scoped recovery-UX slice (visible Reconnect + auth-error clarity; Disconnect designed separately) is queued, not yet built.
 - **Observed on localhost — UNDIAGNOSED, needs investigation before the Reconnect UX:** during a Slack OAuth reconnect on localhost while signed in as one user, the app afterward showed a *different* signed-in user plus a "Connected to slack" banner. Not yet reproduced or root-caused; flagged as a potential auth/session-integrity concern. Production smoke (run as the dedicated smoke account) was unaffected.
 
+## Connected Analytics release (2026-07-26, ANALYTICS-RELEASE-1)
+
+Released the connected-data **Custom Insights** product: the provider-agnostic
+catalog/query platform (Insights route, snapshot cache, request coalescing,
+per-account provider limiter), the generic builder, five chart types, date presets +
+**inclusive** custom ranges, previous-period comparison, per-widget CSV export, and
+aggregate drill-down with Back/Reset and Save-explored-question.
+
+**Exposure at release (unchanged by it):** ChainReact Workflow runs · QuickBooks
+Invoices · Shopify Orders = **public**; Stripe Payments = **preview** (dev-only);
+HubSpot Deals and Motive Fuel purchases = **unregistered**, each blocked on provider
+test data with a committed read-only certification harness and blocked report.
+
+**Reconciliation:** the arc was built on `64f57de39`; `origin/v2-main` had moved to
+`b62bf2021` (account-deletion verification + react-agent timeout). The two lines
+touched **no file in common**, so they were reconciled by an ordinary merge in an
+isolated worktree — preserving every commit identity on both sides (the arc's outcome
+docs cite their own SHAs, so rebasing was rejected). The push was a normal
+fast-forward; no force-push, no history rewrite. Backup ref:
+`backup/v2-main-before-analytics-release-2026-07-26` at `64f57de39`.
+
+**Verification:** 117 focused suites / 1,710 tests, 0 failures, 0 skipped; tsc clean;
+lint at baseline; no migration. **Browser certification was environment-blocked** —
+the e2e harness needs a loopback Supabase and Docker was not started — and is recorded
+as blocked, never as passed. → [`analytics-final-certification-1.md`](../phase-5/analytics/analytics-final-certification-1.md)
+· [`analytics-production-release-1.md`](../phase-5/analytics/analytics-production-release-1.md)
+
+> **Release note:** saved Insights with a **custom** date range now correctly include
+> the selected end date. The previous behavior silently excluded that final day, so
+> some existing chart totals may increase.
+
 ## Builder-view release — LIVE (2026-07-25, BUILDER-VIEW-RELEASE-1)
 
 **Result: ✅ live and production-verified.** Deployed application commit

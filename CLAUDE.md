@@ -146,9 +146,12 @@ sequence is:
 5. Design every node's Setup / Advanced configuration
 6. Build required provider-resource discovery and option resolvers
 7. Register builder metadata and verify at-a-glance summaries
-8. Run runtime, builder, resolver, and relevant E2E tests
-9. Complete live provider certification where credentials are available
-10. Produce the owner developer-portal and environment checklist
+8. **Decide and document the provider's Analytics disposition** (implemented ·
+   eligible-but-blocked · not suitable · deferred by owner), and implement the dataset
+   when it is useful and certifiable
+9. Run runtime, builder, resolver, and relevant E2E tests
+10. Complete live provider certification where credentials are available
+11. Produce the owner developer-portal and environment checklist
 
 An action or trigger is not shipped merely because its handler executes. Its
 ordinary-user configuration path must also be complete.
@@ -166,17 +169,36 @@ approval, the batch pushes to `v2-main` and deploys to prod (intended at this st
 
 ## Testing Gates
 
-After meaningful batches, run:
+After meaningful batches, run the four static checks, then the **directly relevant
+focused suites** — never the whole inventory:
 
 ```bash
 npx tsc --noEmit
 npm run lint
 npm run lint:structure
 npm run lint:migrations
-npm test
+# then the focused suites your change actually touches, BY PATH — e.g.
+npm test -- tests/unit/services/analytics/ tests/unit/features/analytics/
 ```
 
-For E2E batches, also run relevant Playwright specs sequentially.
+**Do not run the full repository test suite by default.** A bare `npm test` runs the
+entire inventory; it is not the owner-approved default because of its time and machine
+cost. Run only what your change touches, and **report exact suite and test totals** for
+every command you ran.
+
+- **`lint:structure`:** distinguish **pre-existing baseline failures** from new ones —
+  compare against the base commit before calling anything a regression, and never
+  "fix" an unrelated baseline offender just to turn the check green.
+- **Docker / Supabase are not started for ordinary verification.** Do not run
+  `supabase start` / `supabase:test:start`, repair containers, or substitute a
+  database, unless Marcus explicitly approves it for that batch.
+- **Browser (Playwright) tests** may run when the required environment is *already*
+  available without expensive infrastructure recovery. Run the targeted spec, not the
+  full Playwright suite. **A blocked browser test is reported as blocked — never as
+  passed.**
+- **A full-suite run happens only when Marcus explicitly authorizes it for that batch.**
+- **Never claim a command ran unless it actually ran**; if something was skipped, say
+  exactly why.
 
 ---
 
@@ -286,6 +308,28 @@ linked here.
 **Builder & configuration**
 17. **Builder completion is provider completion.** Every shipped action and trigger must support an understandable repetitive-task configuration path. Static discoverable provider resources use real account-aware selectors; changing runtime values support upstream mapping; manual identifier entry is retained in Advanced for power users. Setup must not require provider documentation, opaque identifiers, raw payload construction, or arbitrary JSON when ChainReact can provide a structured path. **If that configuration path is incomplete, manifest/runtime registration does not make the node complete.** (Mechanics — `advanced` / `visibleWhen` / `defaultValue` / `object`-vs-`json` — are rule 4's sub-bullet; this rule is the completion bar.)
     - **Configuration-design doc required.** The provider's configuration-design document must classify *every* field of *every* shipped node as exactly one of: **core user decision** · **static provider resource** · **dynamic upstream value** · **fixed repeated value** · **derived/defaulted value** · **conditional option** · **advanced control** · **internal implementation detail**. The resulting UI must follow the classification — a static provider resource is a registered selector, not a raw text box; an internal implementation detail is derived or hidden, not surfaced. Full procedure + Owner Report contract: [`.claude/skills/chainreactv2-provider-integration-builder/SKILL.md`](./.claude/skills/chainreactv2-provider-integration-builder/SKILL.md).
+
+**Analytics**
+18. **Every net-new provider requires an Analytics disposition before closeout.**
+    Actions let a customer *act* on a provider; Analytics lets them *see* what it
+    knows. Implement provider-local curated datasets through the generic Insights
+    catalog when the data is useful and certifiable; otherwise record the status
+    explicitly as **eligible-but-blocked** (keep it absent/`preview`, commit a
+    read-only certification harness and a blocked report naming the owner action),
+    **not suitable** (with the reason), or **deferred by owner**. Never silently omit
+    Analytics from a provider outcome, and never ship a token dataset to check a box.
+    - **Never public without live certification.** `public` = live-certified ·
+      `preview` = implemented, certification incomplete · absent = semantics or data
+      not yet certified. One declarative `exposure` field drives client visibility,
+      server authorization and production non-leaking — no provider-name branches.
+    - **Honest semantics only.** Never chart a mutable current value over its creation
+      date as though it existed historically; never name a measure Revenue/Profit/Cash
+      collected unless the provider data proves that meaning; never assume USD, mix
+      currencies, or mix incompatible units; bounded scans emit structured
+      completeness — no silent truncation. Analytics uses already-approved scopes;
+      broadening OAuth scopes for a dataset needs separate owner approval.
+    - Full procedure (Phase 8.5 + eligibility checklist) and reference
+      implementations: [`.claude/skills/chainreactv2-provider-integration-builder/SKILL.md`](./.claude/skills/chainreactv2-provider-integration-builder/SKILL.md).
 
 **Cross-cutting contracts:** file output → [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md) · token-ingest auth → [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md).
 

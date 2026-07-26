@@ -3,6 +3,7 @@ import { helpCategoryLabel } from "./helpCategories";
 import { GETTING_STARTED_ARTICLES } from "./articles/gettingStarted";
 import { WORKFLOWS_ARTICLES } from "./articles/workflows";
 import { CONNECTING_APPS_ARTICLES } from "./articles/connectingApps";
+import { ANALYTICS_ARTICLES } from "./articles/analytics";
 import { PROVIDER_ARTICLES } from "./articles/providers";
 import { TROUBLESHOOTING_ARTICLES } from "./articles/troubleshooting";
 import { ACCOUNTS_TEAMS_ARTICLES } from "./articles/accountsTeams";
@@ -25,6 +26,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   ...GETTING_STARTED_ARTICLES,
   ...WORKFLOWS_ARTICLES,
   ...CONNECTING_APPS_ARTICLES,
+  ...ANALYTICS_ARTICLES,
   ...PROVIDER_ARTICLES,
   ...TROUBLESHOOTING_ARTICLES,
   ...ACCOUNTS_TEAMS_ARTICLES,

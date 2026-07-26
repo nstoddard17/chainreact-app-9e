@@ -25,6 +25,11 @@ export const HELP_CATEGORIES: readonly HelpCategoryDef[] = [
     blurb: "Connect, reconnect, and manage the apps your workflows use.",
   },
   {
+    id: "analytics",
+    label: "Analytics",
+    blurb: "Build charts from your workflow runs and your connected apps.",
+  },
+  {
     id: "troubleshooting",
     label: "Troubleshooting",
     blurb: "Work out why a run failed or a workflow won't activate — and fix it.",

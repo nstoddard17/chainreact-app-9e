@@ -62,6 +62,26 @@
 
 ## Durable decisions
 
+- [2026-07-26] **The full repository test suite is NOT the default verification gate.**
+  A bare `npm test` runs the whole inventory; its time/machine cost is out of proportion
+  to the signal for a normal batch. Default = the four static checks + the **focused
+  suites the change actually touches, by path**, with exact suite/test totals reported.
+  **Docker/Supabase are not started for ordinary verification** (no `supabase start`, no
+  container repair, no substitute DB) unless Marcus approves it for that batch; browser
+  tests run only when the environment is *already* up, targeted spec only, and a blocked
+  browser scenario is reported as **blocked, never as passed**. A full-suite run needs
+  Marcus's explicit per-batch authorization. → `CLAUDE.md` "Testing Gates" +
+  [`docs/rules/testing-strategy.md`](./rules/testing-strategy.md) "Scope of a verification run"
+- [2026-07-26] **Every net-new provider requires an Analytics disposition before closeout.**
+  Actions let a customer act on a provider; Analytics lets them see what it knows. Each
+  provider must record exactly one of: **implemented** · **eligible-but-blocked** (stay
+  absent/`preview` + commit a read-only certification harness + a blocked report naming
+  the owner action) · **not suitable** (with the reason) · **deferred by owner**. Never
+  silently omit Analytics; never ship a token dataset to check a box. **A dataset is
+  never `public` without live certification** — one declarative `exposure` field drives
+  client visibility, server authorization and non-leaking, with no provider-name
+  branches. → Phase 8.5 of
+  [`chainreactv2-provider-integration-builder`](../.claude/skills/chainreactv2-provider-integration-builder/SKILL.md)
 - [2026-07-24] **Document Builder is a GLOBAL production feature, gated only by `ENABLE_DOCUMENT_BUILDER`.**
   Released with no beta/allowlist/percentage/preview-only rollout (Marcus's explicit call). The flag is
   server-resolved, true ONLY on the literal string `"true"`, default OFF; it is a pure render gate —
@@ -262,6 +282,28 @@
   [connected-apps-recovery-ux-closeout.md](./slices/phase-4/workflows/connected-apps-recovery-ux-closeout.md).
 
 ## Recently completed arcs
+
+- **CONNECTED ANALYTICS — ARC CLOSED, RELEASED TO PRODUCTION (2026-07-26)** — the
+  provider-agnostic connected-data platform plus the Custom Insight product: catalog/
+  query contracts, Insights route, snapshot cache + request coalescing + per-account
+  provider limiter, the generic App→Data→Show→Group by→Filters→Series→Time→Chart
+  builder, five chart types (Number, line, bar, table, catalog-gated donut), date
+  presets + **inclusive** custom ranges, previous-period comparison, per-widget CSV
+  export, aggregate drill-down with Back/Reset and Save-explored-question, and
+  dashboard rename/duplicate/restore-default.
+  **Exposure:** ChainReact Workflow runs · QuickBooks Invoices · Shopify Orders =
+  **public**; Stripe Payments = **preview** (implemented; blocked on a connected
+  Stripe *test* account); HubSpot Deals (portal has 2 deals, 0 usable amounts) and
+  Motive Fuel purchases (no fuel history) = **unregistered** — each with a committed
+  read-only certification harness + blocked report ready to re-run.
+  **Release note that matters:** saved Insights with a *custom* date range now
+  correctly INCLUDE the selected end date; the old behavior silently dropped that
+  final day, so some existing chart totals may increase.
+  Certification: 117 focused suites / 1,710 tests, 0 failures, 0 skipped. Browser
+  certification **environment-blocked** (e2e requires a loopback Supabase; Docker was
+  not started) — recorded as blocked, never as passed.
+  → [`analytics-final-certification-1.md`](./slices/phase-5/analytics/analytics-final-certification-1.md)
+  · [`analytics-production-release-1.md`](./slices/phase-5/analytics/analytics-production-release-1.md)
 
 - **TRUCK-BRIDGE-1 — MOTIVE↔FLEETIO VEHICLE LINKING — ARC CLOSED, FEATURE LAUNCHED (LOCAL/UNPUSHED, CS-1…CS-6)** —
   closes the FLEETIO-4 gap ("a user must still establish the Fleetio vehicle id themselves", which

@@ -101,6 +101,7 @@ The provider is **not complete** until every applicable item is true:
 13. Live certification is completed where credentials are available.
 14. External owner setup is documented.
 15. **No normal-path usability blocker is deferred** merely because it requires provider API, resolver, route, service, search, pagination, or UI infrastructure.
+16. **The provider has a documented Analytics disposition** (Phase 8.5). Not every provider ships a dataset — but every provider must answer, in writing, what Analytics can honestly do with its data, and why.
 
 Plus the standing V2 requirements: credential class entry, Apps catalog metadata gate, AI visibility via safe redacted flags, smoke fixtures, docs, local commit, nothing pushed without Marcus.
 
@@ -166,6 +167,11 @@ Registry presence, not file presence, defines what a V2 provider ships. Do not t
 * **Per-node configuration design** (field classification table) — see the configuration design pass.
 * **Resolvers + resource types to build**, with the backing provider list/search endpoint for each.
 * Node summaries planned.
+* **`Analytics disposition`** — required section (see Phase 8.5). State `implemented`,
+  `eligible but blocked`, `not suitable`, or `deferred by owner`, with the candidate
+  dataset(s), the honest measures/dimensions considered, and — when blocked or
+  deferred — the exact owner action that would unblock it. The provider's **outcome
+  doc carries the same section**, updated with what actually shipped.
 * Webhook/polling model; smoke strategy; owner setup requirements; known blockers.
 
 ---
@@ -303,6 +309,119 @@ For each shipped trigger: `configSchema` · `meta` · `activate` · `deactivate`
 Polling triggers baseline on activation and fire zero events on the first post-activation poll; throw on seed failure — never swallow it. Webhook triggers verify signatures (route secrecy / Cloudflare / Vercel is not a substitute). Trigger filters are pure — no enrichment I/O, no `FileRef` construction, no Promises. Dedup is DB-backed on stable provider IDs, fail-closed.
 
 Tests: activation · activation rollback/failure · deactivation · renewal · event normalization shape · filtering · dedup / duplicate delivery · baseline-first behavior · repeated delivery · disabled/paused workflow drops event · wrong signature rejected · provider failure and recovery · short-form `eventType` matches registration · no token/PII leakage in event ids/logs.
+
+### Phase 8.5 — Analytics disposition (mandatory gate)
+
+**Every provider gets an `Analytics disposition` section in its plan and its outcome
+doc. Not every provider ships a dataset — but a provider is not fully evaluated until
+this question is answered in writing.**
+
+Actions and triggers let a customer *act* on a provider. Analytics lets them *see*
+what the provider knows. For providers whose primary value is measurable business
+data (payments, orders, invoices, deals, tickets, fuel, inventory, runs), shipping at
+least one useful dataset is part of provider completion unless Marcus explicitly
+approves deferral.
+
+Reference implementations — read these rather than inventing a shape:
+`services/analytics/insights/quickbooks/` and `shopify/` (public, live-certified),
+`stripe/` (implemented, `preview`, certification blocked), plus the blocked-report
+pattern in `docs/slices/phase-5/analytics/`. The generic platform (catalog contract,
+query route, cache, coalescing, limiter, builder, charts, CSV, drill-down) already
+exists: a new dataset is a provider-local declaration + adapter, never new UI.
+
+#### Choose exactly one disposition
+
+**A. Implemented** — the provider exposes useful, safely readable business facts and
+live certification passed. Ship it (see the requirements list below).
+
+**B. Eligible but blocked** — suitable in principle, but blocked by a missing
+connected test account, empty test data, missing amount/currency/unit examples,
+unverified pagination, missing scope approval, a provider-plan limitation, or
+uncertified semantics. Required result: keep the dataset **absent or `preview`**,
+commit a **reusable read-only certification harness**, write a **blocked report**
+naming the exact owner action that unblocks it. Never manufacture a fixture-only
+"certification".
+
+**C. Not suitable** — the available data is too sensitive, primarily free text,
+current-state with no honest question, unbounded/operationally unsafe, too
+high-cardinality, misleading without history the provider does not supply, redundant
+with another dataset, or simply not worth the provider scan cost. Record the reason.
+**Do not ship a token dataset to check a box.**
+
+**D. Deferred by owner** — technically suitable, but Marcus chose to sequence it
+later. Record the candidate dataset and the certification it will need. Never
+silently omit Analytics from the outcome.
+
+#### Eligibility audit checklist
+
+**Credential and ownership.** Is the provider account-class or personal-class? Which
+active-account credential executes the query? Can another account's connection ever
+be selected? Is a connected snapshot account-shared or user-private?
+
+**Candidate datasets.** Identify real provider *facts*, not resolver entities —
+orders, invoices, payments, fuel purchases, deals, tickets, tasks, events, inventory,
+vehicles, runs. Separate: historical facts · current-state snapshots · entity pickers
+· sensitive/free-text data · data unavailable under current scopes.
+
+**Date semantics.** Per candidate: the historical date field · which fields are
+current-state only · whether time grouping is honest · whether comparison is honest ·
+maximum useful range · UTC/boundary behavior. **Never chart a mutable current value
+over its creation date as though that value existed historically** (the rule QuickBooks
+`outstanding_balance` and HubSpot deal amounts both exist to enforce).
+
+**Measures.** The smallest honest set — count, sum, average, current balance, current
+open amount. Do **not** name a measure Revenue, Profit, Net sales, Cash collected,
+Forecast, Savings or Efficiency unless the provider data genuinely proves that
+meaning.
+
+**Dimensions and filters.** Bounded categorical dimensions · entity references · date
+ranges · status filters · currency/unit filters · series candidates. Never expose
+arbitrary provider fields, raw JSON, descriptions, notes, emails, addresses or other
+free text.
+
+**Money and units.** Numeric wire type · currency source · precision · minor-unit vs
+decimal-string · mixed-currency behavior · unit source · mixed-unit behavior · null vs
+zero. Rules: never assume USD; never silently combine currencies; never silently
+combine gallons and liters or other incompatible units; never accumulate money in
+binary floating point; no exchange-rate or unit conversion without a separately
+approved design.
+
+**Pagination and provider cost.** Provider-side filters · page size · cursor/offset ·
+stable, tie-safe ordering · max pages · max records scanned · rate limits ·
+`Retry-After` · truncation bias. Every bounded scan emits honest structured
+completeness. **No silent truncation.**
+
+**Privacy and result projection.** Decide what is forbidden from aggregate results and
+snapshots. Never expose provider record ids (unless already an approved safe query
+identity), names/emails (unless deliberately approved), addresses, notes,
+descriptions, message contents, payment methods, raw payloads, provider cursors, OAuth
+scopes, tokens, account ids or integration ids.
+
+**Existing scopes.** Analytics should use already-approved scopes. **Do not silently
+broaden OAuth scopes for a dataset** — a new scope needs separate justification, a
+reauthorization-impact review, a provider-approval-impact review, and Marcus's
+explicit approval.
+
+#### When the disposition is `implemented`
+
+Require all of: provider-local dataset declaration · provider-local adapter/scanner ·
+curated typed fields · declared measures, dimensions, filters, chart capabilities,
+series capabilities and part-to-whole dimensions · declared maximum range · declared
+scan cap · declared completeness behavior · safe client projection · **the existing
+generic Custom Insight builder with no provider-specific React branch** · the existing
+Insights cache namespace, request coalescing and provider limiter · account isolation
+· focused tests · **live read-only certification before public exposure**.
+
+#### Exposure rule (durable)
+
+> A new Analytics dataset must not be public merely because its adapter works in unit
+> tests.
+
+`public` = live certification passed · `preview` = implemented, live certification
+incomplete · absent/unregistered = semantics or required data not yet certified. The
+same declarative `exposure` field must drive client catalog visibility, server query
+authorization and production non-leaking behavior. **No provider-name exposure
+branches.**
 
 ### Phase 9 — Resource discovery and option resolvers
 
@@ -460,11 +579,29 @@ Run focused tests first, then the gates.
 Commands (unless clearly inapplicable):
 
 ```bash
-npm run typecheck
+npx tsc --noEmit
 npm run lint
 npm run lint:structure
-npm test
+npm run lint:migrations
+# then the DIRECTLY RELEVANT focused suites, by path — e.g.
+npm test -- tests/unit/integrations/<provider>/ tests/unit/services/analytics/insights/
 ```
+
+**Do not run the full repository suite by default.** `npm test` with no path runs the
+entire inventory and is not the owner-approved default — it costs far more time and
+machine than the signal is worth for one provider. Run the suites your change
+actually touches, and **record exact suite and test totals** for each command.
+
+For `lint:structure`, distinguish **pre-existing baseline failures** from new ones:
+compare against the base commit before claiming a regression, and never "fix" an
+unrelated baseline offender just to make the check green.
+
+**Docker / Supabase must not be started solely for ordinary verification** unless
+Marcus explicitly approves it for that batch. Browser (Playwright) tests may run when
+the required environment is *already* available without expensive infrastructure
+recovery. **A blocked browser test is reported as blocked — never as passed.**
+
+A full-suite run happens only when Marcus explicitly authorizes it for that batch.
 
 If migrations were added: `npm run lint:migrations` then `npm run db:push` (allowed by default unless Marcus says otherwise; `db:push` is not git push).
 
