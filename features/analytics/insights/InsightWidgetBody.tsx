@@ -130,15 +130,18 @@ export function InsightWidgetBody({
 
   // Remember each level's successful aggregate for instant Back.
   useEffect(() => {
-    if (state.status === "ok" && queryKey) {
-      resultMemo.current.set(queryKey, state.result);
+    // Store under the key the state itself ANSWERED — hook state lags the
+    // current query by one effect tick during a drill/Back, and storing the
+    // old result under the new key would show the wrong level's data.
+    if (state.status === "ok") {
+      resultMemo.current.set(state.queryKey, state.result);
       // Bounded: root + max depth entries is all Back can ever revisit.
       if (resultMemo.current.size > MAX_EXPLORATION_DEPTH + 1) {
         const first = resultMemo.current.keys().next().value;
         if (first !== undefined) resultMemo.current.delete(first);
       }
     }
-  }, [state, queryKey]);
+  }, [state]);
   const memoResult = queryKey ? (resultMemo.current.get(queryKey) ?? null) : null;
 
   const atDepthLimit = exploration.length >= MAX_EXPLORATION_DEPTH;
@@ -167,14 +170,18 @@ export function InsightWidgetBody({
   const exploring = exploration.length > 0;
   const activeEntry = exploring ? exploration[exploration.length - 1]! : null;
 
+  // What renders is the CURRENT query's aggregate wherever one is known:
+  // fresh hook state when it answered THIS query, else the level memo
+  // (instant Back), else the loading-prior. Never another level's data
+  // labeled as this one.
+  const displayResult =
+    state.status === "ok" && state.queryKey === queryKey
+      ? state.result
+      : (memoResult ?? (state.status === "loading" ? state.prior : null));
+
   // Publish the rendered result upward for the header's Export CSV action. Held
   // in a ref so a parent that re-creates the callback each render can't loop.
-  const reportedResult =
-    state.status === "ok"
-      ? state.result
-      : state.status === "loading"
-        ? (memoResult ?? state.prior)
-        : null;
+  const reportedResult = displayResult;
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   useEffect(() => {
@@ -255,13 +262,6 @@ export function InsightWidgetBody({
       }}
     />
   ) : null;
-
-  const displayResult =
-    state.status === "ok"
-      ? state.result
-      : state.status === "loading"
-        ? (memoResult ?? state.prior)
-        : null;
 
   if (state.status === "error") {
     // A failed exploration keeps Back/Reset available; the parent level's

@@ -38,6 +38,13 @@ export type InsightQueryState =
       /** Set when the LATEST attempt failed and this result is retained prior
        * data — the UI must say so, never present it as fresh. */
       refreshError: InsightFailure | null;
+      /**
+       * The serialized query this result answered (CD-5B). Hook state lags the
+       * caller's query by one effect tick, so a caller that switches queries
+       * (exploration drill / Back) needs this to tell whether `result` belongs
+       * to the query it is currently asking about or to the previous one.
+       */
+      queryKey: string;
     }
   | { status: "error"; failure: InsightFailure };
 
@@ -88,7 +95,7 @@ export function useInsightQuery(
           if (out.ok) {
             const at = Date.now();
             lastOkRef.current = { key, result: out.result, at };
-            setState({ status: "ok", result: out.result, lastSuccessAt: at, refreshError: null });
+            setState({ status: "ok", result: out.result, lastSuccessAt: at, refreshError: null, queryKey: key });
             return;
           }
           const failure: InsightFailure = {
@@ -107,6 +114,7 @@ export function useInsightQuery(
               result: prior.result,
               lastSuccessAt: prior.at,
               refreshError: failure,
+              queryKey: key,
             });
             return;
           }
@@ -126,6 +134,7 @@ export function useInsightQuery(
               result: prior.result,
               lastSuccessAt: prior.at,
               refreshError: failure,
+              queryKey: key,
             });
           } else {
             setState({ status: "error", failure });

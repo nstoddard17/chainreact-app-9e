@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { ConnectedValueMeta } from "@/contracts/connectedAnalytics";
 import { formatInsightValue } from "./formatInsightValue";
 import { insightSeriesColor } from "./InsightLineChart";
+import { InsightBarLegend } from "./InsightBarLegend";
 import type { InsightDrill } from "./insightRefine";
 
 /**
@@ -434,61 +435,23 @@ export function InsightBarChart({
       </span>
 
       {showLegend && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1" role="list" aria-label="Chart legend">
-          {series.map((s, i) => {
-            const off = hidden.has(s.id);
-            return (
-              <button
-                key={s.id}
-                type="button"
-                role="listitem"
-                aria-pressed={!off}
-                className={
-                  "inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-muted " +
-                  (off ? "text-muted-foreground/50 line-through" : "text-muted-foreground")
-                }
-                onClick={() =>
-                  setHidden((h) => {
-                    const nextSet = new Set(h);
-                    if (nextSet.has(s.id)) nextSet.delete(s.id);
-                    else nextSet.add(s.id);
-                    return nextSet;
-                  })
-                }
-                title={off ? `Show ${s.label}` : `Hide ${s.label}`}
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: insightSeriesColor(i), opacity: off ? 0.35 : 1 }}
-                  aria-hidden
-                />
-                <span className="max-w-[140px] truncate">{s.label}</span>
-              </button>
-            );
-          })}
-          {compareValues != null && (
-            <button
-              type="button"
-              role="listitem"
-              aria-pressed={!compareHidden}
-              className={
-                "inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-muted " +
-                (compareHidden
-                  ? "text-muted-foreground/50 line-through"
-                  : "text-muted-foreground")
-              }
-              onClick={() => setCompareHidden((v) => !v)}
-              title={compareHidden ? `Show ${COMPARE_LABEL}` : `Hide ${COMPARE_LABEL}`}
-            >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: COMPARE_FILL, opacity: compareHidden ? 0.35 : 1 }}
-                aria-hidden
-              />
-              <span className="max-w-[140px] truncate">{COMPARE_LABEL}</span>
-            </button>
-          )}
-        </div>
+        <InsightBarLegend
+          series={series}
+          hidden={hidden}
+          onToggleSeries={(id) =>
+            setHidden((h) => {
+              const nextSet = new Set(h);
+              if (nextSet.has(id)) nextSet.delete(id);
+              else nextSet.add(id);
+              return nextSet;
+            })
+          }
+          compareLabel={COMPARE_LABEL}
+          compareFill={COMPARE_FILL}
+          showCompareEntry={compareValues != null}
+          compareHidden={compareHidden}
+          onToggleCompare={() => setCompareHidden((v) => !v)}
+        />
       )}
     </div>
   );

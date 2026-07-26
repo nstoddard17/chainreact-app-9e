@@ -439,6 +439,7 @@ export function InsightLineChart({
                 (compareHidden ? "text-muted-foreground/50 line-through" : "text-muted-foreground")
               }
               onClick={() => setCompareHidden((v) => !v)}
+              title={compareHidden ? "Show Previous period" : "Hide Previous period"}
             >
               <span
                 className="inline-block h-0 w-3 border-t-2 border-dashed"

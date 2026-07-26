@@ -117,6 +117,24 @@ export function refineInsightConfig(
   if (reconciled.source !== config.source || reconciled.dataset !== config.dataset) {
     return { error: "This value can't be explored." };
   }
+  // …and must never silently SUBSTITUTE the refinement: if reconciliation had
+  // to throw away the drilled range or filter (unparseable bucket, a window
+  // the dataset can't accept, an undeclared filter key), the honest outcome is
+  // a refusal — not a query that quietly answers a different question.
+  if (drill.kind === "bucket" || drill.kind === "previous_window") {
+    const wanted =
+      drill.kind === "bucket"
+        ? { from: drill.start, to: drill.end }
+        : { from: drill.from, to: drill.to };
+    if (!("from" in reconciled.range) || reconciled.range.from !== wanted.from || reconciled.range.to !== wanted.to) {
+      return { error: "This value can't be explored." };
+    }
+  } else {
+    const kept = reconciled.filters[drill.refine.filterKey];
+    if (!Array.isArray(kept) || kept[0] !== drill.refine.filterValue) {
+      return { error: "This value can't be explored." };
+    }
+  }
 
   const issues = insightDraftIssues(catalog, reconciled);
   if (issues.length > 0) return { error: issues[0]! };
