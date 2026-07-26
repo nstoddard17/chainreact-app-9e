@@ -30,6 +30,15 @@ const GENERIC_PATHS = [
   "features/workflow-builder/hooks/useDynamicTriggerOutputs.ts",
   "features/workflow-builder/hooks/useUpstreamVariables.ts",
   "features/workflow-builder/hooks/usePreviewEnrichment.ts",
+  // REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — provenance, readiness, apply overlay, and the
+  // bridge + owner + card that connect them. These are where a "just special-case the first
+  // provider" shortcut would be most tempting, because they are the layers the user actually sees.
+  "core/workflows/mapping/previewProvenance.ts",
+  "core/workflows/mapping/previewReadiness.ts",
+  "core/workflows/mapping/previewConfigOverlay.ts",
+  "features/workflow-builder/hooks/usePreviewEnrichmentBridge.ts",
+  "features/workflow-builder/hooks/useBuilderPreview.ts",
+  "features/workflow-builder/panels/BuilderPreviewSetupCard.tsx",
 ] as const;
 
 /**

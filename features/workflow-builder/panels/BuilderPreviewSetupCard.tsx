@@ -5,6 +5,11 @@ import type {
   PreviewSetupField,
   PreviewSetupFieldsByType,
 } from "@/core/workflows/previewSetupFields";
+import {
+  buildPreviewReadiness,
+  type PreviewReadinessKind,
+  type PreviewReadinessRow,
+} from "@/core/workflows/mapping/previewReadiness";
 import { SetupAsyncSelectControl, SetupFieldControl } from "./builderSetupFieldControls";
 
 /**
@@ -56,6 +61,60 @@ export interface BuilderPreviewSetupCardProps {
    * caller's account context only.
    */
   readonly workflowId?: string;
+  /**
+   * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — what enrichment managed to do and what it refused to
+   * do, from `useBuilderPreview`. Absent → the card renders exactly as it did before (no preview
+   * enrichment is running), so every existing call site is unaffected.
+   */
+  readonly enrichment?: {
+    readonly mapped: Readonly<Record<string, string>>;
+    readonly mappedLabels: Readonly<Record<string, string>>;
+    readonly notes: readonly {
+      readonly nodeId: string;
+      readonly field: string;
+      readonly kind: "ambiguous" | "missing";
+      readonly candidates?: readonly string[];
+    }[];
+    readonly invalidated: readonly { readonly nodeId: string; readonly field: string }[];
+    readonly awaitingResource: boolean;
+    readonly message: string | null;
+    readonly retry: () => void;
+    readonly status: string;
+  };
+}
+
+/** Row styling per outcome. Colour is a secondary cue — the sentence carries the meaning. */
+const READINESS_TONE: Record<PreviewReadinessKind, string> = {
+  invalid: "var(--builder-danger, #b42318)",
+  ambiguous: "var(--builder-warning, #b54708)",
+  missing: "var(--builder-warning, #b54708)",
+  needs_user: "var(--builder-text)",
+  waiting: "var(--builder-muted)",
+  mapped: "var(--builder-muted)",
+};
+
+function ReadinessRow({ row }: { row: PreviewReadinessRow }) {
+  return (
+    <div
+      className="mt-1 text-[11px]"
+      data-testid={`preview-readiness-${row.nodeId}-${row.field}`}
+      data-readiness={row.kind}
+      style={{ color: READINESS_TONE[row.kind] }}
+    >
+      <span className="font-medium">{row.fieldLabel}</span>
+      {" — "}
+      {row.message}
+      {row.candidates && row.candidates.length > 0 ? (
+        <ul className="mt-0.5 ml-3 list-disc">
+          {row.candidates.map((candidate) => (
+            <li key={candidate} data-testid={`preview-readiness-candidate-${row.nodeId}-${row.field}`}>
+              {candidate}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 export function BuilderPreviewSetupCard({
@@ -66,7 +125,40 @@ export function BuilderPreviewSetupCard({
   onPreviewConfigChange,
   onApply,
   workflowId,
+  enrichment,
 }: BuilderPreviewSetupCardProps) {
+  /**
+   * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — the per-field outcome rows.
+   *
+   * Recomputed on every render, which is what makes readiness update IMMEDIATELY after an enrichment
+   * pass: the enriched proposal flows back through `useBuilderPreview`, the props change, and these
+   * rows are derived fresh. There is no cached readiness to invalidate.
+   */
+  const readinessByNode = new Map<string, PreviewReadinessRow[]>();
+  if (enrichment) {
+    const rows = buildPreviewReadiness({
+      nodes: preview.nodes.map((node) => {
+        const all = setupFieldsByType?.[`${node.provider}:${node.type}`] ?? [];
+        return {
+          nodeId: node.previewId,
+          nodeLabel: node.label,
+          fieldLabels: Object.fromEntries(all.map((f) => [f.name, f.label])),
+          missingInputs: node.missingInputs ?? [],
+        };
+      }),
+      mapped: enrichment.mapped,
+      mappedLabels: enrichment.mappedLabels,
+      notes: enrichment.notes,
+      invalidated: enrichment.invalidated,
+      awaitingResource: enrichment.awaitingResource,
+    });
+    for (const row of rows) {
+      const list = readinessByNode.get(row.nodeId);
+      if (list) list.push(row);
+      else readinessByNode.set(row.nodeId, [row]);
+    }
+  }
+
   // Per node: which still-missing fields can be collected now (supported local controls) vs. which
   // must wait until after Apply (async resolver / cascade / unsupported). Deterministic, metadata-driven.
   // REACT-CONFIG-COVERAGE-1 — fields the user's request already filled (prefilledConfig) also render:
@@ -76,7 +168,10 @@ export function BuilderPreviewSetupCard({
       const missing = node.missingInputs ?? [];
       const prefilled = prefilledConfig?.[node.previewId] ?? {};
       const prefilledNames = Object.keys(prefilled);
-      if (missing.length === 0 && prefilledNames.length === 0) return null;
+      // A node whose fields enrichment already MAPPED has nothing missing, but the user still needs
+      // to see that it was handled — otherwise the automatic mapping is invisible and unverifiable.
+      const readiness = readinessByNode.get(node.previewId) ?? [];
+      if (missing.length === 0 && prefilledNames.length === 0 && readiness.length === 0) return null;
       const all = setupFieldsByType?.[`${node.provider}:${node.type}`] ?? [];
       const supported = all.filter((f) => missing.includes(f.name) || prefilledNames.includes(f.name));
       const supportedNames = new Set(supported.map((f) => f.name));
@@ -118,6 +213,28 @@ export function BuilderPreviewSetupCard({
           : "React sketched the workflow. Apply it to your draft — nothing is saved or activated until you choose to."}
       </p>
 
+      {/* Schema-resolve trouble: a SAFE sentence plus the existing retry. Never a provider error. */}
+      {enrichment?.message && enrichment.status !== "ready" && enrichment.status !== "waiting_for_config" ? (
+        <div
+          data-testid="preview-schema-notice"
+          data-status={enrichment.status}
+          className="mt-1.5 text-[11px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {enrichment.message}
+          {enrichment.status === "retryable_error" ? (
+            <button
+              type="button"
+              onClick={enrichment.retry}
+              data-testid="preview-schema-retry"
+              className="ml-1.5 underline"
+            >
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-2 max-h-[40vh] space-y-2.5 overflow-y-auto">
         {setupNodes.map(({ node, supported, afterApply, prefilledReadOnly }) => (
           <div key={node.previewId}>
@@ -145,6 +262,9 @@ export function BuilderPreviewSetupCard({
                 />
               ),
             )}
+            {(readinessByNode.get(node.previewId) ?? []).map((row) => (
+              <ReadinessRow key={`${row.field}:${row.kind}`} row={row} />
+            ))}
             {prefilledReadOnly.length > 0 && (
               <div
                 data-testid="preview-setup-prefilled"

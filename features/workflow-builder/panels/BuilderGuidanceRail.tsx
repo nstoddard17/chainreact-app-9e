@@ -13,7 +13,10 @@ import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligi
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
 import type { GuidanceConversation } from "@/features/workflows/useGuidanceConversation";
-import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
+import {
+  BuilderPreviewSetupCard,
+  type BuilderPreviewSetupCardProps,
+} from "./BuilderPreviewSetupCard";
 
 /**
  * Builder left-rail AI assistant — Hermes Agent workflow guidance
@@ -76,6 +79,12 @@ export interface BuilderGuidanceRailProps {
   readonly previewPrefilledConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** Record one ephemeral setup value. Preview-only — never mutates the real draft before Apply. */
   readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
+  /**
+   * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — the preview-enrichment outcome from
+   * `useBuilderPreview`, forwarded verbatim so the setup card can show which fields were mapped
+   * automatically and which still need the user. Absent → the card renders as before.
+   */
+  readonly previewEnrichment?: BuilderPreviewSetupCardProps["enrichment"];
   /** The existing explicit "Apply preview" action — seeds previewConfig into the new draft nodes. */
   readonly onApplyPreview?: () => void;
   /**
@@ -135,6 +144,7 @@ export function BuilderGuidanceRail({
   previewConfig,
   previewPrefilledConfig,
   onPreviewConfigChange,
+  previewEnrichment,
   onApplyPreview,
   getCheckReviewContext,
   getCurrentGraphShape,
@@ -188,6 +198,7 @@ export function BuilderGuidanceRail({
                       {...(setupFieldsByType ? { setupFieldsByType } : {})}
                       {...(previewConfig ? { previewConfig } : {})}
                       {...(previewPrefilledConfig ? { prefilledConfig: previewPrefilledConfig } : {})}
+                      {...(previewEnrichment ? { enrichment: previewEnrichment } : {})}
                       onPreviewConfigChange={onPreviewConfigChange}
                       onApply={onApplyPreview}
                       workflowId={workflowId}

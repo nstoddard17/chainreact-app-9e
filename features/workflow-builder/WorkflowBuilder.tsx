@@ -856,6 +856,9 @@ export function WorkflowBuilder({
     agentSetupIssues,
     previewConfig,
     previewPrefilledConfig,
+    // REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — mapped / ambiguous / missing / waiting / invalid
+    // outcomes for the rail's setup card. Display only; the hook owns the state.
+    previewEnrichment,
     previewDiffGraph,
     configDiff,
     previewRationale,
@@ -1132,6 +1135,7 @@ export function WorkflowBuilder({
             {...(setupFieldsByType ? { setupFieldsByType } : {})}
             previewConfig={previewConfig}
             previewPrefilledConfig={previewPrefilledConfig}
+            previewEnrichment={previewEnrichment}
             onPreviewConfigChange={handlePreviewConfigChange}
             onApplyPreview={handleApplyPreview}
             getCheckReviewContext={getCheckReviewContext}
@@ -1275,6 +1279,7 @@ export function WorkflowBuilder({
                   {...(setupFieldsByType ? { setupFieldsByType } : {})}
                   previewConfig={previewConfig}
                   previewPrefilledConfig={previewPrefilledConfig}
+                  previewEnrichment={previewEnrichment}
                   onPreviewConfigChange={handlePreviewConfigChange}
                   onApplyPreview={handleApplyPreview}
                   getCheckReviewContext={getCheckReviewContext}
