@@ -854,6 +854,7 @@ export function WorkflowBuilder({
     previewShowCount,
     applyNotice,
     agentSetupIssues,
+    reviewSessionToken,
     previewConfig,
     previewPrefilledConfig,
     previewDiffGraph,
@@ -1371,12 +1372,17 @@ export function WorkflowBuilder({
         {/* HERMES-AGENT-APPLY-PREVIEW-PATCH / -CONFIG-HINTS — transient confirmation after an explicit
             apply. The nodes are now part of the local draft (dirty); the user still reviews required
             fields + saves. The notice lists each newly-added node's still-empty required fields (names
-            only, from metadata) so the user knows the workflow is incomplete. */}
+            only, from metadata) so the user knows the workflow is incomplete.
+            REACT-AGENT-REVIEW-TRAY-UX-1 — that list is now a COLLAPSIBLE review tray: selecting an
+            issue reuses `handleOpenSetupIssue` (node + field reveal) and collapses the tray so the
+            config panel is usable. `reviewSessionToken` marks a NEW session (a fresh apply / restore /
+            template notice) — the only thing that resets the tray's presentation state. */}
         {applyNotice ? (
           <BuilderApplyNotice
             notice={applyNotice}
             setupIssues={agentSetupIssues}
             readiness={agentReadiness}
+            sessionToken={reviewSessionToken}
             onOpenIssue={handleOpenSetupIssue}
             onDismiss={dismissApplyNotice}
           />
