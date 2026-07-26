@@ -130,6 +130,11 @@ describe("typeform trigger discovery", () => {
         "submittedAt",
         "landedAt",
         "answers",
+        // REACT-AGENT-PREVIEW-ARC-INTEGRATION-1: `answersByRef` is emitted by
+        // normalize.ts (the ref-keyed merge of the same answers, so a mapping
+        // survives a skipped question). The arc added it to the trigger meta
+        // but did not update this expectation alongside it.
+        "answersByRef",
         "hidden",
         "score",
       ].sort(),
@@ -137,6 +142,9 @@ describe("typeform trigger discovery", () => {
     const byName = new Map(meta.payloadShape.map((p) => [p.name, p]));
     // Free-form respondent content is sensitive.
     expect(byName.get("answers")?.sensitive).toBe(true);
+    // Same respondent content, re-keyed — it must carry the SAME marking, or
+    // the ref-keyed view would be a redaction bypass for the positional one.
+    expect(byName.get("answersByRef")?.sensitive).toBe(true);
     expect(byName.get("hidden")?.sensitive).toBe(true);
     // Opaque ids are not.
     expect(byName.get("formId")?.sensitive).toBeUndefined();
