@@ -279,6 +279,13 @@ describe("cleanupFixtures", () => {
     // The whole point of the rewrite: NO folder is ever re-parented, so the
     // unique-sibling-name index can never be tripped during teardown.
     expect(idx("workflow_folders:detach")).toBe(-1);
+    // ...and the walk must happen AFTER `workflows` is cleared. folders have a
+    // SECOND inbound RESTRICT FK — workflows.folder_id — so deleting the tree
+    // first dies with "violates foreign key constraint workflows_folder_id_fkey"
+    // for any suite that filed a workflow in a folder (this is exactly what broke
+    // tests/integration/security/workflow-folders-rls in afterAll, with all six
+    // of its assertions passing).
+    expect(idx("workflows")).toBeLessThan(idx("workflow_folders:leaves"));
   });
 
   it("stops and reports a failed leaf delete rather than silently continuing", async () => {

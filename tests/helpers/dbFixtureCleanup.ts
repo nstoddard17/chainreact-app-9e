@@ -189,35 +189,48 @@ export async function cleanupFixtures(
     // Delete DEEPEST-FIRST instead: repeatedly remove the folders that are not
     // anyone's parent. That respects RESTRICT without ever violating the sibling
     // -name index, because no row is re-parented at all.
-    for (let pass = 0; pass < 12; pass += 1) {
-      const { data: remaining, error: listError } = await admin
-        .from("workflow_folders")
-        .select("id, parent_folder_id")
-        .in("account_id", allAccountIds);
-      if (listError) {
-        record("list workflow_folders", listError.message);
-        break;
-      }
-      const rows = (remaining ?? []) as Array<{ id: string; parent_folder_id: string | null }>;
-      if (rows.length === 0) break;
+    const deleteFolderTreeDeepestFirst = async (): Promise<void> => {
+      for (let pass = 0; pass < 12; pass += 1) {
+        const { data: remaining, error: listError } = await admin
+          .from("workflow_folders")
+          .select("id, parent_folder_id")
+          .in("account_id", allAccountIds);
+        if (listError) {
+          record("list workflow_folders", listError.message);
+          return;
+        }
+        const rows = (remaining ?? []) as Array<{ id: string; parent_folder_id: string | null }>;
+        if (rows.length === 0) return;
 
-      const parentIds = new Set(
-        rows.map((r) => r.parent_folder_id).filter((v): v is string => v !== null),
-      );
-      const leafIds = rows.map((r) => r.id).filter((id) => !parentIds.has(id));
-      if (leafIds.length === 0) {
-        // Cycle or unexpected shape — surface it rather than looping forever.
-        record("delete workflow_folders (leaves)", "no leaf folders found; possible cycle");
-        break;
+        const parentIds = new Set(
+          rows.map((r) => r.parent_folder_id).filter((v): v is string => v !== null),
+        );
+        const leafIds = rows.map((r) => r.id).filter((id) => !parentIds.has(id));
+        if (leafIds.length === 0) {
+          // Cycle or unexpected shape — surface it rather than looping forever.
+          record("delete workflow_folders (leaves)", "no leaf folders found; possible cycle");
+          return;
+        }
+        const { error: delError } = await admin.from("workflow_folders").delete().in("id", leafIds);
+        if (delError) {
+          record("delete workflow_folders (leaves)", delError.message);
+          return;
+        }
       }
-      const { error: delError } = await admin.from("workflow_folders").delete().in("id", leafIds);
-      if (delError) {
-        record("delete workflow_folders (leaves)", delError.message);
-        break;
-      }
-    }
+    };
 
     for (const table of ACCOUNT_RESTRICT_TABLES) {
+      // TEST-SUITE-GREEN-1 — the tree walk must run HERE, at workflow_folders'
+      // position in the order, NOT before the whole loop. `parent_folder_id` is
+      // not folders' only inbound RESTRICT FK: `workflows.folder_id` references
+      // them too. Running the walk first deleted folders while workflows still
+      // pointed at them, so teardown died with
+      //   violates foreign key constraint "workflows_folder_id_fkey"
+      // and every suite that filed a workflow in a folder failed in afterAll
+      // with all its assertions passing (workflow-folders-rls was the visible
+      // case). Sequencing it after `workflows` clears that reference first; the
+      // blanket delete below then stays as the no-op safety net.
+      if (table === "workflow_folders") await deleteFolderTreeDeepestFirst();
       const { error } = await admin.from(table).delete().in("account_id", allAccountIds);
       record(`delete ${table}`, error?.message);
     }
