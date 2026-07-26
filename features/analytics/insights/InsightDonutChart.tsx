@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
+import type { ConnectedAnalyticsResult, ConnectedRefine } from "@/contracts/connectedAnalytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
 import { formatInsightValue } from "./formatInsightValue";
 import { insightSeriesColor } from "./InsightLineChart";
@@ -33,9 +33,16 @@ export const DONUT_MAX_SLICES = 8;
 export function InsightDonutChart({
   result,
   ariaLabel,
+  onExplore,
 }: {
   result: ConnectedAnalyticsResult;
   ariaLabel: string;
+  /**
+   * CD-5B: invoked with a slice's SERVER-ISSUED refinement. Slices without one
+   * (synthetic, surrogate-keyed, or otherwise unrefinable) stay ordinary
+   * readable values — the donut never invents drillability from a label.
+   */
+  onExplore?: (refine: ConnectedRefine) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const rows = (result.rows ?? []).filter((r) => r.value !== null && r.value > 0);
@@ -92,6 +99,14 @@ export function InsightDonutChart({
               const i = slices.findIndex((s) => s.id === id);
               return slices[Math.max(0, i - 1)]?.id ?? slices[0]?.id ?? null;
             });
+          } else if (e.key === "Enter" || e.key === " ") {
+            // Drill the active slice — only when the server issued a
+            // refinement for it (CD-5B).
+            const activeSlice = slices.find((s) => s.id === activeId);
+            if (onExplore && activeSlice?.refine) {
+              e.preventDefault();
+              onExplore(activeSlice.refine);
+            }
           } else if (e.key === "Escape") {
             setActiveId(null);
           }
@@ -143,7 +158,10 @@ export function InsightDonutChart({
           </text>
         </svg>
 
-        {/* Text legend — labels + values are readable without hover or color. */}
+        {/* Text legend — labels + values are readable without hover or color.
+            A slice with a server refinement renders its label as an explicit
+            Explore button (CD-5B); every other slice is a plain readable row —
+            never a fake click target and never in the tab order for nothing. */}
         <ul className="flex min-w-[150px] flex-1 flex-col gap-1" aria-label="Slices">
           {slices.map((s, i) => (
             <li
@@ -160,9 +178,21 @@ export function InsightDonutChart({
                 style={{ background: insightSeriesColor(i) }}
                 aria-hidden
               />
-              <span className="truncate text-foreground/85" title={s.label}>
-                {s.label}
-              </span>
+              {onExplore && s.refine ? (
+                <button
+                  type="button"
+                  className="cursor-pointer truncate text-left text-foreground/85 underline-offset-2 hover:text-primary hover:underline"
+                  title={`Explore ${s.label}`}
+                  aria-label={`Explore ${s.label}`}
+                  onClick={() => onExplore(s.refine!)}
+                >
+                  {s.label}
+                </button>
+              ) : (
+                <span className="truncate text-foreground/85" title={s.label}>
+                  {s.label}
+                </span>
+              )}
               <span className="font-mono text-foreground">
                 {formatInsightValue(s.value, result.valueMeta)}
                 {denominatorComplete && (

@@ -3,6 +3,7 @@
 import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
 import { formatInsightValue } from "./formatInsightValue";
 import { describeInsightChange } from "./insightCompare";
+import type { InsightDrill } from "./insightRefine";
 
 /**
  * KPI (single number) rendering for Custom Insights (CD-3A).
@@ -15,7 +16,20 @@ import { describeInsightChange } from "./insightCompare";
  * declared per-measure good/bad directionality (more failed runs is not
  * good; less revenue is not good), so an increase is just an increase.
  */
-export function InsightKpi({ result }: { result: ConnectedAnalyticsResult }) {
+export function InsightKpi({
+  result,
+  onExplore,
+}: {
+  result: ConnectedAnalyticsResult;
+  /**
+   * CD-5B: an ungrouped number has nothing to drill into, so a plain KPI gets
+   * NO click target — a meaningless one would train users that clicking does
+   * nothing. The one specific refinement a KPI result can carry is its
+   * comparison period; when present, an explicit "Explore previous period"
+   * action drills into the server-supplied previous window.
+   */
+  onExplore?: (drill: InsightDrill) => void;
+}) {
   const value = result.value ?? null;
   const display = formatInsightValue(value, result.valueMeta);
   const compare = result.compare ?? null;
@@ -41,6 +55,21 @@ export function InsightKpi({ result }: { result: ConnectedAnalyticsResult }) {
         <div className="text-xs text-muted-foreground" role="note">
           {compareLine}
         </div>
+      )}
+      {onExplore && compare && (
+        <button
+          type="button"
+          className="self-start rounded-md px-1 py-0.5 text-[10.5px] text-primary hover:underline"
+          onClick={() =>
+            onExplore({
+              kind: "previous_window",
+              from: compare.previousRange.from,
+              to: compare.previousRange.to,
+            })
+          }
+        >
+          Explore previous period
+        </button>
       )}
     </div>
   );

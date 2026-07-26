@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { ConnectedValueMeta } from "@/contracts/connectedAnalytics";
+import type { InsightDrill } from "./insightRefine";
 import { formatInsightTick, formatInsightValue } from "./formatInsightValue";
 
 /**
@@ -87,6 +88,9 @@ export function InsightLineChart({
   valueMeta,
   ariaLabel,
   height = 190,
+  bucketDrills = null,
+  prevBucketDrills = null,
+  onExplore,
 }: {
   buckets: readonly InsightChartBucket[];
   series: readonly InsightChartSeries[];
@@ -95,6 +99,15 @@ export function InsightLineChart({
   valueMeta: ConnectedValueMeta;
   ariaLabel: string;
   height?: number;
+  /**
+   * CD-5B: index-aligned server-derived drills — a point's own bucket
+   * boundaries, and the PREVIOUS window's own bucket for a compared point
+   * (Shift+click / Shift+Enter selects it). Null entries stay ordinary
+   * readable points; the chart never invents a drill from position or label.
+   */
+  bucketDrills?: readonly (InsightDrill | null)[] | null;
+  prevBucketDrills?: readonly (InsightDrill | null)[] | null;
+  onExplore?: (drill: InsightDrill) => void;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [compareHidden, setCompareHidden] = useState(false);
@@ -140,6 +153,10 @@ export function InsightLineChart({
     });
 
   const active = activeIndex !== null && activeIndex < n ? activeIndex : null;
+  const drillAt = (i: number | null): InsightDrill | null =>
+    onExplore && i !== null ? (bucketDrills?.[i] ?? null) : null;
+  const prevDrillAt = (i: number | null): InsightDrill | null =>
+    onExplore && showCompare && i !== null ? (prevBucketDrills?.[i] ?? null) : null;
   const activeAnnouncement =
     active !== null
       ? `${buckets[active]!.label}: ${visible
@@ -147,6 +164,10 @@ export function InsightLineChart({
           .join(", ")}${
           showCompare
             ? `, previous period ${formatInsightValue(compareValues![active] ?? null, valueMeta)}`
+            : ""
+        }${
+          drillAt(active)
+            ? `. Press Enter to explore${prevDrillAt(active) ? "; Shift+Enter for the previous period" : ""}.`
             : ""
         }`
       : "";
@@ -175,6 +196,14 @@ export function InsightLineChart({
           } else if (e.key === "End") {
             e.preventDefault();
             setActiveIndex(n > 0 ? n - 1 : null);
+          } else if (e.key === "Enter" || e.key === " ") {
+            // CD-5B: drill the active point. Shift selects the previous-period
+            // point's own dates when one exists.
+            const drill = e.shiftKey ? prevDrillAt(active) : drillAt(active);
+            if (drill) {
+              e.preventDefault();
+              onExplore!(drill);
+            }
           } else if (e.key === "Escape") {
             setActiveIndex(null);
           }
@@ -188,8 +217,14 @@ export function InsightLineChart({
           height={H}
           role="img"
           aria-hidden
+          className={drillAt(active) ? "cursor-pointer" : undefined}
           onMouseMove={(e) => setActiveIndex(nearestIndex(e.clientX))}
           onMouseLeave={() => setActiveIndex(null)}
+          onClick={(e) => {
+            const i = nearestIndex(e.clientX);
+            const drill = e.shiftKey ? prevDrillAt(i) : drillAt(i);
+            if (drill) onExplore!(drill);
+          }}
         >
           {Array.from({ length: ticks + 1 }).map((_, i) => {
             const gy = pad.t + (i / ticks) * innerH;

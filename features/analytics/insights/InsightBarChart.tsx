@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { ConnectedValueMeta } from "@/contracts/connectedAnalytics";
 import { formatInsightValue } from "./formatInsightValue";
 import { insightSeriesColor } from "./InsightLineChart";
+import type { InsightDrill } from "./insightRefine";
 
 /**
  * Custom Insight bar chart (CD-3B).
@@ -86,6 +87,9 @@ export function InsightBarChart({
   ariaLabel,
   isTime = false,
   compareValues = null,
+  groupDrills = null,
+  compareDrills = null,
+  onExplore,
 }: {
   groups: readonly InsightBarGroup[];
   series: readonly InsightBarSeries[];
@@ -99,6 +103,16 @@ export function InsightBarChart({
    * Categorical results have no previous value per row and never pass this.
    */
   compareValues?: readonly (number | null)[] | null;
+  /**
+   * CD-5B: index-aligned server-derived drills for each group (a bucket's own
+   * boundaries or a row's server-issued refinement) and for each paired
+   * previous bar (the previous window's own bucket). A null entry means that
+   * value is an ordinary readable bar — the chart never invents a drill from
+   * a label or an index.
+   */
+  groupDrills?: readonly (InsightDrill | null)[] | null;
+  compareDrills?: readonly (InsightDrill | null)[] | null;
+  onExplore?: (drill: InsightDrill) => void;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [compareHidden, setCompareHidden] = useState(false);
@@ -113,6 +127,11 @@ export function InsightBarChart({
   );
 
   const showCompare = compareValues != null && !compareHidden;
+
+  const drillAt = (i: number | null): InsightDrill | null =>
+    onExplore && i !== null ? (groupDrills?.[i] ?? null) : null;
+  const compareDrillAt = (i: number | null): InsightDrill | null =>
+    onExplore && showCompare && i !== null ? (compareDrills?.[i] ?? null) : null;
 
   let max = 0;
   for (const g of groups) {
@@ -137,6 +156,10 @@ export function InsightBarChart({
           .join(", ")}${
           showCompare
             ? `, previous period ${formatInsightValue(compareValues[active] ?? null, valueMeta)}`
+            : ""
+        }${
+          drillAt(active)
+            ? `. Press Enter to explore${compareDrillAt(active) ? "; Shift+Enter for the previous period" : ""}.`
             : ""
         }`
       : "";
@@ -172,6 +195,14 @@ export function InsightBarChart({
           } else if (e.key === "End") {
             e.preventDefault();
             setActiveIndex(groups.length > 0 ? groups.length - 1 : null);
+          } else if (e.key === "Enter" || e.key === " ") {
+            // CD-5B: drill the active bar. Shift selects the paired
+            // previous-period bar when one exists.
+            const drill = e.shiftKey ? compareDrillAt(active) : drillAt(active);
+            if (drill) {
+              e.preventDefault();
+              onExplore!(drill);
+            }
           } else if (e.key === "Escape") {
             setActiveIndex(null);
           }
@@ -187,10 +218,17 @@ export function InsightBarChart({
                 key={g.id}
                 className={
                   "grid grid-cols-[minmax(0,38%)_1fr] items-center gap-2 rounded-sm px-0.5 " +
-                  (active === gi ? "bg-muted" : "")
+                  (active === gi ? "bg-muted" : "") +
+                  (drillAt(gi) ? " cursor-pointer" : "")
                 }
                 onMouseEnter={() => setActiveIndex(gi)}
                 onMouseLeave={() => setActiveIndex(null)}
+                onClick={() => {
+                  const drill = drillAt(gi);
+                  if (drill) onExplore!(drill);
+                }}
+                {...(drillAt(gi) ? { title: `Explore ${g.label}` } : {})}
+                data-drillable={drillAt(gi) ? "true" : undefined}
                 data-testid={`insight-bar-group-${g.id}`}
               >
                 <div className="truncate text-[11px] text-foreground/80" title={g.label}>
@@ -222,8 +260,20 @@ export function InsightBarChart({
                   {showCompare &&
                     (() => {
                       const pv = compareValues[gi] ?? null;
+                      const prevDrill = compareDrillAt(gi);
                       return (
-                        <div className="flex items-center gap-1.5" title={COMPARE_LABEL}>
+                        <div
+                          className={
+                            "flex items-center gap-1.5" + (prevDrill ? " cursor-pointer" : "")
+                          }
+                          title={prevDrill ? `Explore ${COMPARE_LABEL}` : COMPARE_LABEL}
+                          onClick={(e) => {
+                            if (!prevDrill) return;
+                            // The previous bar drills into ITS dates, not the group's.
+                            e.stopPropagation();
+                            onExplore!(prevDrill);
+                          }}
+                        >
                           <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                             {pv != null && (
                               <div
@@ -254,10 +304,17 @@ export function InsightBarChart({
                 key={g.id}
                 className={
                   "relative flex h-full min-w-0 flex-1 flex-col justify-end rounded-sm " +
-                  (active === gi ? "bg-muted" : "")
+                  (active === gi ? "bg-muted" : "") +
+                  (drillAt(gi) ? " cursor-pointer" : "")
                 }
                 onMouseEnter={() => setActiveIndex(gi)}
                 onMouseLeave={() => setActiveIndex(null)}
+                onClick={() => {
+                  const drill = drillAt(gi);
+                  if (drill) onExplore!(drill);
+                }}
+                {...(drillAt(gi) ? { title: `Explore ${g.label}` } : {})}
+                data-drillable={drillAt(gi) ? "true" : undefined}
                 data-testid={`insight-bar-group-${g.id}`}
               >
                 {/* Direct value label — only for a single series, where it
@@ -293,10 +350,23 @@ export function InsightBarChart({
                   {showCompare &&
                     (() => {
                       const pv = compareValues[gi] ?? null;
+                      const prevDrill = compareDrillAt(gi);
                       return (
                         <div
-                          className="flex h-full min-w-[3px] flex-1 items-end"
-                          title={`${COMPARE_LABEL}: ${formatInsightValue(pv, valueMeta)}`}
+                          className={
+                            "flex h-full min-w-[3px] flex-1 items-end" +
+                            (prevDrill ? " cursor-pointer" : "")
+                          }
+                          title={
+                            prevDrill
+                              ? `Explore ${COMPARE_LABEL}: ${formatInsightValue(pv, valueMeta)}`
+                              : `${COMPARE_LABEL}: ${formatInsightValue(pv, valueMeta)}`
+                          }
+                          onClick={(e) => {
+                            if (!prevDrill) return;
+                            e.stopPropagation();
+                            onExplore!(prevDrill);
+                          }}
                         >
                           {pv != null && (
                             <div

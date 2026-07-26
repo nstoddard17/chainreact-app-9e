@@ -9,6 +9,7 @@ import {
   formatChangeAbsolute,
   formatChangePercent,
 } from "./insightCompare";
+import type { InsightDrill } from "./insightRefine";
 
 /**
  * The user-SELECTABLE table display (CD-3B).
@@ -30,9 +31,18 @@ import {
 export function InsightTableChart({
   result,
   caption,
+  onExplore,
 }: {
   result: ConnectedAnalyticsResult;
   caption: string;
+  /**
+   * CD-5B: rows with a valid refinement get an explicit, accessible Explore
+   * button in a final column — the row itself never becomes an ambiguous
+   * click target, and summary/change-only rows never get one. The drills use
+   * only server-supplied data: a bucket's own boundaries or a row's issued
+   * refinement.
+   */
+  onExplore?: (drill: InsightDrill) => void;
 }) {
   const { valueMeta } = result;
   const sortedBy = result.dimension !== null && result.dimension !== "time" ? result.dimension : null;
@@ -140,6 +150,11 @@ export function InsightTableChart({
                 )}
               </>
             )}
+            {onExplore && (
+              <th scope="col" className="px-2 py-1.5 text-right font-medium text-muted-foreground">
+                <span className="sr-only">Explore</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -177,6 +192,26 @@ export function InsightTableChart({
                     </>
                   );
                 })()}
+              {onExplore && (
+                <td className="px-2 py-1 text-right">
+                  <button
+                    type="button"
+                    className="rounded-md px-1 py-0.5 text-[10.5px] text-primary hover:underline"
+                    aria-label={`Explore ${b.label}`}
+                    onClick={() =>
+                      onExplore({
+                        kind: "bucket",
+                        start: b.start,
+                        end: b.end,
+                        label: b.label,
+                        period: "current",
+                      })
+                    }
+                  >
+                    Explore
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -188,6 +223,9 @@ export function InsightTableChart({
   const rows = result.rows ?? [];
   if (rows.length === 0) return <TableEmpty />;
   const showRecords = rows.some((r) => r.records !== undefined);
+  // The Explore column exists only when at least one row carries a
+  // server-issued refinement; rows without one show nothing in it.
+  const showExplore = onExplore !== undefined && rows.some((r) => r.refine !== undefined);
   return (
     <TableFrame caption={caption}>
       <thead className="sticky top-0 bg-muted">
@@ -205,6 +243,11 @@ export function InsightTableChart({
           {showRecords && (
             <th scope="col" className="px-2 py-1.5 text-right font-medium text-muted-foreground">
               Records
+            </th>
+          )}
+          {showExplore && (
+            <th scope="col" className="px-2 py-1.5 text-right font-medium text-muted-foreground">
+              <span className="sr-only">Explore</span>
             </th>
           )}
         </tr>
@@ -226,6 +269,22 @@ export function InsightTableChart({
                 {r.records !== undefined ? r.records.toLocaleString("en-US") : "—"}
               </td>
             )}
+            {showExplore && (
+              <td className="px-2 py-1 text-right">
+                {r.refine && (
+                  <button
+                    type="button"
+                    className="rounded-md px-1 py-0.5 text-[10.5px] text-primary hover:underline"
+                    aria-label={`Explore ${r.refine.label}`}
+                    onClick={() =>
+                      onExplore!({ kind: "filter", refine: r.refine!, fromSeries: false })
+                    }
+                  >
+                    Explore
+                  </button>
+                )}
+              </td>
+            )}
           </tr>
         ))}
         {result.total != null && (
@@ -237,6 +296,7 @@ export function InsightTableChart({
               {formatInsightValue(result.total, valueMeta)}
             </td>
             {showRecords && <td />}
+            {showExplore && <td />}
           </tr>
         )}
       </tbody>

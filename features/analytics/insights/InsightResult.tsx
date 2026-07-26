@@ -11,6 +11,7 @@ import { InsightDonutChart } from "./InsightDonutChart";
 import { InsightDataTable } from "./InsightDataTable";
 import { InsightCompletenessBadge, InsightFreshness, InsightMessage } from "./InsightStates";
 import type { InsightFailure } from "./useInsightQuery";
+import type { InsightDrill } from "./insightRefine";
 import { describeWindow } from "@/core/analytics/insightRange";
 
 /**
@@ -44,6 +45,7 @@ export function InsightResult({
   refreshError,
   onRefresh,
   refreshing,
+  onExplore,
 }: {
   result: ConnectedAnalyticsResult;
   /** The saved display intent; omitted ⇒ inferred from the result shape. */
@@ -51,6 +53,14 @@ export function InsightResult({
   refreshError: InsightFailure | null;
   onRefresh?: (() => void) | undefined;
   refreshing?: boolean;
+  /**
+   * CD-5B: receives a drill built ONLY from server-supplied data — a bucket's
+   * exact boundaries, the previous window's own bucket, or a server-issued
+   * row/series refinement. Omitted (viewer at the exploration depth limit, or
+   * no exploration context) ⇒ every chart renders exactly as before, with no
+   * drill affordances.
+   */
+  onExplore?: ((drill: InsightDrill) => void) | undefined;
 }) {
   const [showData, setShowData] = useState(false);
   const sourceLabel = result.source.sourceLabel;
@@ -96,6 +106,42 @@ export function InsightResult({
           } — ${attribution}.`
         : `${result.measure.label} — ${attribution}.`) + periodSentence;
 
+  // Drill descriptors (CD-5B) — constructed in ONE place, from nothing but
+  // server-supplied result data, and handed to charts pre-aligned by index so
+  // no chart ever infers a refinement from a label, color or position.
+  const bucketDrills: (InsightDrill | null)[] | null =
+    onExplore && isTimeSeries
+      ? buckets.map((b) => ({
+          kind: "bucket" as const,
+          start: b.start,
+          end: b.end,
+          label: b.label,
+          period: "current" as const,
+        }))
+      : null;
+  const prevBuckets = result.compareSeries?.buckets ?? null;
+  const prevBucketDrills: (InsightDrill | null)[] | null =
+    onExplore && isTimeSeries && prevBuckets
+      ? buckets.map((_, i) => {
+          const pb = prevBuckets[i];
+          return pb
+            ? {
+                kind: "bucket" as const,
+                start: pb.start,
+                end: pb.end,
+                label: pb.label,
+                period: "previous" as const,
+              }
+            : null;
+        })
+      : null;
+  const rowDrills: (InsightDrill | null)[] | null =
+    onExplore && !isTimeSeries
+      ? rows.map((r) =>
+          r.refine ? { kind: "filter" as const, refine: r.refine, fromSeries: false } : null,
+        )
+      : null;
+
   // Bar + accessible-table inputs, normalized from whichever shape came back.
   const barGroups: InsightBarGroup[] = isTimeSeries
     ? buckets.map((b, i) => ({
@@ -130,9 +176,9 @@ export function InsightResult({
 
       <div className="min-h-0 flex-1">
         {effectiveChart === "kpi" ? (
-          <InsightKpi result={result} />
+          <InsightKpi result={result} onExplore={onExplore} />
         ) : effectiveChart === "table" ? (
-          <InsightTableChart result={result} caption={summary} />
+          <InsightTableChart result={result} caption={summary} onExplore={onExplore} />
         ) : !hasGraphicalData ? (
           <InsightMessage icon="History" title="No data in this range yet." />
         ) : showData ? (
@@ -150,6 +196,9 @@ export function InsightResult({
             compareValues={result.compareSeries?.values ?? null}
             valueMeta={result.valueMeta}
             ariaLabel={summary}
+            bucketDrills={bucketDrills}
+            prevBucketDrills={prevBucketDrills}
+            onExplore={onExplore}
           />
         ) : effectiveChart === "bar" ? (
           <InsightBarChart
@@ -159,9 +208,20 @@ export function InsightResult({
             ariaLabel={summary}
             isTime={isTimeSeries}
             compareValues={isTimeSeries ? (result.compareSeries?.values ?? null) : null}
+            groupDrills={isTimeSeries ? bucketDrills : rowDrills}
+            compareDrills={prevBucketDrills}
+            onExplore={onExplore}
           />
         ) : (
-          <InsightDonutChart result={result} ariaLabel={summary} />
+          <InsightDonutChart
+            result={result}
+            ariaLabel={summary}
+            onExplore={
+              onExplore
+                ? (refine) => onExplore({ kind: "filter", refine, fromSeries: false })
+                : undefined
+            }
+          />
         )}
       </div>
 
