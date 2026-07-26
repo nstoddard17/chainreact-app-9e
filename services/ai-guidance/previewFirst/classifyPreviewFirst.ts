@@ -43,7 +43,7 @@ import {
   buildWordSet,
   isProviderMentioned,
   providerMentionTokens,
-} from "./providerVocabulary";
+} from "../providerVocabulary";
 
 /** Why a clarification-only reply is (or is not) acceptable. Safe enums — logged, never user text. */
 export type PreviewFirstClassification =

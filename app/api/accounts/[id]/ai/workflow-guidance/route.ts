@@ -8,16 +8,8 @@ import {
   workflowNotFoundResponse,
 } from "@/app/api/workflows/_shared";
 import { aiCreditGate, type AiCreditGateOutcome } from "@/services/billing/aiCreditGate";
-import {
-  isHermesAgentEnabled,
-  getHermesAgentGatewayConfig,
-  GUIDANCE_ROUTE_MAX_DURATION_SECONDS,
-} from "@/services/ai-guidance/gateway/gatewayConfig";
-import {
-  classifyPreviewFirst,
-  buildPreviewFirstRepairGoal,
-  MIN_REPAIR_BUDGET_MS,
-} from "@/services/ai-guidance/previewFirst";
+import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai-guidance/gateway/gatewayConfig";
+import { enforcePreviewFirst } from "@/services/ai-guidance/previewFirst/enforcePreviewFirst";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
@@ -45,16 +37,14 @@ import {
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
   type GuidanceAttemptTelemetry,
 } from "@/contracts/aiGuidance";
-import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import {
   rebindSensitiveLiteralsDeep,
   rebindSensitiveLiteralsInText,
   tokenizeSensitiveLiterals,
   type SensitiveLiteralBinding,
 } from "@/core/security/sensitiveLiterals";
-import { sanitizePlanStepConfigs } from "@/services/ai-guidance/planConfig/sanitizeProposedConfig";
+import { preparePlanConfigs } from "@/services/ai-guidance/planConfig/preparePlanConfigs";
 import { buildUserLiteralCorpus } from "@/core/workflows/mapping/fabricatedSampleValues";
-import { resolveProposedOptionValues } from "@/services/ai-guidance/planConfig/resolveProposedOptionValues";
 import { prepareProposedOperations } from "@/services/ai-guidance/planConfig/prepareProposedOperations";
 import { buildFieldSchemaLines, buildOutputSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
 import {
@@ -236,32 +226,6 @@ function previewPlanMissingResponse(): NextResponse {
         "I understood the workflow you want, but couldn't produce the preview this time. Nothing was changed — send the request again and I'll build the preview with the remaining choices as setup fields.",
     },
     { status: 503 },
-  );
-}
-
-/**
- * REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — one safe observability line per no-plan turn.
- * Fixed keys; enums/counts/booleans only. Never the goal text, model text, provider names beyond
- * safe registry ids, workflow values, or identity.
- */
-function logPreviewFirstDecision(info: {
-  requestId: string;
-  initialHadPlan: boolean;
-  previewFirstClassification: string;
-  namedProviderCount: number;
-  repairAttempted: boolean;
-  repairSkippedReason?: "insufficient_budget" | undefined;
-  repairHadPlan?: boolean | undefined;
-  clarificationAllowed: boolean;
-  finalOutcome: "plan" | "clarification" | "preview_plan_missing";
-  elapsedMs: number;
-}): void {
-  console.info(
-    `[workflow-guidance] preview_first requestId=${info.requestId} initialHadPlan=${info.initialHadPlan} ` +
-      `classification=${info.previewFirstClassification} namedProviders=${info.namedProviderCount} ` +
-      `repairAttempted=${info.repairAttempted} repairSkipped=${info.repairSkippedReason ?? "n/a"} ` +
-      `repairHadPlan=${info.repairHadPlan ?? "n/a"} clarificationAllowed=${info.clarificationAllowed} ` +
-      `finalOutcome=${info.finalOutcome} elapsedMs=${info.elapsedMs}`,
   );
 }
 
@@ -463,7 +427,7 @@ export async function POST(
   // the retry, so no retry path can reach it a second time.
   const requestId = randomUUID();
   const brainStartedAt = Date.now();
-  let result = await runWorkflowGuidanceIntakeCapability(
+  const result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
       goalText: safeGoalText,
@@ -520,102 +484,43 @@ export async function POST(
     logGuidanceRetryRecovered({ requestId, telemetry: result.attemptTelemetry });
   }
 
-  // ── REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 ──────────────────────────────────────────────
-  // A clarification-only reply (no plan, no edit ops) is NOT automatically accepted. The whole setup
-  // experience hangs off the structured plan (`workflowPlan → previewDraft → requiredInputs → setup
-  // controls`), so a withheld plan silently bypasses the guided UI. When the DETERMINISTIC
-  // classifier says this request's topology is clear (the user already named their apps, no
-  // provider/destructive either-or), the route performs ONE structured repair attempt:
-  //   - same logical requestId (both calls are provably one submission),
-  //   - NO second credit charge (the gate ran once, before either call — structural),
-  //   - NO second governance row (the submission's row was already written; like the transport
-  //     retry, the repair is an internal continuation, represented in the observability line),
-  //   - bounded by the route's remaining time budget (skipped, not started, when too little is
-  //     left — a repair that would 504 helps nobody).
-  // If the repair also yields no plan, the route returns a typed PREVIEW_PLAN_MISSING failure with
-  // retry copy rather than re-surfacing the questionnaire the server just classified as wrong.
-  if (!editing && result.ok && !result.workflowPlan && !result.mutationOperations) {
-    const classification = classifyPreviewFirst({ goalText: safeGoalText, editing });
-    const clarificationAllowed = classification.kind === "clarification_allowed";
-    let repairAttempted = false;
-    let repairSkippedReason: "insufficient_budget" | undefined;
-    let repairHadPlan: boolean | undefined;
-
-    if (classification.kind === "preview_expected") {
-      const remainingBudgetMs =
-        GUIDANCE_ROUTE_MAX_DURATION_SECONDS * 1000 - (Date.now() - brainStartedAt) - 2_000;
-      // Fail CLOSED on an uncomputable budget: a typed, retryable failure beats starting a call
-      // that may outlive the function and die as an untyped platform 504.
-      if (!Number.isFinite(remainingBudgetMs) || remainingBudgetMs < MIN_REPAIR_BUDGET_MS) {
-        repairSkippedReason = "insufficient_budget";
-      } else {
-        repairAttempted = true;
-        const firstReplyText = result.guidanceText;
-        const repairResult = await runWorkflowGuidanceIntakeCapability(
-          {
-            scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
-            goalText: buildPreviewFirstRepairGoal({
-              safeGoalText,
-              namedProviders: classification.namedProviders,
-            }),
-            // The original request + the withheld first reply travel as conversation turns, so the
-            // repair prompt carries everything the model needs to correct itself. Both are already
-            // tokenized/model-safe (the first reply is the model's own output).
-            recentTurns: [
-              ...(safeRecentTurns ?? []),
-              { role: "user" as const, text: safeGoalText },
-              { role: "assistant" as const, text: firstReplyText.slice(0, MAX_GUIDANCE_CONVERSATION_TURN_TEXT) },
-            ].slice(-MAX_GUIDANCE_CONVERSATION_TURNS),
-            ...(definition ? { definition } : {}),
-            ...(fieldSchemaLines.length ? { fieldSchemaLines } : {}),
-            ...(outputSchemaLines.length ? { outputSchemaLines } : {}),
-            contextInputs: {
-              account: { type: accountType },
-              ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
-              ...(sharedCredentialProviders.length ? { sharedCredentialProviders } : {}),
-              ...(ownConnectionProviders.length ? { ownConnectionProviders } : {}),
-            },
-          },
-          // Same requestId + caller signal; NO auditRecorder (see block comment above).
-          { requestId, signal: request.signal },
-        );
-        repairHadPlan = repairResult.ok && !!repairResult.workflowPlan;
-        if (repairResult.ok && repairResult.workflowPlan) {
-          result = repairResult; // the repaired reply flows through the normal pipeline below
-        }
-      }
-    }
-
-    const repairedPlan = result.ok && !!result.workflowPlan;
-    logPreviewFirstDecision({
-      requestId,
-      initialHadPlan: false,
-      previewFirstClassification:
-        classification.kind === "clarification_allowed" ? classification.reason : "preview_expected",
-      namedProviderCount: classification.namedProviders.length,
-      repairAttempted,
-      repairSkippedReason,
-      repairHadPlan,
-      clarificationAllowed,
-      finalOutcome: repairedPlan ? "plan" : clarificationAllowed ? "clarification" : "preview_plan_missing",
-      elapsedMs: Date.now() - brainStartedAt,
-    });
-
-    if (!clarificationAllowed && !repairedPlan) {
-      // Server said "plan expected"; two attempts produced none. Typed failure + retry, never the
-      // questionnaire. The draft is untouched (this route never mutates one).
-      return previewPlanMissingResponse();
-    }
-  }
+  // REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — a clarification-only reply (no plan, no edit
+  // ops) is NOT automatically accepted: the whole setup experience hangs off the structured plan.
+  // The service owns the classification, budget check, single repair attempt, and observability
+  // (invariants: 1 repair max, same requestId, no second credit/audit, shared route budget). The
+  // route maps its two outcomes to HTTP: `accept` continues the normal pipeline with the (possibly
+  // repaired) reply; `plan_missing` becomes the typed retryable failure — never the questionnaire.
+  const enforcement = await enforcePreviewFirst({
+    initialResult: result,
+    editing,
+    safeGoalText,
+    brainStartedAt,
+    requestId,
+    signal: request.signal,
+    scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
+    ...(safeRecentTurns && safeRecentTurns.length ? { safeRecentTurns } : {}),
+    ...(definition ? { definition } : {}),
+    fieldSchemaLines,
+    outputSchemaLines,
+    contextInputs: {
+      account: { type: accountType },
+      ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
+      ...(sharedCredentialProviders.length ? { sharedCredentialProviders } : {}),
+      ...(ownConnectionProviders.length ? { ownConnectionProviders } : {}),
+    },
+  });
+  if (enforcement.kind === "plan_missing") return previewPlanMissingResponse();
+  /** The reply the rest of the pipeline consumes — the initial one, or the repaired one. */
+  const guidance = enforcement.result;
 
   // REACT-CONFIG-COVERAGE-1 — rebind sensitive-literal placeholders back to the user's exact values
   // in everything the model returned (display text, plan-step config, patch operations). Then run
   // the metadata-driven config pipeline: sanitize against the node's real FieldMeta and verify /
   // label-map dynamic option values through the canonical resolvers. A supplied-but-unusable value
   // becomes a targeted setup input (requiredInputs / a safe warning) — never a silent drop.
-  const reboundGuidanceText = rebindSensitiveLiteralsInText(result.guidanceText, literalBindings);
-  const reboundMutationOperations = result.mutationOperations
-    ? rebindSensitiveLiteralsDeep(result.mutationOperations, literalBindings)
+  const reboundGuidanceText = rebindSensitiveLiteralsInText(guidance.guidanceText, literalBindings);
+  const reboundMutationOperations = guidance.mutationOperations
+    ? rebindSensitiveLiteralsDeep(guidance.mutationOperations, literalBindings)
     : undefined;
   const configWarnings: string[] = [];
   /**
@@ -628,55 +533,6 @@ export async function POST(
     goalText,
     ...(boundedRecentTurns?.map((t) => t.text) ?? []),
   ]);
-
-  /** Sanitize + dynamic-resolve one plan's step configs. Field KEYS only ever reach warnings. */
-  async function preparePlanConfigs(plan: WorkflowPlan): Promise<WorkflowPlan> {
-    const rebound = rebindSensitiveLiteralsDeep(plan, literalBindings);
-    const sanitizeResult = sanitizePlanStepConfigs(rebound, userLiteralCorpus);
-    const sanitized = sanitizeResult.plan;
-    for (const { field } of sanitizeResult.fabricated) {
-      // Say what actually happened. "I couldn't set it" would be untrue and would hide that the
-      // model had produced a realistic-looking value for real customer data.
-      configWarnings.push(
-        `I didn't have real data for '${field}', so I left it empty rather than filling in an example value.`,
-      );
-    }
-    const targets = sanitized.steps
-      .filter(
-        (s): s is typeof s & { config: Readonly<Record<string, unknown>> } =>
-          (s.role === "trigger" || s.role === "action") && !!s.config && Object.keys(s.config).length > 0,
-      )
-      .map((s) => ({
-        ref: s.ref,
-        kind: s.role as "trigger" | "action",
-        capabilityKey: `${s.provider}:${s.type}`,
-        config: s.config,
-      }));
-    if (targets.length === 0) return sanitized;
-    const resolved = await resolveProposedOptionValues({
-      userId,
-      ...(workflowId ? { workflowId } : {}),
-      targets,
-    });
-    const byRef = new Map(resolved.map((r) => [r.ref, r]));
-    return {
-      ...sanitized,
-      steps: sanitized.steps.map((step) => {
-        const r = byRef.get(step.ref);
-        if (!r) return step;
-        for (const field of r.deferredFields) {
-          configWarnings.push(`I couldn't set '${field}' automatically — pick it in the step's setup.`);
-        }
-        const requiredInputs = [...new Set([...(step.requiredInputs ?? []), ...r.deferredFields])];
-        const { config: _config, ...rest } = step;
-        return {
-          ...rest,
-          ...(requiredInputs.length > 0 ? { requiredInputs } : {}),
-          ...(Object.keys(r.config).length > 0 ? { config: r.config } : {}),
-        };
-      }),
-    };
-  }
 
   // HERMES-AGENT-WORKFLOW-EDITOR — when the user is EDITING an existing draft (a current draft was sent),
   // run the GENERAL mutation pipeline: prefer the model's proposed `WorkflowPatch` operations; else a
@@ -703,7 +559,16 @@ export async function POST(
   };
   let providerClarification: ProviderClarification | null = null;
 
-  let workflowPlan = result.workflowPlan ? await preparePlanConfigs(result.workflowPlan) : null;
+  let workflowPlan = guidance.workflowPlan
+    ? await preparePlanConfigs({
+        plan: guidance.workflowPlan,
+        userId,
+        ...(workflowId ? { workflowId } : {}),
+        literalBindings,
+        userLiteralCorpus,
+        onWarning: (message) => configWarnings.push(message),
+      })
+    : null;
   let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   let proposedDefinition: import("@/contracts/workflowDefinition").WorkflowDefinition | null = null;
   let baseGraphVersion: string | null = null;
@@ -775,7 +640,7 @@ export async function POST(
           currentDraft: currentDraft!,
           editableGraph: builtEditableGraph,
           operations: prepared.operations,
-          ...(result.mutationBaseVersion ? { modelBaseVersion: result.mutationBaseVersion } : {}),
+          ...(guidance.mutationBaseVersion ? { modelBaseVersion: guidance.mutationBaseVersion } : {}),
         });
     if (edit && edit.kind === "proposal") {
       proposedDefinition = edit.proposedDefinition;
@@ -823,7 +688,7 @@ export async function POST(
     } else if (proposal.kind === "invalid") {
       editorGuidanceText = proposal.message;
     }
-  } else if (editing && result.mutationMalformed) {
+  } else if (editing && guidance.mutationMalformed) {
     // A mutation-shaped reply we couldn't make usable AND the fallback couldn't recover → say so safely.
     editorGuidanceText = MALFORMED_EDIT_MESSAGE;
   } else if (editing && (fallback.kind === "needs_provider_choice" || fallback.kind === "needs_node_choice" || fallback.kind === "catalog_gap")) {
@@ -888,7 +753,7 @@ export async function POST(
   // JSON-stripped) model prose. Warnings carry only safe non-blocking notes.
   const guidanceText = editorGuidanceText ?? (providerClarification ? providerClarification.question : reboundGuidanceText);
   const warnings = [
-    ...(result.warnings ?? []),
+    ...(guidance.warnings ?? []),
     ...proposalWarnings,
     ...[...new Set(configWarnings)],
     ...(catalogGap ? [catalogGap.message] : []),
@@ -899,7 +764,7 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     guidanceText,
-    source: result.source,
+    source: guidance.source,
     workflowPlan,
     previewDraft,
     ...(proposedDefinition ? { proposedDefinition } : {}),

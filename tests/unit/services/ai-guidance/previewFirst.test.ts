@@ -12,7 +12,7 @@ import {
   classifyPreviewFirst,
   buildPreviewFirstRepairGoal,
   MIN_REPAIR_BUDGET_MS,
-} from "@/services/ai-guidance/previewFirst";
+} from "@/services/ai-guidance/previewFirst/classifyPreviewFirst";
 
 const PRODUCTION_PROMPT =
   "When someone submits our Typeform contact form, add them to Mailchimp, create a HubSpot " +
