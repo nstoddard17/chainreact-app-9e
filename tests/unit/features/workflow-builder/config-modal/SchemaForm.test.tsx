@@ -549,7 +549,14 @@ describe("SchemaForm dependsOn cascade — deps + enabled propagation to Combobo
         onChange={jest.fn()}
       />,
     );
-    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+    // The invariant is that a static-options field triggers NO resolver REQUEST. Since
+    // TYPEFORM-DYNAMIC-OUTPUTS-UI-AND-AGENT-CLOSEOUT-1 the hook may also be invoked by
+    // `useDynamicTriggerOutputs` with `source: null`, which is a disabled call that fetches nothing —
+    // so assert on calls that carry a source rather than on the raw call count.
+    const requestingCalls = mockUseOptionsSource.mock.calls.filter(
+      (c: unknown[]) => (c[0] as { source?: unknown } | undefined)?.source != null,
+    );
+    expect(requestingCalls).toHaveLength(0);
   });
 });
 

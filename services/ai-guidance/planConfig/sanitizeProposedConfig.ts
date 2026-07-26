@@ -30,6 +30,7 @@
 
 import type { FieldMeta } from "@/contracts/actionMeta";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
+import { findFabricatedValueDeep } from "@/core/workflows/mapping/fabricatedSampleValues";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 
 /** Field types whose values the model may author directly (before the async options pass). */
@@ -60,6 +61,14 @@ export interface SanitizedNodeConfig {
   readonly deferredFields: readonly string[];
   /** Keys dropped outright (undeclared / secret / connection). Field KEY names only — no values. */
   readonly droppedFields: readonly string[];
+  /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — declared fields whose proposed value was an INVENTED
+   * identity literal (an email/phone/sample-domain the user never wrote). Removed like any other
+   * unusable value, but reported separately so the rail can say something true and specific
+   * ("I didn't have real data for Email") instead of the generic "couldn't set this automatically".
+   * Field KEY names only — the offending value is never carried out of here.
+   */
+  readonly fabricatedFields: readonly string[];
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -210,11 +219,19 @@ function sanitizeFieldValue(field: FieldMeta, raw: unknown): unknown | null {
 export function sanitizeConfigAgainstFields(
   proposed: Readonly<Record<string, unknown>>,
   fields: readonly FieldMeta[],
+  /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — the user's own words, normalized by
+   * `buildUserLiteralCorpus`. Any identity literal (email/phone) NOT found here was invented by the
+   * model and is removed. Omitted ⇒ the guard is skipped entirely, so every existing caller and test
+   * keeps its exact previous behavior; only callers that can prove what the user wrote opt in.
+   */
+  userCorpus?: string,
 ): SanitizedNodeConfig {
   const byName = new Map(fields.map((f) => [f.name, f]));
   const config: Record<string, unknown> = {};
   const deferredFields: string[] = [];
   const droppedFields: string[] = [];
+  const fabricatedFields: string[] = [];
 
   for (const [key, raw] of Object.entries(proposed)) {
     const field = byName.get(key);
@@ -227,6 +244,12 @@ export function sanitizeConfigAgainstFields(
       continue;
     }
     if (isEmptyValue(raw)) continue; // empty means unset platform-wide — nothing to keep or defer
+    // Invented identity data is checked BEFORE type coercion: a fabricated address is not a
+    // "slightly wrong value to fix up", it is a value that must never reach a saved workflow.
+    if (userCorpus !== undefined && findFabricatedValueDeep(raw, userCorpus) !== null) {
+      fabricatedFields.push(key);
+      continue;
+    }
     const kept = sanitizeFieldValue(field, raw);
     if (kept === null) {
       deferredFields.push(key); // user constraint exists but is unusable → targeted input
@@ -235,13 +258,18 @@ export function sanitizeConfigAgainstFields(
     }
   }
 
-  return { config, deferredFields, droppedFields };
+  return { config, deferredFields, droppedFields, fabricatedFields };
 }
 
 export interface SanitizePlanResult {
   readonly plan: WorkflowPlan;
   /** Safe, value-free notes (step ref + field keys) for logging/diagnostics. */
   readonly notes: readonly string[];
+  /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — `{ stepRef, fieldKey }` pairs where an invented identity
+   * literal was removed. Drives the specific rail warning; field KEYS only, never the value.
+   */
+  readonly fabricated: readonly { readonly ref: string; readonly field: string }[];
 }
 
 /** Look up the registry fields for a plan step, or null for logic/unknown capabilities. */
@@ -257,8 +285,9 @@ function fieldsForStep(step: WorkflowPlanStep): readonly FieldMeta[] | null {
  * appended to the step's `requiredInputs` (deduplicated) so the constraint surfaces as a targeted
  * setup input instead of silently disappearing. Steps without config pass through unchanged.
  */
-export function sanitizePlanStepConfigs(plan: WorkflowPlan): SanitizePlanResult {
+export function sanitizePlanStepConfigs(plan: WorkflowPlan, userCorpus?: string): SanitizePlanResult {
   const notes: string[] = [];
+  const fabricated: { ref: string; field: string }[] = [];
   const steps = plan.steps.map((step) => {
     if (!step.config || Object.keys(step.config).length === 0) return step;
     const fields = fieldsForStep(step);
@@ -267,10 +296,18 @@ export function sanitizePlanStepConfigs(plan: WorkflowPlan): SanitizePlanResult 
       const { config: _dropped, ...rest } = step;
       return rest as WorkflowPlanStep;
     }
-    const { config, deferredFields, droppedFields } = sanitizeConfigAgainstFields(step.config, fields);
+    const { config, deferredFields, droppedFields, fabricatedFields } = sanitizeConfigAgainstFields(
+      step.config,
+      fields,
+      userCorpus,
+    );
     if (deferredFields.length > 0) notes.push(`${step.ref}: needs input for ${deferredFields.join(", ")}`);
     if (droppedFields.length > 0) notes.push(`${step.ref}: dropped ${droppedFields.join(", ")}`);
-    const requiredInputs = [...new Set([...(step.requiredInputs ?? []), ...deferredFields])];
+    if (fabricatedFields.length > 0) notes.push(`${step.ref}: removed invented value(s) for ${fabricatedFields.join(", ")}`);
+    for (const field of fabricatedFields) fabricated.push({ ref: step.ref, field });
+    // A removed invention still leaves the field NEEDED — it becomes a targeted setup input exactly
+    // like any other unusable value, so the step is never silently left looking complete.
+    const requiredInputs = [...new Set([...(step.requiredInputs ?? []), ...deferredFields, ...fabricatedFields])];
     const { config: _old, ...rest } = step;
     return {
       ...rest,
@@ -278,5 +315,5 @@ export function sanitizePlanStepConfigs(plan: WorkflowPlan): SanitizePlanResult 
       ...(Object.keys(config).length > 0 ? { config } : {}),
     } as WorkflowPlanStep;
   });
-  return { plan: { ...plan, steps }, notes };
+  return { plan: { ...plan, steps }, notes, fabricated };
 }

@@ -42,6 +42,13 @@ export interface PrepareProposedOperationsInput {
   /** Resolve an existing-node reference (opaque ref OR real id) to its capability + config. */
   readonly nodeContextForRef: (nodeRef: string) => NodeCapabilityContext | null;
   readonly userId: string;
+  /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — the user's own words (normalized by
+   * `buildUserLiteralCorpus`). Identity literals in proposed config that the user never wrote are
+   * invented sample data and are removed on the EDIT path exactly as on the plan path. Optional so
+   * existing callers/tests are unaffected.
+   */
+  readonly userCorpus?: string;
   readonly workflowId?: string;
   /** Test seam for the canonical options resolver. */
   readonly resolveImpl?: ResolveOptionsFn;
@@ -54,6 +61,8 @@ export interface PreparedOperations {
    * setup input. Safe: field KEY names only, never values.
    */
   readonly deferredFields: readonly { readonly nodeRef: string; readonly field: string }[];
+  /** Fields whose proposed value was an INVENTED identity literal (removed). Keys only, no values. */
+  readonly fabricatedFields: readonly { readonly nodeRef: string; readonly field: string }[];
 }
 
 interface ConfigBearing {
@@ -73,6 +82,7 @@ export async function prepareProposedOperations(
 ): Promise<PreparedOperations> {
   const operations = input.operations.map((op) => ({ ...op })) as PatchOperation[];
   const deferred: { nodeRef: string; field: string }[] = [];
+  const fabricated: { nodeRef: string; field: string }[] = [];
   const bearings: ConfigBearing[] = [];
 
   operations.forEach((op, opIndex) => {
@@ -82,8 +92,9 @@ export async function prepareProposedOperations(
       const meta =
         ctx.kind === "trigger" ? getTriggerMeta(ctx.capabilityKey) : getActionMeta(ctx.capabilityKey);
       if (!meta) return;
-      const { config, deferredFields } = sanitizeConfigAgainstFields(op.config, meta.fields);
+      const { config, deferredFields, fabricatedFields } = sanitizeConfigAgainstFields(op.config, meta.fields, input.userCorpus);
       deferredFields.forEach((field) => deferred.push({ nodeRef: op.nodeId, field }));
+      fabricatedFields.forEach((field) => fabricated.push({ nodeRef: op.nodeId, field }));
       bearings.push({
         opIndex,
         nodeRef: op.nodeId,
@@ -102,8 +113,9 @@ export async function prepareProposedOperations(
       const capabilityKey = `${node.provider}:${node.type}`;
       const meta = kind === "trigger" ? getTriggerMeta(capabilityKey) : getActionMeta(capabilityKey);
       if (!meta) return;
-      const { config, deferredFields } = sanitizeConfigAgainstFields(node.config, meta.fields);
+      const { config, deferredFields, fabricatedFields } = sanitizeConfigAgainstFields(node.config, meta.fields, input.userCorpus);
       deferredFields.forEach((field) => deferred.push({ nodeRef: node.id, field }));
+      fabricatedFields.forEach((field) => fabricated.push({ nodeRef: node.id, field }));
       bearings.push({
         opIndex,
         nodeRef: node.id,
@@ -155,5 +167,5 @@ export async function prepareProposedOperations(
     }
   }
 
-  return { operations, deferredFields: deferred };
+  return { operations, deferredFields: deferred, fabricatedFields: fabricated };
 }

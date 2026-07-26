@@ -45,6 +45,7 @@ import {
   extractAnswerValue,
   type TypeformAnswer,
 } from "@/integrations/_shared/typeform/answers";
+import { buildAnswersByRef } from "@/integrations/_shared/typeform/answerKeys";
 
 export type { TypeformAnswer } from "@/integrations/_shared/typeform/answers";
 
@@ -137,6 +138,13 @@ export function normalizeNewResponseInForm(
       submittedAt,
       landedAt: response.landed_at ?? null,
       answers,
+      // REACT-AGENT-TYPEFORM-DYNAMIC-OUTPUTS-1 — the STABLE keyed view of the same answers.
+      // `answers[]` stays exactly as-is (it is a public contract and existing workflows read it), but
+      // it is positional and only carries ANSWERED questions, so `answers[0]` means a different
+      // question on every submission. `answersByRef` is keyed by each question's durable identity, so
+      // a mapping made at design time keeps pointing at the same question forever. Same values, same
+      // extractor — the two views can never disagree.
+      answersByRef: buildAnswersByRef(response.answers ?? []),
       hidden,
       score: typeof response.calculated?.score === "number" ? response.calculated.score : null,
     },

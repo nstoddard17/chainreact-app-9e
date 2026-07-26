@@ -8,8 +8,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { signOut } from "@/app/auth/actions";
-import { postOnboardingPresentation } from "@/lib/api/onboarding";
-import { postCollaborationPresentation } from "@/lib/api/collaborationOnboarding";
 
 /**
  * Authenticated-user menu (Slice 4.APP-SHELL-1; rail-style refit in
@@ -42,27 +40,6 @@ export function UserMenu({ userEmail }: Props) {
   const [open, setOpen] = useState(false);
   const initials = initialsForEmail(userEmail);
 
-  // Reopen the checklist for the ACTIVE account, then land on /workflows with
-  // a full reload (same re-scope idiom as the account switcher) so the
-  // server-fetched checklist reflects the reopen.
-  //
-  // 5.ONBOARD-4 — un-dismiss BOTH checklists rather than guessing which one the
-  // user meant. Which card actually appears is then decided server-side by the
-  // coordinator's priority rule from the user's REAL role in the CURRENT account,
-  // so "Getting started" always reopens the right checklist without the client
-  // needing to know the role or the plan. The collaboration POST 404s harmlessly
-  // on personal and ineligible accounts (there is no track to reopen).
-  //
-  // Both are best-effort and independent: one failing must not block the other or
-  // the navigation.
-  async function openGettingStarted() {
-    setOpen(false);
-    await Promise.allSettled([
-      postOnboardingPresentation({ action: "reopen" }),
-      postCollaborationPresentation({ action: "reopen" }),
-    ]);
-    window.location.assign("/workflows");
-  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -100,14 +77,6 @@ export function UserMenu({ userEmail }: Props) {
           </span>
         </div>
         <div className="my-1 h-px bg-border" />
-        <button
-          type="button"
-          data-testid="app-shell-getting-started"
-          onClick={() => void openGettingStarted()}
-          className="block w-full rounded-sm px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
-        >
-          Getting started
-        </button>
         <Link
           href="/account"
           data-testid="app-shell-account"

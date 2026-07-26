@@ -254,6 +254,8 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   capabilityCatalog?: readonly string[];
   /** REACT-CONFIG-COVERAGE-1 — pre-rendered field-schema lines (public registry metadata only). */
   fieldSchemaLines?: readonly string[];
+  /** REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — pre-rendered output lines (what each node produces). */
+  outputSchemaLines?: readonly string[];
   /** Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD). */
   context?: SafeGuidanceContext;
   /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the safe editable graph for an EDIT request. */
@@ -272,6 +274,7 @@ export async function requestHermesAgentGuidanceNormalized(params: {
     ...(params.recentTurns && params.recentTurns.length ? { recentTurns: params.recentTurns } : {}),
     ...(params.capabilityCatalog ? { capabilityCatalog: params.capabilityCatalog } : {}),
     ...(params.fieldSchemaLines && params.fieldSchemaLines.length ? { fieldSchemaLines: params.fieldSchemaLines } : {}),
+    ...(params.outputSchemaLines && params.outputSchemaLines.length ? { outputSchemaLines: params.outputSchemaLines } : {}),
     ...(params.context ? { context: params.context } : {}),
     ...(params.editableGraph ? { editableGraph: params.editableGraph } : {}),
   });

@@ -36,8 +36,17 @@ import {
   firstIncompleteAppliedNodeId,
 } from "../utils/appliedConfigHints";
 import { buildAgentSetupIssues } from "@/core/workflows/agentSetupIssues";
+import {
+  EMPTY_PROVENANCE,
+  markUserOwned,
+  seedPreviewProvenance,
+  toAgentOwnedFields,
+  type PreviewFieldProvenance,
+} from "@/core/workflows/mapping/previewProvenance";
+import { applyPreviewConfigToDefinition } from "@/core/workflows/mapping/previewConfigOverlay";
 import { useGraphSlice, type ApplyAdditivePatchOutcome } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
+import { usePreviewEnrichmentForOverlay } from "./usePreviewEnrichmentBridge";
 import { useAgentReviewSession } from "./useAgentReviewSession";
 import { useWorkflowCheckpoints } from "./useWorkflowCheckpoints";
 import type { RequiredFieldsByType } from "../validation/collectBuilderValidationIssues";
@@ -137,6 +146,16 @@ export function useBuilderPreview({
   // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
   // discard, and on workflow switch/unmount. Seeded into the new nodes' config ONLY on explicit Apply.
   const [previewConfig, setPreviewConfig] = useState<Record<string, Record<string, unknown>>>({});
+  /**
+   * REACT-AGENT-PREVIEW-FIELD-PROVENANCE-1 — who last decided each preview field.
+   *
+   * Enrichment must fill what the AGENT left unresolved without ever touching what the USER decided,
+   * and the value alone cannot tell those apart: a filled field may be the agent's guess or the
+   * user's choice, and an empty one may be untouched or deliberately cleared. So ownership is
+   * recorded when it happens. Preview-only editor state — cleared on apply/dismiss/supersede, never
+   * persisted into workflow config, never sent to a model.
+   */
+  const [previewProvenance, setPreviewProvenance] = useState<PreviewFieldProvenance>(EMPTY_PROVENANCE);
 
   // CHECKPOINTS-1 — durable "before agent changes" restore points. The hook owns load/create/restore
   // (typed client API only); the builder owns the graph re-hydration on restore. Disabled for the
@@ -171,6 +190,7 @@ export function useBuilderPreview({
     setApplyNotice(null);
     setAppliedNodeIds([]);
     setPreviewConfig({});
+    setPreviewProvenance(EMPTY_PROVENANCE);
   }, [workflowId]);
 
   // HERMES-AGENT-PREVIEW-DIFF-GRAPH — for an EDIT proposal, compose the SINGLE read-only diff graph
@@ -291,6 +311,19 @@ export function useBuilderPreview({
           counts = EMPTY_AGENT_CHANGE_COUNTS;
         }
       }
+      // REACT-AGENT-PREVIEW-FIELD-PROVENANCE-1 — a NEW proposal RESETS ownership: nothing carries
+      // over from a superseded preview. Which evidence proves "the agent wrote this" differs per
+      // path; that decision lives in the pure module (see `seedPreviewProvenance`).
+      setPreviewProvenance(
+        seedPreviewProvenance({
+          isEditProposal: payload.proposedDefinition !== undefined,
+          diffNodes: showDiff?.nodes,
+          declaredMissingByNode: Object.fromEntries(
+            payload.preview.nodes.map((n) => [n.previewId, n.missingInputs ?? []]),
+          ),
+          planConfig: buildInitialPreviewConfig(payload.plan, setupFieldsByType),
+        }),
+      );
       agentChanges.emitPreviewCreated({
         agentChangeId,
         ...(payload.prompt ? { prompt: payload.prompt } : {}),
@@ -317,9 +350,42 @@ export function useBuilderPreview({
         ...prev,
         [previewId]: { ...(prev[previewId] ?? {}), [fieldName]: value },
       }));
+      /**
+       * REACT-AGENT-PREVIEW-FIELD-PROVENANCE-1 — this exact field is now the USER's.
+       *
+       * Value-BLIND on purpose. Typing text, picking an option or audience, choosing a mapping, and
+       * CLEARING the field all mean the same thing here: the user decided. `markUserOwned` takes no
+       * value precisely so no future edit can reintroduce a truthiness test — `""`, `false` and `0`
+       * are explicit values on this platform, and a cleared field that enrichment quietly refilled is
+       * the "the app fought me" failure this whole layer exists to prevent.
+       *
+       * `fieldName` may be a dotted path (`properties.email`) or a stable row path
+       * (`rows.<rowId>.value`); identity is composed the same way for all of them.
+       */
+      setPreviewProvenance((prev) => markUserOwned(prev, previewId, fieldName));
     },
     [],
   );
+
+  /**
+   * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — the missing wire, closed here.
+   *
+   * `usePreviewEnrichment` existed complete but unreachable. This hook owns the preview, the
+   * provenance and the proposal object, so it is the only place that can hand the enricher its
+   * inputs and receive the enriched proposal back. The bridge resolves the proposal trigger's
+   * dynamic outputs generically (a declared source resolving → enrich); nothing here knows what the
+   * resource is.
+   *
+   * The result updates the SAME overlay in place: same plan, same `agentChangeId`, same
+   * `baseGraphVersion`, same node and edge ids. It is not a new preview, not a re-proposal, and
+   * nothing is persisted — Apply remains the only writer.
+   */
+  const previewEnrichment = usePreviewEnrichmentForOverlay({
+    overlay: previewOverlay,
+    setOverlay: setPreviewOverlay,
+    provenance: previewProvenance,
+    workflowId,
+  });
 
   // HERMES-AGENT-APPLY-PREVIEW-PATCH — explicit, user-clicked apply. Builds a deterministic ADDITIVE
   // patch from the VALIDATED plan (not the display preview) and applies it to the LOCAL draft via the
@@ -355,15 +421,30 @@ export function useBuilderPreview({
       ? null
       : planToBuilderPatch(previewOverlay.plan, { previewConfig, ...(setupFieldsByType ? { setupFieldsByType } : {}) });
     const activeNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
+    /**
+     * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — fold the rail's guided-setup values into the EDIT
+     * proposal before it replaces the draft.
+     *
+     * The additive path already seeds these through `planToBuilderPatch`; the edit path handed the
+     * proposal straight to `replaceGraphLocal` and silently dropped every value the user typed into
+     * the same card. Those values are exactly the user-owned decisions enrichment is forbidden to
+     * make, so losing them on Apply would defeat the ownership model at the last step. Node ids are
+     * the preview ids on this path, so the overlay keys line up exactly.
+     */
+    const editDefinition = previewOverlay.proposedDefinition
+      ? applyPreviewConfigToDefinition(previewOverlay.proposedDefinition, previewConfig)
+      : null;
     // Kept in its own typed binding (rather than folded into the ternary below) so the additive
     // outcome's `addedNodeIdByRef` stays reachable for the focus-target resolution further down —
     // the replace arm has no such map, and a union of the two erases it.
     const additiveOutcome: ApplyAdditivePatchOutcome | null = additivePatch
       ? useGraphSlice.getState().applyAdditivePatch(additivePatch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {})
       : null;
-    const outcome = previewOverlay.proposedDefinition
+    // `editDefinition` is non-null exactly when `proposedDefinition` is, so this condition is
+    // equivalent to the remote's while carrying the folded-in guided-setup values.
+    const outcome = editDefinition
       ? useGraphSlice.getState().replaceGraphLocal(
-          previewOverlay.proposedDefinition,
+          editDefinition,
           previewOverlay.baseGraphVersion ? { expectedBaseVersion: previewOverlay.baseGraphVersion } : {},
         )
       : additiveOutcome;
@@ -380,6 +461,7 @@ export function useBuilderPreview({
       }
       setPreviewOverlay(null);
       setPreviewConfig({});
+      setPreviewProvenance(EMPTY_PROVENANCE);
       return false;
     }
     if (outcome?.ok) {
@@ -481,6 +563,8 @@ export function useBuilderPreview({
     }
     setPreviewOverlay(null);
     setPreviewConfig({});
+    // Provenance is preview-only editor state: it must never reach workflow runtime configuration.
+    setPreviewProvenance(EMPTY_PROVENANCE);
     return outcome?.ok === true;
   }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges, setReviewSessionFocus]);
 
@@ -577,6 +661,7 @@ export function useBuilderPreview({
     if (agentChangeId) agentChanges.emitDiscarded(agentChangeId);
     setPreviewOverlay(null);
     setPreviewConfig({});
+    setPreviewProvenance(EMPTY_PROVENANCE);
   }, [agentChanges]);
 
   // The BuilderApplyNotice dismiss — clears the notice + applied-node hints.
@@ -612,6 +697,17 @@ export function useBuilderPreview({
     reviewSessionToken,
     reviewSessionFocus,
     previewConfig,
+    // REACT-AGENT-PREVIEW-FIELD-PROVENANCE-1 — ownership + the derived shape the enricher consumes.
+    // Exposed for the readiness UI and for tests; never persisted with the workflow.
+    previewProvenance,
+    agentOwnedFields: toAgentOwnedFields(previewProvenance),
+    /**
+     * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — what the last enrichment did and what it could not
+     * do: `mapped` references, `notes` (ambiguous / missing), the schema resolve `status` + safe
+     * `message` + `retry`, and mappings `invalidated` by a resource change. The setup card renders
+     * these as the mapped / waiting / ambiguous / missing / invalid rows.
+     */
+    previewEnrichment,
     // REACT-CONFIG-COVERAGE-1 — plan-config values the user supplied in their request, keyed by
     // preview node id, for the setup card's "from your request" display.
     previewPrefilledConfig,

@@ -44,9 +44,10 @@ import {
   type SensitiveLiteralBinding,
 } from "@/core/security/sensitiveLiterals";
 import { sanitizePlanStepConfigs } from "@/services/ai-guidance/planConfig/sanitizeProposedConfig";
+import { buildUserLiteralCorpus } from "@/core/workflows/mapping/fabricatedSampleValues";
 import { resolveProposedOptionValues } from "@/services/ai-guidance/planConfig/resolveProposedOptionValues";
 import { prepareProposedOperations } from "@/services/ai-guidance/planConfig/prepareProposedOperations";
-import { buildFieldSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
+import { buildFieldSchemaLines, buildOutputSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
 import {
   findProviderAmbiguity,
   type ProviderClarification,
@@ -386,13 +387,16 @@ export async function POST(
   // REACT-CONFIG-COVERAGE-1 — narrowed, bounded field schemas for the relevant providers (public
   // registry metadata only), so the model can land user-supplied values in their canonical fields.
   const canvasCapabilityKeys = editing ? currentDraft!.nodes.map((n) => `${n.provider}:${n.type}`) : [];
-  const fieldSchemaLines = buildFieldSchemaLines(
-    selectRelevantProviders({
-      texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
-      ...(canvasCapabilityKeys.length ? { canvasCapabilityKeys } : {}),
-      connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
-    }),
-  );
+  const relevantProviders = selectRelevantProviders({
+    texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
+    ...(canvasCapabilityKeys.length ? { canvasCapabilityKeys } : {}),
+    connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
+  });
+  const fieldSchemaLines = buildFieldSchemaLines(relevantProviders);
+  // REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — what those same capabilities PRODUCE. Without this block
+  // the model was told to reference "declared output names" it had never been shown, so multi-step
+  // requests came back with the right nodes and invented data between them.
+  const outputSchemaLines = buildOutputSchemaLines(relevantProviders);
 
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
   //
@@ -409,6 +413,7 @@ export async function POST(
       ...(safeRecentTurns && safeRecentTurns.length ? { recentTurns: safeRecentTurns } : {}),
       ...(definition ? { definition } : {}),
       ...(fieldSchemaLines.length ? { fieldSchemaLines } : {}),
+      ...(outputSchemaLines.length ? { outputSchemaLines } : {}),
       ...(builtEditableGraph ? { editableGraph: builtEditableGraph.graph, capabilityCatalog: buildCapabilityCatalogKeys() } : {}),
       contextInputs: {
         account: { type: accountType },
@@ -468,11 +473,29 @@ export async function POST(
     ? rebindSensitiveLiteralsDeep(result.mutationOperations, literalBindings)
     : undefined;
   const configWarnings: string[] = [];
+  /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — the user's OWN words, normalized once. An identity literal
+   * in proposed config that does not appear here was invented by the model, not supplied by the user,
+   * and is removed rather than saved as if it were real customer data. Built from the RAW text (not
+   * the tokenized copy) so a value the user genuinely typed is still recognized as theirs.
+   */
+  const userLiteralCorpus = buildUserLiteralCorpus([
+    goalText,
+    ...(boundedRecentTurns?.map((t) => t.text) ?? []),
+  ]);
 
   /** Sanitize + dynamic-resolve one plan's step configs. Field KEYS only ever reach warnings. */
   async function preparePlanConfigs(plan: WorkflowPlan): Promise<WorkflowPlan> {
     const rebound = rebindSensitiveLiteralsDeep(plan, literalBindings);
-    const sanitized = sanitizePlanStepConfigs(rebound).plan;
+    const sanitizeResult = sanitizePlanStepConfigs(rebound, userLiteralCorpus);
+    const sanitized = sanitizeResult.plan;
+    for (const { field } of sanitizeResult.fabricated) {
+      // Say what actually happened. "I couldn't set it" would be untrue and would hide that the
+      // model had produced a realistic-looking value for real customer data.
+      configWarnings.push(
+        `I didn't have real data for '${field}', so I left it empty rather than filling in an example value.`,
+      );
+    }
     const targets = sanitized.steps
       .filter(
         (s): s is typeof s & { config: Readonly<Record<string, unknown>> } =>
@@ -566,7 +589,13 @@ export async function POST(
       },
       userId,
       ...(workflowId ? { workflowId } : {}),
+      userCorpus: userLiteralCorpus,
     });
+    for (const { field } of prepared.fabricatedFields) {
+      configWarnings.push(
+        `I didn't have real data for '${field}', so I left it empty rather than filling in an example value.`,
+      );
+    }
     for (const { field } of prepared.deferredFields) {
       configWarnings.push(`I couldn't set '${field}' automatically — pick it in the step's setup.`);
     }
