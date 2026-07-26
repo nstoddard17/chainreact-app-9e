@@ -65,4 +65,35 @@ describe("listOrSeedDashboards", () => {
     expect(out).toHaveLength(1);
     expect(out[0]?.id).toBe("22222222-2222-2222-2222-222222222222");
   });
+
+  it("a malformed widget entry is dropped ALONE — siblings survive (CD-3A salvage)", async () => {
+    const good = { id: "ok", type: "stat", size: "s", title: "Runs", config: { source: "any", metric: "runs" } };
+    const goodInsight = {
+      id: "ins",
+      type: "insight",
+      size: "m",
+      title: "Orders",
+      config: {
+        source: "any",
+        insight: {
+          source: "chainreact", dataset: "workflow_runs", measure: "runs",
+          dimension: null, chart: "kpi",
+        },
+      },
+    };
+    const malformed = { id: "bad", type: "insight", size: "m", title: "Bad", config: { source: "any", insight: { accountId: "acc-1" } } };
+    mockRepo.listByAccount.mockResolvedValueOnce([
+      record({ widgets: [good, malformed, goodInsight] as unknown as typeof DEFAULT_OVERVIEW_WIDGETS }),
+    ]);
+    const out = await listOrSeedDashboards("acct-1", "user-1");
+    expect(out[0]?.widgets.map((w) => w.id)).toEqual(["ok", "ins"]);
+  });
+
+  it("a non-array widgets blob still degrades to an empty board", async () => {
+    mockRepo.listByAccount.mockResolvedValueOnce([
+      record({ widgets: { not: "an array" } as unknown as typeof DEFAULT_OVERVIEW_WIDGETS }),
+    ]);
+    const out = await listOrSeedDashboards("acct-1", "user-1");
+    expect(out[0]?.widgets).toEqual([]);
+  });
 });

@@ -47,6 +47,26 @@ export type AnalyticsAggregation = z.infer<typeof AnalyticsAggregationSchema>;
 const Id = z.string().regex(/^[a-z][a-z0-9_]*$/, "ids are snake_case").max(60);
 const Label = z.string().min(1).max(80);
 
+/**
+ * Customer exposure of a source (CD-3A). Declarative — the ONLY switch that
+ * decides where a source's datasets appear and may be queried:
+ *   - "hidden"  → never listed, never queryable (parked/under construction).
+ *   - "preview" → development + tests only; production treats it as unknown.
+ *                 The state for implemented-but-not-live-certified providers
+ *                 (Stripe until its live certification pass).
+ *   - "public"  → everyone.
+ * Flipping preview → public is a one-line catalog change; nothing in the
+ * builder UI references provider names to decide visibility.
+ */
+export const AnalyticsSourceExposureSchema = z.enum(["hidden", "preview", "public"]);
+export type AnalyticsSourceExposure = z.infer<typeof AnalyticsSourceExposureSchema>;
+
+/** One declared value of a bounded category field (drives generic filter UI). */
+export const AnalyticsCategoryValueSchema = z
+  .object({ id: z.string().min(1).max(60), label: Label })
+  .strict();
+export type AnalyticsCategoryValue = z.infer<typeof AnalyticsCategoryValueSchema>;
+
 // ── Curated fields ───────────────────────────────────────────────────────────
 
 /**
@@ -77,6 +97,11 @@ export const AnalyticsFieldSchema = z
     /** Required when dimensionable — "high" cardinality can never be a dimension. */
     cardinality: z.enum(["low", "bounded", "high"]).optional(),
     filterable: z.boolean().default(false),
+    /** category-only: the declared value list (id + friendly label) that
+     * powers generic filter/dimension UI. Omit ONLY when the bounded set is
+     * account-specific and cannot be statically known (e.g. currencies seen
+     * on the connection) — the UI then falls back to typed value entry. */
+    values: z.array(AnalyticsCategoryValueSchema).min(1).max(30).optional(),
     /** entity-only: id of a registered options resolver powering the picker.
      * null = CD-3 supplies the picker from an existing safe listing (e.g. the
      * account workflow list) — never a client-invented list. */
@@ -84,6 +109,19 @@ export const AnalyticsFieldSchema = z
     /** Filter selection cap override (default 20; e.g. 1 = single-select). */
     maxSelections: z.number().int().min(1).max(20).optional(),
     distinctCountable: z.boolean().default(false),
+    /**
+     * entity-only (CD-5B): result row/series ids for this dimension ARE the
+     * canonical filter values, so a returned category may be drilled into by
+     * filtering on its own id (ChainReact workflows: rows are keyed by the
+     * same account-owned workflow id the filter accepts). Defaults false —
+     * a dataset whose result keys are per-account surrogates (QuickBooks
+     * customers) or otherwise display-only must never set it, and its rows
+     * simply stay non-drillable. Bounded `category` fields don't need this:
+     * their drillability is derived from the declared `values` list.
+     * Optional (not defaulted) so absent === false without churning every
+     * existing catalog literal.
+     */
+    resultIdsAreFilterValues: z.boolean().optional(),
   })
   .strict()
   .superRefine((f, ctx) => {
@@ -104,8 +142,17 @@ export const AnalyticsFieldSchema = z
     if (f.optionsSource !== undefined && f.kind !== "entity") {
       bad(`field ${f.id}: optionsSource applies to entity fields only`);
     }
+    if (f.values !== undefined && f.kind !== "category") {
+      bad(`field ${f.id}: declared values apply to category fields only`);
+    }
     if (f.currencyBehavior && f.unit !== "currency") {
       bad(`field ${f.id}: currencyBehavior requires unit "currency"`);
+    }
+    if (f.resultIdsAreFilterValues && f.kind !== "entity") {
+      bad(`field ${f.id}: resultIdsAreFilterValues applies to entity fields only`);
+    }
+    if (f.resultIdsAreFilterValues && !f.filterable) {
+      bad(`field ${f.id}: resultIdsAreFilterValues requires the field to be filterable`);
     }
   });
 export type AnalyticsField = z.infer<typeof AnalyticsFieldSchema>;
@@ -203,6 +250,9 @@ export const AnalyticsSourceDefinitionSchema = z
     description: z.string().max(300).optional(),
     credentialMode: z.enum(["internal", "account", "personal"]),
     connectionRequired: z.boolean(),
+    /** Where this source may appear/be queried. REQUIRED — a source is never
+     * exposed merely because an adapter exists. */
+    exposure: AnalyticsSourceExposureSchema,
     /** e.g. "Your Gmail" for personal sources; shown on widgets. */
     attributionPrefix: z.string().max(60).optional(),
   })

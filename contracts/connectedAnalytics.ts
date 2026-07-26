@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AnalyticsRangeSchema } from "./analytics";
+import { InsightRangePresetSchema } from "./analytics";
 import { AnalyticsChartTypeSchema, AnalyticsValueUnitSchema } from "./analyticsCatalog";
 
 /**
@@ -41,8 +41,13 @@ export const ConnectedAnalyticsQuerySchema = z
       })
       .strict()
       .optional(),
+    /**
+     * Preset, or an explicit `[from, to)` window. On this wire `to` is the
+     * EXCLUSIVE boundary — the builder's inclusive end date is translated once,
+     * in `insightQueryFromConfig`, before the query is built.
+     */
     range: z.union([
-      z.object({ preset: AnalyticsRangeSchema }).strict(),
+      z.object({ preset: InsightRangePresetSchema }).strict(),
       z
         .object({
           from: z.string().min(1).max(40),
@@ -101,6 +106,40 @@ export type ConnectedCompleteness = z.infer<typeof ConnectedCompletenessSchema>;
 const CellValue = z.number().nullable();
 const RangeIso = z.object({ from: z.string(), to: z.string() }).strict();
 
+/**
+ * Server-issued drill refinement for one categorical row or one series
+ * (Slice ANALYTICS-CONNECTED-DATA-CD-5B).
+ *
+ * A chart value is explorable ONLY when it carries one of these. The server
+ * attaches it from validated catalog knowledge — a bounded category value, or
+ * an entity id the catalog explicitly declares to double as its own filter
+ * value. The client never guesses a filter value from a display label, and a
+ * row without a refinement (e.g. QuickBooks customers, whose row ids are
+ * per-account surrogates that deliberately can't be turned back into provider
+ * ids) is simply an ordinary readable value.
+ *
+ * GUIDANCE, NOT AUTHORIZATION: the refined query the client builds from this
+ * goes through the normal query route and the full server-side validator like
+ * any hand-built query. By construction this shape can carry no account /
+ * integration / connection id, scope, endpoint, cursor, payload or free-form
+ * provider query syntax — only a declared filter key and one bounded value.
+ *
+ * Time buckets need no refinement object: `buckets[].start/end` (and
+ * `compareSeries.buckets[]` for the previous window) ARE the server-supplied
+ * exact boundaries a time drill uses verbatim.
+ */
+export const ConnectedRefineSchema = z
+  .object({
+    /** Declared catalog filter id on this dataset. */
+    filterKey: z.string().min(1).max(60),
+    /** The canonical value the filter expects — never a display label. */
+    filterValue: z.string().min(1).max(120),
+    /** Customer-facing description of the value ("Paid", "Daily digest"). */
+    label: z.string().min(1).max(120),
+  })
+  .strict();
+export type ConnectedRefine = z.infer<typeof ConnectedRefineSchema>;
+
 export const ConnectedAnalyticsResultSchema = z
   .object({
     kind: z.enum(["kpi", "time_series", "categorical", "table"]),
@@ -139,12 +178,28 @@ export const ConnectedAnalyticsResultSchema = z
             label: z.string(),
             entityState: z.string().nullable().optional(),
             values: z.array(CellValue),
+            /** CD-5B: present only when selecting this series can refine safely. */
+            refine: ConnectedRefineSchema.optional(),
           })
           .strict(),
       )
       .optional(),
     compareSeries: z
-      .object({ previousRange: RangeIso, values: z.array(CellValue) })
+      .object({
+        previousRange: RangeIso,
+        values: z.array(CellValue),
+        /**
+         * The previous window's own bucket boundaries, index-aligned to the
+         * current `buckets` (CD-5B). Selecting a previous-period point drills
+         * into ITS real dates, never the visually aligned current dates — and
+         * the browser never reconstructs calendar boundaries itself. Optional:
+         * results cached before CD-5B simply leave previous points
+         * non-drillable.
+         */
+        buckets: z
+          .array(z.object({ start: z.string(), end: z.string(), label: z.string() }).strict())
+          .optional(),
+      })
       .strict()
       .nullable()
       .optional(),
@@ -158,6 +213,8 @@ export const ConnectedAnalyticsResultSchema = z
             entityState: z.string().nullable().optional(),
             value: CellValue,
             records: z.number().int().nonnegative().optional(),
+            /** CD-5B: present only when selecting this row can refine safely. */
+            refine: ConnectedRefineSchema.optional(),
           })
           .strict(),
       )

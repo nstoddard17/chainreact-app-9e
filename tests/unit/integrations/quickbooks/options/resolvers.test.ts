@@ -7,6 +7,7 @@
  */
 const mockRefreshAndRetry = jest.fn();
 const mockCustomerList = jest.fn();
+const mockCustomersByIds = jest.fn();
 const mockItemList = jest.fn();
 const mockTermList = jest.fn();
 const mockTaxCodeList = jest.fn();
@@ -19,7 +20,9 @@ jest.mock("@/services/oauth/refreshAndRetry", () => ({
   InsufficientScopeError: class InsufficientScopeError extends Error {},
 }));
 jest.mock("@/integrations/_shared/quickbooks/api/customers", () => ({
+  CUSTOMER_SEARCH_MAX_LENGTH: 100,
   customerList: (...args: unknown[]) => mockCustomerList(...args),
+  customersByIds: (...args: unknown[]) => mockCustomersByIds(...args),
 }));
 jest.mock("@/integrations/_shared/quickbooks/api/catalog", () => ({
   itemList: (...args: unknown[]) => mockItemList(...args),
@@ -65,34 +68,85 @@ beforeEach(() => {
   );
 });
 
+/** The wrapper's page envelope. */
+const page = (
+  items: { customerId: string | null; displayName: string | null }[],
+  hasMore = false,
+) => ({ items, hasMore, nextStartPosition: 1 + items.length });
+
 describe("quickbooks:customers", () => {
   it("returns id values with NAME-ONLY labels (no emails/balances)", async () => {
-    mockCustomerList.mockResolvedValueOnce([
-      {
-        customerId: "42",
-        displayName: "Acme Corp",
-        email: "secret@acme.test",
-        balance: 999,
-      },
-      { customerId: "43", displayName: null },
-    ]);
+    mockCustomerList.mockResolvedValueOnce(
+      page([
+        {
+          customerId: "42",
+          displayName: "Acme Corp",
+          email: "secret@acme.test",
+          balance: 999,
+        },
+        { customerId: "43", displayName: null },
+      ] as never),
+    );
     const result = await quickbooksCustomersResolver.resolve(ctx());
-    // filterAndSortByLabel alpha-sorts: "43" sorts before "Acme Corp".
+    // Provider order (ORDERBY DisplayName) is preserved — no local re-sort.
     expect(result.items).toEqual([
-      { value: "43", label: "43" },
       { value: "42", label: "Acme Corp" },
+      { value: "43", label: "43" },
     ]);
     expect(JSON.stringify(result)).not.toContain("secret@acme.test");
     expect(JSON.stringify(result)).not.toContain("999");
   });
 
-  it("filters locally on q", async () => {
-    mockCustomerList.mockResolvedValueOnce([
-      { customerId: "1", displayName: "Acme Corp" },
-      { customerId: "2", displayName: "Globex" },
-    ]);
+  it("pushes the search term to QuickBooks instead of filtering locally", async () => {
+    mockCustomerList.mockResolvedValueOnce(page([{ customerId: "2", displayName: "Globex" }]));
     const result = await quickbooksCustomersResolver.resolve(ctx({ q: "glo" }));
+    expect(mockCustomerList).toHaveBeenCalledWith(
+      expect.objectContaining({ search: "glo", maxResults: 100, realmId: "913035" }),
+    );
     expect(result.items.map((i) => i.value)).toEqual(["2"]);
+  });
+
+  it("trims the search term and omits it when empty", async () => {
+    mockCustomerList.mockResolvedValue(page([]));
+    await quickbooksCustomersResolver.resolve(ctx({ q: "   spaced   " }));
+    expect(mockCustomerList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search: "spaced" }),
+    );
+    await quickbooksCustomersResolver.resolve(ctx({ q: "    " }));
+    expect(mockCustomerList.mock.calls.at(-1)![0]).not.toHaveProperty("search");
+  });
+
+  it("caps an overlong search term", async () => {
+    mockCustomerList.mockResolvedValueOnce(page([]));
+    await quickbooksCustomersResolver.resolve(ctx({ q: "x".repeat(500) }));
+    expect(
+      (mockCustomerList.mock.calls[0]![0] as { search: string }).search.length,
+    ).toBe(100);
+  });
+
+  it("returns an empty list for a no-match search without erroring", async () => {
+    mockCustomerList.mockResolvedValueOnce(page([]));
+    const result = await quickbooksCustomersResolver.resolve(ctx({ q: "nomatch" }));
+    expect(result.items).toEqual([]);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("passes a quote-bearing term through as a literal search value", async () => {
+    mockCustomerList.mockResolvedValueOnce(page([]));
+    await quickbooksCustomersResolver.resolve(ctx({ q: "o'brien' or Active = false or '" }));
+    // The resolver forwards the RAW term; escaping is the wrapper's job (it
+    // owns statement construction), proven in the wrapper's own suite.
+    expect(mockCustomerList).toHaveBeenCalledWith(
+      expect.objectContaining({ search: "o'brien' or Active = false or '" }),
+    );
+  });
+
+  it("reports hasMore straight from the provider page", async () => {
+    mockCustomerList.mockResolvedValueOnce(
+      page([{ customerId: "1", displayName: "A" }], true),
+    );
+    const result = await quickbooksCustomersResolver.resolve(ctx());
+    expect(result.hasMore).toBe(true);
   });
 
   it("throws INTEGRATION_DISCONNECTED without an integration (no fetch)", async () => {
@@ -100,6 +154,99 @@ describe("quickbooks:customers", () => {
       quickbooksCustomersResolver.resolve(ctx({ integration: null })),
     ).rejects.toMatchObject({ code: "INTEGRATION_DISCONNECTED" });
     expect(mockCustomerList).not.toHaveBeenCalled();
+  });
+
+  describe("saved-selection label backfill", () => {
+    it("resolves a selected value that is absent from the current page", async () => {
+      mockCustomerList.mockResolvedValueOnce(
+        page([{ customerId: "1", displayName: "Aardvark Ltd" }]),
+      );
+      mockCustomersByIds.mockResolvedValueOnce([
+        { customerId: "457", displayName: "Zeta Industries" },
+      ]);
+      const result = await quickbooksCustomersResolver.resolve(
+        ctx({ selected: ["457"] }),
+      );
+      expect(mockCustomersByIds).toHaveBeenCalledWith(
+        expect.objectContaining({ ids: ["457"], realmId: "913035" }),
+      );
+      // Selected first, so a picker can label its chip immediately.
+      expect(result.items).toEqual([
+        { value: "457", label: "Zeta Industries" },
+        { value: "1", label: "Aardvark Ltd" },
+      ]);
+    });
+
+    it("does not re-fetch a selected value already on the page", async () => {
+      mockCustomerList.mockResolvedValueOnce(
+        page([{ customerId: "1", displayName: "Aardvark Ltd" }]),
+      );
+      const result = await quickbooksCustomersResolver.resolve(ctx({ selected: ["1"] }));
+      expect(mockCustomersByIds).not.toHaveBeenCalled();
+      expect(result.items).toEqual([{ value: "1", label: "Aardvark Ltd" }]);
+    });
+
+    it("makes no lookup call when nothing is selected", async () => {
+      mockCustomerList.mockResolvedValueOnce(page([]));
+      await quickbooksCustomersResolver.resolve(ctx());
+      expect(mockCustomersByIds).not.toHaveBeenCalled();
+    });
+
+    it("never duplicates an option across the selection and the page", async () => {
+      mockCustomerList.mockResolvedValueOnce(
+        page([
+          { customerId: "1", displayName: "Aardvark Ltd" },
+          { customerId: "457", displayName: "Zeta Industries" },
+        ]),
+      );
+      const result = await quickbooksCustomersResolver.resolve(
+        ctx({ selected: ["457"] }),
+      );
+      expect(result.items.map((i) => i.value)).toEqual(["1", "457"]);
+    });
+
+    it("tolerates a selected value that no longer exists", async () => {
+      mockCustomerList.mockResolvedValueOnce(
+        page([{ customerId: "1", displayName: "Aardvark Ltd" }]),
+      );
+      mockCustomersByIds.mockResolvedValueOnce([]); // deleted customer
+      const result = await quickbooksCustomersResolver.resolve(
+        ctx({ selected: ["gone"] }),
+      );
+      expect(result.items).toEqual([{ value: "1", label: "Aardvark Ltd" }]);
+    });
+
+    it("keeps the search and the selection independent", async () => {
+      mockCustomerList.mockResolvedValueOnce(
+        page([{ customerId: "9", displayName: "Globex" }]),
+      );
+      mockCustomersByIds.mockResolvedValueOnce([
+        { customerId: "457", displayName: "Zeta Industries" },
+      ]);
+      const result = await quickbooksCustomersResolver.resolve(
+        ctx({ q: "glo", selected: ["457"] }),
+      );
+      expect(mockCustomerList).toHaveBeenCalledWith(
+        expect.objectContaining({ search: "glo" }),
+      );
+      // The selection survives a search that does not match it.
+      expect(result.items.map((i) => i.value)).toEqual(["457", "9"]);
+    });
+  });
+
+  it("resolves under the account's own realm, never a client-supplied one", async () => {
+    mockCustomerList.mockResolvedValueOnce(page([]));
+    await quickbooksCustomersResolver.resolve(ctx({ q: "x" }));
+    expect(mockRefreshAndRetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: "acct-1",
+        provider: "quickbooks",
+        providerAccountId: "913035",
+      }),
+    );
+    expect(mockCustomerList).toHaveBeenCalledWith(
+      expect.objectContaining({ realmId: "913035" }),
+    );
   });
 
   it("sanitizes provider failures to PROVIDER_ERROR (static copy)", async () => {

@@ -282,6 +282,10 @@ export function aggregateStripePayments(
           to: new Date(fromMs).toISOString(),
         },
         values: starts.map((_, i) => prevValues[i] ?? null),
+        // The previous window's own boundaries, index-aligned to the current
+        // buckets — a previous-period point drills into ITS real dates and the
+        // browser never reconstructs calendar boundaries (CD-5B).
+        buckets: toBuckets(prevStarts, grain),
       };
     }
 

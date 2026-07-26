@@ -48,8 +48,17 @@ describe("registry validation (loud failures)", () => {
     ).toThrow(/unknown options source/);
   });
   it("rejects donut without part-to-whole and time charts on current-state data", () => {
+    // ChainReact legitimately declares donut + part-to-whole `status` since
+    // CD-3B, so drop the declaration to exercise the guard itself.
     expect(() =>
-      validateCatalog(catalogWith((c) => c.datasets[0]!.supportedCharts.push("donut"))),
+      validateCatalog(
+        catalogWith((c) => {
+          c.datasets[0]!.partToWholeDimensions = [];
+          if (!c.datasets[0]!.supportedCharts.includes("donut")) {
+            c.datasets[0]!.supportedCharts.push("donut");
+          }
+        }),
+      ),
     ).toThrow(/part-to-whole/);
     // Removing all historical date fields fails loudly — either at the
     // named-measure "time" reference or the current-state chart guard.
@@ -106,7 +115,13 @@ describe("client projection", () => {
     expect(json).not.toContain("executionMode");
     expect(json).not.toContain("local_sql");
     expect(json).not.toContain("adapter");
-    // CD-2 registered Stripe; ordering stays deterministic (id-sorted).
-    expect(listInsightSources().map((s) => s.source.id)).toEqual(["chainreact", "stripe"]);
+    // CD-2 registered Stripe, CD-4B QuickBooks, CD-4C Shopify; ordering stays
+    // deterministic (id-sorted).
+    expect(listInsightSources().map((s) => s.source.id)).toEqual([
+      "chainreact",
+      "quickbooks",
+      "shopify",
+      "stripe",
+    ]);
   });
 });

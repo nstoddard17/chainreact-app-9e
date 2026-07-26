@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { listInsightSources, getInsightDataset } from "./registry";
+import {
+  currentInsightsEnvironment,
+  isSourceExposed,
+  type InsightsEnvironment,
+} from "./exposure";
 
 /**
  * CLIENT-SAFE catalog projection (CD-1, audit §9 — runtime projection, not a
@@ -25,6 +30,9 @@ export const ClientAnalyticsCatalogSchema = z
           description: z.string().optional(),
           credentialMode: z.enum(["internal", "account", "personal"]),
           connectionRequired: z.boolean(),
+          /** "hidden" never reaches the client; "preview" appears only in
+           * development builds (marked in the builder UI). */
+          exposure: z.enum(["preview", "public"]),
           providerId: z.string().nullable(),
           attributionPrefix: z.string().optional(),
           datasets: z.array(
@@ -64,6 +72,9 @@ export const ClientAnalyticsCatalogSchema = z
                       valueType: z.enum(["entity_ids", "category_values", "boolean"]),
                       optionsSource: z.string().nullable().optional(),
                       maxSelections: z.number().int().positive(),
+                      values: z
+                        .array(z.object({ id: z.string(), label: z.string() }).strict())
+                        .optional(),
                     })
                     .strict(),
                 ),
@@ -103,14 +114,22 @@ export const ClientAnalyticsCatalogSchema = z
   .strict();
 export type ClientAnalyticsCatalog = z.infer<typeof ClientAnalyticsCatalogSchema>;
 
-export function buildClientAnalyticsCatalog(): ClientAnalyticsCatalog {
+export function buildClientAnalyticsCatalog(
+  opts: { environment?: InsightsEnvironment } = {},
+): ClientAnalyticsCatalog {
+  const environment = opts.environment ?? currentInsightsEnvironment();
+  const visible = listInsightSources().filter((c) =>
+    isSourceExposed(c.source.exposure, environment),
+  );
   const catalog: ClientAnalyticsCatalog = {
-    sources: listInsightSources().map((c) => ({
+    sources: visible.map((c) => ({
       id: c.source.id,
       label: c.source.label,
       ...(c.source.description ? { description: c.source.description } : {}),
       credentialMode: c.source.credentialMode,
       connectionRequired: c.source.connectionRequired,
+      // Narrowed by the filter above — "hidden" can't reach here.
+      exposure: c.source.exposure === "public" ? "public" : "preview",
       providerId: c.source.providerId,
       ...(c.source.attributionPrefix
         ? { attributionPrefix: c.source.attributionPrefix }
@@ -143,6 +162,7 @@ export function buildClientAnalyticsCatalog(): ClientAnalyticsCatalog {
             valueType: f.valueType,
             ...(f.optionsSource !== undefined ? { optionsSource: f.optionsSource } : {}),
             maxSelections: f.maxSelections,
+            ...(f.values ? { values: f.values.map((v) => ({ ...v })) } : {}),
           })),
           dateFields: ds.dateFields
             .filter((d) => d.historical)

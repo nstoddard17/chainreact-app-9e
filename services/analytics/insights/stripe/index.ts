@@ -42,6 +42,10 @@ export const stripeInsightsCatalog: AnalyticsSourceCatalog = {
     description: "Payments processed through your Stripe account.",
     credentialMode: "account",
     connectionRequired: true,
+    // Implemented + fixture-proven, but live provider certification is still
+    // blocked on a connected Stripe test account (CD-2 outcome). Not public
+    // until that pass; flipping this to "public" is the certification switch.
+    exposure: "preview",
   },
   datasets: [
     {
@@ -72,6 +76,13 @@ export const stripeInsightsCatalog: AnalyticsSourceCatalog = {
           dimensionable: true,
           cardinality: "low",
           filterable: true,
+          // The three charge states the aggregation layer recognizes
+          // (aggregate.ts STATUS_ORDER) — declared for the generic filter UI.
+          values: [
+            { id: "succeeded", label: "Succeeded" },
+            { id: "pending", label: "Pending" },
+            { id: "failed", label: "Failed" },
+          ],
           nullable: false,
           measurable: false,
           distinctCountable: false,
@@ -149,8 +160,14 @@ export const stripeInsightsCatalog: AnalyticsSourceCatalog = {
           compare: true,
         },
       ],
-      supportedCharts: ["kpi", "line", "bar", "table"],
-      partToWholeDimensions: [],
+      supportedCharts: ["kpi", "line", "bar", "table", "donut"],
+      // Charge status is mutually exclusive and exhaustive over the scanned
+      // window (succeeded | pending | failed), so a COUNT by status sums to a
+      // meaningful whole. Currency is NOT listed: monetary measures can't
+      // group by it at all, and a count-by-currency donut invites reading it
+      // as a money split. A scan-capped result still renders without
+      // percentages (the renderer's completeness guardrail).
+      partToWholeDimensions: ["status"],
       series: [{ by: "status", max: 3, modes: [] }],
       compare: true,
       queryLimits: {

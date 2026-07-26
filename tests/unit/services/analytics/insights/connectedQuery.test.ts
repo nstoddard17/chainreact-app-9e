@@ -64,7 +64,10 @@ describe("capability validation (typed, no silent rewrite, no I/O)", () => {
     ["series dim not supported by measure", { measure: "success_rate", dimension: "time", series: { by: "status" }, range: { preset: "7d" } }],
     ["status series with explicit mode", { measure: "runs", dimension: "time", series: { by: "status", mode: "explicit", ids: ["succeeded"] }, range: { preset: "7d" } }],
     ["invalid date field", { measure: "runs", dimension: "time", dateField: "finished", range: { preset: "7d" } }],
-    ["unsupported chart (donut)", { measure: "runs", dimension: "status", chart: "donut", range: { preset: "7d" } }],
+    // Donut IS supported on `status` (a declared part-to-whole, CD-3B) — but
+    // never on a dimension whose Top-N rows omit an unlabeled remainder.
+    ["donut on a non part-to-whole dimension", { measure: "runs", dimension: "workflow", chart: "donut", range: { preset: "7d" } }],
+    ["donut without a grouping", { measure: "runs", dimension: null, chart: "donut", range: { preset: "7d" } }],
     ["line without time", { measure: "runs", dimension: "workflow", chart: "line", range: { preset: "7d" } }],
     ["compare on multi-series", { measure: "runs", dimension: "time", series: { by: "status" }, compare: "previous_period", range: { preset: "7d" } }],
     ["range too long", { measure: "runs", dimension: null, range: { from: "2025-01-01T00:00:00Z", to: "2026-06-01T00:00:00Z" } }],

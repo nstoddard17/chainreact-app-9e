@@ -224,6 +224,11 @@ export const AnalyticsQueryResultSchema = z
       .object({
         previousRange: z.object({ from: z.string(), to: z.string() }),
         values: z.array(MeasureValueSchema),
+        /** The previous window's OWN bucket boundaries, index-aligned to the
+         * current buckets — previous-period drill uses these verbatim (CD-5B). */
+        buckets: z
+          .array(z.object({ start: z.string(), end: z.string(), label: z.string() }))
+          .optional(),
       })
       .nullable()
       .optional(),

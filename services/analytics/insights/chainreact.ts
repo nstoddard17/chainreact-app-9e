@@ -39,6 +39,7 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
     description: "Your workflows and their runs.",
     credentialMode: "internal",
     connectionRequired: false,
+    exposure: "public",
   },
   datasets: [
     {
@@ -64,6 +65,12 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           nullable: false,
           measurable: false,
           distinctCountable: false,
+          // CD-5B: workflow rows are keyed by the same account-owned workflow
+          // id the filter accepts, and the query engine rejects any id the
+          // account doesn't own (UNKNOWN_WORKFLOW) — so a workflow bar may be
+          // drilled into by filtering on its own id. This is an
+          // account-internal identifier, never a provider record id.
+          resultIdsAreFilterValues: true,
         },
         {
           id: "status",
@@ -72,6 +79,13 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           dimensionable: true,
           cardinality: "low",
           filterable: true,
+          // The run domain's two terminal statuses (contracts/analyticsQuery.ts
+          // AnalyticsRunStatusSchema) — declared so the builder renders a real
+          // choice list, never a free-text status box.
+          values: [
+            { id: "succeeded", label: "Succeeded" },
+            { id: "failed", label: "Failed" },
+          ],
           nullable: false,
           measurable: false,
           distinctCountable: false,
@@ -83,6 +97,16 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           dimensionable: true,
           cardinality: "low",
           filterable: true,
+          // Mirrors contracts/workflow.ts WorkflowRunTriggeredBySchema.
+          values: [
+            { id: "manual", label: "Manual" },
+            { id: "test", label: "Test" },
+            { id: "webhook", label: "Webhook" },
+            { id: "scheduled", label: "Scheduled" },
+            { id: "retry", label: "Retry" },
+            { id: "api_key", label: "API key" },
+            { id: "unknown", label: "Unknown" },
+          ],
           nullable: false,
           measurable: false,
           distinctCountable: false,
@@ -142,8 +166,14 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           compare: true,
         },
       ],
-      supportedCharts: ["kpi", "line", "bar", "table"],
-      partToWholeDimensions: [],
+      supportedCharts: ["kpi", "line", "bar", "table", "donut"],
+      // Run status is the ONE true part-to-whole breakdown here: the domain
+      // has exactly two terminal states (succeeded | failed), they are
+      // mutually exclusive, and together they are every run in the window —
+      // so the slices sum to a meaningful total. Workflow / trigger source
+      // are deliberately NOT listed (a run has one of each, but Top-N rows
+      // omit an unlabeled remainder, so a donut would imply a false whole).
+      partToWholeDimensions: ["status"],
       series: [
         { by: "workflow", max: 8, modes: ["explicit", "top"] },
         { by: "status", max: 2, modes: [] },

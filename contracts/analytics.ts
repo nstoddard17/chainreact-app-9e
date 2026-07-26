@@ -16,9 +16,16 @@ import { z } from "zod";
  * payloads — widgets reference data by metric id + optional workflow id only.
  */
 
+/** Range presets mirrored from the page's top-level selector. (Declared ahead
+ * of the widget section — the Custom Insight config reuses it.) */
+export const AnalyticsRangeSchema = z.enum(["today", "7d", "30d", "90d", "ytd"]);
+export type AnalyticsRange = z.infer<typeof AnalyticsRangeSchema>;
+
 // ── Widgets ──────────────────────────────────────────────────────────────────
 
-/** Visual shape of a widget. Mirrors the design's widget library. */
+/** Visual shape of a widget. Mirrors the design's widget library. `insight` is
+ * the catalog-driven Custom Insight (CD-3A) — its data binding lives in
+ * `config.insight`, not in the legacy `metric` field. */
 export const AnalyticsWidgetTypeSchema = z.enum([
   "stat",
   "line",
@@ -28,6 +35,7 @@ export const AnalyticsWidgetTypeSchema = z.enum([
   "table",
   "activity",
   "note",
+  "insight",
 ]);
 export type AnalyticsWidgetType = z.infer<typeof AnalyticsWidgetTypeSchema>;
 
@@ -92,6 +100,113 @@ export const AnalyticsWidgetDataSourceSchema = z.discriminatedUnion("kind", [
 ]);
 export type AnalyticsWidgetDataSource = z.infer<typeof AnalyticsWidgetDataSourceSchema>;
 
+// ── Custom Insight (CD-3A) ───────────────────────────────────────────────────
+
+/**
+ * Insight display types. CD-3A shipped kpi + line; CD-3B adds bar, the
+ * user-selectable table, and the catalog-gated donut. Availability per query
+ * always comes from the dataset's declared `charts` (+ part-to-whole for
+ * donut) — this enum only bounds what the renderer can draw.
+ */
+export const InsightChartTypeSchema = z.enum(["kpi", "line", "bar", "table", "donut"]);
+export type InsightChartType = z.infer<typeof InsightChartTypeSchema>;
+
+const InsightId = z.string().min(1).max(60);
+
+/**
+ * Range presets a Custom Insight may persist (CD-5A).
+ *
+ * A SUPERSET of `AnalyticsRangeSchema` — every id the legacy dashboard selector
+ * uses is still here, so every previously saved Insight keeps parsing AND keeps
+ * meaning exactly what it meant. The added ids are the calendar-anchored ranges
+ * people actually ask for.
+ *
+ * Each one resolves in `core/analytics/insightRange.ts`, which the builder and
+ * the server share, so a preset can never mean one thing in the chart and
+ * another in the query. The legacy dashboard-wide enum is deliberately NOT
+ * widened — it drives the internal overview path, which has its own resolver.
+ */
+export const InsightRangePresetSchema = z.enum([
+  "today",
+  "yesterday",
+  "7d",
+  "30d",
+  "90d",
+  "this_month",
+  "last_month",
+  "ytd",
+  "12m",
+]);
+export type InsightRangePresetId = z.infer<typeof InsightRangePresetSchema>;
+
+/**
+ * Mirrors `ConnectedAnalyticsQuery.range` (contracts/connectedAnalytics.ts).
+ *
+ * For a custom range, `to` is the user's INCLUSIVE end date — "to July 31"
+ * includes July 31. The translator in `insightQueryFromConfig` converts it to
+ * the exclusive UTC instant the query engine works in, so nobody has to
+ * understand `[from, to)` to get the range they asked for.
+ */
+export const InsightRangeSchema = z.union([
+  z.object({ preset: InsightRangePresetSchema }).strict(),
+  z.object({ from: z.string().min(1).max(40), to: z.string().min(1).max(40) }).strict(),
+]);
+export type InsightRange = z.infer<typeof InsightRangeSchema>;
+
+export const InsightSeriesConfigSchema = z
+  .object({
+    by: InsightId,
+    /** Omitted = the dataset's automatic mode (every value is a series). */
+    mode: z.enum(["top", "explicit"]).optional(),
+    ids: z.array(z.string().min(1).max(120)).min(1).max(8).optional(),
+    topN: z.number().int().min(1).max(8).optional(),
+  })
+  .strict();
+export type InsightSeriesConfig = z.infer<typeof InsightSeriesConfigSchema>;
+
+/**
+ * The persisted Custom Insight question (CD-3A): source → dataset → measure →
+ * grouping → filters → series → time → chart. Every id references the
+ * connected-analytics CATALOG and is re-validated server-side on every query —
+ * persistence never grants capability.
+ *
+ * ONLY the user's intended question is stored. By construction (`.strict()` +
+ * these fields only) the config can never carry account/user/integration ids,
+ * tokens, provider responses, chart rows, names-as-authority, freshness,
+ * errors, or generated colors — contract-tested.
+ */
+export const InsightWidgetConfigSchema = z
+  .object({
+    source: InsightId,
+    dataset: InsightId,
+    measure: InsightId,
+    /** "time", a category dimension id, or null for a single number. */
+    dimension: InsightId.nullable(),
+    dateField: InsightId.optional(),
+    timeGrain: z.enum(["auto", "day", "week", "month"]).optional(),
+    /** Keys are catalog filter ids; values typed per filter definition. */
+    filters: z
+      .record(z.union([z.array(z.string().min(1).max(120)).min(1).max(20), z.boolean()]))
+      .optional(),
+    series: InsightSeriesConfigSchema.optional(),
+    /** Omitted = the builder's default preset (the widget's own range — an
+     * Insight does not follow the dashboard's global range selector). */
+    range: InsightRangeSchema.optional(),
+    compare: z.literal("previous_period").nullable().optional(),
+    /** Category-breakdown ordering (CD-3B). Mirrors the connected query's
+     * `sort`; only meaningful for a categorical grouping — the server rejects
+     * it otherwise, so it is never persisted for KPI/time shapes. */
+    sort: z
+      .object({ by: z.enum(["value", "label"]), dir: z.enum(["asc", "desc"]) })
+      .strict()
+      .optional(),
+    /** Category-row cap (CD-3B); bounded by the dataset's maxCategoryRows. */
+    limit: z.number().int().min(1).max(50).optional(),
+    chart: InsightChartTypeSchema,
+  })
+  .strict();
+export type InsightWidgetConfig = z.infer<typeof InsightWidgetConfigSchema>;
+
 /**
  * Per-widget configuration. `source` is "any" (account-wide) or a specific
  * workflow id (honored for scalar metrics via the overview's per-workflow
@@ -108,6 +223,10 @@ export const AnalyticsWidgetConfigSchema = z
     metric: AnalyticsMetricSchema.optional(),
     note: z.string().max(2000).optional(),
     dataSource: AnalyticsWidgetDataSourceSchema.optional(),
+    /** Custom Insight binding (type "insight"). Absent while the widget is
+     * newly added and not yet configured — the body renders a guided empty
+     * state, never a query. */
+    insight: InsightWidgetConfigSchema.optional(),
   })
   .strict();
 export type AnalyticsWidgetConfig = z.infer<typeof AnalyticsWidgetConfigSchema>;
@@ -181,10 +300,6 @@ export const UpdateDashboardBodySchema = z
 export type UpdateDashboardBody = z.infer<typeof UpdateDashboardBodySchema>;
 
 // ── Computed overview (read-time aggregation) ────────────────────────────────
-
-/** Range presets mirrored from the page's top-level selector. */
-export const AnalyticsRangeSchema = z.enum(["today", "7d", "30d", "90d", "ytd"]);
-export type AnalyticsRange = z.infer<typeof AnalyticsRangeSchema>;
 
 export const AnalyticsTotalsSchema = z.object({
   runs: z.number().int().nonnegative(),

@@ -9,6 +9,7 @@ import type {
   AnalyticsWidgetConfig,
   AnalyticsWidgetSize,
   AnalyticsWidgetType,
+  InsightWidgetConfig,
 } from "@/contracts/analytics";
 import { widgetSourceKind } from "@/contracts/analytics";
 import * as analyticsApi from "@/lib/api/analytics";
@@ -19,13 +20,24 @@ import { WidgetBody } from "./widgetBodies";
 import { ConnectedAppWidgetBody } from "./ConnectedAppWidgetBody";
 import { WidgetLibrary } from "./WidgetLibrary";
 import { WidgetConfigPanel } from "./WidgetConfigPanel";
+import { InsightConfigPanel } from "./insights/InsightConfigPanel";
+import { InsightWidgetBody } from "./insights/InsightWidgetBody";
+import { exportInsightCsv } from "./insights/exportInsightCsv";
+import { isIncompleteResult } from "@/core/analytics/insightCsv";
+import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
+import type { InsightCatalog } from "./insights/insightCatalog";
 import {
   RANGE_OPTIONS,
+  MAX_DASHBOARD_WIDGETS,
   makeWidget,
+  newWidgetId,
+  duplicateWidgetAt,
   ErrorBanner,
   EmptyDashboard,
   downloadDashboardExport,
 } from "./dashboardHelpers";
+import { DashboardConfirmDialog, DashboardNameDialog } from "./DashboardDialogs";
+import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
 /**
  * Analytics dashboard orchestrator (Slice ANALYTICS-1).
@@ -55,6 +67,11 @@ interface Props {
    * connection; personal providers reflect this viewer's own.
    */
   connectedProviders: Record<string, boolean>;
+  /**
+   * Client-safe Custom Insight catalog, already filtered server-side to this
+   * environment's exposure (production never receives preview sources).
+   */
+  insightCatalog: InsightCatalog;
   initialDashboards: readonly Dashboard[];
   initialOverview: AnalyticsOverview;
   initialRange: AnalyticsRange;
@@ -64,6 +81,7 @@ export function AnalyticsDashboard({
   accountName,
   canManage,
   connectedProviders,
+  insightCatalog,
   initialDashboards,
   initialOverview,
   initialRange,
@@ -76,12 +94,46 @@ export function AnalyticsDashboard({
   const [dataError, setDataError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
+  /**
+   * The result each Insight widget currently has on screen, published upward by
+   * `InsightWidgetBody` so the header's Export CSV works over exactly what is
+   * rendered — never a refetch (CD-5A). Runtime-only; never persisted.
+   */
+  const [insightResults, setInsightResults] = useState<
+    Record<string, ConnectedAnalyticsResult>
+  >({});
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const handleInsightResult = useCallback(
+    (widgetId: string, result: ConnectedAnalyticsResult | null) => {
+      setInsightResults((prev) => {
+        if (result === null) {
+          if (!(widgetId in prev)) return prev;
+          const next = { ...prev };
+          delete next[widgetId];
+          return next;
+        }
+        if (prev[widgetId] === result) return prev;
+        return { ...prev, [widgetId]: result };
+      });
+    },
+    [],
+  );
+
   const [editing, setEditing] = useState(false);
   const [draftWidgets, setDraftWidgets] = useState<readonly AnalyticsWidget[]>([]);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [showLibrary, setShowLibrary] = useState(false);
+  // CD-3B dashboard actions — real dialogs, never window.prompt/confirm.
+  const [nameDialog, setNameDialog] = useState<"create" | "rename" | null>(null);
+  const [showRestore, setShowRestore] = useState(false);
+  /** CD-5B: the exploration an editor is saving as a new widget (dialog open). */
+  const [savingExploration, setSavingExploration] = useState<{
+    sourceWidgetId: string;
+    config: InsightWidgetConfig;
+    suggestedTitle: string;
+  } | null>(null);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const draggingId = useRef<string | null>(null);
   const [draggingState, setDraggingState] = useState<string | null>(null);
@@ -148,6 +200,17 @@ export function AnalyticsDashboard({
     setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, size } : w)));
   const handleRemove = (id: string) =>
     setDraftWidgets((ws) => ws.filter((w) => w.id !== id));
+  const handleDuplicate = (id: string) => {
+    setActionError(null);
+    setDraftWidgets((ws) => {
+      const outcome = duplicateWidgetAt(ws, id);
+      if ("error" in outcome) {
+        setActionError(outcome.error);
+        return ws;
+      }
+      return outcome.widgets;
+    });
+  };
   const handleRename = (id: string, title: string) =>
     setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, title } : w)));
   const handleConfigSave = (id: string, config: AnalyticsWidgetConfig) => {
@@ -189,17 +252,35 @@ export function AnalyticsDashboard({
     setActiveId(id);
   };
 
-  const createDashboard = async () => {
-    const name = window.prompt("Name your new dashboard")?.trim();
-    if (!name) return;
-    setActionError(null);
-    try {
-      const created = await analyticsApi.createDashboard({ name });
-      setDashboards((ds) => [...ds, created]);
-      setActiveId(created.id);
-    } catch (err) {
-      setActionError(err instanceof AnalyticsApiError ? err.message : "Couldn't create the dashboard.");
-    }
+  const createDashboard = async (name: string) => {
+    const created = await analyticsApi.createDashboard({ name });
+    setDashboards((ds) => [...ds, created]);
+    setActiveId(created.id);
+    setNameDialog(null);
+  };
+
+  /** Rename the active dashboard through the existing PATCH path. */
+  const renameDashboard = async (name: string) => {
+    if (!active) return;
+    const updated = await analyticsApi.updateDashboard(active.id, { name });
+    setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+    setNameDialog(null);
+  };
+
+  /**
+   * Restore the default board: rewrite the DEFAULT dashboard's widgets to the
+   * canonical definitions (contracts/analyticsDefaults.ts) through the same
+   * atomic PATCH every save uses. Other dashboards, connections, and account
+   * data are untouched.
+   */
+  const restoreDefaultLayout = async () => {
+    if (!active?.isDefault) return;
+    const updated = await analyticsApi.updateDashboard(active.id, {
+      widgets: DEFAULT_OVERVIEW_WIDGETS,
+    });
+    setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+    setDraftWidgets(updated.widgets.map((w) => ({ ...w })));
+    setShowRestore(false);
   };
 
   const deleteActiveDashboard = async () => {
@@ -220,6 +301,79 @@ export function AnalyticsDashboard({
 
   const exportDashboard = () => {
     if (active) downloadDashboardExport(active, range, overview);
+  };
+
+  /**
+   * Per-widget CSV (CD-5A) — serializes the bounded result already on screen.
+   * No request is made, so exporting cannot re-query a provider, spend the rate
+   * limiter, or touch the snapshot cache. Distinct from `exportDashboard`,
+   * which saves the dashboard's CONFIGURATION as JSON.
+   */
+  const exportWidgetCsv = (id: string) => {
+    const result = insightResults[id];
+    if (!result) {
+      setExportStatus("There's no data to export yet.");
+      return;
+    }
+    const widget = widgets.find((w) => w.id === id);
+    try {
+      exportInsightCsv(result, widget ? { widgetTitle: widget.title } : {});
+      setExportStatus(
+        isIncompleteResult(result)
+          ? "CSV downloaded. This data is partial or cached — the file records that."
+          : "CSV downloaded.",
+      );
+    } catch {
+      setExportStatus("Couldn't create the CSV.");
+    }
+  };
+
+  /**
+   * CD-5B: persist an explored question as a NEW widget, placed immediately
+   * after its source widget. Distinct from Duplicate (which copies the saved
+   * question): this saves the currently-explored refinement. The source
+   * widget's config is never touched.
+   *
+   * In edit mode the widget joins the draft (persisted by the normal atomic
+   * "Done editing" PATCH); outside edit mode it PATCHes immediately, the same
+   * pattern as Restore-default-layout.
+   */
+  const atWidgetCap = widgets.length >= MAX_DASHBOARD_WIDGETS;
+  const saveExploration = async (title: string) => {
+    if (!savingExploration || !active) return;
+    const insert = (list: readonly AnalyticsWidget[]): AnalyticsWidget[] => {
+      const next = list.slice();
+      const idx = next.findIndex((w) => w.id === savingExploration.sourceWidgetId);
+      const widgetToAdd: AnalyticsWidget = {
+        id: newWidgetId(),
+        type: "insight",
+        size:
+          (next.find((w) => w.id === savingExploration.sourceWidgetId)?.size as
+            | AnalyticsWidgetSize
+            | undefined) ?? "m",
+        title: title.slice(0, 120),
+        icon: "Sparkle",
+        config: { source: "any", insight: savingExploration.config },
+      };
+      next.splice(idx >= 0 ? idx + 1 : next.length, 0, widgetToAdd);
+      return next;
+    };
+    if (editing) {
+      if (draftWidgets.length >= MAX_DASHBOARD_WIDGETS) {
+        throw new Error(`A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.`);
+      }
+      setDraftWidgets((ws) => insert(ws));
+      setSavingExploration(null);
+      return;
+    }
+    if (active.widgets.length >= MAX_DASHBOARD_WIDGETS) {
+      throw new Error(`A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.`);
+    }
+    const updated = await analyticsApi.updateDashboard(active.id, {
+      widgets: insert(active.widgets),
+    });
+    setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+    setSavingExploration(null);
   };
 
   const rangeLabel = RANGE_OPTIONS.find((r) => r.id === range)?.label;
@@ -337,6 +491,24 @@ export function AnalyticsDashboard({
           );
         })}
         <span className="flex-1" />
+        {canManage && active && !editing && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setNameDialog("rename")}
+          >
+            <AnalyticsIcon name="Settings" size={11} /> Rename
+          </button>
+        )}
+        {canManage && active?.isDefault && !editing && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setShowRestore(true)}
+          >
+            <AnalyticsIcon name="History" size={11} /> Restore default layout
+          </button>
+        )}
         {canManage && active && !active.isDefault && !editing && (
           <button
             type="button"
@@ -350,7 +522,7 @@ export function AnalyticsDashboard({
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 px-3 py-1 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
-            onClick={() => void createDashboard()}
+            onClick={() => setNameDialog("create")}
             disabled={editing}
           >
             <AnalyticsIcon name="Plus" size={11} /> New dashboard
@@ -384,6 +556,11 @@ export function AnalyticsDashboard({
       {dataError && <ErrorBanner message={dataError} onRetry={reloadData} retryLabel="Retry" />}
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
 
+      {/* Export outcome — announced, never an alert() and never silent. */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {exportStatus ?? ""}
+      </div>
+
       {/* Grid */}
       {widgets.length === 0 ? (
         <EmptyDashboard
@@ -400,14 +577,33 @@ export function AnalyticsDashboard({
               widget={w}
               isEditing={editing}
               isDragging={draggingState === w.id}
-              {...(rangeLabel ? { rangeLabel } : {})}
+              {...(rangeLabel && w.type !== "insight" ? { rangeLabel } : {})}
               onResize={handleResize}
+              onDuplicate={handleDuplicate}
               onRemove={handleRemove}
               onRename={handleRename}
               onConfigure={(id) => setConfiguringId(id)}
               onMove={handleMove}
+              {...(w.type === "insight" && insightResults[w.id]
+                ? { onExportCsv: exportWidgetCsv }
+                : {})}
             >
-              {widgetSourceKind(w.config) === "connected_app" ? (
+              {w.type === "insight" ? (
+                <InsightWidgetBody
+                  widget={w}
+                  catalog={insightCatalog}
+                  connectedProviders={connectedProviders}
+                  canManage={canManage}
+                  reloadKey={reloadKey}
+                  onResult={handleInsightResult}
+                  {...(canManage ? { onSaveExploration: setSavingExploration } : {})}
+                  saveDisabledReason={
+                    atWidgetCap
+                      ? `This dashboard is full (${MAX_DASHBOARD_WIDGETS} widgets) — remove one to save a new insight.`
+                      : null
+                  }
+                />
+              ) : widgetSourceKind(w.config) === "connected_app" ? (
                 <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
               ) : (
                 <WidgetBody overview={loadingData ? null : overview} widget={w} />
@@ -427,16 +623,55 @@ export function AnalyticsDashboard({
         </div>
       )}
 
-      {showLibrary && <WidgetLibrary onAdd={handleAdd} onClose={() => setShowLibrary(false)} />}
-      {configuringWidget && (
-        <WidgetConfigPanel
-          widget={configuringWidget}
-          workflows={overview?.workflows ?? []}
-          connectedProviders={connectedProviders}
-          onClose={() => setConfiguringId(null)}
-          onSave={(config) => handleConfigSave(configuringWidget.id, config)}
+      {nameDialog && (
+        <DashboardNameDialog
+          mode={nameDialog}
+          {...(nameDialog === "rename" && active ? { initialName: active.name } : {})}
+          onSubmit={nameDialog === "rename" ? renameDashboard : createDashboard}
+          onClose={() => setNameDialog(null)}
         />
       )}
+      {savingExploration && (
+        <DashboardNameDialog
+          mode="saveInsight"
+          initialName={savingExploration.suggestedTitle}
+          onSubmit={saveExploration}
+          onClose={() => setSavingExploration(null)}
+        />
+      )}
+      {showRestore && active?.isDefault && (
+        <DashboardConfirmDialog
+          title="Restore the default layout?"
+          body={`This replaces the widgets on "${active.name}" with ChainReact's default set. Any widgets you added or configured here will be removed. Your other dashboards and your data aren't affected.`}
+          confirmLabel="Restore layout"
+          destructive
+          onConfirm={restoreDefaultLayout}
+          onClose={() => setShowRestore(false)}
+        />
+      )}
+      {showLibrary && <WidgetLibrary onAdd={handleAdd} onClose={() => setShowLibrary(false)} />}
+      {configuringWidget &&
+        (configuringWidget.type === "insight" ? (
+          <InsightConfigPanel
+            widget={configuringWidget}
+            catalog={insightCatalog}
+            connectedProviders={connectedProviders}
+            internalEntityOptions={(overview?.workflows ?? []).map((wf) => ({
+              value: wf.workflowId,
+              label: wf.name,
+            }))}
+            onClose={() => setConfiguringId(null)}
+            onSave={(config) => handleConfigSave(configuringWidget.id, config)}
+          />
+        ) : (
+          <WidgetConfigPanel
+            widget={configuringWidget}
+            workflows={overview?.workflows ?? []}
+            connectedProviders={connectedProviders}
+            onClose={() => setConfiguringId(null)}
+            onSave={(config) => handleConfigSave(configuringWidget.id, config)}
+          />
+        ))}
     </main>
   );
 }

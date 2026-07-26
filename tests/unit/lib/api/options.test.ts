@@ -49,6 +49,25 @@ describe("buildOptionsSourceUrl", () => {
     );
   });
 
+  // QUICKBOOKS-INVOICES-INTEGRATION-RESOLVER-1 — saved selections needing labels.
+  it("serializes each `selected` value as a repeated param", () => {
+    expect(
+      buildOptionsSourceUrl("quickbooks:customers", { selected: ["42", "137"] }),
+    ).toBe("/api/options/quickbooks%3Acustomers?selected=42&selected=137");
+  });
+
+  it("omits `selected` when absent or empty, leaving existing URLs unchanged", () => {
+    expect(buildOptionsSourceUrl("slack:channels", { q: "eng", selected: [] })).toBe(
+      buildOptionsSourceUrl("slack:channels", { q: "eng" }),
+    );
+  });
+
+  it("keeps `selected` after the existing params", () => {
+    expect(
+      buildOptionsSourceUrl("quickbooks:customers", { q: "ze", selected: ["137"] }),
+    ).toBe("/api/options/quickbooks%3Acustomers?q=ze&selected=137");
+  });
+
   it("serializes `q` when non-empty", () => {
     expect(
       buildOptionsSourceUrl("slack:channels", { q: "eng" }),
