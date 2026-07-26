@@ -453,6 +453,7 @@ import { asanaTasksResolver } from "@/integrations/asana/options/tasks";
 // Typeform (Slice 5.TYPEFORM-1) — single top-level forms resolver for the
 // new_response_in_form trigger. Refreshable via refreshAndRetry.
 import { typeformFormsResolver } from "@/integrations/typeform/options/forms";
+import { typeformFormQuestionsResolver } from "@/integrations/typeform/options/formQuestions";
 // Calendly (Slice 5.CALENDLY-1) — single top-level event-types resolver
 // backing the optional eventTypeId filter on both triggers. Refreshable
 // via refreshAndRetry.
@@ -902,6 +903,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // refreshable (refreshAndRetry — weekly-expiring tokens). Labels are
   // form titles only.
   typeformFormsResolver,
+  typeformFormQuestionsResolver,
   // Slice 5.CALENDLY-1 — 1 Calendly resolver (third net-new provider;
   // meta + resolver land in the same slice). event_types (root, no
   // deps); values are event-type UUIDs, labels are names only; local

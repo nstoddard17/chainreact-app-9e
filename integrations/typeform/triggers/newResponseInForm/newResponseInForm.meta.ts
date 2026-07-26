@@ -86,6 +86,13 @@ export const typeformNewResponseInFormTriggerMeta: TriggerMeta = {
       sensitive: true,
     },
     {
+      name: "answersByRef",
+      type: "object",
+      description:
+        "Answers keyed by each question's STABLE reference (e.g. answersByRef.email) — the path to map a specific question into a later step. Positional answers[] shifts when a respondent skips a question; these keys do not. Unanswered questions are absent.",
+      sensitive: true,
+    },
+    {
       name: "hidden",
       type: "object",
       description: "Hidden-field values passed into the form, when used.",
