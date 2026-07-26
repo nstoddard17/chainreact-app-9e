@@ -177,10 +177,19 @@ describe("dispatch idempotency — dedup is event-identity based, not outcome ba
   });
 });
 
-describe("dispatch idempotency — fail-open dedup outage", () => {
-  it("during an outage, replays are NOT deduped and may double-enqueue (documented tradeoff)", async () => {
-    // markSeen throws on every call → dispatch proceeds (fail-open) and the
-    // event is never recorded as seen, so a replay enqueues again.
+// TEST-SUITE-GREEN-1 — this block used to assert the OPPOSITE (fail-OPEN: both
+// deliveries enqueue, "documented tradeoff", relying on a downstream Q4 session
+// idempotency backstop). That tradeoff was deliberately reversed by 19c00455f
+// ("fix(webhooks): fail safe on dedup outage before enqueue"): the Q4
+// side-effect backstop does not exist, so proceeding past an UNCONFIRMED dedup
+// check risks duplicate REAL external side effects (a second Slack message, a
+// second charge). Fail-closed is also what CLAUDE.md trigger rule 13 requires —
+// "on dedup outage skip-enqueue this tick". The product is right and the
+// assertion was stale; restoring the old expectation would re-introduce the
+// double-side-effect bug, so it is inverted here rather than relaxed.
+describe("dispatch idempotency — fail-CLOSED dedup outage", () => {
+  it("during an outage the tick is SHED, not double-enqueued (no unconfirmed side effects)", async () => {
+    // markSeen throws on every call → dispatch cannot confirm the event is new.
     mockMarkSeen.mockReset();
     mockMarkSeen.mockRejectedValue(new Error("dedup store unavailable"));
 
@@ -188,10 +197,13 @@ describe("dispatch idempotency — fail-open dedup outage", () => {
     const first = await dispatchTriggerEvent(event);
     const second = await dispatchTriggerEvent(event);
 
-    expect(first).toMatchObject({ dedupOutage: true, enqueued: 1, duplicate: false });
-    expect(second).toMatchObject({ dedupOutage: true, enqueued: 1, duplicate: false });
-    // Fail-open means BOTH enqueue — downstream Q4 session idempotency is the
-    // second line of defense against duplicate side effects.
-    expect(mockEnqueueRun).toHaveBeenCalledTimes(2);
+    // `dedupOutage: true` + `enqueued: 0` is the caller's signal that the event
+    // was shed by the outage — NOT that it was deduped (`duplicate` stays false,
+    // since we never learned whether it was a replay).
+    expect(first).toMatchObject({ dedupOutage: true, enqueued: 0, duplicate: false, matched: 0 });
+    expect(second).toMatchObject({ dedupOutage: true, enqueued: 0, duplicate: false, matched: 0 });
+    // The point of the whole rule: nothing reaches the run queue, so no external
+    // side effect can fire twice off an unverified event.
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
   });
 });

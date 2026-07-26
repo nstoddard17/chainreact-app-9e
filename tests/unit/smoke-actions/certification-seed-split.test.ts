@@ -159,10 +159,28 @@ describe("certification seed split — data invariance", () => {
     // missingFixture nets back to 57: 57 + 47 powerbi (registered, no fixtures)
     // = 104 before this batch, - 47 now that the fixtures are wired.
     // 397 registered / 273 LIVE_PASS / 47 LIVE_NOT_RUN / 57 MISSING / 20 BLOCKED_ENV.
-    expect(m.totals.registered).toBe(397);
+    // TEST-SUITE-GREEN-1 (2026-07-26): re-pinned to the registry as it actually
+    // stands. Net +17 registered since the Power BI pin, reconciled exactly
+    // against `services/execution/handlers/_handlerInventory.ts` (the surface
+    // `listRegisteredActions()` reads) — 20 handlers added, 3 removed:
+    //   + ai 2 (analyze_document, transform_data)
+    //   + fleetio 4 (get_vehicle, update_vehicle_status, create_meter_entry,
+    //     find_linked_vehicle)
+    //   + linear 4 (find_issues, create_issue, update_issue, add_comment)
+    //   + motive 10 (vehicle/driver/fuel-purchase actions)
+    //   − eden 3 (schedule_post, publish_post_now, update_scheduled_post)
+    // Status split of those 20: 18 have no smoke fixture (MISSING_FIXTURE) and
+    // 2 do (motive:get_fuel_purchase, motive:list_fuel_purchases → LIVE_NOT_RUN,
+    // fixture present but no certification record seeded). The 3 removed eden
+    // rows were MISSING_FIXTURE. So missingFixture 57 + 18 − 3 = 72 and
+    // liveNotRun 47 + 2 = 49, while livePass and blockedEnv are UNCHANGED —
+    // this batch certified nothing live and blocked nothing new; it only
+    // records registry growth that already happened.
+    // 414 registered / 273 LIVE_PASS / 49 LIVE_NOT_RUN / 72 MISSING / 20 BLOCKED_ENV.
+    expect(m.totals.registered).toBe(414);
     expect(m.totals.livePass).toBe(273);
-    expect(m.totals.liveNotRun).toBe(47);
-    expect(m.totals.missingFixture).toBe(57);
+    expect(m.totals.liveNotRun).toBe(49);
+    expect(m.totals.missingFixture).toBe(72);
     expect(m.totals.blockedEnv).toBe(20);
     expect(m.totals.fail).toBe(0);
     expect(m.totals.bug).toBe(0);

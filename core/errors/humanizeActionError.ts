@@ -17,7 +17,7 @@
  *   - reconnect       → reconnect the app (Apps page)
  *   - open_node       → builder with the failed node focused (fix config)
  *   - retry_later     → transient failure; re-run / wait (no destructive CTA)
- *   - upgrade_plan    → /subscription (billing / quota)
+ *   - upgrade_plan    → /account (billing / quota; see failedRunCta.ts)
  *   - review_pending  → a connected app changed; ChainReact stopped the step and
  *                       is reviewing it (guidance only — no user action needed)
  *   - contact_support → safe default for unknown / unclassifiable failures

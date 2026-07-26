@@ -60,12 +60,18 @@ describe("buildWorkflowFailurePayload — CTA URL routing per humanizer action",
     expect(payload.ctaLabel).toBe("Reconnect");
   });
 
-  it("action='upgrade_plan' → /subscription + 'Upgrade plan' label", () => {
+  // TEST-SUITE-GREEN-1 — was pinned to "/subscription", which is not a route in
+  // V2: there is no app/subscription page, and the canonical mapping in
+  // core/errors/failedRunCta.ts sends upgrade_plan to /account (the billing /
+  // plan surface), as do the Runs row and the builder run-detail. The product
+  // was right and this expectation was the last "/subscription" string in the
+  // codebase — a stale link would have sent a billing-blocked user to a 404.
+  it("action='upgrade_plan' → /account + 'Upgrade plan' label", () => {
     const payload = buildWorkflowFailurePayload({
       ...baseInput,
       errorClassification: makeErr({ action: "upgrade_plan" }),
     });
-    expect(payload.ctaUrl).toBe("/subscription");
+    expect(payload.ctaUrl).toBe("/account");
     expect(payload.ctaLabel).toBe("Upgrade plan");
   });
 

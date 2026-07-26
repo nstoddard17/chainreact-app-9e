@@ -19,6 +19,7 @@ import {
   STALE_RUNNING_RUN_DEFAULT_AGE_MS,
   STALE_RUNNING_RUN_FAILURE_CODE,
 } from "@/services/execution/staleWorkflowRunSweep";
+import { failedRunCta } from "@/core/errors/failedRunCta";
 
 const NOW = new Date("2026-05-25T02:00:00.000Z");
 
@@ -63,8 +64,19 @@ describe("staleWorkflowRunSweep.sweepStaleRunningWorkflowRuns", () => {
     // Via the REAL core/errors humanizer.
     expect(arg.errorClassification.title).toBe("Run interrupted");
     expect(arg.errorClassification.severity).toBe("error");
-    // Lifecycle cleanup — no billing CTA.
-    expect(arg.errorClassification.action).toBeUndefined();
+    // TEST-SUITE-GREEN-1 — this asserted `action` was undefined, but the real
+    // rule it was protecting is the COMMENT: a lifecycle sweep must not push a
+    // BILLING CTA at the user. The humanizer deliberately classifies
+    // EXECUTION_INTERRUPTED as `retry_later` (COST-15F / CR-FAILREASON-1:
+    // re-running IS the right next step), and `retry_later` is guidance-only —
+    // failedRunCta maps it to `href: null`, so it renders as text, never a link.
+    // So the intent held all along and only the assertion was wrong. Pinning the
+    // intent directly is stronger than `toBeUndefined()`, which would also have
+    // accepted a future silent regression to no guidance at all.
+    expect(arg.errorClassification.action).toBe("retry_later");
+    expect(
+      failedRunCta(arg.errorClassification.action as never, { workflowId: "wf-1" })?.href,
+    ).toBeNull();
   });
 
   it("passes a batch limit through, and omits it when not provided", async () => {

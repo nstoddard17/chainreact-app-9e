@@ -2,6 +2,12 @@
   "_comment": "GENERATED from services/options/_registry.ts (listOptionsResolvers). Do NOT hand-edit. Regenerate: UPDATE_OPTION_SOURCE_MANIFEST=1 npx jest tests/unit/mcp/option-source-manifest.test.ts. Drift is enforced by tests/unit/mcp/option-source-manifest.test.ts.",
   "sources": [
     {
+      "source": "ai:destination_actions",
+      "provider": "ai",
+      "requiresIntegration": false,
+      "requiredDeps": null
+    },
+    {
       "source": "airtable:attachment_fields",
       "provider": "airtable",
       "requiresIntegration": true,
@@ -533,6 +539,12 @@
       "requiredDeps": [
         "team"
       ]
+    },
+    {
+      "source": "linear:issues",
+      "provider": "linear",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "linear:labels",
@@ -1173,6 +1185,12 @@
       "requiredDeps": [
         "boardId"
       ]
+    },
+    {
+      "source": "typeform:form_questions",
+      "provider": "typeform",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "typeform:forms",

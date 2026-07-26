@@ -263,6 +263,12 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     // Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 — Templates SSR page resolves the active
     // account to scope the "Your templates" list + the use/fork target account.
     resolve(ROOT, "app/templates/page.tsx"),
+    // TEST-SUITE-GREEN-1 — two more SSR siblings of the same shape: each does
+    // `auth.getUser()` → `resolveActiveAccount(user.id)` on a user session and
+    // server-renders an account-scoped view, exactly like /workflows and /runs
+    // above. Neither is reachable from a background path.
+    resolve(ROOT, "app/analytics/page.tsx"),
+    resolve(ROOT, "app/apps/vehicle-links/page.tsx"),
   ];
   // CS-8: the NotificationBell credential-request notice helper resolves the
   // caller's active account to count their pending reassignment requests. It is
@@ -271,6 +277,12 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
   // test protects (no cron/webhook/trigger use of active-account state) is intact.
   const FOREGROUND_HELPER_FILES = [
     resolve(ROOT, "app/notifications/credentialRequestNotice.ts"),
+    // TEST-SUITE-GREEN-1 — the analytics ROUTE GATE: `requireAccount()` does
+    // `auth.getUser()` → 401, then `resolveActiveAccount` → 403 on
+    // frozen/non-member. It is the analytics analogue of GATE_FILE
+    // (app/api/workflows/_shared.ts) and is imported only by /api/analytics
+    // route handlers, never by cron/webhook/trigger code.
+    resolve(ROOT, "app/api/analytics/_shared.ts"),
   ];
   // OAUTH-ACCT-BIND — the OAuth connect route is a FOREGROUND, user-session entry
   // point (the user clicks "Connect"). It resolves the caller's active account at
@@ -300,7 +312,20 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
   const BACKGROUND_DIRS = ["app/api/cron", "app/api/webhooks", "services/triggers"];
 
   // The resolver (read path) — only the gate may call it.
-  const RESOLVER_REF = /\bresolveActiveAccount\b/;
+  //
+  // TEST-SUITE-GREEN-1 — matches a real CALL or IMPORT, not the bare identifier.
+  // The old `/\bresolveActiveAccount\b/` also matched PROSE, so five files that
+  // merely DOCUMENT the invariant ("the caller resolved the account via
+  // `resolveActiveAccount` before calling") were reported as offenders —
+  // repositories/analytics/queries.ts, repositories/workflowRuns.ts,
+  // repositories/workflowRunStats.ts, services/analytics/analyticsOverview.ts,
+  // services/analytics/sources/querySource.ts. None of them imports or calls it;
+  // they are service-role readers explaining WHY their `accountId` argument is
+  // already trustworthy. Punishing that comment would push authors to delete the
+  // documentation rather than fix anything. A genuine use is always either a
+  // call (`resolveActiveAccount(`) or a named import, and both still fail here.
+  const RESOLVER_REF =
+    /\bresolveActiveAccount\s*\(|import\s*\{[^}]*\bresolveActiveAccount\b[^}]*\}/;
   // Any active-account machinery (read OR write) — forbidden in background paths.
   const ACTIVE_ACCOUNT_REF =
     /\bresolveActiveAccount\b|\bsetActiveAccount\b|services\/accounts\/activeAccount|api\/account\/active/;

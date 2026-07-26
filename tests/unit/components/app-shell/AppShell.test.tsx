@@ -30,8 +30,25 @@ jest.mock("@/app/notifications/actions", () => ({
 
 import { AppShell } from "@/components/app-shell/AppShell";
 
+// TEST-SUITE-GREEN-1 — the shell's header renders <UsageMeter/>, which
+// self-fetches GET /api/account/usage on mount (HEADER-USAGE-VISIBILITY-1).
+// jsdom provides no global `fetch`, so every case here died with
+// "ReferenceError: fetch is not defined" before rendering anything. The PRODUCT
+// is correct — the component already fails quiet and renders nothing when the
+// request fails — so this is purely the missing test-environment boundary,
+// stubbed the same way the sibling UsageMeter.test.tsx does it.
+//
+// These are COMPOSITION tests: they assert the rail / top bar / mobile bar are
+// wired, not what the meter shows. A rejected fetch is therefore the honest
+// stub — the meter takes its no-data path and renders null, exactly as it does
+// for a user whose billing usage is unavailable. UsageMeter's own rendering is
+// covered by its dedicated suite.
+const mockFetch = jest.fn();
 beforeEach(() => {
   mockPathname.mockReturnValue("/workflows");
+  mockFetch.mockReset();
+  mockFetch.mockRejectedValue(new Error("usage endpoint not exercised in shell composition tests"));
+  global.fetch = mockFetch as unknown as typeof fetch;
 });
 
 describe("AppShell — composition", () => {

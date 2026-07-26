@@ -27,6 +27,10 @@ let createUserBehaviour: "ok" | "error-with-user" | "error-no-user" = "ok";
 let deleteUserErrors: Record<string, string> = {};
 let deletedAuthUsers: string[] = [];
 let createdUserSeq = 0;
+// TEST-SUITE-GREEN-1 — a stateful workflow_folders table so the DEEPEST-FIRST
+// delete loop can actually be exercised: the helper re-lists the surviving rows
+// each pass, so the fake must shrink as leaves are deleted.
+let folderRows: Array<{ id: string; parent_folder_id: string | null }> = [];
 
 function fakeAdmin() {
   return {
@@ -36,6 +40,10 @@ function fakeAdmin() {
           ops.push({ table: `${table}:select`, col, vals });
           if (tableErrors[`${table}:select`]) {
             return { data: null, error: { message: tableErrors[`${table}:select`] } };
+          }
+          // The folder tree is re-listed once per deepest-first pass.
+          if (table === "workflow_folders") {
+            return { data: folderRows.map((r) => ({ ...r })), error: null };
           }
           const ids = vals.flatMap((v) => ownedAccountsByOwner[v] ?? []);
           return { data: ids.map((id) => ({ id })), error: null };
@@ -57,8 +65,17 @@ function fakeAdmin() {
       },
       delete: () => ({
         in: async (col: string, vals: unknown) => {
-          ops.push({ table, col, vals });
-          return { error: tableErrors[table] ? { message: tableErrors[table] } : null };
+          // A leaf delete targets folder IDs; the blanket sweep targets
+          // account_id. Record them distinctly so ordering can be asserted.
+          const isLeafDelete = table === "workflow_folders" && col === "id";
+          ops.push({ table: isLeafDelete ? "workflow_folders:leaves" : table, col, vals });
+          const errKey = isLeafDelete ? "workflow_folders:leaves" : table;
+          if (tableErrors[errKey]) return { error: { message: tableErrors[errKey] } };
+          if (isLeafDelete) {
+            const gone = new Set(vals as string[]);
+            folderRows = folderRows.filter((r) => !gone.has(r.id));
+          }
+          return { error: null };
         },
       }),
     }),
@@ -97,6 +114,7 @@ beforeEach(() => {
   deleteUserErrors = {};
   deletedAuthUsers = [];
   createdUserSeq = 0;
+  folderRows = [];
 });
 
 const idx = (table: string) => ops.findIndex((o) => o.table === table);
@@ -232,14 +250,49 @@ describe("cleanupFixtures", () => {
     expect(deletedAuthUsers).toEqual(["user-1"]);
   });
 
-  it("detaches nested workflow_folders before deleting them", async () => {
-    // parent_folder_id is a self-referential RESTRICT FK; a bulk delete of a
-    // nested tree fails unless the tree is detached first.
+  // TEST-SUITE-GREEN-1 — these two used to assert a DETACH-first strategy
+  // (re-parent the whole tree to NULL, then bulk delete). That approach was
+  // deliberately removed in c1288d0b5: detaching makes every folder a root
+  // sibling at once, which violates `workflow_folders_unique_sibling_name_live`
+  // for any suite that intentionally reuses a folder name at different depths
+  // (exactly what workflow-folders-unique-name asserts). The detach then FAILED
+  // and cleanup left synthetic rows behind — the very leak this file exists to
+  // prevent. The helper now deletes DEEPEST-FIRST and never re-parents, so the
+  // assertions are re-pointed at that contract rather than restored.
+  it("deletes a nested workflow_folders tree deepest-first, and never re-parents a folder", async () => {
+    // root → child → grandchild, all in the tracked account.
+    folderRows = [
+      { id: "root", parent_folder_id: null },
+      { id: "child", parent_folder_id: "root" },
+      { id: "grandchild", parent_folder_id: "child" },
+    ];
     const t = createFixtureTracker();
     t.trackAccount("acct-1");
     await cleanupFixtures(fakeAdmin(), t);
-    expect(idx("workflow_folders:detach")).toBeGreaterThan(-1);
-    expect(idx("workflow_folders:detach")).toBeLessThan(idx("workflow_folders"));
+
+    const leafDeletes = ops
+      .filter((o) => o.table === "workflow_folders:leaves")
+      .map((o) => o.vals as string[]);
+    // One pass per depth, deepest first — a parent is never deleted while a
+    // child still points at it (parent_folder_id is a self-referential RESTRICT FK).
+    expect(leafDeletes).toEqual([["grandchild"], ["child"], ["root"]]);
+    // The whole point of the rewrite: NO folder is ever re-parented, so the
+    // unique-sibling-name index can never be tripped during teardown.
+    expect(idx("workflow_folders:detach")).toBe(-1);
+  });
+
+  it("stops and reports a failed leaf delete rather than silently continuing", async () => {
+    folderRows = [
+      { id: "root", parent_folder_id: null },
+      { id: "child", parent_folder_id: "root" },
+    ];
+    const t = createFixtureTracker();
+    t.trackAccount("acct-1");
+    tableErrors = { "workflow_folders:leaves": "leaf delete exploded" };
+
+    // A teardown that cannot clear folders MUST throw — a warning here is how
+    // synthetic rows accumulated in the shared project in the first place.
+    await expect(cleanupFixtures(fakeAdmin(), t)).rejects.toThrow(/leaf delete exploded/);
   });
 
   it("treats an already-deleted auth user as success, not failure", async () => {
@@ -260,13 +313,11 @@ describe("cleanupFixtures", () => {
     await expect(cleanupFixtures(fakeAdmin(), t)).rejects.toThrow(/still referenced/);
   });
 
-  it("reports a failed folder detach rather than silently continuing", async () => {
-    const t = createFixtureTracker();
-    t.trackAccount("acct-1");
-    tableErrors = { "workflow_folders:detach": "detach exploded" };
-
-    await expect(cleanupFixtures(fakeAdmin(), t)).rejects.toThrow(/detach exploded/);
-  });
+  // TEST-SUITE-GREEN-1 — the detach-failure case was replaced by
+  // "stops and reports a failed leaf delete rather than silently continuing"
+  // above: the helper no longer detaches at all (c1288d0b5), so an error keyed
+  // on a detach step could never fire and the test passed vacuously in reverse.
+  // The failure-must-throw property it protected is preserved there.
 
   it("does nothing when admin is null (unconfigured env / skipped suite)", async () => {
     const t = createFixtureTracker();

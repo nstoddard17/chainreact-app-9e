@@ -106,7 +106,7 @@ describe("workflowRuns.listByAccountForDisplay", () => {
     }
   });
 
-  it("filters by account_id, excludes status='running', orders by started_at DESC, applies default limit 50", async () => {
+  it("filters by account_id, does NOT filter on status (RUN-VISIBILITY-1), orders by started_at DESC, applies default limit 50", async () => {
     const state: ChainState = { filters: [], resultData: [], resultError: null };
     mockSSR.current = makeMockClient(state);
     await listByAccountForDisplay("user-42");
@@ -114,10 +114,16 @@ describe("workflowRuns.listByAccountForDisplay", () => {
       op: "eq",
       args: ["account_id", "user-42"],
     });
-    expect(state.filters).toContainEqual({
-      op: "neq",
-      args: ["status", "running"],
-    });
+    // TEST-SUITE-GREEN-1 — this assertion was INVERTED, not dropped. It used to
+    // require `.neq("status","running")`, but RUN-VISIBILITY-1 (b2826b355,
+    // 2026-06-29, "surface queued/running/stale runs on the /runs page")
+    // deliberately removed that filter so a just-started run appears immediately
+    // instead of only once it finalizes — a whole slice that also reshaped the
+    // status contract, the badge, and the row copy. Pinning the exclusion again
+    // would re-break that feature, so the guard now pins the REAL contract: the
+    // account scope is the ONLY predicate, and no status filter may creep back.
+    // The no-leak half of this file (the column projection) is untouched.
+    expect(state.filters).toEqual([{ op: "eq", args: ["account_id", "user-42"] }]);
     expect(state.orderArgs).toEqual({
       column: "started_at",
       opts: { ascending: false },
