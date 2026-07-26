@@ -173,6 +173,21 @@ const ALLOWLIST: ReadonlyMap<string, string> = new Map([
     "Comment body — public on GitHub.com once posted; echoed from caller-supplied input.",
   ],
 
+  // ─── Linear ────────────────────────────────────────────────────────────
+  // TEST-SUITE-GREEN-1. `add_comment` is a WRITE path: its `body` output is the
+  // Markdown the workflow author supplied as the node's own `body` input,
+  // echoed back by save_comment. The workflow already holds that string, so
+  // surfacing it in run detail exposes nothing new — the same input-echo
+  // rationale as the Gmail/Outlook send echoes above. Deliberately NOT claiming
+  // GitHub's "public once posted" reason: a Linear comment lives in a private
+  // workspace. Linear has no READ comment action; if one is ever added, its
+  // `body` carries fresh provider-side content and MUST be marked sensitive
+  // rather than added here.
+  [
+    "linear:add_comment::body",
+    "Echo of the caller-supplied comment body on a write path (not fresh provider-side content).",
+  ],
+
   // ─── Stripe ────────────────────────────────────────────────────────────
   // `create_refund.paymentIntent` is the STRING payment-intent id echo
   // (not the object projection). Opaque Stripe ids are not PII on their

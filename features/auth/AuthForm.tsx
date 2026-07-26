@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import type { AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/services/security/turnstile";
+import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
 import { AuthField } from "./AuthField";
 import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";
 

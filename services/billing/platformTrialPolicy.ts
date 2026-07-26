@@ -1,6 +1,6 @@
 import type { PlanTier } from "@/core/billing/planPolicy";
 import type { TrialEligiblePlan } from "@/core/billing/trialPolicy";
-import { planTrialConfig } from "@/services/billing/platformTrialConfig";
+import { planTrialConfig } from "@/core/billing/platformTrialConfig";
 import { getTrialStateServiceRole } from "@/repositories/accountBilling";
 
 /**
@@ -27,7 +27,7 @@ export {
   resolveTrialPeriodDays,
   areTrialsEnabled,
   planTrialConfig,
-} from "@/services/billing/platformTrialConfig";
+} from "@/core/billing/platformTrialConfig";
 
 /** A sanitized, client-safe view of whether an account may start a trial on `plan`. */
 export interface TrialOffer {

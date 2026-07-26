@@ -297,6 +297,15 @@ const EXEMPT: Readonly<Record<string, Exemption>> = {
     reason:
       "Payment intents are created by an earlier step or delivered by a Stripe webhook.",
   },
+  // TEST-SUITE-GREEN-1 — the OTHER five Linear raw-id fields
+  // (update_issue.id, add_comment.issueId, and the three parentId issue
+  // references) were NOT exempted: they are now real `linear:issues` pickers
+  // backed by captured live evidence. This one is different in kind.
+  "linear:add_comment.parentId": {
+    klass: "UPSTREAM",
+    reason:
+      "This is a COMMENT id, not an issue id: it threads a reply under a specific existing comment, which the author knows only from the comment payload that prompted the reply (a notification/trigger or an earlier Add Comment step that returned its own `id`). There is no design-time list of comments a workflow author would browse. Linear does expose list_comments, but it carries NO captured evidence in mcp-evidence.json — the item shape is unconfirmed, and this provider's standing rule (see mcp-catalog.ts, list_cycles/list_projects notes) is to ship no guessed shape. Leaving Reply-to as an Advanced text field is the honest UX; the top-level comment path, which is the common one, needs nothing here.",
+  },
   "notion:create_comment.discussionId": {
     klass: "UPSTREAM",
     reason:

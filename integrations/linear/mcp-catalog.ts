@@ -74,7 +74,15 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         orderBy: { advanced: true },
         includeArchived: { advanced: true },
         delegate: { advanced: true },
-        parentId: { advanced: true, label: "Parent issue" },
+        // TEST-SUITE-GREEN-1 (RESOLVERS-1) — the parent-issue FILTER is a real
+        // issue reference, so it gets the issue picker rather than a raw-id box.
+        parentId: {
+          advanced: true,
+          label: "Parent issue",
+          optionsSource: "linear:issues",
+          allowManualEntry: true,
+          description: "Only return sub-issues of this parent — pick an issue, or type an ID/identifier (e.g. LIN-123).",
+        },
         createdAt: { advanced: true },
         updatedAt: { advanced: true },
         release: { advanced: true }, // live-only field (CS-6): power-user release filter.
@@ -183,7 +191,15 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         blocks: { advanced: true },
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
-        parentId: { advanced: true, label: "Parent issue", description: "Parent issue ID or identifier (e.g., LIN-123)." },
+        // TEST-SUITE-GREEN-1 (RESOLVERS-1) — sub-issue parent is a real issue
+        // reference; picker + manual entry (mapping / LIN-123 still work).
+        parentId: {
+          advanced: true,
+          label: "Parent issue",
+          optionsSource: "linear:issues",
+          allowManualEntry: true,
+          description: "Make this a sub-issue of another issue — pick one, or type an ID/identifier (e.g. LIN-123).",
+        },
         // live-only (CS-6) — SLA + release plumbing: power-user, Advanced tab.
         slaBreachesAt: { advanced: true, label: "SLA breach time", description: "ISO-8601 timestamp when the SLA will breach." },
         slaType: { advanced: true, label: "SLA day counting" },
@@ -214,10 +230,18 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         { name: "updatedAt", type: "string", description: "When the issue was last updated (ISO-8601 UTC)." },
       ],
       fieldOverrides: {
+        // TEST-SUITE-GREEN-1 (RESOLVERS-1) — the issue being updated is the
+        // node's core user decision and was a required raw-id Setup box: the
+        // author had to leave ChainReact and copy a UUID/LIN-123. Now a real
+        // account-aware picker; `allowManualEntry` keeps {{mapping}} and pasted
+        // identifiers working unchanged (the common "update the issue the
+        // trigger just reported" path).
         id: {
           required: true,
           label: "Issue",
-          description: "Issue ID or identifier (e.g. LIN-123).",
+          optionsSource: "linear:issues",
+          allowManualEntry: true,
+          description: "Issue to update — pick one, or type an ID/identifier (e.g. LIN-123).",
         },
         // Closed dropdown for priority (rule 17); schema rejects out-of-range.
         priority: { enumValues: PRIORITY_LEVELS, description: "Change the issue's priority level." },
@@ -259,7 +283,14 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
         duplicateOf: { advanced: true, description: "Duplicate of issue ID/identifier." },
-        parentId: { advanced: true, label: "Parent issue", description: "Parent issue ID or identifier (e.g., LIN-123)." },
+        // TEST-SUITE-GREEN-1 (RESOLVERS-1) — see create_issue.
+        parentId: {
+          advanced: true,
+          label: "Parent issue",
+          optionsSource: "linear:issues",
+          allowManualEntry: true,
+          description: "Make this a sub-issue of another issue — pick one, or type an ID/identifier (e.g. LIN-123).",
+        },
         removeBlocks: { advanced: true },
         removeBlockedBy: { advanced: true },
         removeRelatedTo: { advanced: true },
@@ -300,7 +331,15 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         initiativeId: { omit: true },
         documentId: { omit: true },
         milestoneId: { omit: true },
-        issueId: { required: true, label: "Issue" },
+        // TEST-SUITE-GREEN-1 (RESOLVERS-1) — same as update_issue.id: the
+        // issue being commented on is the node's core user decision.
+        issueId: {
+          required: true,
+          label: "Issue",
+          optionsSource: "linear:issues",
+          allowManualEntry: true,
+          description: "Issue to comment on — pick one, or type an ID/identifier (e.g. LIN-123).",
+        },
         parentId: { advanced: true, label: "Parent comment", description: "Reply under an existing comment (comment ID). Leave empty for a top-level comment." },
         // live-only (CS-6) — status-update comment parents are out of the
         // issue-scoped node; omit so Add Comment stays single-purpose.

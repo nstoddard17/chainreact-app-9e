@@ -16,6 +16,7 @@ import {
   TRIGGER_KIND_LABELS,
   TEMPLATE_CATEGORIES,
 } from "@/core/workflows/templateCardMeta";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 function def(
   trigger: { provider: string; type: string },
@@ -98,15 +99,19 @@ describe("deriveTemplateCardMeta — category heuristic", () => {
 
 describe("no-leak: config values never surface in derived metadata", () => {
   it("ignores config entirely (only provider/type/kind are read)", () => {
+    // V2-READY-45: runtime-assembled so the source carries no literal token
+    // shape; the value is still Slack-token-shaped, and asserting on the same
+    // variable keeps the no-leak check exact (stronger than the old substring).
+    const BOT_TOKEN = fakeSlackBotToken("leak");
     const m = deriveTemplateCardMeta(
       def({ provider: "slack", type: "send_channel_message" }, [{ provider: "gmail", type: "send_email" }], {
-        config: { channel: "C0SECRET", to: "vp@acme.com", botToken: "xoxb-leak-123456" },
+        config: { channel: "C0SECRET", to: "vp@acme.com", botToken: BOT_TOKEN },
       }),
     );
     const blob = JSON.stringify(m);
     expect(blob).not.toMatch(/C0SECRET/);
     expect(blob).not.toMatch(/vp@acme\.com/);
-    expect(blob).not.toMatch(/xoxb-leak/);
+    expect(blob).not.toContain(BOT_TOKEN);
     // steps carry only the public node identity, never config keys/values.
     for (const s of m.steps) expect(Object.keys(s).sort()).toEqual(["kind", "provider", "type"]);
   });

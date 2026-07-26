@@ -8,7 +8,7 @@ jest.mock("@/app/auth/actions", () => ({
 
 // Keep the captcha out of these cases; its own gating is covered by the
 // actions-captcha suite. Rendering it here would just add an async script load.
-jest.mock("@/services/security/turnstile", () => ({
+jest.mock("@/core/security/turnstile", () => ({
   TURNSTILE_FIELD_NAME: "cf-turnstile-response",
   isTurnstileWidgetConfigured: () => false,
 }));

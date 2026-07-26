@@ -7,7 +7,7 @@ import {
   type AuthActionResult,
 } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/services/security/turnstile";
+import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
 import { AuthHeading } from "./AuthShell";
 import { AuthCodeInput, CODE_LENGTH } from "./AuthCodeInput";
 import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";

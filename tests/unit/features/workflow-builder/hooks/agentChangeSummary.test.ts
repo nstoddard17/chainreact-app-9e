@@ -18,6 +18,7 @@ import {
   buildAgentChangeTitle,
   summarizeConfigDiff,
 } from "@/features/workflow-builder/hooks/agentChangeSummary";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 function node(overrides: Partial<NodeConfigDiff>): NodeConfigDiff {
   return {
@@ -60,7 +61,10 @@ describe("summarizeConfigDiff", () => {
   });
 
   it("never leaks a config VALUE — the result is pure numbers even with a secret field present", () => {
-    const SECRET = "xoxb-super-secret-token";
+    // V2-READY-45: assembled at runtime, so the SOURCE holds no literal token
+    // shape while the value is still genuinely Slack-token-shaped at runtime —
+    // the `not.toContain(SECRET)` assertion below keeps its full meaning.
+    const SECRET = fakeSlackBotToken("supersecret");
     const diff: ConfigDiff = {
       nodes: [
         node({

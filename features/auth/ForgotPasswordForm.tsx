@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { requestPasswordReset, type AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/services/security/turnstile";
+import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
 import { AuthHeading } from "./AuthShell";
 import { AuthField } from "./AuthField";
 import { AuthFormError, AuthSubmit } from "./AuthControls";

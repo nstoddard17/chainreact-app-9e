@@ -5,8 +5,14 @@ import { MAX_TRIAL_PERIOD_DAYS, isTrialEligiblePlan } from "@/core/billing/trial
  * PLATFORM trial CONFIG (PRO-TEAM-TRIAL-ENFORCEMENT-1) — the env-reading, DB-free half of trial
  * policy. Deliberately imports NO repository / server client, so it is safe to use from public
  * surfaces (the marketing pricing page) and from checkout without pulling in Stripe/DB deps.
- * The account-scoped OFFER (which must read the DB's consumed marker) lives in the sibling
- * `platformTrialPolicy`.
+ * The account-scoped OFFER (which must read the DB's consumed marker) lives in
+ * `services/billing/platformTrialPolicy`.
+ *
+ * LIVES IN `core/` (moved from `services/billing/` by TEST-SUITE-GREEN-1). The module was always
+ * a pure config helper, but its old address made `features/marketing/PricingPage` — a client
+ * component — import a VALUE from `services/`, breaking the client/server boundary
+ * (tests/structure/client-server-boundary.test.ts). `core/` is where a pure, dependency-free
+ * helper belongs; the server callers import it from here too, so there is exactly one definition.
  *
  * DARK BY DEFAULT: `resolveTrialPeriodDays()` returns 0 unless `PLATFORM_TRIAL_PERIOD_DAYS` is set
  * to a positive integer. 0 = no trial offered/claimed anywhere (the whole system is inert). Setting

@@ -25,7 +25,7 @@ import {
   canBulkExportForPlan,
 } from "@/core/billing/planPolicy";
 import { isTrialEligiblePlan } from "@/core/billing/trialPolicy";
-import { resolveTrialPeriodDays } from "@/services/billing/platformTrialConfig";
+import { resolveTrialPeriodDays } from "@/core/billing/platformTrialConfig";
 
 /**
  * Public Pricing page (Slice 4.PRICING-1).

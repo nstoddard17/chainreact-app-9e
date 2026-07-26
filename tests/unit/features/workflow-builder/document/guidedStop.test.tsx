@@ -93,6 +93,7 @@ import { __BUILDER_VIEW_PREF_BASE_KEY__ } from "@/features/workflow-builder/docu
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { RequiredFieldsByType } from "@/core/workflows/requiredFields";
 import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 const definition = {
   nodes: [
@@ -234,12 +235,15 @@ describe("Guided Stop — opening", () => {
   });
 
   it("a secret field is never editable inline — it hands off to step settings", async () => {
-    // Seed a secret value so a chip exists for it.
+    // Seed a secret value so a chip exists for it. V2-READY-45: assembled at
+    // runtime, so the source holds no literal token shape while the seeded value
+    // is still genuinely Slack-token-shaped.
+    const BOT_TOKEN = fakeSlackBotToken("secret");
     act(() => {
       useGraphSlice.getState().hydrate("wf-cs2", {
         ...definition,
         nodes: definition.nodes.map((n) =>
-          n.id === "a" ? { ...n, config: { ...n.config, botToken: "xoxb-secret" } } : n,
+          n.id === "a" ? { ...n, config: { ...n.config, botToken: BOT_TOKEN } } : n,
         ),
       });
     });
@@ -247,7 +251,7 @@ describe("Guided Stop — opening", () => {
     // The summary metadata deliberately omits secret fields, so no chip renders
     // for it — the sensitive value never reaches prose at all.
     expect(screen.queryByTestId("document-value-chip-a-Bot token")).toBeNull();
-    expect(screen.getByTestId("document-view").textContent).not.toMatch(/xoxb-secret/);
+    expect(screen.getByTestId("document-view").textContent).not.toContain(BOT_TOKEN);
   });
 });
 

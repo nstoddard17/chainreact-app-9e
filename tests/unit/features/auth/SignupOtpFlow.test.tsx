@@ -21,7 +21,7 @@ jest.mock("@/app/auth/actions", () => ({
   resendSignupOtp: (...a: unknown[]) => mockResend(...a),
 }));
 
-jest.mock("@/services/security/turnstile", () => ({
+jest.mock("@/core/security/turnstile", () => ({
   TURNSTILE_FIELD_NAME: "cf-turnstile-response",
   isTurnstileWidgetConfigured: () => false,
 }));

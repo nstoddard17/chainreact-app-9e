@@ -25,6 +25,7 @@ import { RunResultsPanel } from "@/features/workflow-builder/panels/RunResultsPa
 import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
 import { useRepairLoopStore } from "@/features/workflow-builder/state/repairLoopStore";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 // V2-READY-51: WorkflowRunDetail no longer carries raw triggerEvent / fatalError;
 // per-step output appears only for an author's own test run (the route gates it,
@@ -196,7 +197,10 @@ describe("RunResultsPanel — failed-run CTA (CR-FAILREASON-2)", () => {
   });
 
   it("no-leak: the reconnect CTA href/label exclude raw provider text seeded in the description", () => {
-    const SECRET = "xoxb-LEAK jane@example.com team_T0ABCDEF99";
+    // V2-READY-45: the token half is assembled at runtime so the source holds no
+    // literal token shape; the seeded string still carries a real Slack-token
+    // shape + an email + a team id, and the assertion below is unchanged.
+    const SECRET = `${fakeSlackBotToken("LEAK")} jane@example.com team_T0ABCDEF99`;
     mount(failedWith("reconnect", `Provider said: ${SECRET}`));
     const cta = screen.getByTestId("run-error-cta") as HTMLAnchorElement;
     expect(cta.getAttribute("href")).toBe("/apps");

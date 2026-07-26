@@ -23,14 +23,18 @@ import { AgentRepairLoopPanel } from "@/features/workflow-builder/panels/AgentRe
 import { useRepairLoopStore, type AgentRepairDiagnosis } from "@/features/workflow-builder/state/repairLoopStore";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 const WF = "wf-1";
+// V2-READY-45: runtime-assembled, so the source holds no literal token shape
+// while the seeded config value is still genuinely Slack-token-shaped.
+const SECRET_TOKEN = fakeSlackBotToken("SECRETshouldnotrender");
 const NODE: WorkflowNode = {
   id: "a1",
   kind: "action",
   provider: "gmail",
   type: "send_email",
-  config: { token: "xoxb-SECRET-should-not-render" },
+  config: { token: SECRET_TOKEN },
   position: { x: 0, y: 0 },
 };
 const DIAGNOSIS: AgentRepairDiagnosis = {
@@ -109,6 +113,6 @@ describe("AgentRepairLoopPanel", () => {
     render(<AgentRepairLoopPanel workflowId={WF} />);
     // Opening the step routes the secret to the config rail, never to this panel.
     await user.click(screen.getByTestId("agent-repair-open-field"));
-    expect(screen.getByTestId("agent-repair-loop").textContent ?? "").not.toMatch(/xoxb-SECRET/);
+    expect(screen.getByTestId("agent-repair-loop").textContent ?? "").not.toContain(SECRET_TOKEN);
   });
 });

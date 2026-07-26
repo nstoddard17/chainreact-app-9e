@@ -8,6 +8,7 @@ import {
   type DocumentBuilderEventName,
   type DocumentBuilderEventProps,
 } from "@/features/workflow-builder/document/documentTelemetry";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 /**
  * 5.DUAL-BUILDER-1 CS-7 — the Document Builder telemetry seam. Locks the safety
@@ -130,7 +131,9 @@ describe("CS-7G Agent-preview telemetry carries no prompt/workflow/user content"
       userId: "user_456",
       email: "person@example.com",
       config: { channel: "C0NOTIFY", text: "secret body" },
-      token: "xoxb-super-secret",
+      // V2-READY-45: runtime-assembled (no literal token shape in source). The
+      // `toEqual({})` assertion below is unchanged — every prop must be stripped.
+      token: fakeSlackBotToken("supersecret"),
     } as Record<string, unknown>;
     expect(sanitizeTelemetryProps(forbidden)).toEqual({});
   });

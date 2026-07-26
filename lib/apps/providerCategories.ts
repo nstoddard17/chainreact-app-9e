@@ -103,6 +103,7 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   "microsoft-powerbi": "Analytics",
   // Developer
   github: "Developer",
+  linear: "Developer",
   // Fleet & Telematics
   motive: "Fleet & Telematics",
   fleetio: "Fleet & Telematics",
@@ -147,6 +148,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   "microsoft-powerbi":
     "Refresh semantic models, run DAX, export reports, and deploy pipelines.",
   github: "Watch issues, PRs, and commits.",
+  linear: "Find, create, and update issues, and post comments.",
   motive: "Log fuel purchases and watch fleet safety events.",
   fleetio: "Track fleet maintenance, inspections, and service costs.",
   adp: "Connect ADP payroll and HR (setup in progress).",

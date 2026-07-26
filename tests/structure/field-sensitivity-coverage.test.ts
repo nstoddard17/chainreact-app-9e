@@ -112,6 +112,17 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   "motive:update_driver": ["phone"],
   // `dateTo` — an invoice-date range bound; the "to" token matches incidentally.
   "quickbooks:list_invoices": ["dateTo"],
+  // TEST-SUITE-GREEN-1 — Linear ISSUE RELATIONS. `relatedTo` / `removeRelatedTo`
+  // list the issues to link to (or unlink from) the issue being saved; the
+  // tokenizer splits them to `related`/`remove`+`related` + "to", and "to" is a
+  // recipient word, so the match is purely incidental (same shape as
+  // `quickbooks:list_invoices.dateTo`). Nothing is SENT to these values — they
+  // are issue references stored on a record inside the user's own workspace, so
+  // annotating them `recipient` would claim a delivery target that does not
+  // exist. Still heuristic-blocked at the apply gate, which is the behavior we
+  // want: an AI repair should not silently re-point issue relations.
+  "linear:create_issue": ["relatedTo"],
+  "linear:update_issue": ["relatedTo", "removeRelatedTo"],
   // POWER BI — resolver-backed resource selectors whose `target` token matches the
   // recipient heuristic. Both name WHICH Power BI resource the clone is created in /
   // bound to (a workspace container and a semantic model), not a party a message is

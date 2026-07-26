@@ -17,7 +17,7 @@ import {
 } from "@/services/billing/platformStripeClient";
 import { resolvePlanPrice } from "@/services/billing/platformStripePrices";
 import { isTrialEligiblePlan } from "@/core/billing/trialPolicy";
-import { resolveTrialPeriodDays } from "@/services/billing/platformTrialConfig";
+import { resolveTrialPeriodDays } from "@/core/billing/platformTrialConfig";
 import { claimAccountTrialServiceRole } from "@/repositories/accountBilling";
 
 /**

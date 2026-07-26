@@ -12,6 +12,7 @@ import { makeLinearAssigneesResolver } from "@/integrations/linear/options/assig
 import { makeLinearLabelsResolver } from "@/integrations/linear/options/labels";
 import { makeLinearProjectsResolver } from "@/integrations/linear/options/projects";
 import { makeLinearIssueStatusesResolver } from "@/integrations/linear/options/statuses";
+import { makeLinearIssuesResolver } from "@/integrations/linear/options/issues";
 import type { McpResolverDeps } from "@/integrations/_shared/mcp";
 import type { OptionsResolverContext } from "@/services/options/types";
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
@@ -136,6 +137,61 @@ describe("linear:issue_statuses (CS-6C)", () => {
 
   it("declares team as a required dependency (route enforces 'choose a team first')", () => {
     expect(makeLinearIssueStatusesResolver().requiredDeps).toEqual(["team"]);
+  });
+});
+
+describe("linear:issues (TEST-SUITE-GREEN-1)", () => {
+  it("maps id→value and qualifies the title with status + team; hasMore from hasNextPage", async () => {
+    const r = makeLinearIssuesResolver(
+      deps({
+        issues: [
+          { id: "i1", title: "Fix login redirect", status: "In Progress", team: "Engineering" },
+          { id: "i2", title: "Update docs", status: "Backlog", team: "Design" },
+        ],
+        hasNextPage: true,
+      }),
+    );
+    const res = await r.resolve(ctx());
+    expect(res.items).toEqual([
+      { value: "i1", label: "Fix login redirect — In Progress · Engineering" },
+      { value: "i2", label: "Update docs — Backlog · Design" },
+    ]);
+    expect(res.hasMore).toBe(true);
+  });
+
+  it("preserves SERVER order (most-recently-updated first) rather than sorting alphabetically", async () => {
+    const r = makeLinearIssuesResolver(
+      deps({ issues: [{ id: "z", title: "Zebra" }, { id: "a", title: "Apple" }], hasNextPage: false }),
+    );
+    expect((await r.resolve(ctx())).items.map((i) => i.value)).toEqual(["z", "a"]);
+  });
+
+  it("falls back to the bare title when status/team are absent (never a dangling separator)", async () => {
+    const r = makeLinearIssuesResolver(deps({ issues: [{ id: "i3", title: "Solo" }], hasNextPage: false }));
+    expect((await r.resolve(ctx())).items).toEqual([{ value: "i3", label: "Solo" }]);
+  });
+
+  it("sends the search box to Linear as a server-side `query` arg", async () => {
+    const r = makeLinearIssuesResolver(deps({ issues: [], hasNextPage: false }));
+    await r.resolve(ctx({ q: "login" }));
+    expect(lastCall?.tool).toBe("list_issues");
+    expect(lastCall?.args).toMatchObject({ query: "login", limit: 50 });
+  });
+
+  it("declares NO required deps — Update Issue's `team` field MOVES the issue and must not filter the picker", () => {
+    expect(makeLinearIssuesResolver().requiredDeps).toBeUndefined();
+  });
+
+  it("never surfaces the issue url or description (rule 7: no provider host leakage)", async () => {
+    const r = makeLinearIssuesResolver(
+      deps({
+        issues: [{ id: "i4", title: "T", url: "https://linear.app/acme/issue/LIN-9", description: "secret notes" }],
+        hasNextPage: false,
+      }),
+    );
+    const serialized = JSON.stringify((await r.resolve(ctx())).items);
+    expect(serialized).not.toContain("linear.app");
+    expect(serialized).not.toContain("secret notes");
   });
 });
 

@@ -36,6 +36,7 @@ import {
 } from "@/services/workflows/agentChangeHistory";
 import type { AgentChangeHistoryRecord } from "@/repositories/agentChangeHistory";
 import type { RecordAgentChangeRequest } from "@/contracts/agentChangeHistory";
+import { fakeSlackBotToken } from "@/tests/helpers/syntheticSecrets";
 
 const CHANGE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -221,7 +222,9 @@ describe("recordAgentChange — restored_checkpoint (new)", () => {
 });
 
 describe("recordAgentChange — stored diff (View diff) + eval link", () => {
-  const SECRET = "xoxb-super-secret-token";
+  // V2-READY-45: runtime-assembled (no literal token shape in source); still
+  // Slack-token-shaped at runtime, so the no-leak assertions keep their meaning.
+  const SECRET = fakeSlackBotToken("supersecret");
   // A ConfigDiff-shaped payload with a SECRET field carrying a raw value (a misbehaving client).
   const diffWithSecret = {
     nodes: [

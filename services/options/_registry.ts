@@ -558,6 +558,9 @@ import { linearAssigneesResolver } from "@/integrations/linear/options/assignees
 import { linearLabelsResolver } from "@/integrations/linear/options/labels";
 import { linearProjectsResolver } from "@/integrations/linear/options/projects";
 import { linearIssueStatusesResolver } from "@/integrations/linear/options/statuses";
+// TEST-SUITE-GREEN-1 — `linear:issues` (workspace-scoped, no deps) backs the
+// Issue pickers on Update Issue / Add Comment and the Parent issue fields.
+import { linearIssuesResolver } from "@/integrations/linear/options/issues";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { edenWorkspacesResolver } from "@/integrations/eden/options/workspaces";
 import { edenBoardsResolver } from "@/integrations/eden/options/boards";
@@ -844,6 +847,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   linearLabelsResolver,
   linearProjectsResolver,
   linearIssueStatusesResolver,
+  linearIssuesResolver,
   // Eden (EDEN-4) — workspace + board pickers for the MCP-backed actions.
   edenWorkspacesResolver,
   edenBoardsResolver,

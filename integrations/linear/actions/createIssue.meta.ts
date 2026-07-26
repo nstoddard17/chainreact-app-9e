@@ -166,9 +166,11 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "parentId",
       label: "Parent issue",
-      description: "Parent issue ID or identifier (e.g., LIN-123).",
-      type: "text",
+      description: "Make this a sub-issue of another issue — pick one, or type an ID/identifier (e.g. LIN-123).",
+      type: "combobox",
       required: false,
+      optionsSource: "linear:issues",
+      allowManualEntry: true,
       advanced: true,
     },
     {

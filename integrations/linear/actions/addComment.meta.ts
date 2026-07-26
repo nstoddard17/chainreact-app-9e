@@ -15,9 +15,11 @@ export const addCommentMeta: ActionMeta = {
     {
       name: "issueId",
       label: "Issue",
-      description: "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
-      type: "text",
+      description: "Issue to comment on — pick one, or type an ID/identifier (e.g. LIN-123).",
+      type: "combobox",
       required: true,
+      optionsSource: "linear:issues",
+      allowManualEntry: true,
     },
     {
       name: "parentId",
