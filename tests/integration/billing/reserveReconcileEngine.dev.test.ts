@@ -77,6 +77,17 @@ jest.mock("@/services/execution/handlers/_registry", () => ({
 jest.mock("@/services/discovery/_registry", () => ({
   getActionMeta: (...a: unknown[]) => mockGetActionMeta(...a),
   getTriggerMeta: (...a: unknown[]) => mockGetTriggerMeta(...a),
+  // TEST-SUITE-GREEN-1 — the engine gained a pre-dispatch readiness gate
+  // (engine.ts -> checkWorkflowReadiness), which reads the FULL registry. This
+  // partial mock predates it, so every run died with
+  // "listAllActionMetas is not a function" before any billing code ran.
+  // Empty lists keep the gate at GRAPH-INTEGRITY only: with no required-field
+  // metadata for these synthetic node types there are no field gaps, so the
+  // harness still proves the reserve/reconcile pipeline rather than readiness
+  // (which has its own suites). The graphs built here are valid, so the gate
+  // passes for the right reason.
+  listAllActionMetas: () => [],
+  listAllTriggerMetas: () => [],
 }));
 jest.mock("@/services/notifications/notifyWorkflowFailure", () => ({
   notifyWorkflowFailure: (...a: unknown[]) => mockNotifyWorkflowFailure(...a),
@@ -183,6 +194,16 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
           tasks_limit: opts.limit,
           tasks_used: opts.used,
           tasks_reserved: opts.reserved ?? 0,
+          // TEST-SUITE-GREEN-1 — case 3 exercises a `router` node, and the
+          // engine now gates advanced (If/Else) branching on Pro+ BEFORE
+          // readiness and billing, so a default `free` fixture aborted the run
+          // with PLAN_FEATURE_REQUIRED and zero task deduction — nothing for
+          // this suite to measure. These cases verify reserve/reconcile MATH,
+          // not entitlement (which has its own coverage), so the fixture
+          // account is seeded entitled. No assertion here reads plan/plan_status;
+          // the BILLING_EXHAUSTED case still turns purely on tasks_limit.
+          plan: "pro",
+          plan_status: "active",
         },
         { onConflict: "account_id" },
       );

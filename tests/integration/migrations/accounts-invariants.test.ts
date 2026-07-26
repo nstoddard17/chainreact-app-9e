@@ -169,13 +169,30 @@ describeDb("accounts + memberships invariants — Slice 4.ACCOUNT-MODEL-3", () =
 
   // ── CHECK fences ────────────────────────────────────────────────────────
 
-  it("inserting accounts.type='team' is rejected (CHECK constraint slice fence)", async () => {
+  // TEST-SUITE-GREEN-1 — this asserted that accounts.type='team' was REJECTED,
+  // the Slice 4.ACCOUNT-MODEL-3 fence from the personal-accounts-only era. That
+  // fence was deliberately lifted by
+  // supabase/migrations/20260531000010_team_org_account_types.sql
+  // (Slice 4.ACCOUNT-MODEL-13, "relax account type + membership role CHECKs"),
+  // which widened the constraint to personal | team | organization so the
+  // team-creation service could write team rows. Re-asserting the old fence
+  // would demand a migration that reverts a shipped feature. Coverage is kept,
+  // not dropped: the CHECK itself must still reject anything OUTSIDE the
+  // widened set.
+  it("accounts.type accepts the widened set and still rejects an unknown type (CHECK)", async () => {
     const userId = await createTestUser("team-fence");
-    const { error } = await admin
+    // 'team' is now storable (ACCOUNT-MODEL-13).
+    const { error: teamError } = await admin
       .from("accounts")
-      .insert({ type: "team", name: "X", owner_user_id: userId });
-    expect(error).not.toBeNull();
-    expect(error!.message.toLowerCase()).toMatch(/check|violates/);
+      .insert({ type: "team", name: "Team X", owner_user_id: userId });
+    expect(teamError).toBeNull();
+
+    // ...but the constraint is still a real fence, not an open field.
+    const { error: bogusError } = await admin
+      .from("accounts")
+      .insert({ type: "squad", name: "Bogus", owner_user_id: userId });
+    expect(bogusError).not.toBeNull();
+    expect(bogusError!.message.toLowerCase()).toMatch(/check|violates/);
   });
 
   // ── NOT NULL on owner_user_id ───────────────────────────────────────────
