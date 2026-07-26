@@ -61,6 +61,32 @@ export const TriggerMetaSchema = z
     fields: z.array(FieldMetaSchema).max(64),
     /** Output shape the trigger emits into downstream variable pickers. */
     payloadShape: z.array(OutputMetaSchema).max(128).default([]),
+    /**
+     * TYPEFORM-DYNAMIC-OUTPUTS-CONSUMPTION-1 — RESOLVER-BACKED dynamic outputs.
+     *
+     * Distinct from the action-side `dynamicOutputs`, which synthesizes children from a
+     * `schema-fields` config value the USER typed. This one covers the other, far more common shape:
+     * the schema lives in the PROVIDER and is discovered by picking a resource — a form's questions,
+     * a sheet's columns, a database's properties, a CRM's custom fields. Provider-neutral by
+     * construction: it names a config field, an options-resolver source, and the static output whose
+     * children get synthesized, and knows nothing about any specific provider.
+     *
+     * The static registry stays IMMUTABLE and does no I/O: this is a DECLARATION only. Resolution
+     * happens through the existing options-resolver boundary, and the merge itself is a pure function
+     * (`core/workflows/mapping/dynamicTriggerOutputs.ts`) shared by the builder and the server-side agent —
+     * one key generator, no UI/agent drift.
+     */
+    dynamicOutputSource: z
+      .object({
+        /** Config field whose selected value determines the schema (e.g. `formId`). */
+        configField: z.string().min(1).max(64),
+        /** Options-resolver source id returning the schema descriptors (e.g. `typeform:form_questions`). */
+        source: z.string().min(1).max(128),
+        /** Static output whose children are synthesized (e.g. `answersByRef`). */
+        attachUnder: z.string().min(1).max(64),
+      })
+      .strict()
+      .optional(),
     /** Optional sort hint within a provider's trigger list. Lower = earlier. */
     displayOrder: z.number().int().nullable().default(null),
   })
@@ -72,6 +98,23 @@ export const TriggerMetaSchema = z
         path: ["key"],
         message: `Trigger key '${meta.key}' must equal '${meta.provider}:${meta.type}'.`,
       });
+    }
+    const dyn = meta.dynamicOutputSource;
+    if (dyn) {
+      if (!meta.fields.some((f) => f.name === dyn.configField)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dynamicOutputSource", "configField"],
+          message: `dynamicOutputSource references unknown config field '${dyn.configField}'.`,
+        });
+      }
+      if (!meta.payloadShape.some((o) => o.name === dyn.attachUnder)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dynamicOutputSource", "attachUnder"],
+          message: `dynamicOutputSource attaches under unknown output '${dyn.attachUnder}'.`,
+        });
+      }
     }
     const fieldNames = new Set<string>();
     for (let i = 0; i < meta.fields.length; i++) {

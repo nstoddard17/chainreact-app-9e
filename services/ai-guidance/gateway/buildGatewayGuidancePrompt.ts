@@ -40,6 +40,13 @@ export interface BuildGatewayPromptInput {
    */
   readonly fieldSchemaLines?: readonly string[];
   /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — pre-rendered OUTPUT lines (what each relevant node
+   * PRODUCES). Without these the model was asked to reference "declared output names" it had never
+   * been shown, which is why multi-step workflows came back with invented sample data instead of
+   * upstream references. PUBLIC registry metadata only — names/types/descriptions, never values.
+   */
+  readonly outputSchemaLines?: readonly string[];
+  /**
    * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable view of the user's CURRENT local
    * draft (opaque node refs + safe editable config + edges + a version token). Present ONLY for an EDIT
    * request. Built by `buildEditableWorkflowGraph` (the editor privacy boundary) — it carries NO real
@@ -139,6 +146,13 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
       input.fieldSchemaLines.join("\n")
     : "";
 
+  // REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — what each node PRODUCES. This is the reference material
+  // for {{...}} mappings; without it the model cannot wire one step's data into the next.
+  const outputSchemaBlock = input.outputSchemaLines?.length
+    ? "Data each capability PRODUCES — reference these with {{stepRef.outputName}} to pass data downstream:\n" +
+      input.outputSchemaLines.join("\n")
+    : "";
+
   const findingsLine = input.request.findingCodes?.length
     ? `Known issues (codes): ${input.request.findingCodes.join(", ")}`
     : "";
@@ -165,6 +179,8 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     findingsLine,
     catalogLine,
     fieldSchemaBlock,
+    outputSchemaBlock,
+    DATA_MAPPING_INSTRUCTIONS,
     accountLine,
     sharedConnLine,
     ownConnLine,
@@ -224,6 +240,26 @@ function buildEditableGraphBlock(graph: EditableWorkflowGraph): string {
  * VERBATIM (ChainReact substitutes the user's real value locally; the raw literal never crosses
  * this boundary).
  */
+/**
+ * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — the data-flow rules for MULTI-STEP workflows.
+ *
+ * The production failure these answer: a Typeform → Mailchimp → HubSpot → Gmail request produced the
+ * right four nodes with no data flowing between them — Email fields held invented addresses and the
+ * Gmail body was empty. Two rules fix the general case: map from the declared outputs above, and when
+ * the needed data genuinely is not declared, SAY SO rather than filling the hole with something that
+ * looks real. The third rule covers the Typeform-shaped case where the data only becomes describable
+ * after the user picks a provider resource.
+ */
+const DATA_MAPPING_INSTRUCTIONS = [
+  "Passing data between steps (multi-step workflows):",
+  "- When a later step needs a value an EARLIER step produces, reference it: {{stepRef.outputName}} using the step's `ref` from your plan and an output name from the 'produces' list above (the trigger's ref works too). NEVER retype or approximate the data.",
+  "- ONE upstream value may feed MANY downstream steps. If the trigger produces an email and three later steps each need an email, all three reference the SAME output. Do not ask the user to supply it three times.",
+  "- NEVER invent a realistic-looking sample value. Addresses like subscriber@example.com or alice@example.com, names like John Smith, companies like Acme Inc. are FORBIDDEN as config values unless the user typed that exact value themselves. ChainReact removes invented values and the step comes back incomplete, so inventing one makes the workflow WORSE than leaving the field out.",
+  "- If a value should come from upstream but no declared output provides it, leave the field OUT and name it in `requiredInputs`, and say plainly in your prose which data you could not find. An incomplete-but-honest plan is correct; a complete-looking plan built on invented data is not.",
+  "- For a summary/notification body, BUILD it from references — e.g. \"Name: {{s0.firstName}} {{s0.lastName}}\\nEmail: {{s0.email}}\" — never leave it blank and never fill it with example prose.",
+  "- SCHEMA-DEPENDENT DATA (important): some triggers only describe their data as a generic list/object (e.g. a form's `answers` array) because the individual questions depend on WHICH form/board/sheet the user picks. When the user's request needs those per-item values and the resource is not chosen yet, do NOT guess field names and do NOT invent values. Ask the user to pick that resource FIRST, explain that you will map its fields once it is selected, and list the affected downstream fields in `requiredInputs`.",
+].join("\n");
+
 const FIELD_VALUE_INSTRUCTIONS = [
   "Filling config fields (applies to plans AND edits):",
   "- Required fields are only the minimum needed for the step to be valid. Consider EVERY declared field of the chosen capability — required and optional, including ones marked 'advanced'.",

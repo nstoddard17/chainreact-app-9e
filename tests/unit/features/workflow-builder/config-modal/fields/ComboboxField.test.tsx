@@ -27,6 +27,19 @@ import { ComboboxField } from "@/features/workflow-builder/config-modal/fields/C
 import type { UseOptionsSourceState } from "@/features/workflow-builder/hooks/useOptionsSource";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
+
+/**
+ * `useOptionsSource` is now called by more than one hook in a rendered tree — `useDynamicTriggerOutputs`
+ * (TYPEFORM-DYNAMIC-OUTPUTS-UI-AND-AGENT-CLOSEOUT-1) calls it with `source: null` when a trigger has no
+ * schema to resolve. So "the last call" is no longer necessarily this field's call; select by source.
+ */
+function lastCallForSource(): { source: string | null; query?: string; deps?: Record<string, string> } {
+  const withSource = mockUseOptionsSource.mock.calls.filter(
+    (c: unknown[]) => (c[0] as { source?: unknown } | undefined)?.source != null,
+  );
+  return withSource[withSource.length - 1]![0];
+}
+
 function field(overrides: Partial<FieldMeta> = {}): FieldMeta {
   return {
     name: "channelId",
@@ -413,9 +426,7 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
     // The hook was called multiple times across renders; the LAST call
     // should carry the typed query.
     const lastCall =
-      mockUseOptionsSource.mock.calls[
-        mockUseOptionsSource.mock.calls.length - 1
-      ]![0];
+      lastCallForSource();
     expect(lastCall.query).toBe("eng");
     expect(lastCall.source).toBe("slack:channels");
   });
@@ -647,9 +658,7 @@ describe("ComboboxField async optionsSource — dependsOn cascade props (Slice 3
       />,
     );
     const lastArgs =
-      mockUseOptionsSource.mock.calls[
-        mockUseOptionsSource.mock.calls.length - 1
-      ]![0];
+      lastCallForSource();
     expect(lastArgs.deps).toEqual({ parent: "PV" });
     expect(lastArgs.source).toBe("native:examples");
   });

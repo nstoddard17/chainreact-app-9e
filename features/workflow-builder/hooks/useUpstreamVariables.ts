@@ -10,6 +10,10 @@ import {
   AI_PROVIDER_ID,
   isConnectionlessProvider,
 } from "@/core/integrations/connectionlessProviders";
+import {
+  useDynamicTriggerOutputs,
+  type UseDynamicTriggerOutputsResult,
+} from "./useDynamicTriggerOutputs";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
 import { findAiActionByKey, useAiActions } from "./useAiActions";
@@ -88,14 +92,29 @@ export interface UseUpstreamVariablesResult {
    * subscription. No fetch from this hook; no polling; no save.
    */
   readonly latestValuesBySource: Readonly<Record<string, unknown>>;
+  /**
+   * TYPEFORM-DYNAMIC-OUTPUTS-UI-AND-AGENT-CLOSEOUT-1 — the schema-dependent trigger's resolve state,
+   * so a surface can render "select the form first", a loading row, or a retry/reconnect action
+   * instead of silently showing a short list. `not_applicable` for the ~all-triggers case.
+   */
+  readonly dynamicTriggerOutputs: UseDynamicTriggerOutputsResult;
 }
 
 const EMPTY_LATEST_VALUES: Readonly<Record<string, unknown>> = Object.freeze({});
+
+const NOT_APPLICABLE_DYNAMIC: UseDynamicTriggerOutputsResult = Object.freeze({
+  outputs: [] as readonly OutputMeta[],
+  status: "not_applicable",
+  message: null,
+  rejectedKeys: [] as readonly string[],
+  retry: () => {},
+}) as UseDynamicTriggerOutputsResult;
 
 const EMPTY_RESULT: UseUpstreamVariablesResult = Object.freeze({
   sources: [],
   loading: false,
   latestValuesBySource: EMPTY_LATEST_VALUES,
+  dynamicTriggerOutputs: NOT_APPLICABLE_DYNAMIC,
 });
 
 const TRIGGER_ALIAS = "trigger";
@@ -173,6 +192,34 @@ export function useUpstreamVariables(
   }, [ancestorNodes]);
   const providerTriggers = useProviderTriggers(upstreamTriggerProvider);
 
+  /**
+   * TYPEFORM-DYNAMIC-OUTPUTS-UI-AND-AGENT-CLOSEOUT-1 — schema-dependent trigger outputs.
+   *
+   * A workflow has at most ONE trigger (the single-trigger invariant graphSlice enforces), so one
+   * unconditional hook call covers every case and the hook profile stays fixed. This is the SINGLE
+   * place dynamic outputs enter the builder: both variable pickers, both Data Maps and every
+   * config-field selector read `sources` from this hook, so wiring it here is what satisfies "one
+   * merged output source" — there is no per-surface implementation to keep in step.
+   */
+  const upstreamTriggerNode = useMemo(
+    () => ancestorNodes.find((n) => n.kind === "trigger") ?? null,
+    [ancestorNodes],
+  );
+  const upstreamTriggerMeta = useMemo(() => {
+    if (!upstreamTriggerNode) return undefined;
+    const key = `${upstreamTriggerNode.provider}:${upstreamTriggerNode.type}`;
+    return (
+      findProviderTriggerByKey(providerTriggers.triggers, key) ??
+      findNativeTriggerByKey(nativeTriggers.triggers, key)
+    );
+  }, [upstreamTriggerNode, providerTriggers.triggers, nativeTriggers.triggers]);
+
+  const dynamicTriggerOutputs = useDynamicTriggerOutputs({
+    meta: upstreamTriggerMeta,
+    config: upstreamTriggerNode?.config,
+    ...(upstreamTriggerNode ? { nodeId: upstreamTriggerNode.id } : {}),
+  });
+
   // 4. Slice 3.9 — compute the latest-run value map. Derived from
   //    `runSlice.detail` + the current graph's trigger node id. Kept
   //    in its own useMemo so the (often unchanged) sources work above
@@ -210,7 +257,13 @@ export function useUpstreamVariables(
         providerTriggers: providerTriggers.triggers,
       });
       if (!meta) continue; // not loaded yet, or unknown — skip silently
-      const outputs = meta.outputs;
+      // The trigger's outputs may be EXTENDED by its selected configuration (e.g. a chosen form's
+      // questions). Actions keep their static outputs; the merger returns the static array by
+      // reference when nothing synthesizes, so this is free for every other trigger.
+      const outputs =
+        node.kind === "trigger" && node.id === upstreamTriggerNode?.id
+          ? dynamicTriggerOutputs.outputs
+          : meta.outputs;
       if (outputs.length === 0) continue; // nothing useful to insert
 
       const sourceId = node.kind === "trigger" ? TRIGGER_ALIAS : node.id;
@@ -230,8 +283,10 @@ export function useUpstreamVariables(
         nativeTriggers.loading ||
         aiActions.loading ||
         providerCatalogs.loading ||
-        providerTriggers.loading,
+        providerTriggers.loading ||
+        dynamicTriggerOutputs.status === "loading",
       latestValuesBySource,
+      dynamicTriggerOutputs,
     };
   }, [
     currentNodeId,
@@ -247,6 +302,8 @@ export function useUpstreamVariables(
     providerTriggers.triggers,
     providerTriggers.loading,
     latestValuesBySource,
+    upstreamTriggerNode,
+    dynamicTriggerOutputs,
   ]);
 }
 
