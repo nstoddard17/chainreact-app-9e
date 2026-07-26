@@ -235,6 +235,55 @@ describe("detectCatalogGap — Mailchimp send/email has no catalog action", () =
     expect(detectCatalogGap("")).toBeNull();
   });
 
+  // ── REACT-AGENT-PREVIEW-FIRST-CLARIFICATION-FIX-1 — contamination protection ────────────────
+  //
+  // The production regression: this gap detector matched `mailchimp` AND `send|email|…` ANYWHERE in
+  // the text, so a request that merely ADDS someone to Mailchimp and sends mail with GMAIL matched,
+  // and an unrelated win-back-campaign limitation was appended to the user's answer. The user had
+  // not mentioned campaigns, win-back, or Mailchimp email at all.
+  const PRODUCTION_PROMPT =
+    "When someone submits our Typeform contact form, add them to Mailchimp, create a HubSpot " +
+    "contact, and send me a Gmail message summarizing their answers. Use the submitted email, " +
+    "first name, last name, company, and message wherever appropriate.";
+
+  it("does NOT report a Mailchimp send gap for the production prompt (Gmail does the sending)", () => {
+    expect(detectCatalogGap(PRODUCTION_PROMPT)).toBeNull();
+  });
+
+  it("does not fire merely because 'mailchimp' and a send/email word co-occur", () => {
+    // Mailchimp is a DESTINATION for the subscriber; the sending belongs to another provider.
+    expect(detectCatalogGap("add the subscriber to Mailchimp and send me a Slack message")).toBeNull();
+    expect(
+      detectCatalogGap("save their email in Mailchimp, then email me through Gmail"),
+    ).toBeNull();
+    expect(
+      detectCatalogGap("add them to Mailchimp and create a HubSpot contact with their email"),
+    ).toBeNull();
+  });
+
+  it("STILL reports the gap when the send is genuinely directed at Mailchimp", () => {
+    for (const goal of [
+      "send a Mailchimp campaign to everyone who signed up",
+      "email our subscribers through Mailchimp",
+      "send a newsletter in Mailchimp every Monday",
+      "blast a Mailchimp broadcast to the list",
+    ]) {
+      const gap = detectCatalogGap(goal);
+      expect(gap).not.toBeNull();
+      expect(gap!.provider).toBe("mailchimp");
+    }
+  });
+
+  it("reports the gap for a Mailchimp campaign even when another sender is also named", () => {
+    // A campaign noun tied to Mailchimp is a real request for a capability we lack, regardless of
+    // any other provider in the sentence.
+    const gap = detectCatalogGap(
+      "send a Mailchimp campaign to the list and also notify me on Slack",
+    );
+    expect(gap).not.toBeNull();
+    expect(gap!.provider).toBe("mailchimp");
+  });
+
   it("auto-clears the gap if a Mailchimp send action ever exists in the catalog", () => {
     mockGetActionMeta.mockImplementation((k: string) =>
       k === "mailchimp:send_campaign"

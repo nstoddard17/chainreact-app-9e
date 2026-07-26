@@ -123,6 +123,58 @@ export interface CatalogGap {
 }
 
 /**
+ * Catalog providers that CAN send a message/email. When one of these is named as the sender, the
+ * "send" in the sentence is already accounted for and says nothing about Mailchimp.
+ */
+const EMAIL_CAPABLE_SENDERS =
+  /\b(gmail|outlook|microsoft-outlook|slack|teams|discord|twilio|sendgrid)\b/;
+
+/** A broadcast-class noun — the thing Mailchimp would have to SEND for this to be a real gap. */
+const CAMPAIGN_NOUN_SOURCE = "(?:campaign|newsletter|blast|broadcast|mass email|bulk email)";
+
+/** Verbs that express sending. */
+const SEND_VERB_SOURCE = "(?:send|sending|sends|email|e-mail|emailing|blast|broadcast)";
+
+/** Within this many characters, two phrases are treated as referring to each other. */
+const NEAR_WINDOW = "[^.;]{0,40}";
+
+function nearMailchimp(source: string, g: string): boolean {
+  return new RegExp(
+    `(?:${source}${NEAR_WINDOW}\\bmailchimp\\b|\\bmailchimp\\b${NEAR_WINDOW}${source})`,
+  ).test(g);
+}
+
+/**
+ * REACT-AGENT-PREVIEW-FIRST-CLARIFICATION-FIX-1 — does the user actually ask MAILCHIMP to SEND?
+ *
+ * The previous rule was `/\bmailchimp\b/ && /\b(send|email|…)\b/` anywhere in the same text. That
+ * bare co-occurrence misfires on any workflow that merely ADDS someone to Mailchimp and separately
+ * sends mail with a different provider — including the production prompt
+ * "…add them to Mailchimp, create a HubSpot contact, and send me a Gmail message summarizing their
+ * answers. Use the submitted email…", which contains "mailchimp", "send" AND "email" while asking
+ * for no Mailchimp send at all. The user then saw an unrelated win-back-campaign limitation appended
+ * to a request that never mentioned campaigns.
+ *
+ * The gap now requires the send intent to be DIRECTED AT Mailchimp:
+ *   - a broadcast-class noun near Mailchimp ("mailchimp campaign", "campaign in mailchimp"), or
+ *   - a send verb near Mailchimp ("send a mailchimp email", "email them through mailchimp").
+ *
+ * It also declines when another catalog provider is named as the sender and no campaign noun appears
+ * at all — that request's sending is already satisfiable, so there is no Mailchimp gap to report.
+ */
+function wantsMailchimpToSend(g: string): boolean {
+  if (!/\bmailchimp\b/.test(g)) return false;
+  // Strongest signal: a broadcast noun tied to Mailchimp. Stands on its own.
+  if (nearMailchimp(CAMPAIGN_NOUN_SOURCE, g)) return true;
+  if (!nearMailchimp(SEND_VERB_SOURCE, g)) return false;
+  // A send verb sits near Mailchimp, but another named provider does the sending and nothing
+  // describes a broadcast → not a Mailchimp gap.
+  const anyCampaignNoun = new RegExp(CAMPAIGN_NOUN_SOURCE).test(g);
+  if (EMAIL_CAPABLE_SENDERS.test(g) && !anyCampaignNoun) return false;
+  return true;
+}
+
+/**
  * Detect when an obvious intent needs a capability the catalog does NOT have, so the agent surface can
  * say exactly what's missing instead of going silent. Registry-driven (the gap auto-clears if the
  * capability is added). Pure + model-free; returns `null` when no known gap applies.
@@ -134,9 +186,7 @@ export function detectCatalogGap(goalText: string | undefined): CatalogGap | nul
   const g = (goalText ?? "").trim().toLowerCase();
   if (g.length === 0) return null;
 
-  const mailchimp = /\bmailchimp\b/.test(g);
-  const sendIntent = /\b(send|email|e-mail|campaign|broadcast|blast|newsletter)\b/.test(g);
-  if (mailchimp && sendIntent) {
+  if (wantsMailchimpToSend(g)) {
     const hasSendAction = MAILCHIMP_SEND_CANDIDATES.some((id) => getActionMeta(id) != null);
     if (!hasSendAction) {
       return {

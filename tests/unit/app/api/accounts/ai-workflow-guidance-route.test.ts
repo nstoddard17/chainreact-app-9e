@@ -431,6 +431,87 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(body.warnings.join(" ")).toMatch(/send-campaign|send-email/i);
   });
 
+  // ── REACT-AGENT-PREVIEW-FIRST-CLARIFICATION-FIX-1 ─────────────────────────────────────────────
+  //
+  // The production regression, end to end. The prompt below produced SIX chat questions, no preview,
+  // and an unrelated win-back-campaign note. Two independent defects fed each other: the model
+  // withheld the plan, and withholding it is exactly the condition under which the route consults
+  // `detectCatalogGap` — whose old rule matched "mailchimp" + "send"/"email" anywhere in the text.
+  const PRODUCTION_PROMPT =
+    "When someone submits our Typeform contact form, add them to Mailchimp, create a HubSpot " +
+    "contact, and send me a Gmail message summarizing their answers. Use the submitted email, " +
+    "first name, last name, company, and message wherever appropriate.";
+
+  it("PREVIEW-FIRST — the production prompt returns the four-node preview, not a questionnaire", async () => {
+    // Hermes now returns the plan (the clarification policy tells it to). The route must carry it
+    // through to a non-applied preview with the unresolved values listed as setup inputs.
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Here's the workflow — pick the form, audience and recipient below.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Typeform contact form intake",
+        summary: "New Typeform response adds a subscriber, creates a contact, and emails a summary.",
+        notApplied: true,
+        steps: [
+          { ref: "s0", role: "trigger", provider: "typeform", type: "new_response_in_form", purpose: "watch the form", requiredInputs: ["formId"] },
+          { ref: "s1", role: "action", provider: "mailchimp", type: "add_subscriber", purpose: "add the subscriber", requiredInputs: ["audience_id", "status"] },
+          { ref: "s2", role: "action", provider: "hubspot", type: "create_contact", purpose: "create the contact", requiredInputs: ["duplicateHandling"] },
+          { ref: "s3", role: "action", provider: "gmail", type: "send_email", purpose: "email the summary", requiredInputs: ["to"] },
+        ],
+      },
+    });
+    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // A preview exists — the user is NOT handed a list of questions.
+    expect(body.workflowPlan).not.toBeNull();
+    expect(body.previewDraft).not.toBeNull();
+    expect(body.previewDraft.notApplied).toBe(true);
+    expect(
+      body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+    ).toEqual([
+      "typeform:new_response_in_form",
+      "mailchimp:add_subscriber",
+      "hubspot:create_contact",
+      "gmail:send_email",
+    ]);
+
+    // The genuine decisions ride along as setup inputs on their own nodes.
+    const byType = Object.fromEntries(
+      body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
+    );
+    expect(byType["new_response_in_form"]).toEqual(expect.arrayContaining(["formId"]));
+    expect(byType["add_subscriber"]).toEqual(expect.arrayContaining(["audience_id", "status"]));
+    expect(byType["create_contact"]).toEqual(expect.arrayContaining(["duplicateHandling"]));
+    expect(byType["send_email"]).toEqual(expect.arrayContaining(["to"]));
+
+    // CONTAMINATION: no win-back / Mailchimp-campaign commentary anywhere in the response.
+    const allText = JSON.stringify(body).toLowerCase();
+    expect(allText).not.toContain("win-back");
+    expect(allText).not.toContain("send-campaign");
+    expect(allText).not.toMatch(/mailchimp[^"]{0,60}campaign/);
+  });
+
+  it("PREVIEW-FIRST — even with NO plan from the model, the prompt gets no win-back commentary", async () => {
+    // Belt and braces: if the model still withholds a plan for this prompt, the route must not
+    // volunteer an unrelated Mailchimp campaign limitation on top of it.
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Which Typeform form should I watch?",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const warnings = (body.warnings ?? []).join(" ").toLowerCase();
+    expect(warnings).not.toContain("win-back");
+    expect(warnings).not.toContain("send-campaign");
+  });
+
   it("REACT-LIVE-SKELETON — Mailchimp TAG intent with no Hermes plan → route injects a validated add_tag fallback + preview", async () => {
     mockRunner.mockResolvedValueOnce({
       ok: true,

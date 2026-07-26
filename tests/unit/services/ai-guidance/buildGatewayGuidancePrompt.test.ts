@@ -85,6 +85,77 @@ describe("buildGatewayGuidancePrompt — prefer partial preview + guided setup (
 
   // REACT-LIVE-SKELETON — multi-step shapes (trigger + 2+ actions) must also be returned as a plan,
   // not described in prose, so the canvas skeleton updates as the conversation progresses.
+  // ── REACT-AGENT-PREVIEW-FIRST-CLARIFICATION-FIX-1 — preview-first clarification policy ────────
+  //
+  // Production regression: the prompt
+  //   "When someone submits our Typeform contact form, add them to Mailchimp, create a HubSpot
+  //    contact, and send me a Gmail message summarizing their answers..."
+  // came back as SIX chat questions and NO plan — which form, Mailchimp add-vs-update, HubSpot
+  // duplicate behaviour, Gmail recipient, whether to create a separate HubSpot company record, and
+  // whether to shorten the message. Every one of those is either a setup field or an invented
+  // decision. The instructions must name those categories explicitly rather than relying on the
+  // model's reading of "the SHAPE is ambiguous".
+
+  it("forbids asking for resource / audience / recipient / connection selections before the plan", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toContain("NEVER ask any of these before returning the plan");
+    expect(prompt).toMatch(/WHICH record\/resource to use/i);
+    expect(prompt).toMatch(/WHICH audience\/list\/segment/i);
+    expect(prompt).toMatch(/WHO to send to/i);
+    expect(prompt).toMatch(/WHICH connected account/i);
+  });
+
+  it("forbids asking for a required enum (consent status, duplicate handling) before the plan", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toMatch(/required ENUM the action declares/i);
+    expect(prompt).toMatch(/consent\/subscription status, duplicate handling/i);
+    // ...and says where they go instead.
+    expect(prompt).toMatch(/List each of these as `requiredInputs`.*RETURN THE PLAN/is);
+  });
+
+  it("forbids asking for a mapping that only becomes knowable after a resource is chosen", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toMatch(/only becomes knowable after a resource is chosen/i);
+  });
+
+  it("states the preview-first test and the CLOSED list of reasons to withhold a plan", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toContain("PREVIEW-FIRST TEST");
+    expect(prompt).toMatch(/the shape IS clear — return the plan/i);
+    expect(prompt).toMatch(/It does not matter how many values are still unknown/i);
+    // The four legitimate reasons.
+    expect(prompt).toMatch(/two materially DIFFERENT topologies are equally plausible/i);
+    expect(prompt).toMatch(/unsafe\/irreversible/i);
+    expect(prompt).toMatch(/cannot identify the provider or action at all/i);
+    expect(prompt).toMatch(/cannot be represented as a setup field/i);
+  });
+
+  it("forbids proposing an unrequested extra record-creating step when a field already holds the value", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toMatch(/propose ONLY the steps the user asked for/i);
+    expect(prompt).toMatch(/separate company\/organization step/i);
+    expect(prompt).toMatch(/map it to that field instead/i);
+  });
+
+  it("tells the model to WRITE a summary body itself instead of asking about formatting", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toMatch(/WRITE that body yourself/i);
+    expect(prompt).toMatch(/Include the submitted values in full/i);
+    expect(prompt).toMatch(/Do not ask whether to shorten or reformat/i);
+  });
+
+  it("tells the model not to answer a question it could answer with a default", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toMatch(/otherwise I'll do X.*just do X/is);
+  });
+
+  it("grounds capability-gap commentary in the user's actual request", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).toMatch(/Only mention a capability ChainReact LACKS when the user actually asked/i);
+    expect(prompt).toMatch(/Never append general limitations of a provider that are unrelated/i);
+    expect(prompt).toMatch(/never introduce a use case the user did not raise/i);
+  });
+
   it("instructs the model to return MULTI-STEP shapes as a plan (not prose)", () => {
     const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "tag the subscriber then notify a channel" });
     expect(prompt).toContain("MULTI-STEP shapes too");
