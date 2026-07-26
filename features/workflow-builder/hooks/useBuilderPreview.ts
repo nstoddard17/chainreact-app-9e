@@ -14,7 +14,10 @@ import {
   buildInitialPreviewConfig,
   buildPlanPrefilledConfig,
 } from "@/core/workflows/planPreviewConfig";
-import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
+import {
+  planToBuilderPatch,
+  resolvePreviewFocusNodeId,
+} from "@/core/workflows/planToBuilderPatch";
 import { buildConfigDiff, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import {
   buildPreviewRationale,
@@ -33,7 +36,7 @@ import {
   firstIncompleteAppliedNodeId,
 } from "../utils/appliedConfigHints";
 import { buildAgentSetupIssues } from "@/core/workflows/agentSetupIssues";
-import { useGraphSlice } from "../state/graphSlice";
+import { useGraphSlice, type ApplyAdditivePatchOutcome } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import { useWorkflowCheckpoints } from "./useWorkflowCheckpoints";
 import type { RequiredFieldsByType } from "../validation/collectBuilderValidationIssues";
@@ -314,7 +317,15 @@ export function useBuilderPreview({
   // patch from the VALIDATED plan (not the display preview) and applies it to the LOCAL draft via the
   // graph slice — the same dirty-making path as manual edits. No save/activate/run; no separate
   // workflow. Then clears the overlay and shows a safe confirmation.
-  const applyPreview = useCallback((applyMode: AgentApplyMode): boolean => {
+  const applyPreview = useCallback((
+    applyMode: AgentApplyMode,
+    /**
+     * REACT-AGENT-RESOLVER-RECOVERY-1 — optional "land here afterwards" target from the rail's setup
+     * card: on success, open THAT preview node's config panel with THAT field highlighted instead of
+     * the default first-incomplete open. Navigation only; an unresolvable target falls back.
+     */
+    focusTarget?: { readonly previewId: string; readonly fieldName: string },
+  ): boolean => {
     if (!previewOverlay) return false;
     // AGENT-CHANGE-HISTORY-1 — the correlation id minted when this preview was shown; transitions the
     // SAME timeline row from preview_created → applied / apply_failed.
@@ -336,14 +347,18 @@ export function useBuilderPreview({
       ? null
       : planToBuilderPatch(previewOverlay.plan, { previewConfig, ...(setupFieldsByType ? { setupFieldsByType } : {}) });
     const activeNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
+    // Kept in its own typed binding (rather than folded into the ternary below) so the additive
+    // outcome's `addedNodeIdByRef` stays reachable for the focus-target resolution further down —
+    // the replace arm has no such map, and a union of the two erases it.
+    const additiveOutcome: ApplyAdditivePatchOutcome | null = additivePatch
+      ? useGraphSlice.getState().applyAdditivePatch(additivePatch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {})
+      : null;
     const outcome = previewOverlay.proposedDefinition
       ? useGraphSlice.getState().replaceGraphLocal(
           previewOverlay.proposedDefinition,
           previewOverlay.baseGraphVersion ? { expectedBaseVersion: previewOverlay.baseGraphVersion } : {},
         )
-      : additivePatch
-        ? useGraphSlice.getState().applyAdditivePatch(additivePatch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {})
-        : null;
+      : additiveOutcome;
     // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — stale candidate (user edited since): refuse + ask to re-propose.
     if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
       setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
@@ -413,12 +428,29 @@ export function useBuilderPreview({
       // HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY — UX only: open the first newly-added node
       // metadata confirms is incomplete. `openNode` is navigation only (never saves/activates/runs).
       const postApplyNodes = useGraphSlice.getState().pendingNodes;
-      const incompleteId = firstIncompleteAppliedNodeId(
+      // REACT-AGENT-RESOLVER-RECOVERY-1 — an explicit "open the step editor for THIS field" wins
+      // over the generic first-incomplete open. Resolution is exact, never positional: the edit path
+      // mints `previewId === node.id` (definitionToDraftPreview), and the additive path goes preview
+      // id → patch ref → the id the slice actually minted (correct even when a trigger was skipped).
+      // Unresolvable → fall through to the existing behavior; we never guess a node.
+      const focusNodeId = focusTarget
+        ? resolvePreviewFocusNodeId({
+            plan: previewOverlay.plan,
+            previewId: focusTarget.previewId,
+            nodeIds: postApplyNodes.map((n) => n.id),
+            ...(additiveOutcome?.ok ? { addedNodeIdByRef: additiveOutcome.addedNodeIdByRef } : {}),
+          })
+        : undefined;
+      // An explicit focus target reveals THAT node/field; otherwise keep opening the first
+      // incomplete added node (unchanged behavior).
+      const openId = focusNodeId ?? firstIncompleteAppliedNodeId(
         buildAppliedConfigHints(outcome.addedNodeIds, postApplyNodes, requiredFieldsByType),
       );
-      if (incompleteId) {
-        const node = postApplyNodes.find((n) => n.id === incompleteId);
-        useConfigSlice.getState().openNode({ nodeId: incompleteId, initialValues: node?.config ?? {} });
+      if (openId) {
+        const initialValues = postApplyNodes.find((n) => n.id === openId)?.config ?? {};
+        const config = useConfigSlice.getState();
+        if (focusNodeId) config.revealNode({ nodeId: openId, initialValues, fieldKey: focusTarget!.fieldName });
+        else config.openNode({ nodeId: openId, initialValues });
       }
     } else {
       // No patch could be built, or nothing safe to apply (e.g. trigger-only into a graph that
@@ -448,6 +480,17 @@ export function useBuilderPreview({
   const handleApplyPreview = useCallback(() => {
     applyPreview("apply_to_draft");
   }, [applyPreview]);
+
+  // REACT-AGENT-RESOLVER-RECOVERY-1 — "open the step editor" from a preview field whose options
+  // could not load. A PREVIEW node has no config panel yet, so the honest implementation is what the
+  // button's label states: the SAME explicit additive local-draft apply (seeding everything already
+  // entered, no new workflow, no save/activate/run), then reveal that node + field.
+  const handleOpenPreviewStepEditor = useCallback(
+    (previewId: string, fieldName: string) => {
+      applyPreview("apply_to_draft", { previewId, fieldName });
+    },
+    [applyPreview],
+  );
 
   // "Apply and test" — apply to the draft, PERSIST it (run-now executes the saved draft, not the
   // in-memory pending graph), then dispatch a safe test run. Sequenced so the test validates the
@@ -577,6 +620,7 @@ export function useBuilderPreview({
     handleShowPreview,
     handlePreviewConfigChange,
     handleApplyPreview,
+    handleOpenPreviewStepEditor,
     handleApplyAndTest,
     handleKeepAsPreview,
     handleRestoreCheckpoint,

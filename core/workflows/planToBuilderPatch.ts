@@ -69,6 +69,59 @@ function previewStepId(originalIndex: number): string {
   return `preview-step-${originalIndex + 1}`;
 }
 
+/**
+ * REACT-AGENT-RESOLVER-RECOVERY-1 — preview node id → the patch REF `planToBuilderPatch` mints for
+ * it (`preview-step-3` → `p1`).
+ *
+ * The rail's setup card speaks in preview ids; the graph slice reports the real node ids it minted
+ * keyed by patch ref. This is the honest bridge between them, derived from the SAME `kept` filter
+ * and the SAME `p${i}` numbering the patch builder uses — so "open the step editor for THIS field"
+ * can land on the node that field actually became, never a positional guess.
+ *
+ * Steps the patch skips (role `logic`) simply have no entry. Pure.
+ */
+export function previewIdToPatchRef(
+  plan: WorkflowPlan | null | undefined,
+): Readonly<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (!plan || !Array.isArray(plan.steps)) return out;
+  const kept = plan.steps
+    .map((step, originalIndex) => ({ step, originalIndex }))
+    .filter(({ step }) => step.role === "trigger" || step.role === "action");
+  kept.forEach(({ originalIndex }, i) => {
+    out[previewStepId(originalIndex)] = `p${i}`;
+  });
+  return out;
+}
+
+/**
+ * REACT-AGENT-RESOLVER-RECOVERY-1 — which REAL draft node should "open the step editor" land on for
+ * a given preview field, after the preview has been applied?
+ *
+ * Exact by construction, never positional:
+ *   - EDIT path — `definitionToDraftPreview` mints `previewId === node.id`, so the preview id IS the
+ *     node id in the replaced graph (confirmed against the post-apply node list).
+ *   - ADDITIVE path — preview id → patch ref ({@link previewIdToPatchRef}) → the id the graph slice
+ *     actually minted for that ref, which stays correct even when a proposed trigger was skipped.
+ *
+ * Returns `undefined` when the target cannot be resolved; callers fall back to their default
+ * behavior rather than guessing a node. Pure.
+ */
+export function resolvePreviewFocusNodeId(input: {
+  readonly plan: WorkflowPlan | null | undefined;
+  readonly previewId: string;
+  /** Post-apply node ids — used to confirm the edit path's preview id really exists. */
+  readonly nodeIds: readonly string[];
+  /** Present only on the additive path (the graph slice's `addedNodeIdByRef`). */
+  readonly addedNodeIdByRef?: Readonly<Record<string, string>> | undefined;
+}): string | undefined {
+  if (input.addedNodeIdByRef) {
+    const ref = previewIdToPatchRef(input.plan)[input.previewId];
+    return ref ? input.addedNodeIdByRef[ref] : undefined;
+  }
+  return input.nodeIds.includes(input.previewId) ? input.previewId : undefined;
+}
+
 export function planToBuilderPatch(
   plan: WorkflowPlan | null | undefined,
   options: PlanToBuilderPatchOptions = {},

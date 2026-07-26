@@ -89,6 +89,51 @@ describe("BuilderNodeSetupCard", () => {
     );
   });
 
+  // REACT-AGENT-RESOLVER-RECOVERY-1 — "open the step" must be something the user can actually DO.
+  it("makes the 'open the step' message a working action when node reveal is wired", async () => {
+    const user = userEvent.setup();
+    const onFieldInteract = jest.fn();
+    const target: CheckWorkflowSetupTarget = { ...slackTarget, missingFieldNames: ["apiKey"] };
+    render(
+      <BuilderNodeSetupCard
+        nodes={[target]}
+        setupFieldsByType={setupFieldsByType}
+        onUpdateStep={() => {}}
+        onFieldInteract={onFieldInteract}
+      />,
+    );
+    await user.click(screen.getByTestId("node-setup-a1-unsupported-open"));
+    expect(onFieldInteract).toHaveBeenCalledWith("a1", "apiKey", "focus");
+  });
+
+  // REACT-AGENT-RESOLVER-RECOVERY-1 — an EXISTING draft node's failed resolver gets the same shared
+  // recovery block, and its step editor really opens (the node exists, so no apply is involved).
+  it("offers a working Open step editor when an existing node's options fail to load", async () => {
+    const user = userEvent.setup();
+    const onFieldInteract = jest.fn();
+    mockFetchOptionsSource.mockResolvedValue({
+      ok: false,
+      source: "slack:channels",
+      code: "PROVIDER_REAUTH_REQUIRED",
+      message: "Your Slack connection is missing a required permission. Reconnect Slack to grant it.",
+    });
+    render(
+      <BuilderNodeSetupCard
+        nodes={[slackTarget]}
+        setupFieldsByType={setupFieldsByType}
+        onUpdateStep={() => {}}
+        onFieldInteract={onFieldInteract}
+        providerLabels={{ slack: "Slack" }}
+      />,
+    );
+    const box = await screen.findByTestId("node-setup-a1-channel-error");
+    expect(box).toHaveAttribute("data-recovery-kind", "reconnect-required");
+    expect(box).toHaveTextContent(/missing a required permission/i);
+    expect(box).not.toHaveTextContent(/You can finish this in the step editor/i);
+    await user.click(screen.getByTestId("node-setup-a1-channel-open-step-editor"));
+    expect(onFieldInteract).toHaveBeenCalledWith("a1", "channel", "focus");
+  });
+
   it("renders only the 'open the step' message (no Update button) when no field is locally supported", () => {
     const target: CheckWorkflowSetupTarget = { ...slackTarget, missingFieldNames: ["apiKey"] };
     render(<BuilderNodeSetupCard nodes={[target]} setupFieldsByType={setupFieldsByType} onUpdateStep={() => {}} />);

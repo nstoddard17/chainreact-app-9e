@@ -307,6 +307,14 @@ linked here.
 
 **Builder & configuration**
 17. **Builder completion is provider completion.** Every shipped action and trigger must support an understandable repetitive-task configuration path. Static discoverable provider resources use real account-aware selectors; changing runtime values support upstream mapping; manual identifier entry is retained in Advanced for power users. Setup must not require provider documentation, opaque identifiers, raw payload construction, or arbitrary JSON when ChainReact can provide a structured path. **If that configuration path is incomplete, manifest/runtime registration does not make the node complete.** (Mechanics — `advanced` / `visibleWhen` / `defaultValue` / `object`-vs-`json` — are rule 4's sub-bullet; this rule is the completion bar.)
+    - **A resolver failure must never strand a field (REACT-AGENT-RESOLVER-RECOVERY-1).** Every
+      `optionsSource`-backed field must, in every non-ready state, say honestly what happened and
+      offer the recoveries that state actually supports — retry / reconnect deep-link / open the
+      exact step editor / deliberate manual provider-ID entry. Never one generic "Couldn't load
+      options", never an instruction the UI can't carry out, never a retry that provably can't
+      help. Classification is shared and provider-agnostic
+      (`core/workflows/options/optionsRecovery.ts`) — adding a provider requires no recovery code.
+      Contract: [`docs/rules/option-source-recovery.md`](./docs/rules/option-source-recovery.md).
     - **Configuration-design doc required.** The provider's configuration-design document must classify *every* field of *every* shipped node as exactly one of: **core user decision** · **static provider resource** · **dynamic upstream value** · **fixed repeated value** · **derived/defaulted value** · **conditional option** · **advanced control** · **internal implementation detail**. The resulting UI must follow the classification — a static provider resource is a registered selector, not a raw text box; an internal implementation detail is derived or hidden, not surfaced. Full procedure + Owner Report contract: [`.claude/skills/chainreactv2-provider-integration-builder/SKILL.md`](./.claude/skills/chainreactv2-provider-integration-builder/SKILL.md).
 
 **Analytics**
@@ -344,6 +352,7 @@ The universal rules are in **V2 Provider Authoring Rules** above. Per-provider s
 
 - File output (FileRef): [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md)
 - Token-ingest auth: [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md)
+- Option-source recovery (resolver failures must stay recoverable): [`docs/rules/option-source-recovery.md`](./docs/rules/option-source-recovery.md)
 - Folder / module boundaries (50-file cap): [`docs/rules/project-structure-and-module-boundaries.md`](./docs/rules/project-structure-and-module-boundaries.md)
 - Testing strategy + shared-mock e2e execution: [`docs/rules/testing-strategy.md`](./docs/rules/testing-strategy.md)
 

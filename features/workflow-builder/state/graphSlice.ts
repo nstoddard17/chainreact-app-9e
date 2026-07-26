@@ -384,6 +384,13 @@ export type ApplyAdditivePatchOutcome =
   | {
       readonly ok: true;
       readonly addedNodeIds: readonly string[];
+      /**
+       * REACT-AGENT-RESOLVER-RECOVERY-1 — patch ref (`p0`, `p1`, …) → the real node id minted for
+       * it. `addedNodeIds` alone cannot be indexed positionally against the patch because a
+       * proposed trigger may be skipped; this map is the exact correspondence, so a caller can open
+       * "the node that preview step N became". A skipped trigger simply has no entry.
+       */
+      readonly addedNodeIdByRef: Readonly<Record<string, string>>;
       readonly addedEdgeIds: readonly string[];
       /** True when a proposed trigger was skipped because the graph already had one (no replace). */
       readonly skippedTrigger: boolean;
@@ -1156,9 +1163,15 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
       isDirty: true,
       saveError: null,
     });
+    // REACT-AGENT-RESOLVER-RECOVERY-1 — the ref → minted-id correspondence from step 1. Only refs
+    // that really became nodes appear (a skipped trigger never entered `refToId`).
+    const addedIds = new Set(plan.addedNodes.map((n) => n.id));
+    const addedNodeIdByRef: Record<string, string> = {};
+    for (const [ref, id] of refToId) if (addedIds.has(id)) addedNodeIdByRef[ref] = id;
     return {
       ok: true,
       addedNodeIds: plan.addedNodes.map((n) => n.id),
+      addedNodeIdByRef,
       addedEdgeIds: plan.addedEdges.map((e) => e.id),
       skippedTrigger,
       placement: plan.placement,

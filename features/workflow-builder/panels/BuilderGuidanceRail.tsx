@@ -79,6 +79,17 @@ export interface BuilderGuidanceRailProps {
   /** The existing explicit "Apply preview" action — seeds previewConfig into the new draft nodes. */
   readonly onApplyPreview?: () => void;
   /**
+   * REACT-AGENT-RESOLVER-RECOVERY-1 — provider display labels, so a field whose options failed to
+   * load can name its provider honestly ("We couldn't load your Typeform forms.").
+   */
+  readonly providerLabels?: Readonly<Record<string, string>>;
+  /**
+   * REACT-AGENT-RESOLVER-RECOVERY-1 — the setup card's escape hatch for a preview field whose
+   * options cannot load: apply this preview to the local draft (seeding everything already entered)
+   * and open the resulting node's config panel focused on that field. Absent → not offered.
+   */
+  readonly onOpenPreviewStepEditor?: (previewId: string, fieldName: string) => void;
+  /**
    * BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — getter for the current DETERMINISTIC validation snapshot
    * (the builder computes it from the same validator that drives the header pill / validation drawer).
    * Forwarded verbatim to the panel so the "Check workflow" review reflects, and never contradicts, the
@@ -136,6 +147,8 @@ export function BuilderGuidanceRail({
   previewPrefilledConfig,
   onPreviewConfigChange,
   onApplyPreview,
+  providerLabels,
+  onOpenPreviewStepEditor,
   getCheckReviewContext,
   getCurrentGraphShape,
   renderCheckSetup,
@@ -191,6 +204,8 @@ export function BuilderGuidanceRail({
                       onPreviewConfigChange={onPreviewConfigChange}
                       onApply={onApplyPreview}
                       workflowId={workflowId}
+                      {...(providerLabels ? { providerLabels } : {})}
+                      {...(onOpenPreviewStepEditor ? { onOpenStepEditor: onOpenPreviewStepEditor } : {})}
                     />
                   ),
                 }

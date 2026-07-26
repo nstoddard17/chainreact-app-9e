@@ -56,6 +56,21 @@ export interface BuilderPreviewSetupCardProps {
    * caller's account context only.
    */
   readonly workflowId?: string;
+  /**
+   * REACT-AGENT-RESOLVER-RECOVERY-1 — display labels per provider slug, used to name the provider in
+   * option-recovery copy ("We couldn't load your Typeform forms."). Absent → the slug is humanized.
+   */
+  readonly providerLabels?: Readonly<Record<string, string>>;
+  /**
+   * REACT-AGENT-RESOLVER-RECOVERY-1 — the escape hatch for a field whose options cannot load.
+   *
+   * A PREVIEW node does not exist in the draft yet, so there is no step editor to open until it
+   * does. The builder implements this as: apply THIS preview to the draft (the same explicit,
+   * additive, local-only apply the Apply button performs — it seeds every value already entered,
+   * creates no new workflow, and saves/activates nothing), then select the resulting node and
+   * highlight this field. Absent → the action is not offered and no copy claims it exists.
+   */
+  readonly onOpenStepEditor?: (previewId: string, fieldName: string) => void;
 }
 
 export function BuilderPreviewSetupCard({
@@ -66,6 +81,8 @@ export function BuilderPreviewSetupCard({
   onPreviewConfigChange,
   onApply,
   workflowId,
+  providerLabels,
+  onOpenStepEditor,
 }: BuilderPreviewSetupCardProps) {
   // Per node: which still-missing fields can be collected now (supported local controls) vs. which
   // must wait until after Apply (async resolver / cascade / unsupported). Deterministic, metadata-driven.
@@ -132,7 +149,19 @@ export function BuilderPreviewSetupCard({
                   value={previewConfig?.[node.previewId]?.[field.name]}
                   nodeConfig={previewConfig?.[node.previewId]}
                   {...(workflowId ? { workflowId } : {})}
+                  {...(providerLabels?.[node.provider] ? { providerLabel: providerLabels[node.provider] } : {})}
                   onChange={(v) => onPreviewConfigChange(node.previewId, field.name, v)}
+                  {...(onOpenStepEditor
+                    ? {
+                        onOpenStepEditor: () => onOpenStepEditor(node.previewId, field.name),
+                        // Honest label: this step is still a preview, so opening its editor means
+                        // adding the sketched steps to the draft first (local only — nothing is
+                        // saved, activated, or run, and everything entered here comes with it).
+                        openStepEditorLabel: "Add to draft & open step",
+                        openStepEditorTitle:
+                          "Adds the sketched steps to your draft (nothing is saved or activated) and opens this step with this field highlighted",
+                      }
+                    : {})}
                   testid={`preview-setup-${node.previewId}-${field.name}`}
                 />
               ) : (
@@ -164,6 +193,24 @@ export function BuilderPreviewSetupCard({
                 style={{ color: "var(--builder-muted)" }}
               >
                 Choose after Apply: {afterApply.join(", ")}
+                {/* REACT-AGENT-RESOLVER-RECOVERY-1 — a field with no pre-apply control still needs a
+                    way to be reached. Same honest action as the recovery block: add the sketched
+                    steps to the draft (local only) and land on this field. */}
+                {onOpenStepEditor && (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      data-testid={`preview-setup-${node.previewId}-after-apply-open`}
+                      onClick={() => onOpenStepEditor(node.previewId, afterApply[0]!)}
+                      className="underline"
+                      style={{ color: "var(--builder-accent)" }}
+                      title="Adds the sketched steps to your draft (nothing is saved or activated) and opens this step"
+                    >
+                      Add to draft &amp; open step
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

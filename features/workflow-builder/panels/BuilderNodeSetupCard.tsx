@@ -50,6 +50,11 @@ export interface BuilderNodeSetupCardProps {
    * metadata KEY, not a label. Optional → no reveal wiring.
    */
   readonly onFieldInteract?: (nodeId: string, fieldName: string, interaction: "focus" | "change") => void;
+  /**
+   * REACT-AGENT-RESOLVER-RECOVERY-1 — display labels per provider slug, used to name the provider in
+   * option-recovery copy ("We couldn't load your Typeform forms."). Absent → the slug is humanized.
+   */
+  readonly providerLabels?: Readonly<Record<string, string>>;
 }
 
 interface ResolvedNode {
@@ -64,6 +69,7 @@ export function BuilderNodeSetupCard({
   workflowId,
   onUpdateStep,
   onFieldInteract,
+  providerLabels,
 }: BuilderNodeSetupCardProps) {
   // Collected values per node, keyed nodeId → fieldName → value. Local + ephemeral until "Update step".
   const [values, setValues] = useState<Record<string, Record<string, unknown>>>({});
@@ -129,6 +135,14 @@ export function BuilderNodeSetupCard({
                   setValue(target.nodeId, field.name, v);
                   if (isSelect) onFieldInteract?.(target.nodeId, field.name, "change");
                 };
+                // REACT-AGENT-RESOLVER-RECOVERY-1 — the node ALREADY exists in the draft, so
+                // "Open step editor" is the same deterministic reveal the focus handler performs
+                // (select the node, open its config panel, highlight this field). Navigation only:
+                // it never writes a value, saves, activates, or runs.
+                const openStepEditor = onFieldInteract
+                  ? () => onFieldInteract(target.nodeId, field.name, "focus")
+                  : undefined;
+                const providerLabel = providerLabels?.[target.provider];
                 return field.type === "select-async" ? (
                   <SetupAsyncSelectControl
                     key={field.name}
@@ -136,8 +150,11 @@ export function BuilderNodeSetupCard({
                     value={nodeConfig?.[field.name]}
                     nodeConfig={nodeConfig}
                     {...(workflowId ? { workflowId } : {})}
+                    {...(providerLabel ? { providerLabel } : {})}
                     onChange={handleChange}
                     {...(emitFocus ? { onFocus: emitFocus } : {})}
+                    {...(openStepEditor ? { onOpenStepEditor: openStepEditor } : {})}
+                    openStepEditorTitle={`Open ${target.label} and highlight ${field.label}`}
                     testid={`node-setup-${target.nodeId}-${field.name}`}
                   />
                 ) : (
@@ -159,7 +176,22 @@ export function BuilderNodeSetupCard({
                   className="mt-1 text-[11px]"
                   style={{ color: "var(--builder-muted)" }}
                 >
-                  Open {target.label} to finish setup.
+                  {/* REACT-AGENT-RESOLVER-RECOVERY-1 — this used to be a bare instruction with no way
+                      to carry it out. It is now a working action, and only says "open" when it can. */}
+                  {onFieldInteract ? (
+                    <button
+                      type="button"
+                      data-testid={`node-setup-${target.nodeId}-unsupported-open`}
+                      onClick={() => onFieldInteract(target.nodeId, unsupported[0]!, "focus")}
+                      className="underline"
+                      style={{ color: "var(--builder-accent)" }}
+                      title={`Open ${target.label} and highlight ${unsupported[0]}`}
+                    >
+                      Open {target.label} to finish setup
+                    </button>
+                  ) : (
+                    <span>Open {target.label} to finish setup.</span>
+                  )}
                 </div>
               )}
 

@@ -111,9 +111,11 @@ export function useAgentRailWiring({
         workflowId={workflowId}
         onUpdateStep={handleUpdateStepSetup}
         onFieldInteract={handleSetupFieldReveal}
+        // REACT-AGENT-RESOLVER-RECOVERY-1 — name the provider in option-recovery copy.
+        providerLabels={providerLabels}
       />
     ),
-    [setupFieldsByType, workflowId, handleUpdateStepSetup, handleSetupFieldReveal],
+    [setupFieldsByType, workflowId, handleUpdateStepSetup, handleSetupFieldReveal, providerLabels],
   );
 
   return { getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup };

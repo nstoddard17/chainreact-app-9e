@@ -868,6 +868,7 @@ export function WorkflowBuilder({
     handleShowPreview,
     handlePreviewConfigChange,
     handleApplyPreview,
+    handleOpenPreviewStepEditor,
     handleApplyAndTest,
     handleKeepAsPreview,
     handleRestoreCheckpoint,
@@ -1134,6 +1135,10 @@ export function WorkflowBuilder({
             previewPrefilledConfig={previewPrefilledConfig}
             onPreviewConfigChange={handlePreviewConfigChange}
             onApplyPreview={handleApplyPreview}
+            // REACT-AGENT-RESOLVER-RECOVERY-1 — name providers in option-recovery copy, and give
+            // every unresolved preview field a working path into its real step editor.
+            providerLabels={providerLabels}
+            onOpenPreviewStepEditor={handleOpenPreviewStepEditor}
             getCheckReviewContext={getCheckReviewContext}
             getCurrentGraphShape={getCurrentGraphShape}
             getCurrentDraft={getCurrentDraft}
@@ -1277,6 +1282,8 @@ export function WorkflowBuilder({
                   previewPrefilledConfig={previewPrefilledConfig}
                   onPreviewConfigChange={handlePreviewConfigChange}
                   onApplyPreview={handleApplyPreview}
+                  providerLabels={providerLabels}
+                  onOpenPreviewStepEditor={handleOpenPreviewStepEditor}
                   getCheckReviewContext={getCheckReviewContext}
                   getCurrentGraphShape={getCurrentGraphShape}
                   getCurrentDraft={getCurrentDraft}

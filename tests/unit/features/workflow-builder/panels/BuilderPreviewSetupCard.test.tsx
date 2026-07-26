@@ -218,14 +218,19 @@ describe("BuilderPreviewSetupCard — async optionsSource dropdown (HERMES-AGENT
     await waitFor(() => expect(select.disabled).toBe(false));
   });
 
-  it("renders an empty state safely when the resolver returns no options", async () => {
+  // REACT-AGENT-RESOLVER-RECOVERY-1 — "the account has none of this resource" is a DIFFERENT
+  // situation from "the request failed", and it is still recoverable (the user may know the id).
+  it("renders an empty state distinctly from a failure, with recovery actions", async () => {
     mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [], hasMore: false });
     render(
       <BuilderPreviewSetupCard preview={asyncPreview(["channel"])} setupFieldsByType={asyncFields} previewConfig={{}} onPreviewConfigChange={() => {}} onApply={() => {}} />,
     );
-    const select = await screen.findByTestId("preview-setup-preview-step-1-channel");
-    await waitFor(() => expect(select).toHaveTextContent("No options available"));
-    expect((select as HTMLSelectElement).disabled).toBe(true);
+    const box = await screen.findByTestId("preview-setup-preview-step-1-channel-error");
+    expect(box).toHaveAttribute("data-recovery-kind", "no-results");
+    expect(box).toHaveTextContent(/No channels found in your Slack account/i);
+    // Distinct from a request failure — and still actionable.
+    expect(screen.getByTestId("preview-setup-preview-step-1-channel-retry")).toBeInTheDocument();
+    expect(screen.getByTestId("preview-setup-preview-step-1-channel-manual-toggle")).toBeInTheDocument();
   });
 
   it("renders an error state with retry safely (does not crash) when the resolver fails", async () => {
