@@ -44,7 +44,7 @@ import {
   type SensitiveLiteralBinding,
 } from "@/core/security/sensitiveLiterals";
 import { sanitizePlanStepConfigs } from "@/services/ai-guidance/planConfig/sanitizeProposedConfig";
-import { buildUserLiteralCorpus } from "@/core/workflows/fabricatedSampleValues";
+import { buildUserLiteralCorpus } from "@/core/workflows/mapping/fabricatedSampleValues";
 import { resolveProposedOptionValues } from "@/services/ai-guidance/planConfig/resolveProposedOptionValues";
 import { prepareProposedOperations } from "@/services/ai-guidance/planConfig/prepareProposedOperations";
 import { buildFieldSchemaLines, buildOutputSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";

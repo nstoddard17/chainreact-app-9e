@@ -29,7 +29,7 @@ import {
 import {
   buildUserLiteralCorpus,
   findFabricatedSampleValue,
-} from "@/core/workflows/fabricatedSampleValues";
+} from "@/core/workflows/mapping/fabricatedSampleValues";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { WorkflowGuidanceRequest } from "@/contracts/aiGuidance";

@@ -30,7 +30,7 @@
 
 import type { FieldMeta } from "@/contracts/actionMeta";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
-import { findFabricatedValueDeep } from "@/core/workflows/fabricatedSampleValues";
+import { findFabricatedValueDeep } from "@/core/workflows/mapping/fabricatedSampleValues";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 
 /** Field types whose values the model may author directly (before the async options pass). */

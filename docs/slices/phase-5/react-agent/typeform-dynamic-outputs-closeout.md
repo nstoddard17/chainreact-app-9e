@@ -128,3 +128,45 @@ because nothing yet consumes the new contract:
 Recommended next slice order, smallest coherent steps first: (1) the dynamic trigger-output contract +
 service, (2) builder picker/Data Map, (3) the semantic mapping layer, (4) agent preview enrichment,
 (5) caching, (6) the end-to-end execution test.
+
+---
+
+# Consumption layer — TYPEFORM-DYNAMIC-OUTPUTS-CONSUMPTION-1
+
+**Phases 1, 2, 4 and 6 are done. Phases 3 (builder UI) and 5 (agent preview enrichment) are NOT.**
+The manual acceptance journey therefore still does not complete in the product, but the machinery it
+needs now exists and is proven end-to-end at the contract level.
+
+## Delivered
+
+| Phase | Piece | File |
+|---|---|---|
+| 1 | `TriggerMeta.dynamicOutputSource` — a **resolver-backed** declaration (`configField` → `source` → `attachUnder`), distinct from the action-side `dynamicOutputs` which needs a user-typed `schema-fields` value. Validated at load: both the config field and the attach target must exist. | [`contracts/triggerMeta.ts`](../../../../contracts/triggerMeta.ts) |
+| 1 | Pure merger + `isAwaitingDynamicSchema` + `dynamicOutputPath`. Static outputs returned BY REFERENCE when nothing synthesizes; unsafe/duplicate keys rejected **visibly**; static children win collisions. | [`core/workflows/mapping/dynamicTriggerOutputs.ts`](../../../../core/workflows/mapping/dynamicTriggerOutputs.ts) |
+| 1 | Server-side resolution through the existing options boundary, with a 4-state status (`not_applicable` / `awaiting_selection` / `resolved` / `unavailable`). Resolver failures **never throw** into guidance or readiness — they degrade to static outputs with a typed reason. | [`services/discovery/dynamicTriggerOutputs.ts`](../../../../services/discovery/dynamicTriggerOutputs.ts) |
+| 2 | Typeform declares its source (`formId` → `typeform:form_questions` → `answersByRef`). | [`newResponseInForm.meta.ts`](../../../../integrations/typeform/triggers/newResponseInForm/newResponseInForm.meta.ts) |
+| 4 | Provider-neutral semantic mapper: 12 concepts with alias vocabularies, camelCase/snake_case normalization, longest-alias-wins, type compatibility, and a three-way outcome (**mapped** / **ambiguous** / **missing**) plus `no_concept`. Includes `buildSummaryBody`. | [`core/workflows/mapping/semanticFieldMapping.ts`](../../../../core/workflows/mapping/semanticFieldMapping.ts) |
+| 6 | Runtime proof through the REAL canonical resolver against a REAL normalized webhook event. | [`typeformStablePathRuntime.test.ts`](../../../../tests/unit/workflow-engine/variables/typeformStablePathRuntime.test.ts) |
+
+The design-time chain (`describeQuestion` → merge → semantic map → `{{trigger.answersByRef.…}}`) and
+the runtime chain (`normalize` → `resolveStrict`) meet in the runtime test: every design-time
+candidate resolves, the same email feeds two destinations, the summary body resolves with no `{{`
+left, a skipped question does not shift anything, a missing one produces the canonical
+`MissingVariableError`, and an author-hostile ref (`how did you hear.about us`) round-trips through
+`toAnswerKey` at both ends.
+
+## Not delivered
+
+- **Phase 3 — builder Data Map / variable pickers.** `useUpstreamVariables` does not yet call the
+  merger, so questions do not appear in either builder's picker or Data Map, and there are no
+  loading/retry/reconnect states or form-change invalidation (**#16–#24 unmet**).
+- **Phase 5 — agent preview enrichment.** Selecting a form does not re-evaluate an existing proposal
+  (**#34–#47 unmet**). The mapper and merger it would call are ready.
+- Caching (explicitly optional this batch) — every resolve is a live provider call.
+- **#57–#61 regression tests** not added as a named set, though the existing suites covering those
+  behaviors were run and pass.
+
+**Structural note:** the two new `core/workflows/` files pushed that folder to 52 and broke the
+50-file leaf cap. Fixed per rule 16 by moving the three agent-mapping helpers into
+`core/workflows/mapping/` (49 files). `fabricatedSampleValues.ts` moved with them and its importers
+were updated.

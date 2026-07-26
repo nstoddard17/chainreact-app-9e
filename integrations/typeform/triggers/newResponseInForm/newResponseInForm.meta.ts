@@ -106,5 +106,18 @@ export const typeformNewResponseInFormTriggerMeta: TriggerMeta = {
       nullable: true,
     },
   ],
+  /**
+   * TYPEFORM-DYNAMIC-OUTPUTS-CONSUMPTION-1 — the selected form's questions become mappable outputs.
+   *
+   * Declaration only: the static registry does no I/O. `services/discovery/dynamicTriggerOutputs`
+   * (server) and the builder (via /api/options) both resolve `typeform:form_questions` for the chosen
+   * `formId` and merge the result under `answersByRef` with the SAME pure merger, so a path shown in
+   * the picker is the path the runtime emits.
+   */
+  dynamicOutputSource: {
+    configField: "formId",
+    source: "typeform:form_questions",
+    attachUnder: "answersByRef",
+  },
   displayOrder: 10,
 };
