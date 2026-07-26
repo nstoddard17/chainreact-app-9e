@@ -185,6 +185,27 @@ in `.env.local` (git-ignored). The mcp-import CLI now loads it via `@next/env`'s
 | Project | `list_projects` | `{ projects:[{ id, name, url, status:{id,name,type}, … }], hasNextPage }` — **non-empty** (cert project "Delete Me") | **`linear:projects`** (value=id, label=name; optional `team` cascade filter) |
 | State | `list_issue_statuses` | top-level array `[{ id, type, name }]` (team-scoped) | **`linear:issue_statuses`** (value=id, label=name; **requiredDeps: team** → "choose a team first") |
 | Cycle | `list_cycles` | **empty `[]`** — cert team ("ChainReact") has no cycles configured | **NOT shipped** — item shape unconfirmed; Cycle stays name/number/ID text (no guessed shape) |
+| Issue | `list_issues` | `{ issues:[{ id, title, status, team, teamId, url, description, … }], hasNextPage, cursor }` — **non-empty** | **`linear:issues`** (TEST-SUITE-GREEN-1; value=id, label=`title — status · team`; NO deps) |
+
+**`linear:issues` (added by TEST-SUITE-GREEN-1)** closes the RESOLVERS-1 gap
+where five issue-reference fields were raw "paste a UUID or LIN-123" text:
+`update_issue.id` and `add_comment.issueId` (both REQUIRED Setup fields) plus the
+`parentId` issue references on find / create / update. All five are now
+`allowManualEntry` comboboxes, so `{{mapping}}` and typed identifiers still work.
+
+Two honesty notes carried over from the captured shape:
+- The label is built from `title` + `status` + `team`. Linear's `list_issues`
+  result carries **no `identifier`** (no "LIN-123"), so none is invented — the
+  same rule that kept `identifier` off the certified action outputs. `url` is
+  deliberately not surfaced (rule 7: no provider host in builder strings).
+- It declares **no deps**. `team` is not a cascade parent here: on Update Issue
+  the Team field MOVES the issue, so filtering by it would hide the very issue
+  being moved, and Add Comment has no team field. Authors narrow with the search
+  box, which Linear serves server-side (`query` = "Search issue title or description").
+
+`add_comment.parentId` remains text: it is a COMMENT id, and `list_comments`
+carries no captured evidence, so a picker would need a guessed shape. It holds a
+documented UPSTREAM exemption in the RESOLVERS-1 guard.
 
 State + Project are now cascade comboboxes (`dependsOn: team`) on Find / Create /
 Update Issue — dropdown + manual name/ID fallback. Team was discovered via

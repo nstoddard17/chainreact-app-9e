@@ -54,6 +54,24 @@ share the resolver-deferral note. `limit`, `cursor`, `orderBy`, `includeArchived
 > evidence) and `linear:issue-statuses` (team-scoped, not captured) are deferred —
 > no fabricated shapes; see [`live-capture-evidence.md`](./live-capture-evidence.md)
 > for the exact commands to finish them.
+>
+> **CS-6C update.** `linear:projects` (optional `team` cascade filter) and
+> `linear:issue_statuses` (`requiredDeps: team`) shipped once real evidence was
+> captured — all 5 planned pickers are live.
+>
+> **TEST-SUITE-GREEN-1 update (6th picker: the ISSUE itself).** The 5 pickers
+> above all cover issue ATTRIBUTES; the issue REFERENCE fields were still raw
+> text, which the RESOLVERS-1 guard flagged. **`linear:issues`** now backs
+> `update_issue.id` and `add_comment.issueId` — both REQUIRED Setup fields, i.e.
+> the node's core user decision, previously requiring the author to leave
+> ChainReact and copy a UUID/LIN-123 — plus the `parentId` issue references on
+> find / create / update. Built from the captured `list_issues` shape
+> (value=id, label=`title — status · team`; Linear returns no `identifier`, so
+> none is invented). No deps by design: on Update Issue the Team field MOVES the
+> issue, so cascading on it would hide the issue being moved. Manual entry stays
+> on, so mapping from a trigger is unchanged. `add_comment.parentId` stays text
+> (a COMMENT id; `list_comments` has no captured evidence) under a documented
+> UPSTREAM exemption.
 
 ## Option resolvers — PRIMED, not yet shipped (documented per the task; NOT faked)
 
