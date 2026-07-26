@@ -17,13 +17,6 @@ jest.mock("@/app/auth/actions", () => ({
   signOut: jest.fn(),
 }));
 
-// 5.ONBOARD-1 — "Getting started" posts a reopen then navigates; the client
-// API is mocked so tests assert the call without a network.
-const mockPostPresentation = jest.fn();
-jest.mock("@/lib/api/onboarding", () => ({
-  postOnboardingPresentation: (...a: unknown[]) => mockPostPresentation(...a),
-}));
-
 import { UserMenu } from "@/components/app-shell/UserMenu";
 
 describe("UserMenu", () => {
@@ -69,6 +62,11 @@ describe("UserMenu", () => {
     expect(
       content.querySelector("[data-testid='app-shell-billing']"),
     ).toBeNull();
+    // "Getting started" was removed from the menu — the checklist is reached
+    // from the workflows dashboard, not this header dropdown.
+    expect(
+      content.querySelector("[data-testid='app-shell-getting-started']"),
+    ).toBeNull();
   });
 
   it("Sign out lives inside a <form> with type=submit (server-action invocation)", async () => {
@@ -79,46 +77,5 @@ describe("UserMenu", () => {
     expect(button.tagName.toLowerCase()).toBe("button");
     expect(button.getAttribute("type")).toBe("submit");
     expect(button.closest("form")).not.toBeNull();
-  });
-});
-
-describe("UserMenu — Getting started (always available)", () => {
-  const originalLocation = window.location;
-
-  beforeEach(() => {
-    mockPostPresentation.mockReset();
-    mockPostPresentation.mockResolvedValue({ ok: true });
-    Object.defineProperty(window, "location", {
-      writable: true,
-      value: { ...originalLocation, assign: jest.fn() },
-    });
-  });
-
-  afterEach(() => {
-    Object.defineProperty(window, "location", {
-      writable: true,
-      value: originalLocation,
-    });
-  });
-
-
-  it("reopens the checklist then navigates to /workflows", async () => {
-    const user = userEvent.setup();
-    render(<UserMenu userEmail="marcus@example.com" />);
-    await user.click(screen.getByTestId("app-shell-user-menu-trigger"));
-    await user.click(screen.getByTestId("app-shell-getting-started"));
-    expect(mockPostPresentation).toHaveBeenCalledWith({ action: "reopen" });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(window.location.assign).toHaveBeenCalledWith("/workflows");
-  });
-
-  it("still navigates when the reopen POST fails (best-effort)", async () => {
-    const user = userEvent.setup();
-    mockPostPresentation.mockRejectedValueOnce(new Error("offline"));
-    render(<UserMenu userEmail="marcus@example.com" />);
-    await user.click(screen.getByTestId("app-shell-user-menu-trigger"));
-    await user.click(screen.getByTestId("app-shell-getting-started"));
-    await new Promise((r) => setTimeout(r, 0));
-    expect(window.location.assign).toHaveBeenCalledWith("/workflows");
   });
 });
