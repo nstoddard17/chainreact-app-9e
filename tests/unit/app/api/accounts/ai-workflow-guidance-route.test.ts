@@ -43,6 +43,10 @@ jest.mock("@/services/billing/aiCreditGate", () => ({ aiCreditGate: (...a: unkno
 const mockEnabled = jest.fn();
 const mockConfig = jest.fn();
 jest.mock("@/services/ai-guidance/gateway/gatewayConfig", () => ({
+  // Keep the REAL constants (e.g. GUIDANCE_ROUTE_MAX_DURATION_SECONDS — the preview-first repair's
+  // budget arithmetic needs it; a factory that omits it makes the budget NaN and silently disables
+  // the skip). Only the two gate functions are mocked.
+  ...jest.requireActual("@/services/ai-guidance/gateway/gatewayConfig"),
   isHermesAgentEnabled: () => mockEnabled(),
   getHermesAgentGatewayConfig: () => mockConfig(),
 }));
@@ -73,6 +77,10 @@ jest.mock("@/services/workflows/officialTemplateMatching", () => ({
 }));
 
 import { POST } from "@/app/api/accounts/[id]/ai/workflow-guidance/route";
+import {
+  PREVIEW_FIRST_PRODUCTION_PROMPT,
+  PREVIEW_FIRST_REPAIRED_PLAN,
+} from "../../../../helpers/previewFirstRepairedPlan";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 
 const ACCOUNT = "acct-1";
@@ -431,42 +439,69 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(body.warnings.join(" ")).toMatch(/send-campaign|send-email/i);
   });
 
-  // ── REACT-AGENT-PREVIEW-FIRST-CLARIFICATION-FIX-1 ─────────────────────────────────────────────
+  // == REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 ==========================================
   //
-  // The production regression, end to end. The prompt below produced SIX chat questions, no preview,
-  // and an unrelated win-back-campaign note. Two independent defects fed each other: the model
-  // withheld the plan, and withholding it is exactly the condition under which the route consults
-  // `detectCatalogGap` — whose old rule matched "mailchimp" + "send"/"email" anywhere in the text.
-  const PRODUCTION_PROMPT =
-    "When someone submits our Typeform contact form, add them to Mailchimp, create a HubSpot " +
-    "contact, and send me a Gmail message summarizing their answers. Use the submitted email, " +
-    "first name, last name, company, and message wherever appropriate.";
+  // The production regression, tested HONESTLY this time. The previous test began with the runner
+  // already returning a valid four-node plan -- which proved only that the route renders a plan it
+  // is given, and bypassed the exact failure users hit (the model WITHHOLDING the plan). Every
+  // test below starts from a clarification-only reply with `workflowPlan: null`, then proves the
+  // server's classification + one-shot repair produce the preview -- or the typed failure --
+  // without a second credit charge, under the same logical request id.
+  const PRODUCTION_PROMPT = PREVIEW_FIRST_PRODUCTION_PROMPT;
 
-  it("PREVIEW-FIRST — the production prompt returns the four-node preview, not a questionnaire", async () => {
-    // Hermes now returns the plan (the clarification policy tells it to). The route must carry it
-    // through to a non-applied preview with the unresolved values listed as setup inputs.
-    mockRunner.mockResolvedValueOnce({
-      ok: true,
-      guidanceText: "Here's the workflow — pick the form, audience and recipient below.",
-      source: "hermes-agent",
-      workflowPlan: {
-        schemaVersion: 1,
-        title: "Typeform contact form intake",
-        summary: "New Typeform response adds a subscriber, creates a contact, and emails a summary.",
-        notApplied: true,
-        steps: [
-          { ref: "s0", role: "trigger", provider: "typeform", type: "new_response_in_form", purpose: "watch the form", requiredInputs: ["formId"] },
-          { ref: "s1", role: "action", provider: "mailchimp", type: "add_subscriber", purpose: "add the subscriber", requiredInputs: ["audience_id", "status"] },
-          { ref: "s2", role: "action", provider: "hubspot", type: "create_contact", purpose: "create the contact", requiredInputs: ["duplicateHandling"] },
-          { ref: "s3", role: "action", provider: "gmail", type: "send_email", purpose: "email the summary", requiredInputs: ["to"] },
-        ],
-      },
-    });
+  /** The model's actual production behavior: a questionnaire and no plan. */
+  const CLARIFICATION_ONLY = {
+    ok: true,
+    guidanceText:
+      "Which Typeform form? Which Mailchimp audience? Who should receive the Gmail message? " +
+      "What duplicate behavior should HubSpot use?",
+    source: "hermes-agent",
+    workflowPlan: null,
+  };
+
+  /** The repaired reply: the four-node plan with the REAL contract-required inputs. */
+  const REPAIRED_PLAN_REPLY = {
+    ok: true,
+    guidanceText: "Here's the workflow -- pick the form, audience, status, duplicate handling and recipient below.",
+    source: "hermes-agent",
+    // The SHARED fixture — the UI-contract suite renders the setup card from this same plan.
+    workflowPlan: PREVIEW_FIRST_REPAIRED_PLAN,
+  };
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- clarification-only for the production prompt is repaired into the four-node preview", async () => {
+    mockRunner
+      .mockResolvedValueOnce(CLARIFICATION_ONLY)
+      .mockResolvedValueOnce(REPAIRED_PLAN_REPLY);
+
     const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
     expect(res.status).toBe(200);
     const body = await res.json();
 
-    // A preview exists — the user is NOT handed a list of questions.
+    // Two runner calls: the initial turn + exactly one repair.
+    expect(mockRunner).toHaveBeenCalledTimes(2);
+
+    // The repair call is the structured instruction, not a re-send of the user prompt: it orders
+    // the plan back, carries the original request + the first reply as turns, and keeps the scope.
+    const repairInput = mockRunner.mock.calls[1]![0] as {
+      goalText: string;
+      recentTurns?: { role: string; text: string }[];
+    };
+    expect(repairInput.goalText).toMatch(/withheld the workflow plan/i);
+    expect(repairInput.goalText).toMatch(/Do not ask conversational questions/i);
+    expect(repairInput.goalText).toMatch(/requiredInputs/);
+    expect(repairInput.goalText).toContain("gmail, hubspot, mailchimp, typeform");
+    const turnTexts = (repairInput.recentTurns ?? []).map((t) => t.text).join(" | ");
+    expect(turnTexts).toContain("When someone submits our Typeform contact form");
+    expect(turnTexts).toContain("Which Typeform form?");
+
+    // Same logical submission: both calls carry the SAME requestId; the credit gate ran ONCE.
+    const deps1 = mockRunner.mock.calls[0]![1] as { requestId?: string };
+    const deps2 = mockRunner.mock.calls[1]![1] as { requestId?: string };
+    expect(deps1.requestId).toBeTruthy();
+    expect(deps2.requestId).toBe(deps1.requestId);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+
+    // The final result is the PREVIEW, not the questionnaire.
     expect(body.workflowPlan).not.toBeNull();
     expect(body.previewDraft).not.toBeNull();
     expect(body.previewDraft.notApplied).toBe(true);
@@ -478,8 +513,9 @@ describe("workflow-guidance route — capability call + safe response", () => {
       "hubspot:create_contact",
       "gmail:send_email",
     ]);
+    expect(body.guidanceText).not.toMatch(/Which Typeform form\?/);
 
-    // The genuine decisions ride along as setup inputs on their own nodes.
+    // The genuine decisions ride along as setup inputs on their own preview nodes.
     const byType = Object.fromEntries(
       body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
     );
@@ -488,28 +524,106 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(byType["create_contact"]).toEqual(expect.arrayContaining(["duplicateHandling"]));
     expect(byType["send_email"]).toEqual(expect.arrayContaining(["to"]));
 
-    // CONTAMINATION: no win-back / Mailchimp-campaign commentary anywhere in the response.
+    // Contamination: no win-back / campaign-limitation commentary anywhere in the response.
     const allText = JSON.stringify(body).toLowerCase();
     expect(allText).not.toContain("win-back");
     expect(allText).not.toContain("send-campaign");
-    expect(allText).not.toMatch(/mailchimp[^"]{0,60}campaign/);
   });
 
-  it("PREVIEW-FIRST — even with NO plan from the model, the prompt gets no win-back commentary", async () => {
-    // Belt and braces: if the model still withholds a plan for this prompt, the route must not
-    // volunteer an unrelated Mailchimp campaign limitation on top of it.
+  it("SERVER-ENFORCED PREVIEW-FIRST -- a failed repair returns the typed PREVIEW_PLAN_MISSING failure, not the questionnaire, and never loops", async () => {
+    mockRunner
+      .mockResolvedValueOnce(CLARIFICATION_ONLY)
+      .mockResolvedValueOnce(CLARIFICATION_ONLY); // repair also withholds the plan
+
+    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("PREVIEW_PLAN_MISSING");
+    // Actionable retry copy; NOT the questionnaire, NOT model text, nothing changed.
+    expect(body.message).toMatch(/send the request again/i);
+    expect(body.message).not.toMatch(/Which Typeform form/);
+    // Exactly one repair -- no loop -- and still one credit.
+    expect(mockRunner).toHaveBeenCalledTimes(2);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+  });
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- the repair is SKIPPED (typed failure, 1 call) when too little route budget remains", async () => {
+    mockRunner.mockResolvedValueOnce(CLARIFICATION_ONLY);
+    // Simulate a slow first attempt: the route reads Date.now() before the call and again in the
+    // budget check -- advance the clock 50s in between (60s budget - 2s margin - 50s < 15s minimum).
+    const base = Date.now();
+    // Deterministic regardless of how many OTHER callers read the clock: time "advances" the moment
+    // the first (mocked) runner call has happened, so `brainStartedAt` (read before it) gets `base`
+    // and the budget check (after it) sees 50s elapsed.
+    const nowSpy = jest.spyOn(Date, "now").mockImplementation(() =>
+      mockRunner.mock.calls.length === 0 ? base : base + 50_000,
+    );
+    try {
+      const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe("PREVIEW_PLAN_MISSING");
+      expect(mockRunner).toHaveBeenCalledTimes(1); // no repair started with insufficient budget
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- a truly ambiguous request (no named providers) keeps its clarification", async () => {
     mockRunner.mockResolvedValueOnce({
       ok: true,
-      guidanceText: "Which Typeform form should I watch?",
+      guidanceText: "Where do you want the email saved -- which app?",
       source: "hermes-agent",
       workflowPlan: null,
     });
-    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    const res = await call(ACCOUNT, { goalText: "When I get an email, save it somewhere" });
     expect(res.status).toBe(200);
     const body = await res.json();
-    const warnings = (body.warnings ?? []).join(" ").toLowerCase();
-    expect(warnings).not.toContain("win-back");
-    expect(warnings).not.toContain("send-campaign");
+    expect(body.guidanceText).toContain("Where do you want the email saved");
+    expect(body.workflowPlan).toBeNull();
+    expect(mockRunner).toHaveBeenCalledTimes(1); // no repair for a legitimate clarification
+  });
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- a provider either/or ('Gmail or Outlook') keeps its clarification", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Gmail or Microsoft Outlook -- which should send it?",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "When a Typeform response arrives, email me with Gmail or Outlook",
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.workflowPlan).toBeNull();
+    expect(mockRunner).toHaveBeenCalledTimes(1);
+  });
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- a destructive either/or ('delete or archive') keeps its clarification", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Should old contacts be deleted permanently, or archived?",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "Every Friday delete or archive old HubSpot contacts and log them in Google Sheets",
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.workflowPlan).toBeNull();
+    expect(mockRunner).toHaveBeenCalledTimes(1);
+  });
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- the draft is never touched and the typed failure claims nothing", async () => {
+    mockRunner.mockResolvedValueOnce(CLARIFICATION_ONLY).mockResolvedValueOnce(CLARIFICATION_ONLY);
+    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT, workflowId: "wf-1" });
+    expect(res.status).toBe(503);
+    // The route loaded the workflow read-only; the response claims nothing was created/applied.
+    const body = await res.json();
+    expect(JSON.stringify(body)).not.toMatch(/created|applied|saved/i);
   });
 
   it("REACT-LIVE-SKELETON — Mailchimp TAG intent with no Hermes plan → route injects a validated add_tag fallback + preview", async () => {

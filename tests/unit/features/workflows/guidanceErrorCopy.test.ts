@@ -26,6 +26,16 @@ describe("safeErrorMessage — actionable codes speak, everything else stays opa
     expect(safeErrorMessage({ code: "AI_CREDITS_EXHAUSTED", message })).toBe(message);
   });
 
+  // REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — the typed no-plan failure carries its own
+  // retry instruction; collapsing it to the outage copy would wrongly imply the assistant is down.
+  it("PREVIEW_PLAN_MISSING keeps its retry copy (nothing changed; re-send retries)", () => {
+    const message =
+      "I understood the workflow you want, but couldn't produce the preview this time. Nothing was changed — send the request again and I'll build the preview with the remaining choices as setup fields.";
+    const rendered = safeErrorMessage({ code: "PREVIEW_PLAN_MISSING", message });
+    expect(rendered).toBe(message);
+    expect(rendered).toMatch(/send the request again/i);
+  });
+
   it.each([
     ["GUIDANCE_UNAVAILABLE", "Workflow guidance isn't available right now."],
     ["GUIDANCE_CANCELLED", "The request was cancelled."],

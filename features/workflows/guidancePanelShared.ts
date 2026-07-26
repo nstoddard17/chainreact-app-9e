@@ -41,10 +41,19 @@ export function asRenderablePreview(value: DraftPreview | null | undefined): Dra
  *   - `GUIDANCE_TIMEOUT` (REACT-AGENT-PRODUCTION-TIMEOUT-1) — the request was too slow to finish, so
  *     retrying or asking for a smaller change works. Showing the generic "temporarily unavailable"
  *     for this made a slow turn look like a dead assistant and sent users off to check their setup.
+ *   - `PREVIEW_PLAN_MISSING` (REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1) — the server
+ *     classified the request as plan-expected but two attempts produced no plan. The message says
+ *     nothing changed and that re-sending retries; the opaque outage copy would wrongly imply the
+ *     assistant is down.
  * Everything else stays the deliberately opaque outage copy.
  */
 export function safeErrorMessage(res: { code: string; message: string } | null): string {
-  if (res && (res.code === "AI_CREDITS_EXHAUSTED" || res.code === "GUIDANCE_TIMEOUT")) return res.message;
+  if (
+    res &&
+    (res.code === "AI_CREDITS_EXHAUSTED" || res.code === "GUIDANCE_TIMEOUT" || res.code === "PREVIEW_PLAN_MISSING")
+  ) {
+    return res.message;
+  }
   return UNAVAILABLE_MESSAGE;
 }
 

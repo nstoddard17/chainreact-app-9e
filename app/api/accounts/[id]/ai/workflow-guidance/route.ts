@@ -8,7 +8,16 @@ import {
   workflowNotFoundResponse,
 } from "@/app/api/workflows/_shared";
 import { aiCreditGate, type AiCreditGateOutcome } from "@/services/billing/aiCreditGate";
-import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai-guidance/gateway/gatewayConfig";
+import {
+  isHermesAgentEnabled,
+  getHermesAgentGatewayConfig,
+  GUIDANCE_ROUTE_MAX_DURATION_SECONDS,
+} from "@/services/ai-guidance/gateway/gatewayConfig";
+import {
+  classifyPreviewFirst,
+  buildPreviewFirstRepairGoal,
+  MIN_REPAIR_BUDGET_MS,
+} from "@/services/ai-guidance/previewFirst";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
@@ -205,6 +214,54 @@ function guidanceTimeoutResponse(): NextResponse {
         "That took longer than the assistant could work on it. Try again, or ask for one smaller change at a time.",
     },
     { status: 503 },
+  );
+}
+
+/**
+ * REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — the typed failure for a request the server
+ * classified as PLAN-EXPECTED that still produced no plan after the one repair attempt.
+ *
+ * Deliberately NOT the model's questionnaire: the server already determined the topology is clear
+ * and every open question is a setup value, so re-surfacing a long list of chat questions would
+ * re-create the exact regression this slice fixes. Nothing was changed (this route never mutates a
+ * draft); the useful retry is re-sending, which starts a fresh two-attempt sequence. Fixed code +
+ * fixed copy — no model text, no classification internals, no provider detail.
+ */
+function previewPlanMissingResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "PREVIEW_PLAN_MISSING",
+      message:
+        "I understood the workflow you want, but couldn't produce the preview this time. Nothing was changed — send the request again and I'll build the preview with the remaining choices as setup fields.",
+    },
+    { status: 503 },
+  );
+}
+
+/**
+ * REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — one safe observability line per no-plan turn.
+ * Fixed keys; enums/counts/booleans only. Never the goal text, model text, provider names beyond
+ * safe registry ids, workflow values, or identity.
+ */
+function logPreviewFirstDecision(info: {
+  requestId: string;
+  initialHadPlan: boolean;
+  previewFirstClassification: string;
+  namedProviderCount: number;
+  repairAttempted: boolean;
+  repairSkippedReason?: "insufficient_budget" | undefined;
+  repairHadPlan?: boolean | undefined;
+  clarificationAllowed: boolean;
+  finalOutcome: "plan" | "clarification" | "preview_plan_missing";
+  elapsedMs: number;
+}): void {
+  console.info(
+    `[workflow-guidance] preview_first requestId=${info.requestId} initialHadPlan=${info.initialHadPlan} ` +
+      `classification=${info.previewFirstClassification} namedProviders=${info.namedProviderCount} ` +
+      `repairAttempted=${info.repairAttempted} repairSkipped=${info.repairSkippedReason ?? "n/a"} ` +
+      `repairHadPlan=${info.repairHadPlan ?? "n/a"} clarificationAllowed=${info.clarificationAllowed} ` +
+      `finalOutcome=${info.finalOutcome} elapsedMs=${info.elapsedMs}`,
   );
 }
 
@@ -406,7 +463,7 @@ export async function POST(
   // the retry, so no retry path can reach it a second time.
   const requestId = randomUUID();
   const brainStartedAt = Date.now();
-  const result = await runWorkflowGuidanceIntakeCapability(
+  let result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
       goalText: safeGoalText,
@@ -461,6 +518,94 @@ export async function POST(
   // A silent recovery still needs a trace — otherwise a degrading gateway looks perfectly healthy.
   if (result.attemptTelemetry?.retried) {
     logGuidanceRetryRecovered({ requestId, telemetry: result.attemptTelemetry });
+  }
+
+  // ── REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 ──────────────────────────────────────────────
+  // A clarification-only reply (no plan, no edit ops) is NOT automatically accepted. The whole setup
+  // experience hangs off the structured plan (`workflowPlan → previewDraft → requiredInputs → setup
+  // controls`), so a withheld plan silently bypasses the guided UI. When the DETERMINISTIC
+  // classifier says this request's topology is clear (the user already named their apps, no
+  // provider/destructive either-or), the route performs ONE structured repair attempt:
+  //   - same logical requestId (both calls are provably one submission),
+  //   - NO second credit charge (the gate ran once, before either call — structural),
+  //   - NO second governance row (the submission's row was already written; like the transport
+  //     retry, the repair is an internal continuation, represented in the observability line),
+  //   - bounded by the route's remaining time budget (skipped, not started, when too little is
+  //     left — a repair that would 504 helps nobody).
+  // If the repair also yields no plan, the route returns a typed PREVIEW_PLAN_MISSING failure with
+  // retry copy rather than re-surfacing the questionnaire the server just classified as wrong.
+  if (!editing && result.ok && !result.workflowPlan && !result.mutationOperations) {
+    const classification = classifyPreviewFirst({ goalText: safeGoalText, editing });
+    const clarificationAllowed = classification.kind === "clarification_allowed";
+    let repairAttempted = false;
+    let repairSkippedReason: "insufficient_budget" | undefined;
+    let repairHadPlan: boolean | undefined;
+
+    if (classification.kind === "preview_expected") {
+      const remainingBudgetMs =
+        GUIDANCE_ROUTE_MAX_DURATION_SECONDS * 1000 - (Date.now() - brainStartedAt) - 2_000;
+      // Fail CLOSED on an uncomputable budget: a typed, retryable failure beats starting a call
+      // that may outlive the function and die as an untyped platform 504.
+      if (!Number.isFinite(remainingBudgetMs) || remainingBudgetMs < MIN_REPAIR_BUDGET_MS) {
+        repairSkippedReason = "insufficient_budget";
+      } else {
+        repairAttempted = true;
+        const firstReplyText = result.guidanceText;
+        const repairResult = await runWorkflowGuidanceIntakeCapability(
+          {
+            scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
+            goalText: buildPreviewFirstRepairGoal({
+              safeGoalText,
+              namedProviders: classification.namedProviders,
+            }),
+            // The original request + the withheld first reply travel as conversation turns, so the
+            // repair prompt carries everything the model needs to correct itself. Both are already
+            // tokenized/model-safe (the first reply is the model's own output).
+            recentTurns: [
+              ...(safeRecentTurns ?? []),
+              { role: "user" as const, text: safeGoalText },
+              { role: "assistant" as const, text: firstReplyText.slice(0, MAX_GUIDANCE_CONVERSATION_TURN_TEXT) },
+            ].slice(-MAX_GUIDANCE_CONVERSATION_TURNS),
+            ...(definition ? { definition } : {}),
+            ...(fieldSchemaLines.length ? { fieldSchemaLines } : {}),
+            ...(outputSchemaLines.length ? { outputSchemaLines } : {}),
+            contextInputs: {
+              account: { type: accountType },
+              ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
+              ...(sharedCredentialProviders.length ? { sharedCredentialProviders } : {}),
+              ...(ownConnectionProviders.length ? { ownConnectionProviders } : {}),
+            },
+          },
+          // Same requestId + caller signal; NO auditRecorder (see block comment above).
+          { requestId, signal: request.signal },
+        );
+        repairHadPlan = repairResult.ok && !!repairResult.workflowPlan;
+        if (repairResult.ok && repairResult.workflowPlan) {
+          result = repairResult; // the repaired reply flows through the normal pipeline below
+        }
+      }
+    }
+
+    const repairedPlan = result.ok && !!result.workflowPlan;
+    logPreviewFirstDecision({
+      requestId,
+      initialHadPlan: false,
+      previewFirstClassification:
+        classification.kind === "clarification_allowed" ? classification.reason : "preview_expected",
+      namedProviderCount: classification.namedProviders.length,
+      repairAttempted,
+      repairSkippedReason,
+      repairHadPlan,
+      clarificationAllowed,
+      finalOutcome: repairedPlan ? "plan" : clarificationAllowed ? "clarification" : "preview_plan_missing",
+      elapsedMs: Date.now() - brainStartedAt,
+    });
+
+    if (!clarificationAllowed && !repairedPlan) {
+      // Server said "plan expected"; two attempts produced none. Typed failure + retry, never the
+      // questionnaire. The draft is untouched (this route never mutates one).
+      return previewPlanMissingResponse();
+    }
   }
 
   // REACT-CONFIG-COVERAGE-1 — rebind sensitive-literal placeholders back to the user's exact values
