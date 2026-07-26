@@ -9,6 +9,7 @@ import {
   type AnalyticsExecutionContext,
 } from "./registry";
 import { validateConnectedQuery } from "./validateQuery";
+import { attachInsightRefinements } from "./attachRefinements";
 import { buildInsightsCacheKey, queryInsightsWithCache } from "./cache";
 import { coalesceInflight } from "./coalesce";
 import { consumeInsightsProviderBudget } from "./rateLimit";
@@ -53,7 +54,10 @@ export async function runConnectedAnalyticsQuery(
 
   const { dataset, catalog } = reg;
   if (dataset.freshness.mode !== "cached") {
-    return reg.adapter.query(ctx, query);
+    // Drill refinements attach on the way OUT (CD-5B) — after the adapter on
+    // the live path, after the cache on the provider path — so snapshots never
+    // store refinement metadata and every dataset gets the same generic pass.
+    return attachInsightRefinements(reg, query, await reg.adapter.query(ctx, query));
   }
 
   const sourceUserId =
@@ -90,5 +94,5 @@ export async function runConnectedAnalyticsQuery(
       { ...(opts.refresh !== undefined ? { refresh: opts.refresh } : {}), ...(ctx.now !== undefined ? { now: ctx.now } : {}) },
     ),
   );
-  return result;
+  return attachInsightRefinements(reg, query, result);
 }

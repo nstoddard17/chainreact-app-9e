@@ -245,6 +245,8 @@ export function aggregateQuickbooksInvoices(
           to: new Date(fromMs).toISOString(),
         },
         values: starts.map((_, i) => prevValues[i] ?? null),
+        // Previous window's own boundaries for previous-period drill (CD-5B).
+        buckets: toBuckets(prevStarts, grain),
       };
     }
 

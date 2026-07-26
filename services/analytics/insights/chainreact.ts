@@ -65,6 +65,12 @@ export const chainreactCatalog: AnalyticsSourceCatalog = {
           nullable: false,
           measurable: false,
           distinctCountable: false,
+          // CD-5B: workflow rows are keyed by the same account-owned workflow
+          // id the filter accepts, and the query engine rejects any id the
+          // account doesn't own (UNKNOWN_WORKFLOW) — so a workflow bar may be
+          // drilled into by filtering on its own id. This is an
+          // account-internal identifier, never a provider record id.
+          resultIdsAreFilterValues: true,
         },
         {
           id: "status",

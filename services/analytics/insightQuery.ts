@@ -338,6 +338,8 @@ export async function runAnalyticsQuery(
           to: new Date(prev.toMs).toISOString(),
         },
         values: aligned,
+        // Previous window's own boundaries for previous-period drill (CD-5B).
+        buckets: toBuckets(prevStarts, resolvedGrain),
       };
     }
 

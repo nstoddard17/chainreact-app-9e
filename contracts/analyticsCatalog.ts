@@ -109,6 +109,19 @@ export const AnalyticsFieldSchema = z
     /** Filter selection cap override (default 20; e.g. 1 = single-select). */
     maxSelections: z.number().int().min(1).max(20).optional(),
     distinctCountable: z.boolean().default(false),
+    /**
+     * entity-only (CD-5B): result row/series ids for this dimension ARE the
+     * canonical filter values, so a returned category may be drilled into by
+     * filtering on its own id (ChainReact workflows: rows are keyed by the
+     * same account-owned workflow id the filter accepts). Defaults false —
+     * a dataset whose result keys are per-account surrogates (QuickBooks
+     * customers) or otherwise display-only must never set it, and its rows
+     * simply stay non-drillable. Bounded `category` fields don't need this:
+     * their drillability is derived from the declared `values` list.
+     * Optional (not defaulted) so absent === false without churning every
+     * existing catalog literal.
+     */
+    resultIdsAreFilterValues: z.boolean().optional(),
   })
   .strict()
   .superRefine((f, ctx) => {
@@ -134,6 +147,12 @@ export const AnalyticsFieldSchema = z
     }
     if (f.currencyBehavior && f.unit !== "currency") {
       bad(`field ${f.id}: currencyBehavior requires unit "currency"`);
+    }
+    if (f.resultIdsAreFilterValues && f.kind !== "entity") {
+      bad(`field ${f.id}: resultIdsAreFilterValues applies to entity fields only`);
+    }
+    if (f.resultIdsAreFilterValues && !f.filterable) {
+      bad(`field ${f.id}: resultIdsAreFilterValues requires the field to be filterable`);
     }
   });
 export type AnalyticsField = z.infer<typeof AnalyticsFieldSchema>;
