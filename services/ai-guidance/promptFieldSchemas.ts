@@ -144,6 +144,74 @@ export function renderFieldSchemaFragment(f: FieldMeta): string {
   return `${f.name} (${parts.join(", ")})`;
 }
 
+interface OutputLike {
+  readonly name: string;
+  readonly type: string;
+  readonly description?: string | undefined;
+  readonly nullable?: boolean | undefined;
+  readonly sensitive?: boolean | undefined;
+  readonly fields?:
+    | readonly { readonly name: string; readonly type: string; readonly nullable?: boolean | undefined }[]
+    | undefined;
+}
+
+/** Render ONE declared output (plus one level of nested fields) as dotted, referenceable paths. */
+function renderOutputLines(o: OutputLike): string[] {
+  const parts: string[] = [o.type];
+  if (o.nullable === true) parts.push("nullable");
+  if (o.sensitive === true) parts.push("sensitive");
+  const desc = o.description ? ` — ${o.description}` : "";
+  const lines = [`      · ${o.name} (${parts.join(", ")})${desc}`];
+  // One nesting level only: deeper trees add prompt weight faster than they add mappable paths.
+  for (const child of o.fields ?? []) {
+    lines.push(`      · ${o.name}.${child.name} (${child.type}${child.nullable === true ? ", nullable" : ""})`);
+  }
+  return lines;
+}
+
+/**
+ * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — render what each node PRODUCES.
+ *
+ * The gap this closes: the prompt told the model "when the user wants a value from an earlier step,
+ * use a {{...}} reference to a declared output name" — and then never showed it a single output name.
+ * Fields (inputs) were rendered; outputs were rendered nowhere. Faced with a required Email field and
+ * no knowledge that anything upstream produces an email, the model did the only thing left to it and
+ * invented `subscriber@example.com`. The multi-step mapping failure was not a reasoning error; it was
+ * missing data in the contract.
+ *
+ * Metadata-driven from the same registry as everything else — a trigger's `payloadShape` and an
+ * action's `outputs` — so it generalizes to every provider with no per-provider knowledge. Public
+ * metadata only: names, types, nullability, descriptions. Never values or user data. `sensitive`
+ * outputs ARE listed (they are flowable downstream — that is the point of mapping them) with the flag
+ * rendered so the model knows the content is respondent/customer data.
+ */
+export function buildOutputSchemaLines(providerIds: readonly string[]): readonly string[] {
+  const lines: string[] = [];
+  let nodes = 0;
+  for (const providerId of providerIds) {
+    const metas: { key: string; kind: string; outputs: readonly OutputLike[] }[] = [
+      ...listTriggerMetasForProvider(providerId).map((m) => ({
+        key: m.key,
+        kind: "trigger",
+        outputs: (m.payloadShape ?? []) as readonly OutputLike[],
+      })),
+      ...listActionMetasForProvider(providerId).map((m) => ({
+        key: m.key,
+        kind: "action",
+        outputs: (m.outputs ?? []) as readonly OutputLike[],
+      })),
+    ];
+    for (const meta of metas) {
+      if (nodes >= MAX_FIELD_SCHEMA_NODES) return lines;
+      nodes += 1;
+      if (meta.outputs.length === 0) continue;
+      lines.push(`  - ${meta.key} [${meta.kind}] produces:`);
+      for (const o of meta.outputs) lines.push(...renderOutputLines(o));
+    }
+  }
+  return lines;
+}
+
 /**
  * Render the field-schema lines for the selected providers — every registered node, every declared
  * field (the coverage test pins completeness per rendered node). Bounded by MAX_FIELD_SCHEMA_NODES.

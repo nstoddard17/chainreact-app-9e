@@ -75,6 +75,11 @@ export interface WorkflowGuidanceIntakeInput {
    */
   readonly fieldSchemaLines?: readonly string[];
   /**
+   * REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — pre-rendered OUTPUT lines (what each relevant node
+   * produces). Public registry metadata only; this is what makes {{...}} data mapping possible.
+   */
+  readonly outputSchemaLines?: readonly string[];
+  /**
    * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable graph of the user's CURRENT local
    * draft (opaque refs + safe editable config + version), built by the route via the editor privacy
    * boundary. Present ONLY for an EDIT request. It carries NO real ids/credentials/secrets; the route
@@ -225,6 +230,7 @@ export async function runWorkflowGuidanceIntakeCapability(
         ...(input.recentTurns && input.recentTurns.length ? { recentTurns: input.recentTurns } : {}),
         ...(input.capabilityCatalog ? { capabilityCatalog: input.capabilityCatalog } : {}),
         ...(input.fieldSchemaLines ? { fieldSchemaLines: input.fieldSchemaLines } : {}),
+        ...(input.outputSchemaLines ? { outputSchemaLines: input.outputSchemaLines } : {}),
         ...(context ? { context } : {}),
         ...(input.editableGraph ? { editableGraph: input.editableGraph } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
