@@ -700,6 +700,52 @@ export async function attachStripeCustomerIfAbsentServiceRole(
   return { stored: false, customerId: existing?.stripeCustomerId ?? customerId };
 }
 
+/**
+ * Compare-and-set REPLACEMENT of a stale `stripe_customer_id` (BILLING-CHECKOUT-PROD-1).
+ *
+ * Distinct from {@link attachStripeCustomerIfAbsentServiceRole}, which only ever fills a
+ * NULL. This one repairs an attachment that Stripe itself has rejected as non-existent
+ * (a customer deleted in the dashboard, or — the common cause — a customer created under
+ * the OTHER Stripe mode, so a live key can never see a test-mode `cus_…`). Without a
+ * repair path such an account can never check out again: every attempt re-sends the same
+ * dead id and Stripe returns the same `resource_missing`.
+ *
+ * Guarded by `.eq("stripe_customer_id", staleCustomerId)` so it is a compare-and-set: it
+ * rewrites ONLY the exact stale value the caller proved dead. A concurrent repair that
+ * already won, or any other writer, leaves the row untouched and this returns
+ * `replaced: false` with the effective (winner's) id — never clobbering another account
+ * state. Callers MUST additionally confirm the row has no `stripe_subscription_id` before
+ * repairing, so a genuinely subscribed account is never detached from its customer.
+ * Service-role only.
+ */
+export async function replaceStaleStripeCustomerServiceRole(
+  accountId: string,
+  staleCustomerId: string,
+  newCustomerId: string,
+): Promise<{ replaced: boolean; customerId: string }> {
+  const supabase = getServiceRoleClient(
+    `account_billing: replace stale Stripe customer for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .update({ stripe_customer_id: newCustomerId })
+    .eq("account_id", accountId)
+    .eq("stripe_customer_id", staleCustomerId)
+    .is("stripe_subscription_id", null)
+    .select("stripe_customer_id");
+  if (error) {
+    throw new Error(
+      `account_billing.replaceStaleStripeCustomerServiceRole failed: ${error.message}`,
+    );
+  }
+  if (data && data.length > 0) {
+    return { replaced: true, customerId: newCustomerId };
+  }
+  // Lost the race, or the guard rejected the repair — re-read the canonical id.
+  const existing = await getStripeAttachmentServiceRole(accountId);
+  return { replaced: false, customerId: existing?.stripeCustomerId ?? newCustomerId };
+}
+
 // ─── Free-trial state (PRO-TEAM-TRIAL-ENFORCEMENT-1) — service-role ONLY ──────
 //
 // The account-scoped record of the account's ONE free trial (across Pro and Team) and the

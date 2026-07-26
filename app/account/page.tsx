@@ -8,6 +8,7 @@ import { getUsage, getBillingModeServiceRole } from "@/repositories/accountBilli
 import { getAiCreditUsage } from "@/repositories/accountBillingAiCredits";
 import { isBusinessDowngradeEnabled } from "@/services/billing/billingFeatureFlags";
 import { resolveTrialOffer } from "@/services/billing/platformTrialPolicy";
+import { isPlanCheckoutConfigured } from "@/services/billing/platformBillingSessions";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
@@ -169,6 +170,20 @@ export default async function AccountPage({ searchParams }: Props) {
       billingMode,
       // PRO-TEAM-TRIAL-ENFORCEMENT-1: sanitized Pro trial offer (personal accounts only).
       trialOffer,
+      // BILLING-CHECKOUT-PROD-1: is platform checkout even configured for the plan THIS
+      // account would buy? A bare boolean (never the key/price id) so the upgrade CTA can be
+      // disabled instead of rendering a button that could only fail. Config-only — it cannot
+      // see a revoked key or a wrong-mode price, so the route still returns typed 502/503.
+      checkoutConfigured:
+        active.type === "personal"
+          ? isPlanCheckoutConfigured("pro")
+          : active.type === "team"
+            ? isPlanCheckoutConfigured("business")
+            : true,
+      // BILLING-CHECKOUT-PROD-1 (hydration): pin the usage-period instant HERE, on the
+      // server, so the SSR pass and the client hydration pass derive the same "resets <date>"
+      // text instead of each reading its own clock.
+      usageNowIso: new Date().toISOString(),
     };
   }
 

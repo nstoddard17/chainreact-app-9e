@@ -19,11 +19,13 @@ const mockGetAttachment = jest.fn();
 const mockAttachCustomer = jest.fn();
 const mockUpdateAttachment = jest.fn();
 const mockGetBillingMode = jest.fn();
+const mockGetPlanState = jest.fn();
 jest.mock("@/repositories/accountBilling", () => ({
   getStripeAttachmentServiceRole: (...a: unknown[]) => mockGetAttachment(...a),
   attachStripeCustomerIfAbsentServiceRole: (...a: unknown[]) => mockAttachCustomer(...a),
   updateStripeAttachmentServiceRole: (...a: unknown[]) => mockUpdateAttachment(...a),
   getBillingModeServiceRole: (...a: unknown[]) => mockGetBillingMode(...a),
+  getPlanStateServiceRole: (...a: unknown[]) => mockGetPlanState(...a),
 }));
 
 const mockGetClient = jest.fn();
@@ -71,6 +73,9 @@ beforeEach(() => {
   // Default: standard billing (the internal-free short-circuit is off unless a
   // test opts in). Existing guard/happy-path tests rely on this default.
   mockGetBillingMode.mockResolvedValue("standard");
+  // Default: no stored plan, so the duplicate-subscription guard never blocks.
+  mockGetPlanState.mockReset();
+  mockGetPlanState.mockResolvedValue(null);
   process.env = { ...origEnv };
   process.env.NEXT_PUBLIC_APP_URL = "https://app.test";
 });

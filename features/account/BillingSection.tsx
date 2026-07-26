@@ -83,6 +83,22 @@ export interface AccountBillingView {
    * display-only.
    */
   trialOffer?: { eligible: boolean; trialPeriodDays: number } | null;
+  /**
+   * BILLING-CHECKOUT-PROD-1 — server-computed: platform checkout config (secret key + a price
+   * for the plan this account would buy) is present. `false` disables the upgrade CTA instead
+   * of offering a click that can only fail. Absent/undefined is treated as available, so
+   * existing callers and the pre-active fallback view are unchanged.
+   */
+  checkoutConfigured?: boolean;
+  /**
+   * SERVER-rendered instant used to derive the current usage period (BILLING-CHECKOUT-PROD-1
+   * hydration fix). This subtree is a client component that Next ALSO renders on the server,
+   * so reading the clock during render gave the two passes different instants: a render
+   * straddling a period boundary emitted one "resets <date>" on the server and a different
+   * one on hydration — the text mismatch React reports as #418. Pinning the instant server-
+   * side makes both passes agree. Optional; omitting it keeps the old fall-back-to-now.
+   */
+  usageNowIso?: string | null;
 }
 
 /**
@@ -109,6 +125,11 @@ export function BillingSection({
   /** Injectable "now" for deterministic current-period derivation in tests. */
   now?: Date;
 }) {
+  // The server-pinned render instant. A malformed/absent value falls through to the live
+  // clock rather than throwing or rendering an Invalid Date.
+  const pinned = billing.usageNowIso ? new Date(billing.usageNowIso) : null;
+  const serverNow = pinned && !Number.isNaN(pinned.getTime()) ? pinned : null;
+
   // PPT-3: the interactive personal-plan panel renders for an owner/admin on a personal
   // account. Billing is live (no flag gate).
   const showPersonalPlan =
@@ -196,7 +217,10 @@ export function BillingSection({
           periodStartedAt: billing.aiCredits.periodStartedAt,
         }
       : null,
-    now: now ?? new Date(),
+    // Test seam → SERVER-pinned instant (identical across the SSR and hydration passes) →
+    // live clock. Only the last is nondeterministic, and it is what produced the #418 text
+    // mismatch, so it is the last resort rather than the default.
+    now: now ?? serverNow ?? new Date(),
   });
   const taskUsage = usageSummary.tasks;
   const aiCreditsUsage = usageSummary.aiCredits;
@@ -451,6 +475,7 @@ export function BillingSection({
               accountId={accountId}
               frozen={billing.frozen}
               trialOffer={billing.trialOffer ?? null}
+              checkoutUnavailable={billing.checkoutConfigured === false}
             />
           </SettingRow>
         )}

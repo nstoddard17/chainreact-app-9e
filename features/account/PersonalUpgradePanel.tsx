@@ -37,9 +37,20 @@ interface Props {
   frozen: boolean;
   /** Sanitized server trial decision for this account's Pro upgrade; null → treat as no trial. */
   trialOffer?: { eligible: boolean; trialPeriodDays: number } | null;
+  /**
+   * BILLING-CHECKOUT-PROD-1 — the server knows platform checkout isn't configured, so the
+   * CTA is disabled rather than offered as a click that can only fail. Defaults false
+   * (available) so existing callers are unchanged.
+   */
+  checkoutUnavailable?: boolean;
 }
 
-export function PersonalUpgradePanel({ accountId, frozen, trialOffer }: Props) {
+export function PersonalUpgradePanel({
+  accountId,
+  frozen,
+  trialOffer,
+  checkoutUnavailable = false,
+}: Props) {
   const proTasks = planLimitsFor("pro").taskLimit;
   const freeTasks = planLimitsFor("free").taskLimit;
   const trialEligible = Boolean(trialOffer?.eligible) && (trialOffer?.trialPeriodDays ?? 0) > 0;
@@ -79,6 +90,7 @@ export function PersonalUpgradePanel({ accountId, frozen, trialOffer }: Props) {
         personalAccountId={accountId}
         label={trialEligible ? "Start Pro free trial" : "Upgrade to Pro"}
         frozen={frozen}
+        unavailable={checkoutUnavailable}
       />
     </div>
   );

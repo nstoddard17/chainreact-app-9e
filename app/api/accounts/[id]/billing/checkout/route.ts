@@ -49,6 +49,16 @@ const CheckoutBodySchema = z
   })
   .strict();
 
+/**
+ * User-facing copy (BILLING-CHECKOUT-PROD-1). Both messages state plainly that NOTHING was
+ * charged or changed — the previous "Could not start checkout." left users unsure whether
+ * they had been billed. Neither names an env var, a Stripe id, or an internal code.
+ */
+const BILLING_UNAVAILABLE =
+  "Billing checkout is temporarily unavailable. Your account was not changed. Please try again later.";
+const STRIPE_TEMPORARY =
+  "Stripe could not start checkout right now. Your account was not changed. Please try again.";
+
 function checkoutFailure(reason: CheckoutFailureReason): NextResponse {
   switch (reason) {
     case "account_not_found":
@@ -71,20 +81,57 @@ function checkoutFailure(reason: CheckoutFailureReason): NextResponse {
         { error: "That plan is not available for this account.", code: "INVALID_PLAN_FOR_TYPE" },
         { status: 400 },
       );
+    case "already_on_plan":
+      return NextResponse.json(
+        {
+          error: "This account already has an active paid plan.",
+          code: "ACCOUNT_ALREADY_ON_PAID_PLAN",
+        },
+        { status: 409 },
+      );
     case "plan_not_purchasable":
       return NextResponse.json(
         { error: "This plan can't be purchased online — contact sales.", code: "PLAN_NOT_PURCHASABLE" },
         { status: 400 },
       );
+    // ── Configuration faults (503). Retrying cannot help; an operator must fix env/Stripe.
+    // The user-facing copy is deliberately identical across all three so it never hints at
+    // which env var or Stripe resource is wrong, while the CODE stays distinct for logs.
     case "price_not_configured":
       return NextResponse.json(
-        { error: "Billing is not fully configured yet.", code: "PRICE_NOT_CONFIGURED" },
+        { error: BILLING_UNAVAILABLE, code: "PRICE_NOT_CONFIGURED" },
         { status: 503 },
       );
     case "stripe_not_configured":
       return NextResponse.json(
-        { error: "Billing is not configured.", code: "PLATFORM_BILLING_NOT_CONFIGURED" },
+        { error: BILLING_UNAVAILABLE, code: "PLATFORM_BILLING_NOT_CONFIGURED" },
         { status: 503 },
+      );
+    case "stripe_price_invalid":
+      // The price id is set but Stripe doesn't recognize it under the current key —
+      // typically a test/live MODE MISMATCH. A config fault, so 503, not 502.
+      return NextResponse.json(
+        { error: BILLING_UNAVAILABLE, code: "STRIPE_PRICE_INVALID" },
+        { status: 503 },
+      );
+    case "billing_attachment_invalid":
+      // The stored Stripe customer is unusable and could not be auto-repaired (the account
+      // already has a subscription, so detaching it needs a human).
+      return NextResponse.json(
+        { error: BILLING_UNAVAILABLE, code: "BILLING_ATTACHMENT_INVALID" },
+        { status: 503 },
+      );
+
+    // ── Provider faults (502). Stripe was reachable but the call failed; retry is sensible.
+    case "stripe_customer_create_failed":
+      return NextResponse.json(
+        { error: STRIPE_TEMPORARY, code: "STRIPE_CUSTOMER_CREATE_FAILED" },
+        { status: 502 },
+      );
+    case "stripe_checkout_create_failed":
+      return NextResponse.json(
+        { error: STRIPE_TEMPORARY, code: "STRIPE_CHECKOUT_CREATE_FAILED" },
+        { status: 502 },
       );
   }
 }
@@ -115,10 +162,26 @@ export async function POST(
     });
     if (!result.ok) return checkoutFailure(result.reason);
     return NextResponse.json({ url: result.url });
-  } catch {
-    // Stripe/network failure — generic 500, no detail leaked.
+  } catch (err) {
+    // Reaching here now means a genuinely UNEXPECTED fault: every known Stripe/config/
+    // attachment condition is classified in the service and returned as a typed reason
+    // above. The original incident produced this branch with NO log line at all, which is
+    // why it was undiagnosable — so record the error class + message (never the account's
+    // Stripe ids, never the request body) before returning the generic 500.
+    console.error(
+      JSON.stringify({
+        event: "billing.checkout.unhandled",
+        accountId,
+        plan: body.data.plan,
+        error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      }),
+    );
     return NextResponse.json(
-      { error: "Could not start checkout.", code: "CHECKOUT_FAILED" },
+      {
+        error:
+          "Something went wrong starting checkout. Your account was not changed. Please try again.",
+        code: "CHECKOUT_FAILED",
+      },
       { status: 500 },
     );
   }

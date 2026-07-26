@@ -44,6 +44,14 @@ interface Props {
   label?: string;
   /** True when the checkout account is frozen — the trigger is disabled. */
   frozen?: boolean;
+  /**
+   * True when the SERVER already knows platform checkout is not configured
+   * (BILLING-CHECKOUT-PROD-1). The button is disabled and relabelled rather than offering a
+   * click that can only 503 — an honest dead CTA beats a working-looking one. This is a
+   * server-computed hint, NOT the enforcement point: the route re-checks and returns a typed
+   * response regardless, so a stale/forged client value cannot start an unconfigured checkout.
+   */
+  unavailable?: boolean;
   /** Redirect seam (injectable for tests). Defaults to window.location.assign. */
   redirect?: (url: string) => void;
 }
@@ -67,6 +75,7 @@ export function CheckoutChoiceButton({
   personalAccountId,
   label,
   frozen = false,
+  unavailable = false,
   redirect,
 }: Props) {
   // When set, the choice dialog is open with the read personal state.
@@ -93,7 +102,7 @@ export function CheckoutChoiceButton({
   }
 
   async function onStart() {
-    if (frozen || busy) return;
+    if (frozen || busy || unavailable) return;
     setBusy(true);
     setError(null);
     if (!choiceApplies) {
@@ -158,12 +167,26 @@ export function CheckoutChoiceButton({
           type="button"
           size="sm"
           data-testid="checkout-choice-trigger"
-          disabled={frozen || busy}
+          disabled={frozen || busy || unavailable}
           onClick={() => void onStart()}
         >
-          {busy && !choice ? "Starting…" : (label ?? "Upgrade")}
+          {unavailable
+            ? "Billing temporarily unavailable"
+            : busy && !choice
+              ? "Starting…"
+              : (label ?? "Upgrade")}
         </Button>
       </div>
+
+      {unavailable && (
+        <p
+          data-testid="checkout-unavailable-note"
+          className="text-xs text-muted-foreground"
+        >
+          Checkout isn&apos;t available right now. Your account was not changed — please try
+          again later.
+        </p>
+      )}
 
       {choice && (
         <div

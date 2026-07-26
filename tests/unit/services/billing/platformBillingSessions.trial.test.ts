@@ -24,11 +24,13 @@ jest.mock("@/repositories/accounts", () => ({
 const mockGetAttachment = jest.fn();
 const mockAttachCustomer = jest.fn();
 const mockGetBillingMode = jest.fn();
+const mockGetPlanState = jest.fn();
 const mockClaimTrial = jest.fn();
 jest.mock("@/repositories/accountBilling", () => ({
   getStripeAttachmentServiceRole: (...a: unknown[]) => mockGetAttachment(...a),
   attachStripeCustomerIfAbsentServiceRole: (...a: unknown[]) => mockAttachCustomer(...a),
   getBillingModeServiceRole: (...a: unknown[]) => mockGetBillingMode(...a),
+  getPlanStateServiceRole: (...a: unknown[]) => mockGetPlanState(...a),
   claimAccountTrialServiceRole: (...a: unknown[]) => mockClaimTrial(...a),
 }));
 
@@ -88,6 +90,8 @@ beforeEach(() => {
   mockGetAttachment.mockReset();
   mockAttachCustomer.mockReset();
   mockGetBillingMode.mockReset().mockResolvedValue("standard");
+  // Default: no stored plan, so the duplicate-subscription guard never blocks.
+  mockGetPlanState.mockReset().mockResolvedValue(null);
   mockClaimTrial.mockReset();
   mockGetClient.mockReset();
   process.env = { ...origEnv };

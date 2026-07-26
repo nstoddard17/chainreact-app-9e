@@ -164,6 +164,14 @@ describe("service reason → HTTP mapping", () => {
     ["price_not_configured", 503, "PRICE_NOT_CONFIGURED"],
     ["stripe_not_configured", 503, "PLATFORM_BILLING_NOT_CONFIGURED"],
     ["account_not_found", 404, "NOT_FOUND"],
+    // BILLING-CHECKOUT-PROD-1 — configuration faults answer 503 (retrying cannot help)…
+    ["stripe_price_invalid", 503, "STRIPE_PRICE_INVALID"],
+    ["billing_attachment_invalid", 503, "BILLING_ATTACHMENT_INVALID"],
+    // …and Stripe provider faults answer 502 (a retry is reasonable).
+    ["stripe_customer_create_failed", 502, "STRIPE_CUSTOMER_CREATE_FAILED"],
+    ["stripe_checkout_create_failed", 502, "STRIPE_CHECKOUT_CREATE_FAILED"],
+    // A duplicate purchase of the plan the account already has is a conflict, not a fault.
+    ["already_on_plan", 409, "ACCOUNT_ALREADY_ON_PAID_PLAN"],
   ] as const)("%s → %i", async (reason, status, code) => {
     signedIn();
     mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
@@ -171,6 +179,72 @@ describe("service reason → HTTP mapping", () => {
     const res = await POST(req({ plan: "pro" }), params());
     expect(res.status).toBe(status);
     expect((await res.json()).code).toBe(code);
+  });
+});
+
+describe("known billing faults are no longer an opaque 500 (BILLING-CHECKOUT-PROD-1)", () => {
+  it("tells the user their account was not changed when billing is unavailable", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: false, reason: "stripe_not_configured" });
+    const res = await POST(req({ plan: "pro" }), params());
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBe(
+      "Billing checkout is temporarily unavailable. Your account was not changed. Please try again later.",
+    );
+  });
+
+  it("invites a retry after a temporary Stripe failure", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({
+      ok: false,
+      reason: "stripe_checkout_create_failed",
+    });
+    const res = await POST(req({ plan: "pro" }), params());
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe(
+      "Stripe could not start checkout right now. Your account was not changed. Please try again.",
+    );
+  });
+
+  it.each([
+    "stripe_not_configured",
+    "price_not_configured",
+    "stripe_price_invalid",
+    "billing_attachment_invalid",
+    "stripe_customer_create_failed",
+    "stripe_checkout_create_failed",
+  ] as const)("%s never names an env var, Stripe id, or internal detail", async (reason) => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: false, reason });
+    const res = await POST(req({ plan: "pro" }), params());
+    const body = (await res.json()) as { error: string; code: string };
+    // The MESSAGE is what the user reads — it must never name configuration or Stripe
+    // internals. (`code` is the machine-readable contract and may say STRIPE_*.)
+    expect(body.error).not.toMatch(/STRIPE_|PLATFORM_|NEXT_PUBLIC_/);
+    expect(body.error).not.toMatch(/sk_|cus_|price_|sub_|cs_/);
+    // Whatever the condition, the user is told their account is untouched.
+    expect(body.error).toContain("Your account was not changed");
+  });
+
+  it("logs the unexpected error so an unclassified 500 is never silent again", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockRejectedValueOnce(new Error("db exploded"));
+
+    const res = await POST(req({ plan: "pro" }), params());
+
+    expect(res.status).toBe(500);
+    const logged = spy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("billing.checkout.unhandled");
+    expect(logged).toContain(ACCOUNT);
+    // The user still gets no internal detail.
+    expect(JSON.stringify(await res.json())).not.toContain("db exploded");
+    spy.mockRestore();
   });
 });
 

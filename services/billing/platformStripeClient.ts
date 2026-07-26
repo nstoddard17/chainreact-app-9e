@@ -80,22 +80,58 @@ export class PlatformStripeApiError extends Error {
   readonly status: number;
   /** Stripe's `error.code` (e.g. `resource_missing`), when present. */
   readonly stripeCode: string | null;
-  constructor(message: string, status: number, stripeCode: string | null) {
+  /**
+   * Stripe's `error.type` (e.g. `invalid_request_error`, `authentication_error`), when
+   * present. Together with `stripeCode` this is what lets billing callers classify a
+   * CONDITION rather than string-match a message.
+   */
+  readonly stripeType: string | null;
+  /**
+   * Stripe's `error.param` — the REQUEST PARAMETER the error is about (e.g. `customer`,
+   * `line_items[0][price]`). It is a parameter NAME, never a value, so it is safe to log
+   * and is the only reliable way to tell "the customer id is bad" from "the price id is
+   * bad" when both surface as `resource_missing`.
+   */
+  readonly stripeParam: string | null;
+  constructor(
+    message: string,
+    status: number,
+    stripeCode: string | null,
+    stripeType: string | null = null,
+    stripeParam: string | null = null,
+  ) {
     super(message);
     this.name = "PlatformStripeApiError";
     this.status = status;
     this.stripeCode = stripeCode;
+    this.stripeType = stripeType;
+    this.stripeParam = stripeParam;
   }
 }
 
-/** Extract Stripe's machine-readable `error.code` from a raw error body, if present. */
-function stripeErrorCode(text: string): string | null {
+/**
+ * Extract Stripe's machine-readable `code` / `type` / `param` from a raw error body.
+ * All three are enum-ish identifiers or parameter names — never user data or secrets —
+ * so callers may safely log them.
+ */
+function stripeErrorFacts(text: string): {
+  code: string | null;
+  type: string | null;
+  param: string | null;
+} {
   try {
-    const parsed = JSON.parse(text) as { error?: { code?: unknown } };
-    const code = parsed?.error?.code;
-    return typeof code === "string" && code.length > 0 ? code : null;
+    const parsed = JSON.parse(text) as {
+      error?: { code?: unknown; type?: unknown; param?: unknown };
+    };
+    const pick = (v: unknown): string | null =>
+      typeof v === "string" && v.length > 0 ? v : null;
+    return {
+      code: pick(parsed?.error?.code),
+      type: pick(parsed?.error?.type),
+      param: pick(parsed?.error?.param),
+    };
   } catch {
-    return null;
+    return { code: null, type: null, param: null };
   }
 }
 
@@ -165,10 +201,13 @@ export function getPlatformStripeClient(): PlatformStripeClient {
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
+        const facts = stripeErrorFacts(text);
         throw new PlatformStripeApiError(
           `Platform Stripe ${input.method} ${input.path} failed: ${surfaceStripeError(text, res.status)}`,
           res.status,
-          stripeErrorCode(text),
+          facts.code,
+          facts.type,
+          facts.param,
         );
       }
 
