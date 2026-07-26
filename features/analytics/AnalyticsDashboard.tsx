@@ -9,6 +9,7 @@ import type {
   AnalyticsWidgetConfig,
   AnalyticsWidgetSize,
   AnalyticsWidgetType,
+  InsightWidgetConfig,
 } from "@/contracts/analytics";
 import { widgetSourceKind } from "@/contracts/analytics";
 import * as analyticsApi from "@/lib/api/analytics";
@@ -27,7 +28,9 @@ import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
 import type { InsightCatalog } from "./insights/insightCatalog";
 import {
   RANGE_OPTIONS,
+  MAX_DASHBOARD_WIDGETS,
   makeWidget,
+  newWidgetId,
   duplicateWidgetAt,
   ErrorBanner,
   EmptyDashboard,
@@ -125,6 +128,12 @@ export function AnalyticsDashboard({
   // CD-3B dashboard actions — real dialogs, never window.prompt/confirm.
   const [nameDialog, setNameDialog] = useState<"create" | "rename" | null>(null);
   const [showRestore, setShowRestore] = useState(false);
+  /** CD-5B: the exploration an editor is saving as a new widget (dialog open). */
+  const [savingExploration, setSavingExploration] = useState<{
+    sourceWidgetId: string;
+    config: InsightWidgetConfig;
+    suggestedTitle: string;
+  } | null>(null);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const draggingId = useRef<string | null>(null);
   const [draggingState, setDraggingState] = useState<string | null>(null);
@@ -317,6 +326,54 @@ export function AnalyticsDashboard({
     } catch {
       setExportStatus("Couldn't create the CSV.");
     }
+  };
+
+  /**
+   * CD-5B: persist an explored question as a NEW widget, placed immediately
+   * after its source widget. Distinct from Duplicate (which copies the saved
+   * question): this saves the currently-explored refinement. The source
+   * widget's config is never touched.
+   *
+   * In edit mode the widget joins the draft (persisted by the normal atomic
+   * "Done editing" PATCH); outside edit mode it PATCHes immediately, the same
+   * pattern as Restore-default-layout.
+   */
+  const atWidgetCap = widgets.length >= MAX_DASHBOARD_WIDGETS;
+  const saveExploration = async (title: string) => {
+    if (!savingExploration || !active) return;
+    const insert = (list: readonly AnalyticsWidget[]): AnalyticsWidget[] => {
+      const next = list.slice();
+      const idx = next.findIndex((w) => w.id === savingExploration.sourceWidgetId);
+      const widgetToAdd: AnalyticsWidget = {
+        id: newWidgetId(),
+        type: "insight",
+        size:
+          (next.find((w) => w.id === savingExploration.sourceWidgetId)?.size as
+            | AnalyticsWidgetSize
+            | undefined) ?? "m",
+        title: title.slice(0, 120),
+        icon: "Sparkle",
+        config: { source: "any", insight: savingExploration.config },
+      };
+      next.splice(idx >= 0 ? idx + 1 : next.length, 0, widgetToAdd);
+      return next;
+    };
+    if (editing) {
+      if (draftWidgets.length >= MAX_DASHBOARD_WIDGETS) {
+        throw new Error(`A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.`);
+      }
+      setDraftWidgets((ws) => insert(ws));
+      setSavingExploration(null);
+      return;
+    }
+    if (active.widgets.length >= MAX_DASHBOARD_WIDGETS) {
+      throw new Error(`A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.`);
+    }
+    const updated = await analyticsApi.updateDashboard(active.id, {
+      widgets: insert(active.widgets),
+    });
+    setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+    setSavingExploration(null);
   };
 
   const rangeLabel = RANGE_OPTIONS.find((r) => r.id === range)?.label;
@@ -539,6 +596,12 @@ export function AnalyticsDashboard({
                   canManage={canManage}
                   reloadKey={reloadKey}
                   onResult={handleInsightResult}
+                  {...(canManage ? { onSaveExploration: setSavingExploration } : {})}
+                  saveDisabledReason={
+                    atWidgetCap
+                      ? `This dashboard is full (${MAX_DASHBOARD_WIDGETS} widgets) — remove one to save a new insight.`
+                      : null
+                  }
                 />
               ) : widgetSourceKind(w.config) === "connected_app" ? (
                 <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
@@ -566,6 +629,14 @@ export function AnalyticsDashboard({
           {...(nameDialog === "rename" && active ? { initialName: active.name } : {})}
           onSubmit={nameDialog === "rename" ? renameDashboard : createDashboard}
           onClose={() => setNameDialog(null)}
+        />
+      )}
+      {savingExploration && (
+        <DashboardNameDialog
+          mode="saveInsight"
+          initialName={savingExploration.suggestedTitle}
+          onSubmit={saveExploration}
+          onClose={() => setSavingExploration(null)}
         />
       )}
       {showRestore && active?.isDefault && (

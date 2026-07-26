@@ -37,9 +37,11 @@ function useDialogFocus(
 }
 
 /**
- * Name a dashboard — used for BOTH rename (prefilled) and create. Trims,
- * requires a non-empty name, and enforces the contract's 80-character cap
- * client-side so the round trip isn't wasted on a value the API will reject.
+ * Name something — used for dashboard rename (prefilled), dashboard create,
+ * and CD-5B's "Save as new insight" (prefilled with a suggested title). Trims,
+ * requires a non-empty name, and enforces the relevant contract cap
+ * client-side so the round trip isn't wasted on a value the API will reject
+ * (80 chars for dashboard names, 120 for widget titles).
  */
 export function DashboardNameDialog({
   mode,
@@ -47,7 +49,7 @@ export function DashboardNameDialog({
   onSubmit,
   onClose,
 }: {
-  mode: "create" | "rename";
+  mode: "create" | "rename" | "saveInsight";
   initialName?: string;
   onSubmit: (name: string) => Promise<void>;
   onClose: () => void;
@@ -59,7 +61,12 @@ export function DashboardNameDialog({
   useDialogFocus(onClose, inputRef);
 
   const trimmed = name.trim();
-  const title = mode === "rename" ? "Rename dashboard" : "New dashboard";
+  const title =
+    mode === "rename"
+      ? "Rename dashboard"
+      : mode === "saveInsight"
+        ? "Save as new insight"
+        : "New dashboard";
 
   const submit = async () => {
     if (trimmed.length === 0 || pending) return;
@@ -90,7 +97,9 @@ export function DashboardNameDialog({
         <p className="mt-1 text-xs text-muted-foreground">
           {mode === "rename"
             ? "Everyone on this account sees the new name."
-            : "Give your new dashboard a name. You can rename it later."}
+            : mode === "saveInsight"
+              ? "Adds the question you're exploring as a new widget on this dashboard. The original widget stays exactly as it was."
+              : "Give your new dashboard a name. You can rename it later."}
         </p>
         <form
           onSubmit={(e) => {
@@ -101,10 +110,10 @@ export function DashboardNameDialog({
           <Input
             ref={inputRef}
             className="mt-3"
-            aria-label="Dashboard name"
-            placeholder="e.g. Revenue overview"
+            aria-label={mode === "saveInsight" ? "Insight title" : "Dashboard name"}
+            placeholder={mode === "saveInsight" ? "e.g. Paid orders — July" : "e.g. Revenue overview"}
             value={name}
-            maxLength={80}
+            maxLength={mode === "saveInsight" ? 120 : 80}
             disabled={pending}
             onChange={(e) => setName(e.target.value)}
           />
@@ -118,7 +127,13 @@ export function DashboardNameDialog({
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={pending || trimmed.length === 0}>
-              {pending ? "Saving…" : mode === "rename" ? "Save name" : "Create"}
+              {pending
+                ? "Saving…"
+                : mode === "rename"
+                  ? "Save name"
+                  : mode === "saveInsight"
+                    ? "Save insight"
+                    : "Create"}
             </Button>
           </div>
         </form>

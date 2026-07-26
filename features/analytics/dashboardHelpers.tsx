@@ -94,8 +94,9 @@ export function makeWidget(type: AnalyticsWidgetType): AnalyticsWidget {
 /** Dashboards cap at 48 widgets (AnalyticsWidgetsSchema). */
 export const MAX_DASHBOARD_WIDGETS = 48;
 
-/** Fresh, collision-proof widget id (same scheme as `makeWidget`). */
-function newWidgetId(): string {
+/** Fresh, collision-proof widget id (same scheme as `makeWidget`).
+ * Exported for CD-5B's Save-as-new-insight path. */
+export function newWidgetId(): string {
   return `w-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
