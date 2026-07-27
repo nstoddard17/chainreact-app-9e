@@ -36,6 +36,19 @@ export const MAX_FIELD_SCHEMA_PROVIDERS = 12;
 export const MAX_FIELD_SCHEMA_NODES = 80;
 const MAX_RENDERED_OPTION_VALUES = 8;
 
+/**
+ * REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — hard LINE bound for the outputs block. The node
+ * cap alone let the block reach ~650 lines / ~61k chars for an ordinary four-provider request (61%
+ * of the whole prompt), burying the response contract. Providers arrive priority-ordered (canvas →
+ * explicitly named → category match → connected), so the cap drops the least-relevant tail first,
+ * and the truncation is marked in the block instead of silent.
+ */
+export const MAX_OUTPUT_SCHEMA_LINES = 240;
+
+/** Honest truncation marker — the model must know the outputs list is bounded, not exhaustive. */
+export const OUTPUT_SCHEMA_TRUNCATION_LINE =
+  "  - …(outputs for further capabilities omitted for space — those capabilities still exist in the catalog)";
+
 const NATIVE_PROVIDER_ID = "native";
 
 /** Generic, CATEGORY-level synonym map (registry categories — never provider-specific keywords). */
@@ -186,28 +199,43 @@ function renderOutputLines(o: OutputLike): string[] {
  * rendered so the model knows the content is respondent/customer data.
  */
 export function buildOutputSchemaLines(providerIds: readonly string[]): readonly string[] {
-  const lines: string[] = [];
-  let nodes = 0;
-  for (const providerId of providerIds) {
-    const metas: { key: string; kind: string; outputs: readonly OutputLike[] }[] = [
-      ...listTriggerMetasForProvider(providerId).map((m) => ({
+  // TRIGGERS FIRST, across ALL providers: a trigger's payload is the root of every {{...}} mapping
+  // chain, so trigger outputs must never lose their prompt space to an earlier provider's long
+  // action list (the bug that cut typeform's trigger while keeping every gmail action). Actions
+  // follow, still in the caller's priority order, until the line bound.
+  const metas: { key: string; kind: string; outputs: readonly OutputLike[] }[] = [
+    ...providerIds.flatMap((providerId) =>
+      listTriggerMetasForProvider(providerId).map((m) => ({
         key: m.key,
         kind: "trigger",
         outputs: (m.payloadShape ?? []) as readonly OutputLike[],
       })),
-      ...listActionMetasForProvider(providerId).map((m) => ({
+    ),
+    ...providerIds.flatMap((providerId) =>
+      listActionMetasForProvider(providerId).map((m) => ({
         key: m.key,
         kind: "action",
         outputs: (m.outputs ?? []) as readonly OutputLike[],
       })),
-    ];
-    for (const meta of metas) {
-      if (nodes >= MAX_FIELD_SCHEMA_NODES) return lines;
-      nodes += 1;
-      if (meta.outputs.length === 0) continue;
-      lines.push(`  - ${meta.key} [${meta.kind}] produces:`);
-      for (const o of meta.outputs) lines.push(...renderOutputLines(o));
+    ),
+  ];
+  const lines: string[] = [];
+  let nodes = 0;
+  for (const meta of metas) {
+    if (nodes >= MAX_FIELD_SCHEMA_NODES) {
+      lines.push(OUTPUT_SCHEMA_TRUNCATION_LINE);
+      return lines;
     }
+    nodes += 1;
+    if (meta.outputs.length === 0) continue;
+    const rendered = [`  - ${meta.key} [${meta.kind}] produces:`];
+    for (const o of meta.outputs) rendered.push(...renderOutputLines(o));
+    // Line bound: never start a node we can't fit; mark the cut instead of truncating silently.
+    if (lines.length + rendered.length > MAX_OUTPUT_SCHEMA_LINES) {
+      lines.push(OUTPUT_SCHEMA_TRUNCATION_LINE);
+      return lines;
+    }
+    lines.push(...rendered);
   }
   return lines;
 }

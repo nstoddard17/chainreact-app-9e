@@ -131,6 +131,20 @@ describe("buildPreviewFirstRepairGoal", () => {
     expect(goal).toMatch(/consent status or duplicate handling/i);
     expect(goal).toMatch(/SETUP VALUES/);
   });
+
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — the repair must override the exact
+  // instruction the first reply followed into the questionnaire, and demand the json block as the
+  // primary content (the strongest constraint available — the gateway body carries only a prompt,
+  // so schema-enforced structured output is not available at this boundary).
+  it("explicitly overrides the schema-dependent-data escape hatch", () => {
+    expect(goal).toMatch(/even when a step's field mappings depend on a resource that is not chosen yet/i);
+    expect(goal).toMatch(/return the plan anyway/i);
+  });
+
+  it("demands the json block as the PRIMARY content and forbids continuing the questionnaire", () => {
+    expect(goal).toMatch(/PRIMARY content/);
+    expect(goal).toMatch(/do not repeat or continue answering your previous questions/i);
+  });
 });
 
 describe("budget constant", () => {

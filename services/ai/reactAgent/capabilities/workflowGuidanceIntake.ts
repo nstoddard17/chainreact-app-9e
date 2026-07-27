@@ -47,7 +47,10 @@ import {
   getHermesAgentGatewayConfig,
   isHermesAgentEnabled,
 } from "@/services/ai-guidance/gateway/gatewayConfig";
-import type { NormalizedGatewayGuidance, SanitizedUsage } from "@/services/ai-guidance/gateway/gatewayResponseContract";
+import type {
+  GatewayPlanDiagnostics,
+  SanitizedUsage,
+} from "@/services/ai-guidance/gateway/gatewayResponseContract";
 import { runAuthorizedCapability } from "../index";
 import type { ReactAgentAuditRecorder, ReactAgentScope } from "../types";
 
@@ -137,6 +140,8 @@ export type WorkflowGuidanceIntakeResult =
       readonly warnings?: readonly string[];
       /** REACT-AGENT-RETRY-BACKOFF-1 — safe attempt/retry counters for logging + audit metadata. */
       readonly attemptTelemetry?: GatewayAttemptTelemetry;
+      /** REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — typed plan-stage diagnostics (safe enums/counts). */
+      readonly planDiagnostics?: GatewayPlanDiagnostics;
     }
   | {
       readonly ok: false;
@@ -264,5 +269,6 @@ export async function runWorkflowGuidanceIntakeCapability(
     ...(guidance.mutationMalformed ? { mutationMalformed: guidance.mutationMalformed } : {}),
     ...(guidance.rawUsage ? { rawUsage: guidance.rawUsage } : {}),
     ...(guidance.warnings ? { warnings: guidance.warnings } : {}),
+    ...(guidance.planDiagnostics ? { planDiagnostics: guidance.planDiagnostics } : {}),
   };
 }

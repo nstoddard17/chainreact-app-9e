@@ -530,25 +530,63 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(allText).not.toContain("send-campaign");
   });
 
-  it("SERVER-ENFORCED PREVIEW-FIRST -- a failed repair returns the typed PREVIEW_PLAN_MISSING failure, not the questionnaire, and never loops", async () => {
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — when the model AND its one repair both fail
+  // for a request that names every app unambiguously, the generic registry-driven fallback now
+  // builds the skeletal preview instead of failing the turn.
+  it("SERVER-ENFORCED PREVIEW-FIRST -- a failed repair falls back to the DETERMINISTIC four-node skeleton (200, not 503), and never loops", async () => {
     mockRunner
       .mockResolvedValueOnce(CLARIFICATION_ONLY)
       .mockResolvedValueOnce(CLARIFICATION_ONLY); // repair also withholds the plan
 
     const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Exactly one repair -- no loop, no third model call -- and still one credit.
+    expect(mockRunner).toHaveBeenCalledTimes(2);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+    // The registry-derived skeleton: the four named apps, setup collected via requiredInputs.
+    expect(
+      body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+    ).toEqual([
+      "typeform:new_response_in_form",
+      "mailchimp:add_subscriber",
+      "hubspot:create_contact",
+      "gmail:send_email",
+    ]);
+    // NO fabricated config values anywhere — every unresolved choice is a requiredInput.
+    for (const step of body.workflowPlan.steps) expect(step.config ?? undefined).toBeUndefined();
+    expect(body.previewDraft).not.toBeNull();
+    expect(body.previewDraft.notApplied).toBe(true);
+    // The questionnaire is NOT surfaced (the fallback owns the lead-in copy).
+    expect(body.guidanceText).not.toMatch(/Which Typeform form\?/);
+  });
+
+  it("SERVER-ENFORCED PREVIEW-FIRST -- an UNAMBIGUOUS repair failure that the fallback cannot resolve returns the typed PREVIEW_PLAN_MISSING failure", async () => {
+    // Two named providers (preview expected), but "add a note and a tag" matches TWO Mailchimp
+    // capabilities — the fallback refuses to guess, so the typed failure stands.
+    const questionnaire = {
+      ok: true,
+      guidanceText: "Which note and which tag should I add?",
+      source: "hermes-agent",
+      workflowPlan: null,
+    };
+    mockRunner.mockResolvedValueOnce(questionnaire).mockResolvedValueOnce(questionnaire);
+    const res = await call(ACCOUNT, {
+      goalText: "When a Typeform response arrives, add a note and a tag in Mailchimp",
+    });
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.code).toBe("PREVIEW_PLAN_MISSING");
     // Actionable retry copy; NOT the questionnaire, NOT model text, nothing changed.
     expect(body.message).toMatch(/send the request again/i);
-    expect(body.message).not.toMatch(/Which Typeform form/);
+    expect(body.message).not.toMatch(/Which note/);
     // Exactly one repair -- no loop -- and still one credit.
     expect(mockRunner).toHaveBeenCalledTimes(2);
     expect(mockGate).toHaveBeenCalledTimes(1);
   });
 
-  it("SERVER-ENFORCED PREVIEW-FIRST -- the repair is SKIPPED (typed failure, 1 call) when too little route budget remains", async () => {
+  it("SERVER-ENFORCED PREVIEW-FIRST -- the repair is SKIPPED when too little route budget remains; the deterministic fallback still rescues the named-provider chain (1 call)", async () => {
     mockRunner.mockResolvedValueOnce(CLARIFICATION_ONLY);
     // Simulate a slow first attempt: the route reads Date.now() before the call and again in the
     // budget check -- advance the clock 50s in between (60s budget - 2s margin - 50s < 15s minimum).
@@ -561,10 +599,11 @@ describe("workflow-guidance route — capability call + safe response", () => {
     );
     try {
       const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.code).toBe("PREVIEW_PLAN_MISSING");
       expect(mockRunner).toHaveBeenCalledTimes(1); // no repair started with insufficient budget
+      expect(body.workflowPlan.steps).toHaveLength(4); // the deterministic skeleton still ships
+      expect(body.previewDraft).not.toBeNull();
     } finally {
       nowSpy.mockRestore();
     }
@@ -618,8 +657,13 @@ describe("workflow-guidance route — capability call + safe response", () => {
   });
 
   it("SERVER-ENFORCED PREVIEW-FIRST -- the draft is never touched and the typed failure claims nothing", async () => {
-    mockRunner.mockResolvedValueOnce(CLARIFICATION_ONLY).mockResolvedValueOnce(CLARIFICATION_ONLY);
-    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT, workflowId: "wf-1" });
+    // Fallback-ambiguous phrasing (two Mailchimp capabilities match) → the typed failure path runs.
+    const questionnaire = { ok: true, guidanceText: "Which note?", source: "hermes-agent", workflowPlan: null };
+    mockRunner.mockResolvedValueOnce(questionnaire).mockResolvedValueOnce(questionnaire);
+    const res = await call(ACCOUNT, {
+      goalText: "When a Typeform response arrives, add a note and a tag in Mailchimp",
+      workflowId: "wf-1",
+    });
     expect(res.status).toBe(503);
     // The route loaded the workflow read-only; the response claims nothing was created/applied.
     const body = await res.json();

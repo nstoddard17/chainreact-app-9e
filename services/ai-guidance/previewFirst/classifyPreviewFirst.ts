@@ -169,8 +169,12 @@ export function buildPreviewFirstRepairGoal(input: {
   return [
     "Your previous answer withheld the workflow plan and asked configuration questions instead.",
     "Those questions (which form/board/audience/list, who to send to, which connected account, a required enum such as consent status or duplicate handling, or formatting) are SETUP VALUES — ChainReact collects them with its own setup form after the user reviews the shape. They must never block the plan.",
-    "Return the structured workflowPlan json block NOW for the request below.",
-    "Do not ask conversational questions.",
+    // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — the schema-dependent-data case must be
+    // overridden EXPLICITLY here: it was the instruction the first reply followed into the
+    // questionnaire, so the repair names it and states the required outcome.
+    "This applies even when a step's field mappings depend on a resource that is not chosen yet (for example a form whose questions are only known after the form is picked): return the plan anyway, list the resource-choice field and the affected downstream fields in `requiredInputs`, and note in one sentence that the mappings will be completed after the resource is chosen in setup.",
+    "Return the structured workflowPlan json block NOW for the request below. The fenced ```json block is the PRIMARY content of your reply; keep any prose to one or two sentences before it.",
+    "Do not ask conversational questions, and do not repeat or continue answering your previous questions.",
     `Use the trigger and actions for the apps the user already named (${input.namedProviders.join(", ")}), taken from the capability catalog, in the order the request describes.`,
     "Leave every unresolved configuration value out of config and list its field key in that step's requiredInputs.",
     "",

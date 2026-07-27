@@ -257,7 +257,12 @@ const DATA_MAPPING_INSTRUCTIONS = [
   "- NEVER invent a realistic-looking sample value. Addresses like subscriber@example.com or alice@example.com, names like John Smith, companies like Acme Inc. are FORBIDDEN as config values unless the user typed that exact value themselves. ChainReact removes invented values and the step comes back incomplete, so inventing one makes the workflow WORSE than leaving the field out.",
   "- If a value should come from upstream but no declared output provides it, leave the field OUT and name it in `requiredInputs`, and say plainly in your prose which data you could not find. An incomplete-but-honest plan is correct; a complete-looking plan built on invented data is not.",
   "- For a summary/notification body, BUILD it from references — e.g. \"Name: {{s0.firstName}} {{s0.lastName}}\\nEmail: {{s0.email}}\" — never leave it blank and never fill it with example prose.",
-  "- SCHEMA-DEPENDENT DATA (important): some triggers only describe their data as a generic list/object (e.g. a form's `answers` array) because the individual questions depend on WHICH form/board/sheet the user picks. When the user's request needs those per-item values and the resource is not chosen yet, do NOT guess field names and do NOT invent values. Ask the user to pick that resource FIRST, explain that you will map its fields once it is selected, and list the affected downstream fields in `requiredInputs`.",
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — this bullet used to say "Ask the user to pick
+  // that resource FIRST", which directly contradicted the preview-first rules below ("NEVER ask WHICH
+  // form/board/sheet before returning the plan") and made the model withhold the whole plan for any
+  // schema-dependent trigger (the exact production regression). The resource choice is a SETUP field,
+  // not a chat question — the plan is still returned.
+  "- SCHEMA-DEPENDENT DATA (important): some triggers only describe their data as a generic list/object (e.g. a form's `answers` array) because the individual questions depend on WHICH form/board/sheet the user picks. When the user's request needs those per-item values and the resource is not chosen yet, do NOT guess field names and do NOT invent values — and do NOT ask the user to pick the resource in chat. STILL RETURN THE PLAN: the resource choice is a setup field ChainReact collects (list it in that step's `requiredInputs`), list the affected downstream fields in their own steps' `requiredInputs`, and say in one short prose sentence that the field mappings will be completed after the resource is chosen in setup.",
 ].join("\n");
 
 const FIELD_VALUE_INSTRUCTIONS = [
@@ -311,6 +316,14 @@ const EDIT_RESPONSE_INSTRUCTIONS = [
  */
 const RESPONSE_FORMAT_INSTRUCTIONS = [
   "How to respond:",
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — one explicit priority order at the top. The
+  // instruction list below has grown large enough that individual rules can read as competing; this
+  // ordering is the tie-breaker and makes the structured plan the PRIMARY output contract.
+  "PRIORITY ORDER — if any two instructions in this request ever seem to conflict, the earlier item on this list wins:",
+  "  1. Return the structured workflowPlan json block whenever the trigger/action topology is identifiable from the capability catalog.",
+  "  2. Put missing or not-yet-knowable configuration in each step's `requiredInputs` — never ask for it in chat.",
+  "  3. Ask clarifying questions (and omit the json block) ONLY for true topology ambiguity: you cannot identify the provider or action at all, or two materially different workflow structures are equally plausible.",
+  "  4. Prose commentary is secondary to the structured plan — keep it short and never let it replace the plan.",
   "- Answer in clear, normal language first (one or two sentences is fine).",
   "- The structured plan describes the workflow SHAPE — which trigger and actions, in what order. Missing CONFIG VALUES (e.g. which Slack channel, the recipient, the exact message text, specific dates) are NOT part of the shape and are NOT a reason to withhold the plan: ChainReact collects them itself with a guided setup form (dropdowns / text fields) after the user reviews the shape.",
   "- When the trigger/action shape is clear, RETURN the plan even if specific config values are still unknown. List each unknown field key the step needs in that step's `requiredInputs` (e.g. \"channel\", \"text\") and leave those values out — do NOT ask the user for a channel, recipient, or message text before returning the plan.",

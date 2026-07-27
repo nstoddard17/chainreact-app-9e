@@ -262,13 +262,20 @@ describe("Typeform question-level data is NOT declared metadata (Case B is the h
     expect(formField.optionsSource).toBe("typeform:forms");
   });
 
-  it("(#12) the prompt instructs the model to ask for the resource instead of guessing question names", () => {
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — this test used to pin "Ask the user to pick
+  // that resource FIRST", the instruction that contradicted preview-first and made the model
+  // withhold the whole plan (the production regression). The rule now keeps the anti-guessing
+  // protections but requires the plan to be RETURNED with the resource as a requiredInputs entry.
+  it("(#12) schema-dependent data: no guessing, no invented values — but the plan is still returned", () => {
     const prompt = buildGatewayGuidancePrompt({
       request: EMPTY_REQUEST,
       goalText: PROMPT_TEXT,
       outputSchemaLines: buildOutputSchemaLines(["typeform"]),
     });
-    expect(prompt).toContain("Ask the user to pick that resource FIRST");
     expect(prompt).toContain("do NOT guess field names and do NOT invent values");
+    expect(prompt).toContain("do NOT ask the user to pick the resource in chat");
+    expect(prompt).toContain("STILL RETURN THE PLAN");
+    // The contradiction must never come back.
+    expect(prompt).not.toContain("Ask the user to pick that resource FIRST");
   });
 });

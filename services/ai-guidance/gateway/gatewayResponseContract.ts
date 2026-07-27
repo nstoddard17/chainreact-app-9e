@@ -24,7 +24,27 @@ import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession
 import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
 import type { PatchOperation } from "@/services/workflows/patch/types";
 import { summarizeInvalidPlan, validateWorkflowPlan } from "../validateWorkflowPlan";
-import { extractMutationOperationsFromText, extractPlanFromText, stripSourceBlock } from "./extractPlanFromText";
+import {
+  diagnosePlanExtraction,
+  extractMutationOperationsFromText,
+  extractPlanFromText,
+  stripSourceBlock,
+  type PlanExtractionDiagnostics,
+  type PlanExtractionStage,
+} from "./extractPlanFromText";
+
+/**
+ * REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — the full plan-stage code for one guidance reply.
+ * Extends the pure extraction stages with the capability-validation outcome, so observability can
+ * name exactly where a plan died. Safe enums/counts only — never model text or user values.
+ */
+export type GatewayPlanStage = PlanExtractionStage | "PLAN_CAPABILITY_INVALID";
+
+export interface GatewayPlanDiagnostics extends Omit<PlanExtractionDiagnostics, "stage"> {
+  readonly stage: GatewayPlanStage;
+  /** Steps rejected by `validateWorkflowPlan` (unknown provider:type claims). */
+  readonly invalidCapabilityCount?: number;
+}
 
 /**
  * Legacy generic warning. RETAINED for back-compat only — the normalizer no longer emits it. When an
@@ -74,6 +94,12 @@ export type NormalizedGatewayGuidance =
       readonly mutationMalformed?: boolean;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
+      /**
+       * REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — typed plan-stage diagnostics (safe
+       * enums/counts/booleans only). Present on every ok reply so the no-plan path can be observed
+       * at the stage it failed, not just as a late "no plan" boolean.
+       */
+      readonly planDiagnostics?: GatewayPlanDiagnostics;
     }
   | { readonly ok: false; readonly code: GuidanceUnavailableCode; readonly reason?: string };
 
@@ -201,11 +227,19 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   if (choices.length > 1) warnings.push("multiple_choices_truncated");
 
   let guidanceText = content.trim();
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — classify the extraction stage BEFORE any text
+  // stripping, so the diagnostics describe the model's actual reply. Capability validation may
+  // upgrade the stage to PLAN_CAPABILITY_INVALID below.
+  const extractionDiagnostics = diagnosePlanExtraction(guidanceText);
+  let planDiagnostics: GatewayPlanDiagnostics = extractionDiagnostics;
   // The envelope-sibling plan object (validated above) takes precedence; otherwise look for a plan
   // embedded as a fenced ```json block in the guidance text. This is BEST-EFFORT and degrades
   // gracefully (unlike the strict sibling-object path): an invalid embedded plan does NOT fail the
   // whole response — we keep the guidance text, drop the plan, and add a safe warning.
   let workflowPlan: WorkflowPlan | null = planCandidate ?? null;
+  if (workflowPlan) {
+    planDiagnostics = { ...extractionDiagnostics, stage: "PLAN_OK", parsedStepCount: workflowPlan.steps.length };
+  }
   if (!workflowPlan) {
     const extracted = extractPlanFromText(guidanceText);
     if (extracted) {
@@ -217,6 +251,11 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
       if (validation.ok) {
         workflowPlan = extracted.plan; // capability-checked → safe to surface (advisory only)
       } else {
+        planDiagnostics = {
+          ...extractionDiagnostics,
+          stage: "PLAN_CAPABILITY_INVALID",
+          invalidCapabilityCount: validation.invalidSteps.length,
+        };
         // The model returned a plan it can't actually build (hallucinated capabilities) AND prose that
         // may over-claim the flow is "straightforward / ready". We must NOT let that over-claim stand
         // next to an empty canvas. REPLACE the prose with the specific, actionable reason — e.g. the
@@ -261,6 +300,7 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
     guidanceText,
     source: "hermes-agent",
     workflowPlan,
+    planDiagnostics,
     ...(mutationOperations ? { mutationOperations } : {}),
     ...(mutationBaseVersion ? { mutationBaseVersion } : {}),
     ...(mutationMalformed ? { mutationMalformed } : {}),

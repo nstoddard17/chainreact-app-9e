@@ -9,7 +9,12 @@
  *   no plan + classifier says genuinely ambiguous                 → accept (clarification stands)
  *   no plan + preview expected + enough budget                    → ONE structured repair call
  *   repair returns a plan                                         → accept the repaired reply
- *   repair returns no plan / fails / budget insufficient          → `plan_missing` (the route maps
+ *   repair returns no plan / fails / budget insufficient          → generic registry-driven
+ *                                                                   fallback (REACT-AGENT-PLAN-
+ *                                                                   GENERATION-REGRESSION-AUDIT-1):
+ *                                                                   unambiguous named-provider chain
+ *                                                                   → accept a skeletal plan
+ *   fallback declines (any ambiguity)                             → `plan_missing` (the route maps
  *                                                                   it to the typed retryable
  *                                                                   PREVIEW_PLAN_MISSING response)
  *
@@ -43,11 +48,20 @@ import {
 } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import type { ReactAgentScope } from "@/services/ai/reactAgent/types";
 import { GUIDANCE_ROUTE_MAX_DURATION_SECONDS } from "@/services/ai-guidance/gateway/gatewayConfig";
+import { inferNamedProviderChainPlan } from "../fallback/inferNamedProviderChainPlan";
 import {
   classifyPreviewFirst,
   buildPreviewFirstRepairGoal,
   MIN_REPAIR_BUDGET_MS,
 } from "./classifyPreviewFirst";
+
+/**
+ * Lead-in shown with a deterministic-fallback skeleton (REACT-AGENT-PLAN-GENERATION-REGRESSION-
+ * AUDIT-1). The model's own prose was a questionnaire we are deliberately NOT surfacing, so the
+ * fallback plan needs honest, fixed copy of its own. No model text, no values.
+ */
+const FALLBACK_PLAN_LEAD_IN =
+  "Here's the workflow you described — I've sketched the trigger and each step from the apps you named. Finish the remaining choices in each step's setup below; nothing in your workflow has been changed yet.";
 
 /** Safety margin kept between the repair's deadline and the platform's hard kill. */
 const ROUTE_BUDGET_SAFETY_MARGIN_MS = 2_000;
@@ -99,14 +113,25 @@ function logPreviewFirstDecision(info: {
   repairSkippedReason?: "insufficient_budget" | undefined;
   repairHadPlan?: boolean | undefined;
   clarificationAllowed: boolean;
-  finalOutcome: "plan" | "clarification" | "preview_plan_missing";
+  finalOutcome: "plan" | "clarification" | "deterministic_fallback_plan" | "preview_plan_missing";
   elapsedMs: number;
+  // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — typed plan-stage codes + safe counts, so a
+  // no-plan turn says WHERE the plan died (model wrote no JSON vs parse vs schema vs capability).
+  initialPlanStage?: string | undefined;
+  initialResponseChars?: number | undefined;
+  initialTruncationSuspected?: boolean | undefined;
+  repairPlanStage?: string | undefined;
+  repairResponseChars?: number | undefined;
 }): void {
   console.info(
     `[workflow-guidance] preview_first requestId=${info.requestId} initialHadPlan=${info.initialHadPlan} ` +
       `classification=${info.previewFirstClassification} namedProviders=${info.namedProviderCount} ` +
+      `initialPlanStage=${info.initialPlanStage ?? "n/a"} initialResponseChars=${info.initialResponseChars ?? "n/a"} ` +
+      `initialTruncationSuspected=${info.initialTruncationSuspected ?? "n/a"} ` +
       `repairAttempted=${info.repairAttempted} repairSkipped=${info.repairSkippedReason ?? "n/a"} ` +
-      `repairHadPlan=${info.repairHadPlan ?? "n/a"} clarificationAllowed=${info.clarificationAllowed} ` +
+      `repairHadPlan=${info.repairHadPlan ?? "n/a"} ` +
+      `repairPlanStage=${info.repairPlanStage ?? "n/a"} repairResponseChars=${info.repairResponseChars ?? "n/a"} ` +
+      `clarificationAllowed=${info.clarificationAllowed} ` +
       `finalOutcome=${info.finalOutcome} elapsedMs=${info.elapsedMs}`,
   );
 }
@@ -132,6 +157,9 @@ export async function enforcePreviewFirst(
   let repairAttempted = false;
   let repairSkippedReason: "insufficient_budget" | undefined;
   let repairHadPlan: boolean | undefined;
+  let repairPlanStage: string | undefined;
+  let repairResponseChars: number | undefined;
+  let fallbackPlanUsed = false;
 
   if (classification.kind === "preview_expected") {
     const remainingBudgetMs =
@@ -172,13 +200,29 @@ export async function enforcePreviewFirst(
         { requestId, ...(input.signal ? { signal: input.signal } : {}) },
       );
       repairHadPlan = repairResult.ok && !!repairResult.workflowPlan;
+      repairPlanStage = repairResult.ok ? repairResult.planDiagnostics?.stage : "REPAIR_CALL_FAILED";
+      repairResponseChars = repairResult.ok ? repairResult.planDiagnostics?.responseChars : undefined;
       if (repairResult.ok && repairResult.workflowPlan) {
         result = repairResult; // the repaired reply flows through the normal pipeline
       }
     }
+
+    // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — last resort AFTER model + repair both
+    // produced no plan: the generic registry-driven chain fallback. It builds a skeletal plan ONLY
+    // when the user explicitly named every app and each maps to exactly one capability; any
+    // ambiguity → null and the typed failure stands. Steps carry NO config values (requiredInputs
+    // come from real registry metadata), and the plan flows through the SAME downstream pipeline
+    // (config prep, provider guard, entitlement gate, preview) as a model plan.
+    if (!result.workflowPlan) {
+      const fallbackPlan = inferNamedProviderChainPlan(safeGoalText);
+      if (fallbackPlan) {
+        fallbackPlanUsed = true;
+        result = { ...initialResult, guidanceText: FALLBACK_PLAN_LEAD_IN, workflowPlan: fallbackPlan };
+      }
+    }
   }
 
-  const repairedPlan = !!result.workflowPlan;
+  const finalHasPlan = !!result.workflowPlan;
   logPreviewFirstDecision({
     requestId,
     initialHadPlan: false,
@@ -189,13 +233,24 @@ export async function enforcePreviewFirst(
     repairSkippedReason,
     repairHadPlan,
     clarificationAllowed,
-    finalOutcome: repairedPlan ? "plan" : clarificationAllowed ? "clarification" : "preview_plan_missing",
+    finalOutcome: fallbackPlanUsed
+      ? "deterministic_fallback_plan"
+      : finalHasPlan
+        ? "plan"
+        : clarificationAllowed
+          ? "clarification"
+          : "preview_plan_missing",
     elapsedMs: Date.now() - brainStartedAt,
+    initialPlanStage: initialResult.planDiagnostics?.stage,
+    initialResponseChars: initialResult.planDiagnostics?.responseChars,
+    initialTruncationSuspected: initialResult.planDiagnostics?.truncationSuspected,
+    repairPlanStage,
+    repairResponseChars,
   });
 
-  if (!clarificationAllowed && !repairedPlan) {
-    // Server said "plan expected"; two attempts produced none. The route returns the typed
-    // failure + retry copy, never the questionnaire. The draft is untouched (nothing here mutates).
+  if (!clarificationAllowed && !finalHasPlan) {
+    // Server said "plan expected"; two attempts + the deterministic fallback produced none. The
+    // route returns the typed failure + retry copy, never the questionnaire. The draft is untouched.
     return { kind: "plan_missing" };
   }
   return { kind: "accept", result };

@@ -120,6 +120,134 @@ export function extractPlanFromText(text: string): ExtractedPlanCandidate | null
   return null;
 }
 
+/**
+ * REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — typed plan-extraction stage. The route's old
+ * signal was a single late "no plan" boolean, which cannot distinguish "the model never wrote JSON"
+ * from "it wrote JSON we failed to parse" from "it wrote a plan validation rejected". These stages
+ * name the exact point the plan died. SAFE metadata only — enums/counts/booleans, never text.
+ */
+export type PlanExtractionStage =
+  | "PLAN_OK"
+  | "MODEL_RETURNED_NO_PLAN"
+  | "PLAN_JSON_PARSE_FAILED"
+  | "PLAN_SCHEMA_INVALID";
+
+export interface PlanExtractionDiagnostics {
+  readonly stage: PlanExtractionStage;
+  /** Length of the model's text content (chars). Never the content itself. */
+  readonly responseChars: number;
+  /** Fenced ``` blocks present in the text. */
+  readonly fencedBlockCount: number;
+  /** Fenced blocks whose body starts with `{` (JSON-object-looking). */
+  readonly jsonObjectBlockCount: number;
+  /** JSON-looking blocks that failed `JSON.parse`. */
+  readonly parseFailedBlockCount: number;
+  /** Parsed JSON objects that were neither a shape-valid plan NOR a mutation block. */
+  readonly shapeInvalidBlockCount: number;
+  /** Steps in the extracted plan candidate (0 when none). */
+  readonly parsedStepCount: number;
+  /** Unclosed fence / text ending inside a JSON block — the reply looks cut off. */
+  readonly truncationSuspected: boolean;
+}
+
+/**
+ * Classify how far plan extraction got for `text`. Pure + deterministic; parses the same way
+ * `extractPlanFromText` does, so the stage can never disagree with the extractor's outcome.
+ * Mutation-shaped blocks (`operations` / `editVersion`) are NOT counted as failed plans — an edit
+ * reply legitimately carries a patch, not a plan.
+ */
+export function diagnosePlanExtraction(text: string): PlanExtractionDiagnostics {
+  const responseChars = typeof text === "string" ? text.length : 0;
+  if (!text || typeof text !== "string") {
+    return {
+      stage: "MODEL_RETURNED_NO_PLAN",
+      responseChars,
+      fencedBlockCount: 0,
+      jsonObjectBlockCount: 0,
+      parseFailedBlockCount: 0,
+      shapeInvalidBlockCount: 0,
+      parsedStepCount: 0,
+      truncationSuspected: false,
+    };
+  }
+
+  let fencedBlockCount = 0;
+  let jsonObjectBlockCount = 0;
+  let parseFailedBlockCount = 0;
+  let shapeInvalidBlockCount = 0;
+  let parsedStepCount = 0;
+  let planFound = false;
+
+  FENCED_BLOCK_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = FENCED_BLOCK_RE.exec(text)) !== null) {
+    fencedBlockCount += 1;
+    const body = match[1]!.trim();
+    if (!body.startsWith("{")) continue;
+    jsonObjectBlockCount += 1;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      parseFailedBlockCount += 1;
+      continue;
+    }
+    if (!planFound) {
+      const candidate = tryParsePlan(body);
+      if (candidate) {
+        planFound = true;
+        parsedStepCount = candidate.steps.length;
+        continue;
+      }
+    }
+    const obj = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+    if (obj && looksLikeMutationObject(obj)) continue; // an edit patch is not a failed plan
+    shapeInvalidBlockCount += 1;
+  }
+
+  // Whole-text bare JSON object (no fences) — same fallback the extractor uses.
+  if (!planFound && fencedBlockCount === 0 && text.trim().startsWith("{")) {
+    jsonObjectBlockCount += 1;
+    const whole = tryParsePlan(text);
+    if (whole) {
+      planFound = true;
+      parsedStepCount = whole.steps.length;
+    } else {
+      try {
+        JSON.parse(text.trim());
+        shapeInvalidBlockCount += 1;
+      } catch {
+        parseFailedBlockCount += 1;
+      }
+    }
+  }
+
+  // Truncation heuristics: an odd number of fences means the last block never closed; a JSON-looking
+  // unparseable tail means the reply likely stopped mid-object.
+  const fenceMarkerCount = (text.match(/```/g) ?? []).length;
+  const unclosedFence = fenceMarkerCount % 2 === 1;
+  const truncationSuspected = unclosedFence || (parseFailedBlockCount > 0 && /[{,:"[]\s*$/.test(text.trimEnd()));
+
+  const stage: PlanExtractionStage = planFound
+    ? "PLAN_OK"
+    : parseFailedBlockCount > 0
+      ? "PLAN_JSON_PARSE_FAILED"
+      : shapeInvalidBlockCount > 0
+        ? "PLAN_SCHEMA_INVALID"
+        : "MODEL_RETURNED_NO_PLAN";
+
+  return {
+    stage,
+    responseChars,
+    fencedBlockCount,
+    jsonObjectBlockCount,
+    parseFailedBlockCount,
+    shapeInvalidBlockCount,
+    parsedStepCount,
+    truncationSuspected,
+  };
+}
+
 /** The patch op discriminators — used to canonicalize the loose `{ "<opName>": {...} }` model encoding. */
 const KNOWN_PATCH_OPS = new Set([
   "addNode", "updateNodeConfig", "removeNode", "addEdge", "removeEdge", "replaceEdge", "moveNode", "repairVariableReference", "replaceTrigger",

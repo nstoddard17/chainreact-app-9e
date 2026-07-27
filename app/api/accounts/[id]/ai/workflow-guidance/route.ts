@@ -717,6 +717,12 @@ export async function POST(
       providerClarification = planAmbiguity.clarification;
       workflowPlan = null;
       previewDraft = null;
+      // REACT-AGENT-PLAN-GENERATION-REGRESSION-AUDIT-1 — a plan died AFTER acceptance. Typed stage
+      // code + requestId only (no goal text, no plan content) so production can tell a deliberate
+      // post-plan drop from "the model never produced a plan".
+      console.info(
+        `[workflow-guidance] plan_stage requestId=${requestId} stage=PLAN_DROPPED_PROVIDER_AMBIGUITY`,
+      );
     }
   }
 
@@ -743,6 +749,8 @@ export async function POST(
       previewDraft = null;
       proposedDefinition = null;
       baseGraphVersion = null;
+      // Same typed stage discipline as the provider-ambiguity drop above.
+      console.info(`[workflow-guidance] plan_stage requestId=${requestId} stage=PLAN_DROPPED_ENTITLEMENT`);
       editorGuidanceText =
         "This workflow needs If/Else branching, which is available on Pro and higher. You can upgrade your plan, or I can help build a simpler linear version if one fits your goal.";
     }
