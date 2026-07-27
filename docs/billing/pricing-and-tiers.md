@@ -58,7 +58,7 @@ copy, the downgrade-safety check, and the billing webhook/upgrade RPC.
 |-------|------|-----|------|----------|------------|
 | Seats (incl. owner) | 1 | 1 | 5 | 25 | Custom |
 | Workflow tasks / mo | 100 | 2,000 | 7,500 | 25,000 | Custom |
-| AI credits / mo | 20 | 500 | 2,000 | 10,000 | Custom |
+| AI credits / mo | 100 | 2,000 | 10,000 | 50,000 | Custom |
 | Workflow folders | 10 | 25 | 100 | 250 | Custom |
 | Custom templates | 0 | 25 | 50 | 250 | Custom |
 | Built-in template use | Yes | Yes | Yes | Yes | Yes |
@@ -89,13 +89,45 @@ These are two independent dials, by design.
   a per-node cost model is classified and recorded but not yet enforced
   ([`services/billing/taskCostPolicy.ts`](../../services/billing/taskCostPolicy.ts)).
 - **AI credits** meter paid model calls
-  ([`core/billing/aiCreditPolicy.ts`](../../core/billing/aiCreditPolicy.ts)). Per-call cost:
-  workflow_creation 2, workflow_editing 2, workflow_repair 4, workflow_explanation 1,
-  workflow_qa 1, failed_run_analysis 1, provider_discovery 1, template_recommendation 1,
-  template_customization 2, cost_preview 0. A stronger model costs 2x; an escalation adds 1.5x.
-  An unmapped paid LLM call fails closed to 5 credits.
+  ([`core/billing/aiCreditPolicy.ts`](../../core/billing/aiCreditPolicy.ts), `ai-credits-v2` /
+  AI-CREDITS-REPRICE-1, 2026-07-27). AI is a core included benefit: allocations are
+  Free 100 / Pro 2,000 / Team 10,000 / Business 50,000 / Enterprise custom, and
+  **Team/Business per-included-seat credits never fall below Pro's** (all three land at
+  exactly 2,000/seat). Per-call cost: workflow_guidance 1 (lightweight React Agent
+  guidance stays cheap), workflow_creation 2, workflow_editing 2, workflow_repair 4,
+  workflow_explanation 1, workflow_qa 1, failed_run_analysis 1, provider_discovery 1,
+  template_recommendation 1, template_customization 2, cost_preview 0,
+  schema_suggestion 1. **Unattended runtime actions carry the margin protection:**
+  document_analysis 10, data_transform 5 (they run repeatedly inside automated
+  workflows on the largest inputs). A stronger model costs 2x; an escalation adds 1.5x.
+  An unmapped paid LLM call fails closed to 15 credits — strictly above every mapped base.
 - **Deterministic work is free / 0 credits.** `cost_preview` and any non-LLM check return 0.
   Deterministic "Check workflow" does not consume credits.
+- **Runtime-action calibration (owner action):** the document_analysis / data_transform
+  bases are model-economics estimates pending calibration against real prod usage. Run
+  this read-only query in the Supabase dashboard, then confirm or adjust the two bases:
+
+  ```sql
+  -- Per-feature real cost profile (last 60 days)
+  select feature,
+         model_name,
+         count(*)                                             as calls,
+         round(avg(estimated_cost_micros) / 1e6, 5)           as avg_usd,
+         round((percentile_cont(0.95) within group (order by estimated_cost_micros)) / 1e6, 5)
+                                                              as p95_usd,
+         round(avg(input_tokens))                             as avg_in_tok,
+         round(avg(output_tokens))                            as avg_out_tok,
+         round(avg(ai_credits_charged), 2)                    as avg_credits
+    from ai_cost_events
+   where created_at > now() - interval '60 days'
+     and estimated_cost_micros is not null
+   group by feature, model_name
+   order by avg_usd desc;
+  ```
+
+  Decision rule: with Pro at $25 / 2,000 credits, one credit represents ~$0.0125 of
+  revenue; keep each feature's `avg_usd ÷ credits-per-call` at or below ~$0.005
+  (≈40% worst-case COGS) — raise that feature's base if it exceeds it.
 - Cheap-model-by-default routing with escalation only on validation failure / low confidence /
   higher-tier flows is the intended direction (the escalation multiplier is wired; no path
   escalates yet).
@@ -145,7 +177,7 @@ Planned / not yet built (do not advertise as available):
 | Pro task cap propagation | Yes | Webhook `applyResolvedPlan` stamps personal `tasks_limit` from policy |
 | Business task cap propagation | Yes (new upgrades) | `apply_business_upgrade` RPC defaults `p_tasks_limit` from policy |
 | Team task cap propagation | Yes (new teams) | Stamped from policy at creation (`initAccountBillingServiceRole`) and on team-plan activation (`applyResolvedPlan`). Teams created before PRICING-LOCK keep the old 100 until re-stamped (no backfill migration shipped) |
-| AI credit limit | Gate exists, OFF | `aiCreditGate` no-op until `ENABLE_AI_CREDIT_ENFORCEMENT=true`; not wired into AI routes yet |
+| AI credit limit | Yes (blocks) | `aiCreditGate` live in prod (`ENABLE_AI_CREDIT_ENFORCEMENT=true` since 2026-06-19). Plan sync (AI-CREDITS-REPRICE-1): webhook `applyResolvedPlan` + `initAccountBillingServiceRole` + the business upgrade/downgrade RPCs stamp `ai_credits_limit` from policy; migration 20260808000000 re-stamped rows still on old defaults (custom / enterprise values untouched) |
 | Seat / member limit | Yes (blocks) | Enforced at invitation |
 | Folder limit | Yes, plan-aware | Folder creation resolves the plan and enforces `planLimitsFor(plan).folderLimit`: Free 10, Pro 25, Team 100, Business 250, Enterprise uncapped |
 | Template limit | No | Policy + helpers exist; no route consumes the cap yet |

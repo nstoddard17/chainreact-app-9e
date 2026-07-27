@@ -38,11 +38,11 @@ describe("planPolicy — tiers + limits", () => {
     expect([...PLAN_STATUSES]).toEqual(["active", "trialing", "past_due", "canceled", "incomplete"]);
   });
 
-  it("carries the locked launch limit numbers (PRICING-LOCK-1, 2026-06-17)", () => {
-    expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 20 });
-    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 25, taskLimit: 2000, templateLimit: 25, aiCreditsMonthlyLimit: 500 });
-    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 7500, templateLimit: 50, aiCreditsMonthlyLimit: 2000 });
-    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 25000, templateLimit: 250, aiCreditsMonthlyLimit: 10000 });
+  it("carries the locked launch limit numbers (PRICING-LOCK-1, 2026-06-17; AI credits repriced AI-CREDITS-REPRICE-1, 2026-07-27)", () => {
+    expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 100 });
+    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 25, taskLimit: 2000, templateLimit: 25, aiCreditsMonthlyLimit: 2000 });
+    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 7500, templateLimit: 50, aiCreditsMonthlyLimit: 10000 });
+    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 25000, templateLimit: 250, aiCreditsMonthlyLimit: 50000 });
     expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null, aiCreditsMonthlyLimit: null });
   });
 
@@ -174,12 +174,12 @@ describe("template limits + feature capabilities (CS-XT-1)", () => {
   });
 });
 
-describe("AI credit limits (AI-CREDITS-3)", () => {
-  it("surfaces per-tier monthly AI credit caps: Free 20 / Pro 500 / Team 2k / Business 10k / Enterprise null", () => {
-    expect(aiCreditsMonthlyLimitFor("free")).toBe(20);
-    expect(aiCreditsMonthlyLimitFor("pro")).toBe(500);
-    expect(aiCreditsMonthlyLimitFor("team")).toBe(2000);
-    expect(aiCreditsMonthlyLimitFor("business")).toBe(10000);
+describe("AI credit limits (AI-CREDITS-REPRICE-1)", () => {
+  it("surfaces per-tier monthly AI credit caps: Free 100 / Pro 2k / Team 10k / Business 50k / Enterprise null", () => {
+    expect(aiCreditsMonthlyLimitFor("free")).toBe(100);
+    expect(aiCreditsMonthlyLimitFor("pro")).toBe(2000);
+    expect(aiCreditsMonthlyLimitFor("team")).toBe(10000);
+    expect(aiCreditsMonthlyLimitFor("business")).toBe(50000);
     // Enterprise = custom/null (the per-deal value is set on the DB column directly).
     expect(aiCreditsMonthlyLimitFor("enterprise")).toBeNull();
   });
@@ -188,6 +188,17 @@ describe("AI credit limits (AI-CREDITS-3)", () => {
     const free = aiCreditsMonthlyLimitFor("free")!;
     for (const plan of ["pro", "team", "business"] as const) {
       expect(aiCreditsMonthlyLimitFor(plan)!).toBeGreaterThan(free);
+    }
+  });
+
+  it("Team/Business per-included-seat AI credits are NEVER below Pro's (owner rule)", () => {
+    // Upgrading a plan adds seats and features — it must never dilute AI per seat.
+    const proPerSeat =
+      aiCreditsMonthlyLimitFor("pro")! / planLimitsFor("pro").memberLimit!;
+    for (const plan of ["team", "business"] as const) {
+      const perSeat =
+        aiCreditsMonthlyLimitFor(plan)! / planLimitsFor(plan).memberLimit!;
+      expect(perSeat).toBeGreaterThanOrEqual(proPerSeat);
     }
   });
 });

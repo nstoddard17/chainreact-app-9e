@@ -100,8 +100,9 @@ jest.mock("@/services/billing/aiCreditGate", () => ({
       return { ok: true, skipped: true, reason: "test_mode" };
     }
     const CHARGES: Record<string, number> = {
-      document_analysis: 3,
-      data_transform: 2,
+      // ai-credits-v2 fast-tier bases (AI-CREDITS-REPRICE-1)
+      document_analysis: 10,
+      data_transform: 5,
       schema_suggestion: 1,
     };
     return { ok: true, charged: CHARGES[input.feature] ?? 5, used: 10, limit: 100 };
@@ -464,11 +465,11 @@ describe("AI provider engine certification — the full chain", () => {
     expect(analyzeRow.userId).toBe(USER);
     expect(analyzeRow.workflowId).toBe("wf-ai-cert");
     expect(analyzeRow.workflowRunId).toEqual(expect.any(String));
-    expect(analyzeRow.aiCreditsCharged).toBe(3);
+    expect(analyzeRow.aiCreditsCharged).toBe(10);
     expect(analyzeRow.modelName).toBe("hermes-doc-v1");
     const transformRow = ledgerCompleted[1]!;
     expect(transformRow.feature).toBe("data_transform");
-    expect(transformRow.aiCreditsCharged).toBe(2);
+    expect(transformRow.aiCreditsCharged).toBe(5);
 
     // No document content, extracted values, or config text in any ledger row.
     const serialized = JSON.stringify(ledgerCompleted);
@@ -480,7 +481,7 @@ describe("AI provider engine certification — the full chain", () => {
     expect(meta.task).toBe("analyze_document");
     expect(meta.mode).toBe("extract_rows");
     expect(meta.tier).toBe("fast");
-    expect(meta.estimatedCredits).toBe(3);
+    expect(meta.estimatedCredits).toBe(10);
   });
 
   it("privacy: gateway bodies carry no ids/token; token rides ONLY the Authorization header", async () => {
@@ -504,7 +505,7 @@ describe("AI provider engine certification — the full chain", () => {
     expect(analyzeCall.bodyText).toContain("Johnson, Alice");
   });
 
-  it("test mode: real uncharged model call — gate skipped, ledger records 0 charged / 3 estimated", async () => {
+  it("test mode: real uncharged model call — gate skipped, ledger records 0 charged / 10 estimated", async () => {
     seedWorkflow(
       [chainNodes[0]!, chainNodes[1]!],
       [edge("e1", "t1", "analyze")],
@@ -516,7 +517,7 @@ describe("AI provider engine certification — the full chain", () => {
     expect(ledgerCompleted[0]!.aiCreditsCharged).toBe(0);
     expect(
       (ledgerCompleted[0]!.metadata as Record<string, unknown>).estimatedCredits,
-    ).toBe(3);
+    ).toBe(10);
     expect(
       (ledgerCompleted[0]!.metadata as Record<string, unknown>).testMode,
     ).toBe(true);

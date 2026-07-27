@@ -47,12 +47,22 @@ it("calls apply_business_downgrade with mapped args + the Team policy tasks_limi
     p_account_id: "acct-1",
     p_plan_status: "active",
     p_tasks_limit: planLimitsFor("team").taskLimit,
+    p_ai_credits_limit: planLimitsFor("team").aiCreditsMonthlyLimit,
   });
 });
 
-it("honors an explicit tasksLimit", async () => {
-  await applyBusinessDowngradeServiceRole({ accountId: "acct-2", planStatus: "canceled", tasksLimit: 42 });
-  expect(rpcState.args).toMatchObject({ p_plan_status: "canceled", p_tasks_limit: 42 });
+it("honors an explicit tasksLimit/aiCreditsLimit", async () => {
+  await applyBusinessDowngradeServiceRole({
+    accountId: "acct-2",
+    planStatus: "canceled",
+    tasksLimit: 42,
+    aiCreditsLimit: 84,
+  });
+  expect(rpcState.args).toMatchObject({
+    p_plan_status: "canceled",
+    p_tasks_limit: 42,
+    p_ai_credits_limit: 84,
+  });
 });
 
 it("maps an idempotent no-op (already_team) through unchanged", async () => {

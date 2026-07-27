@@ -39,26 +39,37 @@ beforeEach(() => {
 });
 
 describe("initAccountBillingServiceRole — task cap stamping (PRICING-LOCK)", () => {
-  it("stamps the Team task cap (7,500) from policy on a new team billing row", async () => {
+  it("stamps the Team task + AI credit caps (7,500 / 10,000) from policy on a new team billing row", async () => {
     await initAccountBillingServiceRole("acct-team", "team");
-    expect(upsertState.row).toMatchObject({ account_id: "acct-team", plan: "team", tasks_limit: 7500 });
+    expect(upsertState.row).toMatchObject({
+      account_id: "acct-team",
+      plan: "team",
+      tasks_limit: 7500,
+      ai_credits_limit: 10000,
+    });
     expect(upsertState.row!.tasks_limit).toBe(planLimitsFor("team").taskLimit);
+    expect(upsertState.row!.ai_credits_limit).toBe(planLimitsFor("team").aiCreditsMonthlyLimit);
   });
 
-  it("stamps the Free cap (100) for a free plan", async () => {
+  it("stamps the Free caps (100 tasks / 100 AI credits) for a free plan", async () => {
     await initAccountBillingServiceRole("acct-free", "free");
-    expect(upsertState.row).toMatchObject({ plan: "free", tasks_limit: 100 });
+    expect(upsertState.row).toMatchObject({ plan: "free", tasks_limit: 100, ai_credits_limit: 100 });
   });
 
-  it("stamps the Business cap (25,000) for a business plan", async () => {
+  it("stamps the Business caps (25,000 / 50,000) for a business plan", async () => {
     await initAccountBillingServiceRole("acct-biz", "business");
-    expect(upsertState.row).toMatchObject({ plan: "business", tasks_limit: 25000 });
+    expect(upsertState.row).toMatchObject({
+      plan: "business",
+      tasks_limit: 25000,
+      ai_credits_limit: 50000,
+    });
   });
 
-  it("does NOT stamp a task cap for an uncapped (Enterprise) plan — leaves the column default", async () => {
+  it("does NOT stamp caps for an uncapped (Enterprise) plan — leaves the column defaults", async () => {
     await initAccountBillingServiceRole("acct-ent", "enterprise");
     expect(upsertState.row).toMatchObject({ account_id: "acct-ent", plan: "enterprise" });
     expect(upsertState.row).not.toHaveProperty("tasks_limit");
+    expect(upsertState.row).not.toHaveProperty("ai_credits_limit");
   });
 
   it("inserts conflict-ignoring so an existing billing row is never overwritten", async () => {

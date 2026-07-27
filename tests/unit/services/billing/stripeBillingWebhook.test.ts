@@ -154,6 +154,7 @@ describe("event processing", () => {
       planStatus: "active",
       plan: "pro",
       tasksLimit: 2000, // personal Pro activation sets the Pro task cap from policy (PRICING-LOCK-1)
+      aiCreditsLimit: 2000, // …and the Pro AI credit cap (AI-CREDITS-REPRICE-1)
     });
     expect(mockRecordProcessed).toHaveBeenCalledWith({
       eventId: "evt_1",
@@ -236,6 +237,7 @@ describe("event processing", () => {
     expect(fields.planStatus).toBe("canceled");
     expect(fields.plan).toBe("free");
     expect(fields.tasksLimit).toBe(100); // Free policy task cap
+    expect(fields.aiCreditsLimit).toBe(100); // Free policy AI credit cap (AI-CREDITS-REPRICE-1)
   });
 
   it("customer.subscription.deleted LEAVES a team/org plan (CS-4 behavior unchanged)", async () => {
@@ -248,6 +250,7 @@ describe("event processing", () => {
     expect(fields.planStatus).toBe("canceled");
     expect(fields).not.toHaveProperty("plan"); // team/org revert is not planned in PPT-1
     expect(fields).not.toHaveProperty("tasksLimit");
+    expect(fields).not.toHaveProperty("aiCreditsLimit");
   });
 
   it("personal subscription.deleted is idempotent (dedup short-circuits a replay)", async () => {
@@ -286,6 +289,7 @@ describe("Personal Pro task cap (CS-PRO-2)", () => {
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.plan).toBe("pro");
     expect(fields.tasksLimit).toBe(2000);
+    expect(fields.aiCreditsLimit).toBe(2000); // Pro AI credit cap (AI-CREDITS-REPRICE-1)
   });
 
   it("personal subscription.deleted resets the task cap back to Free (100)", async () => {
@@ -296,6 +300,7 @@ describe("Personal Pro task cap (CS-PRO-2)", () => {
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.plan).toBe("free");
     expect(fields.tasksLimit).toBe(100);
+    expect(fields.aiCreditsLimit).toBe(100); // Free AI credit cap (AI-CREDITS-REPRICE-1)
   });
 
   it("a TEAM checkout stamps the Team task cap (7,500) from policy (PRICING-LOCK)", async () => {
@@ -306,6 +311,7 @@ describe("Personal Pro task cap (CS-PRO-2)", () => {
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.plan).toBe("team");
     expect(fields.tasksLimit).toBe(7500);
+    expect(fields.aiCreditsLimit).toBe(10000); // Team AI credit cap (AI-CREDITS-REPRICE-1)
   });
 
   it("an invalid/disallowed plan sets NEITHER plan NOR a task limit (no unsafe cap)", async () => {
@@ -320,6 +326,7 @@ describe("Personal Pro task cap (CS-PRO-2)", () => {
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields).not.toHaveProperty("plan");
     expect(fields).not.toHaveProperty("tasksLimit");
+    expect(fields).not.toHaveProperty("aiCreditsLimit"); // no unsafe AI cap either
   });
 });
 
@@ -529,6 +536,7 @@ describe("Business cancellation preserves the workspace — never destructive (C
     expect(fields.planStatus).toBe("canceled");
     expect(fields).not.toHaveProperty("plan"); // plan kept (business)
     expect(fields).not.toHaveProperty("tasksLimit"); // task cap untouched (no revert)
+    expect(fields).not.toHaveProperty("aiCreditsLimit"); // AI cap untouched too
     expect(mockApplyDowngrade).not.toHaveBeenCalled();
     expect(mockApplyUpgrade).not.toHaveBeenCalled();
     // The webhook only writes the billing sync — it cannot remove members or flatten folders
@@ -543,6 +551,7 @@ describe("Business cancellation preserves the workspace — never destructive (C
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.plan).toBe("free");
     expect(fields.tasksLimit).toBe(100);
+    expect(fields.aiCreditsLimit).toBe(100);
     expect(mockApplyDowngrade).not.toHaveBeenCalled();
   });
 });

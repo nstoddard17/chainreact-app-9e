@@ -127,14 +127,14 @@ describe("computeAiCreditCharge — AI provider capabilities", () => {
   const price = (feature: string, modelTier: "fast" | "strong") =>
     computeAiCreditCharge({ feature, isLlmCall: true, modelTier }).credits;
 
-  it("document_analysis: 3 credits standard/fast, 6 advanced/strong", () => {
-    expect(price("document_analysis", "fast")).toBe(3);
-    expect(price("document_analysis", "strong")).toBe(6);
+  it("document_analysis: 10 credits standard/fast, 20 advanced/strong (ai-credits-v2)", () => {
+    expect(price("document_analysis", "fast")).toBe(10);
+    expect(price("document_analysis", "strong")).toBe(20);
   });
 
-  it("data_transform: 2 credits standard/fast, 4 advanced/strong", () => {
-    expect(price("data_transform", "fast")).toBe(2);
-    expect(price("data_transform", "strong")).toBe(4);
+  it("data_transform: 5 credits standard/fast, 10 advanced/strong (ai-credits-v2)", () => {
+    expect(price("data_transform", "fast")).toBe(5);
+    expect(price("data_transform", "strong")).toBe(10);
   });
 
   it("schema_suggestion: 1 credit (fast — the only tier its registry allows)", () => {
@@ -149,6 +149,34 @@ describe("computeAiCreditCharge — AI provider capabilities", () => {
       expect(charge.mapped).toBe(true);
       expect(charge.credits).toBeLessThan(UNMAPPED_LLM_FALLBACK_CREDITS);
     }
+  });
+
+  it("the fallback stays STRICTLY above every mapped base (fail-closed ordering, v2)", () => {
+    // An unmapped paid call must always over-count vs. any priced feature —
+    // document_analysis (10) is the ceiling; the fallback (15) sits above it.
+    expect(UNMAPPED_LLM_FALLBACK_CREDITS).toBe(15);
+    expect(UNMAPPED_LLM_FALLBACK_CREDITS).toBeGreaterThan(
+      getFeatureBaseCredits("document_analysis")!,
+    );
+  });
+
+  it("lightweight interactive features stay 1 credit (generous everyday AI, v2)", () => {
+    for (const feature of [
+      "workflow_guidance",
+      "workflow_explanation",
+      "workflow_qa",
+      "failed_run_analysis",
+      "schema_suggestion",
+    ]) {
+      expect(getFeatureBaseCredits(feature)).toBe(1);
+    }
+  });
+
+  it("unattended runtime actions cost more than any interactive builder feature (v2)", () => {
+    // Margin protection lives on automated processing, not everyday building:
+    // both runtime actions price above repair (4), the priciest interactive base.
+    expect(getFeatureBaseCredits("document_analysis")!).toBeGreaterThan(4);
+    expect(getFeatureBaseCredits("data_transform")!).toBeGreaterThan(4);
   });
 
   it("the strong-tier multiplier is unchanged at 2x for the new features", () => {

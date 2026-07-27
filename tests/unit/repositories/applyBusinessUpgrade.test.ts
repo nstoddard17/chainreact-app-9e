@@ -57,17 +57,24 @@ it("calls apply_business_upgrade with mapped args + the Business policy tasks_li
     p_stripe_subscription_id: "sub_1",
     p_stripe_customer_id: "cus_1",
     p_tasks_limit: planLimitsFor("business").taskLimit,
+    p_ai_credits_limit: planLimitsFor("business").aiCreditsMonthlyLimit,
   });
 });
 
-it("defaults the optional fields (null ids, false cancel) and honors an explicit tasksLimit", async () => {
-  await applyBusinessUpgradeServiceRole({ accountId: "acct-2", planStatus: "trialing", tasksLimit: 999 });
+it("defaults the optional fields (null ids, false cancel) and honors explicit tasksLimit/aiCreditsLimit", async () => {
+  await applyBusinessUpgradeServiceRole({
+    accountId: "acct-2",
+    planStatus: "trialing",
+    tasksLimit: 999,
+    aiCreditsLimit: 777,
+  });
   expect(rpcState.args).toMatchObject({
     p_stripe_subscription_id: null,
     p_stripe_customer_id: null,
     p_cancel_at_period_end: false,
     p_current_period_end: null,
     p_tasks_limit: 999,
+    p_ai_credits_limit: 777,
   });
 });
 

@@ -63,19 +63,24 @@ export interface PlanLimits {
    * uncapped/config (enterprise; a custom value is set directly on
    * `account_billing.ai_credits_limit`). Authoritative copy is
    * `account_billing.ai_credits_limit`; this is the single source of the per-plan
-   * NUMBER the backfill + future plan-sync stamp onto that column (same pattern as
-   * `taskLimit`). Placeholders (owner-approved AI-CREDITS-3 OQ-1); recording-only
-   * until `ENABLE_AI_CREDIT_ENFORCEMENT` is flipped + the gate is wired.
+   * NUMBER the backfill + plan-sync stamp onto that column (same pattern as
+   * `taskLimit`). Owner-set allocations (AI-CREDITS-REPRICE-1, 2026-07-27) —
+   * enforcement is live (`ENABLE_AI_CREDIT_ENFORCEMENT=true` in prod since
+   * 2026-06-19); plan activation, team-account creation, and the business
+   * upgrade/downgrade RPCs stamp this value onto `account_billing.ai_credits_limit`.
    */
   aiCreditsMonthlyLimit: number | null;
 }
 
 /**
- * Launch limits per tier (locked 2026-06-17, PRICING-LOCK-1). This policy is the single
- * source of these numbers. Task caps: Free 100, Pro 2,000, Team 7,500, Business 25,000,
- * Enterprise custom (null). AI credits: Free 20, Pro 500, Team 2,000, Business 10,000,
- * Enterprise null. Members: Free/Pro 1, Team 5, Business 25, Enterprise null. Templates:
- * Free 0, Pro 25, Team 50, Business 250, Enterprise null.
+ * Launch limits per tier (locked 2026-06-17, PRICING-LOCK-1; AI credits repriced
+ * 2026-07-27, AI-CREDITS-REPRICE-1). This policy is the single source of these numbers.
+ * Task caps: Free 100, Pro 2,000, Team 7,500, Business 25,000, Enterprise custom (null).
+ * AI credits: Free 100, Pro 2,000, Team 10,000, Business 50,000, Enterprise null —
+ * AI is a core included benefit, and Team/Business per-included-seat credits must
+ * never fall below Pro's (Pro 2,000/seat · Team 10,000/5 = 2,000/seat ·
+ * Business 50,000/25 = 2,000/seat). Members: Free/Pro 1, Team 5, Business 25,
+ * Enterprise null. Templates: Free 0, Pro 25, Team 50, Business 250, Enterprise null.
  *
  * Enforcement propagation (full matrix in docs/billing/pricing-and-tiers.md):
  *   - Pro task cap: stamped onto account_billing.tasks_limit by the billing webhook on a
@@ -94,10 +99,10 @@ export interface PlanLimits {
  * `enterprise` is uncapped/config (null); per-deal values are set on account_billing directly.
  */
 export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
-  free: { memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 20 },
-  pro: { memberLimit: 1, folderLimit: 25, taskLimit: 2000, templateLimit: 25, aiCreditsMonthlyLimit: 500 },
-  team: { memberLimit: 5, folderLimit: 100, taskLimit: 7500, templateLimit: 50, aiCreditsMonthlyLimit: 2000 },
-  business: { memberLimit: 25, folderLimit: 250, taskLimit: 25000, templateLimit: 250, aiCreditsMonthlyLimit: 10000 },
+  free: { memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 100 },
+  pro: { memberLimit: 1, folderLimit: 25, taskLimit: 2000, templateLimit: 25, aiCreditsMonthlyLimit: 2000 },
+  team: { memberLimit: 5, folderLimit: 100, taskLimit: 7500, templateLimit: 50, aiCreditsMonthlyLimit: 10000 },
+  business: { memberLimit: 25, folderLimit: 250, taskLimit: 25000, templateLimit: 250, aiCreditsMonthlyLimit: 50000 },
   enterprise: { memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null, aiCreditsMonthlyLimit: null },
 };
 
@@ -108,8 +113,8 @@ export function planLimitsFor(plan: PlanTier): PlanLimits {
 /**
  * Monthly AI credit cap for a plan, or `null` when uncapped/config (enterprise).
  * Single source of the per-plan AI-credit NUMBER (mirrors `templateLimitFor` /
- * `taskLimit`); the backfill + future plan-sync stamp it onto
- * `account_billing.ai_credits_limit`. Placeholders pending owner pricing.
+ * `taskLimit`); the backfill + plan-sync stamp it onto
+ * `account_billing.ai_credits_limit`. Owner-set (AI-CREDITS-REPRICE-1).
  */
 export function aiCreditsMonthlyLimitFor(plan: PlanTier): number | null {
   return PLAN_LIMITS[plan].aiCreditsMonthlyLimit;

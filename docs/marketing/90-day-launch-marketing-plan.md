@@ -31,7 +31,7 @@ Budget: $0 in ads for at least 45 days (one exception: X Premium at ~$8-16/mo). 
 | Integrations | 29 external providers + native (schedule, manual) |
 | Actions / triggers | ~309 actions, ~72 triggers |
 | Official templates | 96 seeded across 7 categories, working "use template" flow |
-| AI builder | React Agent visible at launch; free deterministic workflow check; LLM guidance metered by AI credits (Free 20 / Pro 500 / Team 2,000 / Business 10,000) |
+| AI builder | React Agent visible at launch; free deterministic workflow check; LLM guidance metered by AI credits (Free 100 / Pro 2,000 / Team 10,000 / Business 50,000 — AI-CREDITS-REPRICE-1) |
 | Billing | Stripe checkout, portal, and webhooks implemented; plan tiers free / pro / team / business / enterprise; per-plan task limits |
 | Deepest integrations | Slack (31 actions), HubSpot (26), Monday (24), Notion (16), Stripe (16), Gmail (15), Mailchimp (14), Google Sheets (12), Airtable (11), Shopify (11), Dropbox (11), Outlook (11) |
 

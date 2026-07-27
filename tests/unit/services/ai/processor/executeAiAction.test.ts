@@ -192,8 +192,8 @@ describe("executeAiAction pipeline", () => {
     );
   });
 
-  it("document_analysis strong tier prices at 6 credits; data_transform fast at 2", async () => {
-    const analyze = makeDeps(OK_RESULT, { ok: true, charged: 6, used: 6, limit: 100 });
+  it("document_analysis strong tier prices at 20 credits; data_transform fast at 5 (ai-credits-v2)", async () => {
+    const analyze = makeDeps(OK_RESULT, { ok: true, charged: 20, used: 20, limit: 100 });
     const analyzeOutcome = await executeAiAction(
       baseInput({ requestedTier: "strong" }),
       analyze.deps,
@@ -203,12 +203,12 @@ describe("executeAiAction pipeline", () => {
         status: "success",
         feature: "document_analysis",
         tier: "strong",
-        estimatedCredits: 6,
-        creditsCharged: 6,
+        estimatedCredits: 20,
+        creditsCharged: 20,
       }),
     );
 
-    const transform = makeDeps(OK_RESULT, { ok: true, charged: 2, used: 2, limit: 100 });
+    const transform = makeDeps(OK_RESULT, { ok: true, charged: 5, used: 5, limit: 100 });
     const transformOutcome = await executeAiAction(
       baseInput({
         actionKey: "ai:transform_data",
@@ -227,8 +227,8 @@ describe("executeAiAction pipeline", () => {
       expect.objectContaining({
         status: "success",
         feature: "data_transform",
-        estimatedCredits: 2,
-        creditsCharged: 2,
+        estimatedCredits: 5,
+        creditsCharged: 5,
       }),
     );
   });
@@ -263,7 +263,7 @@ describe("executeAiAction pipeline", () => {
       expect.objectContaining({
         status: "success",
         creditsCharged: 0, // uncharged...
-        estimatedCredits: 3, // ...but the policy price is still reported
+        estimatedCredits: 10, // ...but the policy price is still reported (doc analysis fast, v2)
       }),
     );
   });
@@ -331,7 +331,7 @@ describe("executeAiAction pipeline", () => {
   // ─── Ledger contract ──────────────────────────────────────────────────────
 
   it("ledger success carries the real feature, credits, and safe attribution only", async () => {
-    const { deps, ledger } = makeDeps(OK_RESULT, { ok: true, charged: 3, used: 3, limit: 100 });
+    const { deps, ledger } = makeDeps(OK_RESULT, { ok: true, charged: 10, used: 10, limit: 100 });
     await executeAiAction(baseInput({ workflowId: "wf-1", workflowRunId: "run-1" }), deps);
     const entry = ledger.completed[0] as Record<string, unknown>;
     expect(entry).toEqual(
@@ -343,7 +343,7 @@ describe("executeAiAction pipeline", () => {
         workflowRunId: "run-1",
         modelTag: "hermes-doc-v1",
         source: "gateway",
-        creditsCharged: 3,
+        creditsCharged: 10,
         usage: { inputTokens: 100, outputTokens: 10 },
       }),
     );
@@ -353,7 +353,7 @@ describe("executeAiAction pipeline", () => {
         task: "analyze_document",
         mode: "summarize",
         tier: "fast",
-        estimatedCredits: 3,
+        estimatedCredits: 10,
         usageSource: "gateway_reported",
       }),
     );

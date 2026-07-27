@@ -20,6 +20,8 @@ export interface ApplyBusinessUpgradeInput {
   stripeCustomerId?: string | null;
   /** Defaults to `planLimitsFor('business').taskLimit`. */
   tasksLimit?: number;
+  /** Defaults to `planLimitsFor('business').aiCreditsMonthlyLimit` (AI-CREDITS-REPRICE-1). */
+  aiCreditsLimit?: number;
 }
 
 export interface ApplyBusinessUpgradeResult {
@@ -34,6 +36,8 @@ export async function applyBusinessUpgradeServiceRole(
   input: ApplyBusinessUpgradeInput,
 ): Promise<ApplyBusinessUpgradeResult> {
   const tasksLimit = input.tasksLimit ?? planLimitsFor("business").taskLimit ?? 100;
+  const aiCreditsLimit =
+    input.aiCreditsLimit ?? planLimitsFor("business").aiCreditsMonthlyLimit ?? 100;
   const supabase = getServiceRoleClient(
     `account upgrade: team→business for account ${input.accountId}`,
   );
@@ -45,6 +49,7 @@ export async function applyBusinessUpgradeServiceRole(
     p_stripe_subscription_id: input.stripeSubscriptionId ?? null,
     p_stripe_customer_id: input.stripeCustomerId ?? null,
     p_tasks_limit: tasksLimit,
+    p_ai_credits_limit: aiCreditsLimit,
   });
   if (error) {
     throw new Error(`apply_business_upgrade RPC failed: ${error.message}`);
@@ -69,6 +74,8 @@ export interface ApplyBusinessDowngradeInput {
   planStatus: PlanStatus;
   /** Defaults to `planLimitsFor('team').taskLimit`. */
   tasksLimit?: number;
+  /** Defaults to `planLimitsFor('team').aiCreditsMonthlyLimit` (AI-CREDITS-REPRICE-1). */
+  aiCreditsLimit?: number;
 }
 
 export interface ApplyBusinessDowngradeResult {
@@ -83,6 +90,8 @@ export async function applyBusinessDowngradeServiceRole(
   input: ApplyBusinessDowngradeInput,
 ): Promise<ApplyBusinessDowngradeResult> {
   const tasksLimit = input.tasksLimit ?? planLimitsFor("team").taskLimit ?? 100;
+  const aiCreditsLimit =
+    input.aiCreditsLimit ?? planLimitsFor("team").aiCreditsMonthlyLimit ?? 100;
   const supabase = getServiceRoleClient(
     `account downgrade: organization→team for account ${input.accountId}`,
   );
@@ -90,6 +99,7 @@ export async function applyBusinessDowngradeServiceRole(
     p_account_id: input.accountId,
     p_plan_status: input.planStatus,
     p_tasks_limit: tasksLimit,
+    p_ai_credits_limit: aiCreditsLimit,
   });
   if (error) {
     throw new Error(`apply_business_downgrade RPC failed: ${error.message}`);
@@ -115,6 +125,9 @@ export interface BillingSubscriptionSync {
   stripeSubscriptionId?: string | null;
   /** Task cap written from plan policy on a plan revert (D2). Omit to leave unchanged. */
   tasksLimit?: number;
+  /** AI credit cap written from plan policy alongside a plan change (AI-CREDITS-REPRICE-1).
+   *  Omit to leave unchanged (custom/per-deal values survive status-only syncs). */
+  aiCreditsLimit?: number;
 }
 
 export async function applyBillingSubscriptionSyncServiceRole(
@@ -130,6 +143,7 @@ export async function applyBillingSubscriptionSyncServiceRole(
   if ("stripeSubscriptionId" in fields)
     patch.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
   if ("tasksLimit" in fields) patch.tasks_limit = fields.tasksLimit;
+  if ("aiCreditsLimit" in fields) patch.ai_credits_limit = fields.aiCreditsLimit;
   if (Object.keys(patch).length === 0) return;
 
   const supabase = getServiceRoleClient(
@@ -364,13 +378,23 @@ export async function initAccountBillingServiceRole(
   // (team = 7,500) instead of the column default (100). Insert-only via ignoreDuplicates, so
   // an existing billing row is never overwritten. planPolicy stays the single source of the
   // number; enterprise (taskLimit null) keeps the column default and is set per deal.
-  const row: { account_id: string; plan?: PlanTier; tasks_limit?: number } = {
+  const row: {
+    account_id: string;
+    plan?: PlanTier;
+    tasks_limit?: number;
+    ai_credits_limit?: number;
+  } = {
     account_id: accountId,
   };
   if (plan) {
     row.plan = plan;
     const taskLimit = planLimitsFor(plan).taskLimit;
     if (taskLimit !== null) row.tasks_limit = taskLimit;
+    // AI-CREDITS-REPRICE-1: born with the plan's AI credit cap too (team = 10,000)
+    // instead of the column default (100). Enterprise (null) keeps the column
+    // default and is set per deal — same posture as tasks_limit.
+    const aiCreditsLimit = planLimitsFor(plan).aiCreditsMonthlyLimit;
+    if (aiCreditsLimit !== null) row.ai_credits_limit = aiCreditsLimit;
   }
   const { error } = await supabase
     .from("account_billing")

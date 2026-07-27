@@ -201,6 +201,12 @@ function applyResolvedPlan(
   if (accountType === "personal" || accountType === "team") {
     const taskLimit = planLimitsFor(plan).taskLimit;
     if (taskLimit !== null) fields.tasksLimit = taskLimit;
+    // AI-CREDITS-REPRICE-1: a plan activation also stamps the plan's AI credit cap
+    // (Pro = 2,000) — previously only the one-time backfill wrote it, so upgrades
+    // kept the Free allocation. Stamped only WITH a plan change, never on a
+    // status-only sync, so custom/per-deal values survive.
+    const aiCreditsLimit = planLimitsFor(plan).aiCreditsMonthlyLimit;
+    if (aiCreditsLimit !== null) fields.aiCreditsLimit = aiCreditsLimit;
   }
 }
 
@@ -266,6 +272,9 @@ async function resolveEvent(
       fields.plan = basePlan;
       const baseTaskLimit = planLimitsFor(basePlan).taskLimit;
       if (baseTaskLimit !== null) fields.tasksLimit = baseTaskLimit;
+      // AI-CREDITS-REPRICE-1: the AI credit cap resets from Free policy too.
+      const baseAiCredits = planLimitsFor(basePlan).aiCreditsMonthlyLimit;
+      if (baseAiCredits !== null) fields.aiCreditsLimit = baseAiCredits;
     }
     return { kind: "sync", accountId, fields };
   }
