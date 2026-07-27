@@ -92,6 +92,9 @@ export interface EnforcePreviewFirstInput {
   readonly definition?: WorkflowDefinition;
   readonly fieldSchemaLines: readonly string[];
   readonly outputSchemaLines: readonly string[];
+  /** REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — the repair reuses the SAME Stage-A compact catalog. */
+  readonly compactCapabilityLines?: readonly string[];
+  readonly otherProvidersLine?: string;
   readonly contextInputs: {
     readonly account: { readonly type: AccountType };
     readonly workflowCreatedByUserId?: string;
@@ -102,7 +105,12 @@ export interface EnforcePreviewFirstInput {
 
 export type EnforcePreviewFirstOutcome =
   /** Continue the normal pipeline with `result` (the initial reply, or the repaired one). */
-  | { readonly kind: "accept"; readonly result: WorkflowGuidanceIntakeResult & { readonly ok: true } }
+  | {
+      readonly kind: "accept";
+      readonly result: WorkflowGuidanceIntakeResult & { readonly ok: true };
+      /** REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — which attempt produced the accepted reply (telemetry). */
+      readonly via: "initial" | "repair" | "fallback";
+    }
   /** Plan expected, two attempts produced none — the route returns the typed retryable failure. */
   | { readonly kind: "plan_missing" };
 
@@ -155,7 +163,7 @@ export async function enforcePreviewFirst(
   // A plan (or proposed edit ops) is already the preview path; an editing turn belongs to the edit
   // pipeline. Nothing to enforce.
   if (editing || initialResult.workflowPlan || initialResult.mutationOperations) {
-    return { kind: "accept", result: initialResult };
+    return { kind: "accept", result: initialResult, via: "initial" };
   }
 
   const classification = classifyPreviewFirst({ goalText: safeGoalText, editing });
@@ -201,6 +209,10 @@ export async function enforcePreviewFirst(
           ...(input.definition ? { definition: input.definition } : {}),
           ...(input.fieldSchemaLines.length ? { fieldSchemaLines: input.fieldSchemaLines } : {}),
           ...(input.outputSchemaLines.length ? { outputSchemaLines: input.outputSchemaLines } : {}),
+          ...(input.compactCapabilityLines?.length
+            ? { compactCapabilityLines: input.compactCapabilityLines }
+            : {}),
+          ...(input.otherProvidersLine ? { otherProvidersLine: input.otherProvidersLine } : {}),
           contextInputs: input.contextInputs,
         },
         // Same requestId + caller signal; NO auditRecorder (see module header).
@@ -260,5 +272,9 @@ export async function enforcePreviewFirst(
     // route returns the typed failure + retry copy, never the questionnaire. The draft is untouched.
     return { kind: "plan_missing" };
   }
-  return { kind: "accept", result };
+  return {
+    kind: "accept",
+    result,
+    via: fallbackPlanUsed ? "fallback" : repairHadPlan ? "repair" : "initial",
+  };
 }

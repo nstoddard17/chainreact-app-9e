@@ -448,6 +448,12 @@ describe("workflow-guidance route — capability call + safe response", () => {
   // server's classification + one-shot repair produce the preview -- or the typed failure --
   // without a second credit charge, under the same logical request id.
   const PRODUCTION_PROMPT = PREVIEW_FIRST_PRODUCTION_PROMPT;
+  // REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — the literal-free production prompt now short-circuits
+  // to the REGISTRY-FIRST local skeleton (no model call at all; tested below). The model-path
+  // tests (repair, budget, timeout) therefore use this variant: the email literal trips the
+  // conservative sensitive-literal gate, so the request takes the MODEL path while remaining
+  // preview-expected and deterministically recoverable (the tokenized fallback still resolves).
+  const MODEL_PATH_PROMPT = `${PREVIEW_FIRST_PRODUCTION_PROMPT} Send the Gmail message to marcus@chainreact.app.`;
 
   /** The model's actual production behavior: a questionnaire and no plan. */
   const CLARIFICATION_ONLY = {
@@ -468,12 +474,71 @@ describe("workflow-guidance route — capability call + safe response", () => {
     workflowPlan: PREVIEW_FIRST_REPAIRED_PLAN,
   };
 
+  // == REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — registry-first skeletal planning =================
+  it("REGISTRY-FIRST — the literal-free production prompt returns the local four-node skeleton with NO model call and NO credit charge", async () => {
+    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // (#24) no model call was introduced; (#23) the credit gate never ran (same contract as the
+    // template short-circuit: no model → no charge).
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(body.source).toBe("registry_planner");
+    expect(
+      body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+    ).toEqual([
+      "typeform:new_response_in_form",
+      "mailchimp:add_subscriber",
+      "hubspot:create_contact",
+      "gmail:send_email",
+    ]);
+    // (#12) no configuration values are invented; setup comes from real metadata.
+    for (const step of body.workflowPlan.steps) expect(step.config ?? undefined).toBeUndefined();
+    expect(body.previewDraft).not.toBeNull();
+    expect(body.previewDraft.notApplied).toBe(true);
+    const byType = Object.fromEntries(
+      body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
+    );
+    expect(byType["new_response_in_form"]).toEqual(expect.arrayContaining(["formId"]));
+    expect(byType["send_email"]).toEqual(expect.arrayContaining(["to"]));
+  });
+
+  it("REGISTRY-FIRST — a sensitive literal in the goal keeps the MODEL path (values must land in config, not be dropped)", async () => {
+    mockRunner.mockResolvedValueOnce(REPAIRED_PLAN_REPLY);
+    const res = await call(ACCOUNT, { goalText: MODEL_PATH_PROMPT });
+    expect(res.status).toBe(200);
+    expect(mockRunner).toHaveBeenCalledTimes(1); // the model was consulted
+    expect(mockGate).toHaveBeenCalledTimes(1);
+  });
+
+  it("REGISTRY-FIRST — a follow-up turn (conversation context) keeps the MODEL path", async () => {
+    mockRunner.mockResolvedValueOnce(REPAIRED_PLAN_REPLY);
+    const res = await call(ACCOUNT, {
+      goalText: PRODUCTION_PROMPT,
+      recentTurns: [{ role: "assistant", text: "Which form should I use?" }],
+    });
+    expect(res.status).toBe(200);
+    expect(mockRunner).toHaveBeenCalledTimes(1);
+  });
+
+  it("REGISTRY-FIRST — an ambiguous capability match declines and the MODEL path continues", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Tell me more about the note and the tag.",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    // "add a note and a tag" matches two Mailchimp capabilities — never a confident local guess.
+    await call(ACCOUNT, { goalText: "When a Typeform response arrives, add a note and a tag in Mailchimp" });
+    expect(mockRunner).toHaveBeenCalled();
+  });
+
   it("SERVER-ENFORCED PREVIEW-FIRST -- clarification-only for the production prompt is repaired into the four-node preview", async () => {
     mockRunner
       .mockResolvedValueOnce(CLARIFICATION_ONLY)
       .mockResolvedValueOnce(REPAIRED_PLAN_REPLY);
 
-    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    const res = await call(ACCOUNT, { goalText: MODEL_PATH_PROMPT });
     expect(res.status).toBe(200);
     const body = await res.json();
 
@@ -538,7 +603,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
       .mockResolvedValueOnce(CLARIFICATION_ONLY)
       .mockResolvedValueOnce(CLARIFICATION_ONLY); // repair also withholds the plan
 
-    const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+    const res = await call(ACCOUNT, { goalText: MODEL_PATH_PROMPT });
     expect(res.status).toBe(200);
     const body = await res.json();
     // Exactly one repair -- no loop, no third model call -- and still one credit.
@@ -598,7 +663,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
       mockRunner.mock.calls.length === 0 ? base : base + 50_000,
     );
     try {
-      const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+      const res = await call(ACCOUNT, { goalText: MODEL_PATH_PROMPT });
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(mockRunner).toHaveBeenCalledTimes(1); // no repair started with insufficient budget
@@ -907,7 +972,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
     try {
-      const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+      const res = await call(ACCOUNT, { goalText: MODEL_PATH_PROMPT });
       expect(res.status).toBe(200);
       const body = await res.json();
       // (#9) no repair, no third call — a timed-out brain is not asked again.
@@ -961,7 +1026,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
     try {
-      const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT, workflowId: "wf-1" });
+      const res = await call(ACCOUNT, { goalText: MODEL_PATH_PROMPT, workflowId: "wf-1" });
       expect(res.status).toBe(200);
       const body = await res.json();
       // Advisory only: a plan + non-applied preview; NO proposedDefinition, no mutation claims.
@@ -978,7 +1043,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
     mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
     try {
       const res = await call(ACCOUNT, {
-        goalText: PRODUCTION_PROMPT,
+        goalText: MODEL_PATH_PROMPT,
         currentDraft: {
           nodes: [
             { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },

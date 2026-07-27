@@ -256,6 +256,10 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   fieldSchemaLines?: readonly string[];
   /** REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — pre-rendered output lines (what each node produces). */
   outputSchemaLines?: readonly string[];
+  /** REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — Stage-A compact catalog (replaces the full blocks). */
+  compactCapabilityLines?: readonly string[];
+  /** Names-only awareness of providers outside the compact subset. */
+  otherProvidersLine?: string;
   /** Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD). */
   context?: SafeGuidanceContext;
   /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the safe editable graph for an EDIT request. */
@@ -275,6 +279,10 @@ export async function requestHermesAgentGuidanceNormalized(params: {
     ...(params.capabilityCatalog ? { capabilityCatalog: params.capabilityCatalog } : {}),
     ...(params.fieldSchemaLines && params.fieldSchemaLines.length ? { fieldSchemaLines: params.fieldSchemaLines } : {}),
     ...(params.outputSchemaLines && params.outputSchemaLines.length ? { outputSchemaLines: params.outputSchemaLines } : {}),
+    ...(params.compactCapabilityLines && params.compactCapabilityLines.length
+      ? { compactCapabilityLines: params.compactCapabilityLines }
+      : {}),
+    ...(params.otherProvidersLine ? { otherProvidersLine: params.otherProvidersLine } : {}),
     ...(params.context ? { context: params.context } : {}),
     ...(params.editableGraph ? { editableGraph: params.editableGraph } : {}),
   });
@@ -306,6 +314,9 @@ export async function requestHermesAgentGuidanceNormalized(params: {
     backoffMs,
     elapsedMs: now() - startedAt,
     remainingBudgetMsAtDecision,
+    // REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — safe size counts of the prompt actually sent.
+    promptChars: prompt.length,
+    estPromptTokens: Math.round(prompt.length / 4),
   });
 
   // 1 initial attempt + at most 1 retry. The loop bound is the policy constant, not a variable the

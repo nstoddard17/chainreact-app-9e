@@ -49,6 +49,24 @@ const PERSON_NOUNS = new Set([
 const PERSON_REFERENCE_RE =
   /\b(?:them|him|her|they|someone|somebody|people|person|contact|contacts|subscriber|subscribers|lead|leads|customer|customers|user|users|respondent|respondents|client|clients)\b/i;
 
+/**
+ * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — the send-family verb CLASS. "post the order to Slack"
+ * must not uniquely match a niche action just because its type starts with "post" while the plain
+ * send action starts with "send". Any send-class word in the clause matches every send-class
+ * capability verb, so genuine alternatives tie and the planner DECLINES instead of confidently
+ * picking the wrong one. Closed-class English only — no provider knowledge.
+ */
+const SEND_CLASS_VERBS = new Set(["send", "post", "notify", "message", "dm", "ping", "alert"]);
+
+/** Does the clause satisfy this capability verb, directly or through the send class? */
+function verbMatches(verb: string, clauseWordSet: ReadonlySet<string>): boolean {
+  if (clauseWordSet.has(verb)) return true;
+  if (SEND_CLASS_VERBS.has(verb)) {
+    for (const w of SEND_CLASS_VERBS) if (clauseWordSet.has(w)) return true;
+  }
+  return false;
+}
+
 interface CapabilityCandidate {
   readonly key: string; // "provider:type"
   readonly provider: string;
@@ -125,7 +143,7 @@ function resolveUniqueCapability(
   clause: string,
 ): CapabilityCandidate | null {
   const words = clauseWords(clause);
-  const verbMatched = candidates.filter((c) => [...c.verbs].some((v) => words.has(v)));
+  const verbMatched = candidates.filter((c) => [...c.verbs].some((v) => verbMatches(v, words)));
   if (verbMatched.length === 0) return null;
   if (verbMatched.length === 1) return verbMatched[0]!;
 

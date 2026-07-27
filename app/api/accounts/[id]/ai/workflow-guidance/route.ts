@@ -47,7 +47,17 @@ import {
 import { preparePlanConfigs } from "@/services/ai-guidance/planConfig/preparePlanConfigs";
 import { buildUserLiteralCorpus } from "@/core/workflows/mapping/fabricatedSampleValues";
 import { prepareProposedOperations } from "@/services/ai-guidance/planConfig/prepareProposedOperations";
-import { buildFieldSchemaLines, buildOutputSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
+import {
+  buildCompactCapabilityLines,
+  buildFieldSchemaLines,
+  buildOtherProviderNamesLine,
+  buildOutputSchemaLines,
+  countRegistryCapabilities,
+  selectRelevantProvidersWithMode,
+  type CatalogSelectionMode,
+} from "@/services/ai-guidance/promptFieldSchemas";
+import { classifyPreviewFirst } from "@/services/ai-guidance/previewFirst/classifyPreviewFirst";
+import { inferNamedProviderChainPlan } from "@/services/ai-guidance/fallback/inferNamedProviderChainPlan";
 import {
   findProviderAmbiguity,
   type ProviderClarification,
@@ -290,11 +300,62 @@ function guidanceCancelledResponse(): NextResponse {
   );
 }
 
+/**
+ * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — the honest lead-in for a registry-first skeleton: no
+ * model was consulted, the sketch comes from the apps the user named, mappings fill in via the
+ * existing enrichment after resources are chosen. Fixed copy — no model text, no values.
+ */
+const REGISTRY_PLAN_LEAD_IN =
+  "Here's the workflow you described — I sketched it from the apps you named. Finish the choices in each step's setup below; field mappings fill in as you pick resources. Nothing in your workflow has been changed.";
+
+/** The safe result-path enum for the latency line. */
+type GuidanceResultPath =
+  | "template_match"
+  | "registry_first_plan"
+  | "initial_model_plan"
+  | "repair_model_plan"
+  | "deterministic_fallback_plan"
+  | "timeout_deterministic_fallback_plan"
+  | "edit_proposal"
+  | "provider_clarification"
+  | "clarification"
+  | "typed_failure";
+
+/**
+ * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — ONE safe latency/size line per completed request, the
+ * production source for p50/p90/p95, timeout/repair/fallback rates, and prompt-size-by-path.
+ * Fixed keys; enums/counts only — never the prompt, model text, goal text, values, or identity.
+ */
+function logGuidanceLatency(info: {
+  requestId: string;
+  path: GuidanceResultPath;
+  catalogMode: CatalogSelectionMode | "none";
+  selectedProviders: number;
+  selectedCapabilityLines: number;
+  fullCatalogCapabilities: number;
+  promptChars: number | undefined;
+  estPromptTokens: number | undefined;
+  modelMs: number | undefined;
+  planSteps: number;
+  totalMs: number;
+  timeoutCode?: string;
+}): void {
+  console.info(
+    `[workflow-guidance] latency requestId=${info.requestId} path=${info.path} ` +
+      `catalogMode=${info.catalogMode} selectedProviders=${info.selectedProviders} ` +
+      `selectedCapabilityLines=${info.selectedCapabilityLines} fullCatalogCapabilities=${info.fullCatalogCapabilities} ` +
+      `promptChars=${info.promptChars ?? "n/a"} estPromptTokens=${info.estPromptTokens ?? "n/a"} ` +
+      `modelMs=${info.modelMs ?? "n/a"} planSteps=${info.planSteps} totalMs=${info.totalMs} ` +
+      `timeoutCode=${info.timeoutCode ?? "none"}`,
+  );
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await params;
+  const routeStartedAt = Date.now();
 
   // 1. Auth + account membership + freeze. accountId is the validated URL param (never from body).
   const auth = await requireUserWithAccount(id);
@@ -374,6 +435,52 @@ export async function POST(
     }
   }
 
+  // 3c. REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — REGISTRY-FIRST skeletal planning, before the
+  // Hermes-availability check AND the credit gate (same short-circuit contract as the template
+  // match: no model call, no AI credit). Applies ONLY when every conservative gate holds:
+  //   - a NEW-workflow first turn (no draft, no conversation context the local planner would miss),
+  //   - no sensitive literals or quoted content in the goal (a model call captures those into
+  //     config; the local skeleton cannot, so it must not eat them),
+  //   - preview-first classification says the user explicitly named their apps,
+  //   - the registry planner resolves EVERY named app to exactly one capability (any ambiguity
+  //     declines — the model path continues below).
+  // The skeleton carries NO config values; requiredInputs come from real metadata; mappings fill in
+  // through the existing enrichment after resources are selected. Full-registry validation and the
+  // preview/Apply pipeline are unchanged.
+  if (
+    isNewWorkflowRequest &&
+    !(boundedRecentTurns && boundedRecentTurns.length > 0) &&
+    literalBindings.length === 0 &&
+    !/["“”]/.test(goalText)
+  ) {
+    const classification = classifyPreviewFirst({ goalText, editing: false });
+    if (classification.kind === "preview_expected") {
+      const skeleton = inferNamedProviderChainPlan(goalText);
+      if (skeleton) {
+        logGuidanceLatency({
+          requestId: randomUUID(),
+          path: "registry_first_plan",
+          catalogMode: "none",
+          selectedProviders: classification.namedProviders.length,
+          selectedCapabilityLines: 0,
+          fullCatalogCapabilities: countRegistryCapabilities(),
+          promptChars: 0,
+          estPromptTokens: 0,
+          modelMs: 0,
+          planSteps: skeleton.steps.length,
+          totalMs: Date.now() - routeStartedAt,
+        });
+        return NextResponse.json({
+          ok: true,
+          guidanceText: REGISTRY_PLAN_LEAD_IN,
+          source: "registry_planner",
+          workflowPlan: skeleton,
+          previewDraft: planToDraftPreview(skeleton),
+        });
+      }
+    }
+  }
+
   // 4. Hermes availability BEFORE any charge — disabled/unconfigured → 503, no charge, no network.
   if (!isHermesAgentEnabled() || !getHermesAgentGatewayConfig()) {
     return guidanceUnavailableResponse();
@@ -406,19 +513,27 @@ export async function POST(
   const editing = !!currentDraft && currentDraft.nodes.length > 0;
   const builtEditableGraph = editing ? buildEditableWorkflowGraph(currentDraft!) : null;
 
-  // REACT-CONFIG-COVERAGE-1 — narrowed, bounded field schemas for the relevant providers (public
-  // registry metadata only), so the model can land user-supplied values in their canonical fields.
+  // REACT-CONFIG-COVERAGE-1 / REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — mode-aware relevant-provider
+  // selection (named mode drops unrelated category/connected padding), then a STAGED catalog:
+  //   - NEW-workflow turn (Stage A): compact one-line-per-capability catalog + a names-only
+  //     awareness line for every other provider. Topology + real setup fields only; detailed
+  //     schemas stay server-side (setup generation, resolvers, enrichment, validation all keep
+  //     reading the FULL registry).
+  //   - EDIT turn: the full field/output schema blocks, unchanged — edits must land user-supplied
+  //     constraints in exact canonical fields and reference precise outputs.
   const canvasCapabilityKeys = editing ? currentDraft!.nodes.map((n) => `${n.provider}:${n.type}`) : [];
-  const relevantProviders = selectRelevantProviders({
+  const selection = selectRelevantProvidersWithMode({
     texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
     ...(canvasCapabilityKeys.length ? { canvasCapabilityKeys } : {}),
     connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
   });
-  const fieldSchemaLines = buildFieldSchemaLines(relevantProviders);
-  // REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — what those same capabilities PRODUCE. Without this block
-  // the model was told to reference "declared output names" it had never been shown, so multi-step
-  // requests came back with the right nodes and invented data between them.
-  const outputSchemaLines = buildOutputSchemaLines(relevantProviders);
+  const relevantProviders = selection.providers;
+  const fieldSchemaLines = editing ? buildFieldSchemaLines(relevantProviders) : [];
+  // REACT-AGENT-MULTISTEP-DATA-MAPPING-1 — what those same capabilities PRODUCE (edit turns only;
+  // Stage A carries compact trigger outputs inside the compact lines instead).
+  const outputSchemaLines = editing ? buildOutputSchemaLines(relevantProviders) : [];
+  const compactCapabilityLines = editing ? [] : buildCompactCapabilityLines(relevantProviders);
+  const otherProvidersLine = editing ? "" : buildOtherProviderNamesLine(relevantProviders);
 
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
   //
@@ -428,6 +543,15 @@ export async function POST(
   // the retry, so no retry path can reach it a second time.
   const requestId = randomUUID();
   const brainStartedAt = Date.now();
+  /** REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — shared inputs for the one latency line per request. */
+  const latencyBase = {
+    requestId,
+    catalogMode: (editing ? "broad" : selection.mode) as CatalogSelectionMode,
+    selectedProviders: relevantProviders.length,
+    selectedCapabilityLines: editing ? fieldSchemaLines.length : compactCapabilityLines.length,
+    fullCatalogCapabilities: countRegistryCapabilities(),
+  };
+  let timeoutRecovered = false;
   let result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
@@ -436,6 +560,8 @@ export async function POST(
       ...(definition ? { definition } : {}),
       ...(fieldSchemaLines.length ? { fieldSchemaLines } : {}),
       ...(outputSchemaLines.length ? { outputSchemaLines } : {}),
+      ...(compactCapabilityLines.length ? { compactCapabilityLines } : {}),
+      ...(otherProvidersLine ? { otherProvidersLine } : {}),
       ...(builtEditableGraph ? { editableGraph: builtEditableGraph.graph, capabilityCatalog: buildCapabilityCatalogKeys() } : {}),
       contextInputs: {
         account: { type: accountType },
@@ -491,6 +617,7 @@ export async function POST(
       if (recovered) {
         // Continue the NORMAL pipeline (config prep → provider guard → entitlement → preview) with
         // the synthesized advisory reply, exactly as if the model had returned this plan.
+        timeoutRecovered = true;
         result = {
           ok: true,
           guidanceText: recovered.guidanceText,
@@ -498,9 +625,29 @@ export async function POST(
           workflowPlan: recovered.workflowPlan,
         };
       } else {
+        logGuidanceLatency({
+          ...latencyBase,
+          path: "typed_failure",
+          promptChars: result.attemptTelemetry?.promptChars,
+          estPromptTokens: result.attemptTelemetry?.estPromptTokens,
+          modelMs: result.attemptTelemetry?.elapsedMs,
+          planSteps: 0,
+          totalMs: Date.now() - routeStartedAt,
+          timeoutCode: "GUIDANCE_TIMEOUT",
+        });
         return guidanceTimeoutResponse();
       }
     } else {
+      logGuidanceLatency({
+        ...latencyBase,
+        path: "typed_failure",
+        promptChars: result.attemptTelemetry?.promptChars,
+        estPromptTokens: result.attemptTelemetry?.estPromptTokens,
+        modelMs: result.attemptTelemetry?.elapsedMs,
+        planSteps: 0,
+        totalMs: Date.now() - routeStartedAt,
+        timeoutCode: result.code,
+      });
       return guidanceUnavailableResponse();
     }
   }
@@ -528,6 +675,8 @@ export async function POST(
     ...(definition ? { definition } : {}),
     fieldSchemaLines,
     outputSchemaLines,
+    ...(compactCapabilityLines.length ? { compactCapabilityLines } : {}),
+    ...(otherProvidersLine ? { otherProvidersLine } : {}),
     contextInputs: {
       account: { type: accountType },
       ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
@@ -535,7 +684,19 @@ export async function POST(
       ...(ownConnectionProviders.length ? { ownConnectionProviders } : {}),
     },
   });
-  if (enforcement.kind === "plan_missing") return previewPlanMissingResponse();
+  if (enforcement.kind === "plan_missing") {
+    logGuidanceLatency({
+      ...latencyBase,
+      path: "typed_failure",
+      promptChars: result.attemptTelemetry?.promptChars,
+      estPromptTokens: result.attemptTelemetry?.estPromptTokens,
+      modelMs: result.attemptTelemetry?.elapsedMs,
+      planSteps: 0,
+      totalMs: Date.now() - routeStartedAt,
+      timeoutCode: "PREVIEW_PLAN_MISSING",
+    });
+    return previewPlanMissingResponse();
+  }
   /** The reply the rest of the pipeline consumes — the initial one, or the repaired one. */
   const guidance = enforcement.result;
 
@@ -792,6 +953,30 @@ export async function POST(
     ...[...new Set(configWarnings)],
     ...(catalogGap ? [catalogGap.message] : []),
   ];
+
+  // REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — the one latency/size line for the completed request.
+  const resultPath: GuidanceResultPath = proposedDefinition
+    ? "edit_proposal"
+    : workflowPlan
+      ? timeoutRecovered
+        ? "timeout_deterministic_fallback_plan"
+        : enforcement.via === "fallback"
+          ? "deterministic_fallback_plan"
+          : enforcement.via === "repair"
+            ? "repair_model_plan"
+            : "initial_model_plan"
+      : providerClarification
+        ? "provider_clarification"
+        : "clarification";
+  logGuidanceLatency({
+    ...latencyBase,
+    path: resultPath,
+    promptChars: guidance.attemptTelemetry?.promptChars,
+    estPromptTokens: guidance.attemptTelemetry?.estPromptTokens,
+    modelMs: guidance.attemptTelemetry?.elapsedMs,
+    planSteps: workflowPlan?.steps.length ?? 0,
+    totalMs: Date.now() - routeStartedAt,
+  });
 
   // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no secrets. The
   // proposedDefinition is the user's OWN draft + the validated change; Apply (client) is still explicit.

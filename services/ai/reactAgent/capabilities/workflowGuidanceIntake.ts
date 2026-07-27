@@ -83,6 +83,13 @@ export interface WorkflowGuidanceIntakeInput {
    */
   readonly outputSchemaLines?: readonly string[];
   /**
+   * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — Stage-A compact catalog lines for a NEW-workflow turn
+   * (replace the full field/output blocks in the prompt). Public registry metadata only.
+   */
+  readonly compactCapabilityLines?: readonly string[];
+  /** Names-only awareness of providers outside the compact subset. */
+  readonly otherProvidersLine?: string;
+  /**
    * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable graph of the user's CURRENT local
    * draft (opaque refs + safe editable config + version), built by the route via the editor privacy
    * boundary. Present ONLY for an EDIT request. It carries NO real ids/credentials/secrets; the route
@@ -236,6 +243,8 @@ export async function runWorkflowGuidanceIntakeCapability(
         ...(input.capabilityCatalog ? { capabilityCatalog: input.capabilityCatalog } : {}),
         ...(input.fieldSchemaLines ? { fieldSchemaLines: input.fieldSchemaLines } : {}),
         ...(input.outputSchemaLines ? { outputSchemaLines: input.outputSchemaLines } : {}),
+        ...(input.compactCapabilityLines ? { compactCapabilityLines: input.compactCapabilityLines } : {}),
+        ...(input.otherProvidersLine ? { otherProvidersLine: input.otherProvidersLine } : {}),
         ...(context ? { context } : {}),
         ...(input.editableGraph ? { editableGraph: input.editableGraph } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),

@@ -135,6 +135,12 @@ export interface GuidanceAttemptTelemetry {
   readonly elapsedMs: number;
   /** Budget left when the retry decision was taken (null when the first attempt succeeded). */
   readonly remainingBudgetMsAtDecision: number | null;
+  /**
+   * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — size of the assembled prompt actually sent (characters
+   * and a chars/4 token estimate). SAFE: counts only, never content. Optional (older callers).
+   */
+  readonly promptChars?: number;
+  readonly estPromptTokens?: number;
 }
 
 /** Discriminated guidance outcome. `reason` (when present) is a safe tag, never a raw error. */

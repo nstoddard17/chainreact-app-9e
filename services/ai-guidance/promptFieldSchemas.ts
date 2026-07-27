@@ -83,6 +83,53 @@ function providerCategories(providerId: string): Set<ActionCategory> {
 }
 
 /**
+ * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — how the provider subset was chosen. `named` = the user
+ * explicitly named ≥ 2 providers (they picked their apps; category/connected padding is dropped so
+ * the prompt carries only what the request is about). `broad` = generic/ambiguous request; the
+ * category + connected expansion stays so real alternatives are present. Logged as telemetry.
+ */
+export type CatalogSelectionMode = "named" | "broad";
+
+export interface SelectedProviders {
+  readonly providers: readonly string[];
+  readonly mode: CatalogSelectionMode;
+}
+
+/**
+ * Mode-aware provider selection. NAMED mode (≥ 2 explicit mentions) keeps canvas + mentioned +
+ * native only — the user chose their apps, and every unrelated category/connected provider was
+ * measured to add thousands of prompt characters with no planning value. BROAD mode is the
+ * original expansion. Validation is unaffected: the FULL registry still rejects invented
+ * capabilities, and a provider omitted here can still be named next turn.
+ */
+export function selectRelevantProvidersWithMode(input: SelectRelevantProvidersInput): SelectedProviders {
+  const withMeta = new Set(listProvidersWithMetadata());
+  const words = buildWordSet(input.texts);
+  const mentioned: string[] = [];
+  for (const manifest of listProviders()) {
+    if (!withMeta.has(manifest.id)) continue;
+    if (isProviderMentioned(manifest.id, manifest.displayName, words)) mentioned.push(manifest.id);
+  }
+  if (mentioned.length >= 2) {
+    const canvas: string[] = [];
+    for (const key of input.canvasCapabilityKeys ?? []) {
+      const idx = key.indexOf(":");
+      if (idx > 0) canvas.push(key.slice(0, idx));
+    }
+    const seen = new Set<string>();
+    const providers: string[] = [];
+    for (const id of [...canvas, ...mentioned, ...(withMeta.has(NATIVE_PROVIDER_ID) ? [NATIVE_PROVIDER_ID] : [])]) {
+      if (seen.has(id) || !withMeta.has(id)) continue;
+      seen.add(id);
+      providers.push(id);
+      if (providers.length >= MAX_FIELD_SCHEMA_PROVIDERS) break;
+    }
+    return { providers, mode: "named" };
+  }
+  return { providers: selectRelevantProviders(input), mode: "broad" };
+}
+
+/**
  * Pick the bounded, priority-ordered provider subset whose field schemas the prompt should carry.
  * Deterministic; registry + input driven only.
  */
@@ -238,6 +285,131 @@ export function buildOutputSchemaLines(providerIds: readonly string[]): readonly
     lines.push(...rendered);
   }
   return lines;
+}
+
+/**
+ * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — Stage-A COMPACT capability lines for NEW-workflow turns.
+ *
+ * The topology planner needs to pick a trigger + actions and name the genuine setup fields — it
+ * does NOT need every optional config field, full output trees, or resolver detail (those load in
+ * Stage B: preview setup generation, resolvers, enrichment, validation all keep reading the FULL
+ * registry). One line per capability:
+ *
+ *   - provider:type [trigger|action] "Display Name" — <short purpose> | setup: req1, req2
+ *     | inputs: opt1, opt2, … | outputs: name1, name2 (+ more after resource selection)
+ *
+ * Bounds: MAX_COMPACT_INPUT_FIELDS optional input names per capability, MAX_COMPACT_OUTPUTS
+ * trigger-output names (triggers only — they are the mapping roots), MAX_COMPACT_CATALOG_LINES
+ * lines total with an honest truncation marker. EDIT turns keep the full field/output schemas.
+ */
+export const MAX_COMPACT_CATALOG_LINES = 120;
+/**
+ * Optional-input NAMES per capability. High enough that every ordinary non-advanced optional field
+ * stays discoverable (REACT-CONFIG-COVERAGE-1 — a user constraint must find its canonical field);
+ * the cap only guards against pathological field counts. Names only — no types/flags/options.
+ */
+export const MAX_COMPACT_INPUT_FIELDS = 24;
+export const MAX_COMPACT_OUTPUTS = 8;
+const MAX_COMPACT_PURPOSE_CHARS = 90;
+
+export const COMPACT_CATALOG_TRUNCATION_LINE =
+  "  - …(further capabilities omitted for space — they still exist and can be named next turn)";
+
+/** First sentence of a description, hard-capped — a purpose hint, not documentation. */
+function compactPurpose(description: string | undefined): string {
+  if (!description) return "";
+  const firstSentence = description.split(/(?<=[.!?])\s/)[0] ?? description;
+  const trimmed = firstSentence.trim();
+  return trimmed.length > MAX_COMPACT_PURPOSE_CHARS ? `${trimmed.slice(0, MAX_COMPACT_PURPOSE_CHARS - 1)}…` : trimmed;
+}
+
+function compactCapabilityLine(meta: {
+  key: string;
+  kind: "trigger" | "action";
+  displayName: string;
+  description?: string;
+  fields: readonly FieldMeta[];
+  outputs?: readonly { name: string }[];
+  dynamicOutputs?: boolean;
+}): string {
+  const required = meta.fields.filter((f) => f.required).map((f) => f.name);
+  const optional = meta.fields
+    .filter((f) => !f.required && f.advanced !== true)
+    .slice(0, MAX_COMPACT_INPUT_FIELDS)
+    .map((f) => f.name);
+  const purpose = compactPurpose(meta.description);
+  const parts = [
+    `  - ${meta.key} [${meta.kind}] "${meta.displayName}"${purpose ? ` — ${purpose}` : ""}`,
+    required.length ? `setup: ${required.join(", ")}` : "",
+    optional.length ? `inputs: ${optional.join(", ")}` : "",
+  ];
+  if (meta.kind === "trigger") {
+    const names = (meta.outputs ?? []).slice(0, MAX_COMPACT_OUTPUTS).map((o) => o.name);
+    const more = (meta.outputs ?? []).length > MAX_COMPACT_OUTPUTS ? ", …" : "";
+    const dyn = meta.dynamicOutputs ? " (+ more fields after the resource is selected)" : "";
+    if (names.length || dyn) parts.push(`outputs: ${names.join(", ")}${more}${dyn}`);
+  }
+  return parts.filter((p) => p.length > 0).join(" | ");
+}
+
+/** Build the compact Stage-A catalog for the selected providers. Public registry metadata only. */
+export function buildCompactCapabilityLines(providerIds: readonly string[]): readonly string[] {
+  const lines: string[] = [];
+  for (const providerId of providerIds) {
+    const metas = [
+      ...listTriggerMetasForProvider(providerId).map((m) => ({
+        key: m.key,
+        kind: "trigger" as const,
+        displayName: m.displayName,
+        description: m.description,
+        fields: m.fields,
+        outputs: (m.payloadShape ?? []) as readonly { name: string }[],
+        dynamicOutputs: (m as { dynamicOutputSource?: unknown }).dynamicOutputSource != null,
+      })),
+      ...listActionMetasForProvider(providerId).map((m) => ({
+        key: m.key,
+        kind: "action" as const,
+        displayName: m.displayName,
+        description: m.description,
+        fields: m.fields,
+      })),
+    ];
+    for (const meta of metas) {
+      if (lines.length >= MAX_COMPACT_CATALOG_LINES) {
+        lines.push(COMPACT_CATALOG_TRUNCATION_LINE);
+        return lines;
+      }
+      lines.push(compactCapabilityLine(meta));
+    }
+  }
+  return lines;
+}
+
+/** Total trigger+action capabilities in the full registry (telemetry denominator). Cached — static. */
+let fullCatalogCapabilityCount: number | null = null;
+export function countRegistryCapabilities(): number {
+  if (fullCatalogCapabilityCount === null) {
+    fullCatalogCapabilityCount = listProvidersWithMetadata().reduce(
+      (n, id) => n + listActionMetasForProvider(id).length + listTriggerMetasForProvider(id).length,
+      0,
+    );
+  }
+  return fullCatalogCapabilityCount;
+}
+
+/**
+ * Names-only awareness line for every metadata-bearing provider NOT in the selected subset, so
+ * NAMED-mode narrowing never hides the catalog's breadth: the model can say "ChainReact also has X
+ * — want to use it?" without carrying X's schemas. A few hundred characters for the whole registry.
+ */
+export function buildOtherProviderNamesLine(includedIds: readonly string[]): string {
+  const included = new Set(includedIds);
+  const others = listProvidersWithMetadata().filter((id) => !included.has(id)).sort();
+  if (others.length === 0) return "";
+  return (
+    "Other available ChainReact providers (names only — ask the user before proposing one of these, and never invent capabilities for them): " +
+    others.join(", ")
+  );
 }
 
 /**

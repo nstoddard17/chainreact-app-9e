@@ -47,6 +47,16 @@ export interface BuildGatewayPromptInput {
    */
   readonly outputSchemaLines?: readonly string[];
   /**
+   * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — Stage-A COMPACT capability lines for a NEW-workflow
+   * turn (one line per relevant capability: purpose, required setup fields, key inputs, trigger
+   * outputs). When present these REPLACE the full field/output schema blocks — the first turn plans
+   * topology; detailed schemas load in Stage B (setup, resolvers, enrichment). EDIT turns keep the
+   * full blocks.
+   */
+  readonly compactCapabilityLines?: readonly string[];
+  /** Names-only awareness of every provider outside the compact subset (never their schemas). */
+  readonly otherProvidersLine?: string;
+  /**
    * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable view of the user's CURRENT local
    * draft (opaque node refs + safe editable config + edges + a version token). Present ONLY for an EDIT
    * request. Built by `buildEditableWorkflowGraph` (the editor privacy boundary) — it carries NO real
@@ -153,6 +163,18 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
       input.outputSchemaLines.join("\n")
     : "";
 
+  // REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — Stage-A compact catalog. When present it REPLACES the
+  // full field/output blocks for this turn: enough to plan topology + name real setup fields +
+  // reference trigger outputs, while detailed schemas stay server-side until the preview exists.
+  const compactCatalogBlock = input.compactCapabilityLines?.length
+    ? "ChainReact capabilities relevant to this request — propose ONLY from these provider:type ids. " +
+      "Each line: purpose | setup (required fields, collected by ChainReact's setup form) | inputs (common optional fields) | trigger outputs (referenceable as {{stepRef.name}}). " +
+      "Full field and output detail is applied by ChainReact AFTER the preview — do not guess fields not listed:\n" +
+      input.compactCapabilityLines.join("\n")
+    : "";
+  const otherProvidersBlock = input.compactCapabilityLines?.length ? (input.otherProvidersLine ?? "") : "";
+  const useCompactCatalog = compactCatalogBlock.length > 0;
+
   const findingsLine = input.request.findingCodes?.length
     ? `Known issues (codes): ${input.request.findingCodes.join(", ")}`
     : "";
@@ -178,8 +200,8 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     editableGraphBlock,
     findingsLine,
     catalogLine,
-    fieldSchemaBlock,
-    outputSchemaBlock,
+    useCompactCatalog ? compactCatalogBlock : fieldSchemaBlock,
+    useCompactCatalog ? otherProvidersBlock : outputSchemaBlock,
     DATA_MAPPING_INSTRUCTIONS,
     accountLine,
     sharedConnLine,

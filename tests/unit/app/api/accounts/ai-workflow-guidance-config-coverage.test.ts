@@ -169,13 +169,20 @@ describe("scenario 1 — the exact reported case", () => {
     const body = await res.json();
 
     // Outbound: the capability (→ gateway prompt) never sees the raw address — only the token.
-    const runnerInput = mockRunner.mock.calls[0]![0] as { goalText: string; fieldSchemaLines?: string[] };
+    const runnerInput = mockRunner.mock.calls[0]![0] as {
+      goalText: string;
+      compactCapabilityLines?: string[];
+    };
     expect(runnerInput.goalText).toContain("[[EMAIL_1]]");
     expect(runnerInput.goalText).not.toContain(EMAIL);
     expect(JSON.stringify(mockRunner.mock.calls)).not.toContain(EMAIL);
-    // The narrowed field schemas make the optional sender filter discoverable.
-    expect(runnerInput.fieldSchemaLines!.join("\n")).toContain("gmail:new_email");
-    expect(runnerInput.fieldSchemaLines!.join("\n")).toContain("from (string-array, optional");
+    // REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — a NEW-workflow turn sends the compact Stage-A
+    // catalog; the optional sender filter must STILL be discoverable by field name (the
+    // REACT-CONFIG-COVERAGE-1 contract carried into the staged prompt).
+    const compact = runnerInput.compactCapabilityLines!.join("\n");
+    const gmailTriggerLine = runnerInput.compactCapabilityLines!.find((l) => l.includes("gmail:new_email"));
+    expect(compact).toContain("gmail:new_email");
+    expect(gmailTriggerLine).toMatch(/inputs: [^|]*\bfrom\b/);
 
     // Inbound: the plan carries the user's exact address in the canonical optional field.
     expect(body.workflowPlan.steps[0].config).toEqual({ from: [EMAIL] });
