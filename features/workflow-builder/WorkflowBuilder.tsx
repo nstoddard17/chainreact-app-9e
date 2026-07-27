@@ -18,6 +18,7 @@ import { BuilderViewChooser } from "./panels/BuilderViewChooser";
 import { updateDefaultBuilderView } from "@/lib/api/accounts";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
+import { VisualAgentThinkingBubble } from "./canvas/VisualAgentThinkingBubble";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
 import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import { useResourceLabelCache } from "./state/resourceLabelCache";
@@ -1352,6 +1353,13 @@ export function WorkflowBuilder({
             onClose={closeAddPanel}
             {...(lockedActionKeys ? { lockedActionKeys } : {})}
           />
+        ) : null}
+        {/* REACT-AGENT-VISUAL-THINKING-BUBBLE-1 — small canvas "React is thinking…" bubble while a
+            guidance request is in flight. VISUAL mode only (Document mode has its own busy
+            affordance); reads the SAME `loading` the rail uses (one request incl. its internal
+            repair — no flicker), pointer-events-none, never part of the graph or persisted. */}
+        {!documentViewActive ? (
+          <VisualAgentThinkingBubble isThinking={agentConversation.loading} />
         ) : null}
         {/* AI preview controls (UI state only — never merges into the real graph / writes / saves).
             Discard clears state; Apply runs the explicit local-draft edit (HERMES-AGENT-APPLY-PREVIEW-PATCH). */}
