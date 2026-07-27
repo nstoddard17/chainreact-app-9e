@@ -896,6 +896,103 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(JSON.stringify(body)).not.toContain("node_99"); // raw ref never leaks
   });
 
+  // == REACT-AGENT-TIMEOUT-FALLBACK-RELIABILITY-1 ==============================================
+  //
+  // The production incident: the corrected prompt failed its FIRST submission with the typed
+  // GUIDANCE_TIMEOUT copy because a gateway TIMEOUT took the failure branch BEFORE
+  // enforcePreviewFirst — the registry fallback was unreachable for failures. A timed-out brain
+  // must not cost the user a clear four-app request that ChainReact can sketch locally in
+  // milliseconds, and must never trigger a second model call.
+  it("(#4,#12) TIMEOUT + the exact production prompt → the deterministic four-node preview (200), ONE model call, one credit", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
+    try {
+      const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      // (#9) no repair, no third call — a timed-out brain is not asked again.
+      expect(mockRunner).toHaveBeenCalledTimes(1);
+      // (#10) the AI-credit gate executed exactly once.
+      expect(mockGate).toHaveBeenCalledTimes(1);
+      expect(
+        body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+      ).toEqual([
+        "typeform:new_response_in_form",
+        "mailchimp:add_subscriber",
+        "hubspot:create_contact",
+        "gmail:send_email",
+      ]);
+      expect(body.previewDraft).not.toBeNull();
+      expect(body.previewDraft.notApplied).toBe(true);
+      // Honest lead-in: says the assistant timed out; claims no creation/application.
+      expect(body.guidanceText).toMatch(/took too long/i);
+      expect(`${body.guidanceText} ${body.workflowPlan.summary}`).not.toMatch(/\b(created|applied|saved)\b/i);
+      // The genuine decisions ride as setup inputs, same as a model plan.
+      const byType = Object.fromEntries(
+        body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
+      );
+      expect(byType["new_response_in_form"]).toEqual(expect.arrayContaining(["formId"]));
+      expect(byType["send_email"]).toEqual(expect.arrayContaining(["to"]));
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("(#5) TIMEOUT + ambiguous topology → typed retryable GUIDANCE_TIMEOUT (never a guessed plan)", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
+    try {
+      // Two Mailchimp capabilities match "add a note and a tag" — the fallback refuses to guess.
+      const res = await call(ACCOUNT, {
+        goalText: "When a Typeform response arrives, add a note and a tag in Mailchimp",
+      });
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe("GUIDANCE_TIMEOUT");
+      expect(body.message).toMatch(/try again|smaller/i);
+      expect(mockRunner).toHaveBeenCalledTimes(1);
+      expect(mockGate).toHaveBeenCalledTimes(1);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("(#11) TIMEOUT recovery with a workflowId never touches the draft — advisory preview only", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
+    try {
+      const res = await call(ACCOUNT, { goalText: PRODUCTION_PROMPT, workflowId: "wf-1" });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      // Advisory only: a plan + non-applied preview; NO proposedDefinition, no mutation claims.
+      expect(body.workflowPlan.notApplied).toBe(true);
+      expect(body.proposedDefinition ?? null).toBeNull();
+      expect(`${body.guidanceText} ${body.workflowPlan.summary}`).not.toMatch(/\b(created|applied|saved)\b/i);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("TIMEOUT on an EDITING turn keeps the typed failure — recovery never rewrites an edit as a new workflow", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "unused" });
+    try {
+      const res = await call(ACCOUNT, {
+        goalText: PRODUCTION_PROMPT,
+        currentDraft: {
+          nodes: [
+            { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+          ],
+          edges: [],
+        },
+      });
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe("GUIDANCE_TIMEOUT");
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {}); // safe failure log
     mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "downstream SECRET detail" });

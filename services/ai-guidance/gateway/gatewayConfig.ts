@@ -68,6 +68,22 @@ export const MAX_TIMEOUT_MS = 55_000;
 /** Serverless budget the guidance routes declare. Documented here; the routes need a literal. */
 export const GUIDANCE_ROUTE_MAX_DURATION_SECONDS = 60;
 
+/**
+ * REACT-AGENT-TIMEOUT-FALLBACK-RELIABILITY-1 — the route budget is explicitly PARTITIONED, not a
+ * single pot the model call may drain:
+ *
+ *   initial model attempt   ≤ `timeoutMs` (env-clamped to MAX_TIMEOUT_MS) — bounded, never ~all 60s
+ *   repair attempt          only when ≥ MIN_REPAIR_BUDGET_MS remains (enforcePreviewFirst)
+ *   local fallback + parse  GUIDANCE_LOCAL_RESERVE_MS — registry-only work, no network
+ *   audit + typed response  ROUTE_RESPONSE_MARGIN_MS
+ *
+ * The structure test pins MAX_TIMEOUT_MS + GUIDANCE_LOCAL_RESERVE_MS + ROUTE_RESPONSE_MARGIN_MS
+ * strictly inside the route budget, so raising the model deadline can never silently starve the
+ * deterministic fallback or turn the typed reply into a platform 504.
+ */
+export const GUIDANCE_LOCAL_RESERVE_MS = 2_000;
+export const ROUTE_RESPONSE_MARGIN_MS = 2_000;
+
 function num(value: string | undefined, fallback: number, min: number, max: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;

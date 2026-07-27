@@ -10,6 +10,7 @@ import {
 import { aiCreditGate, type AiCreditGateOutcome } from "@/services/billing/aiCreditGate";
 import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai-guidance/gateway/gatewayConfig";
 import { enforcePreviewFirst } from "@/services/ai-guidance/previewFirst/enforcePreviewFirst";
+import { recoverGuidanceTimeoutWithFallback } from "@/services/ai-guidance/previewFirst/recoverTimeoutFallback";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
@@ -427,7 +428,7 @@ export async function POST(
   // the retry, so no retry path can reach it a second time.
   const requestId = randomUUID();
   const brainStartedAt = Date.now();
-  const result = await runWorkflowGuidanceIntakeCapability(
+  let result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
       goalText: safeGoalText,
@@ -476,7 +477,32 @@ export async function POST(
       });
     }
     if (cancelled) return guidanceCancelledResponse();
-    return result.code === "TIMEOUT" ? guidanceTimeoutResponse() : guidanceUnavailableResponse();
+    // REACT-AGENT-TIMEOUT-FALLBACK-RELIABILITY-1 — a gateway TIMEOUT on a NEW-workflow turn tries
+    // the LOCAL registry fallback before surfacing the typed failure. No second model call (a
+    // timed-out brain is not asked again); sub-ms registry work inside the reserved local budget.
+    // Ambiguous topology / editing turns keep the typed GUIDANCE_TIMEOUT unchanged.
+    if (result.code === "TIMEOUT") {
+      const recovered = recoverGuidanceTimeoutWithFallback({
+        safeGoalText,
+        editing,
+        requestId,
+        elapsedMs: Date.now() - brainStartedAt,
+      });
+      if (recovered) {
+        // Continue the NORMAL pipeline (config prep → provider guard → entitlement → preview) with
+        // the synthesized advisory reply, exactly as if the model had returned this plan.
+        result = {
+          ok: true,
+          guidanceText: recovered.guidanceText,
+          source: "hermes-agent",
+          workflowPlan: recovered.workflowPlan,
+        };
+      } else {
+        return guidanceTimeoutResponse();
+      }
+    } else {
+      return guidanceUnavailableResponse();
+    }
   }
 
   // A silent recovery still needs a trace — otherwise a degrading gateway looks perfectly healthy.

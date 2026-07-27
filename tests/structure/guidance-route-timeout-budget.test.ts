@@ -24,7 +24,10 @@ import {
   MAX_TIMEOUT_MS,
   MIN_TIMEOUT_MS,
   GUIDANCE_ROUTE_MAX_DURATION_SECONDS,
+  GUIDANCE_LOCAL_RESERVE_MS,
+  ROUTE_RESPONSE_MARGIN_MS,
 } from "@/services/ai-guidance/gateway/gatewayConfig";
+import { MIN_REPAIR_BUDGET_MS } from "@/services/ai-guidance/previewFirst/classifyPreviewFirst";
 
 /** Every route that calls the Hermes gateway client and therefore inherits its abort deadline. */
 const GATEWAY_ROUTES = [
@@ -52,5 +55,27 @@ describe("guidance routes declare a serverless budget larger than the gateway ab
     // Real headroom, not one millisecond: the route still has DB reads + the post-model option
     // resolver to run after the brain answers.
     expect(budgetMs - MAX_TIMEOUT_MS).toBeGreaterThanOrEqual(5_000);
+  });
+
+  // REACT-AGENT-TIMEOUT-FALLBACK-RELIABILITY-1 — the budget is a PARTITION, not a pot the model
+  // may drain: even a maximum-length model attempt must leave the local fallback (registry-only
+  // plan construction + parse/validation) and the audit/typed-response margin intact. Raising the
+  // model deadline past this pins requires raising `maxDuration` on both routes first.
+  it("a maximum-length model attempt still leaves the local fallback + response reserves", () => {
+    const budgetMs = GUIDANCE_ROUTE_MAX_DURATION_SECONDS * 1_000;
+    expect(GUIDANCE_LOCAL_RESERVE_MS).toBeGreaterThanOrEqual(1_000);
+    expect(ROUTE_RESPONSE_MARGIN_MS).toBeGreaterThanOrEqual(1_000);
+    expect(MAX_TIMEOUT_MS + GUIDANCE_LOCAL_RESERVE_MS + ROUTE_RESPONSE_MARGIN_MS).toBeLessThanOrEqual(budgetMs);
+  });
+
+  it("the DEFAULT model deadline leaves room for a meaningful repair attempt as well", () => {
+    // With the default 45s deadline the partition is: 45s model + 2s margin + 13s remainder —
+    // the repair is legitimately skipped after a FULL-length timeout (13s < 15s minimum), which is
+    // exactly why the local fallback must never depend on the repair having run.
+    const budgetMs = GUIDANCE_ROUTE_MAX_DURATION_SECONDS * 1_000;
+    expect(DEFAULT_TIMEOUT_MS + ROUTE_RESPONSE_MARGIN_MS + GUIDANCE_LOCAL_RESERVE_MS).toBeLessThanOrEqual(budgetMs);
+    // And when the model answers with time to spare, a repair remains possible: the minimum repair
+    // budget fits inside what remains after a fast (≤ 40s) first attempt.
+    expect(budgetMs - 40_000 - ROUTE_RESPONSE_MARGIN_MS).toBeGreaterThanOrEqual(MIN_REPAIR_BUDGET_MS);
   });
 });

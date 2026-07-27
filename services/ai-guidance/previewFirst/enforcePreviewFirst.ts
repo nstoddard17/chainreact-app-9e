@@ -47,7 +47,10 @@ import {
   type WorkflowGuidanceIntakeResult,
 } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import type { ReactAgentScope } from "@/services/ai/reactAgent/types";
-import { GUIDANCE_ROUTE_MAX_DURATION_SECONDS } from "@/services/ai-guidance/gateway/gatewayConfig";
+import {
+  GUIDANCE_ROUTE_MAX_DURATION_SECONDS,
+  ROUTE_RESPONSE_MARGIN_MS,
+} from "@/services/ai-guidance/gateway/gatewayConfig";
 import { inferNamedProviderChainPlan } from "../fallback/inferNamedProviderChainPlan";
 import {
   classifyPreviewFirst,
@@ -63,8 +66,12 @@ import {
 const FALLBACK_PLAN_LEAD_IN =
   "Here's the workflow you described — I've sketched the trigger and each step from the apps you named. Finish the remaining choices in each step's setup below; nothing in your workflow has been changed yet.";
 
-/** Safety margin kept between the repair's deadline and the platform's hard kill. */
-const ROUTE_BUDGET_SAFETY_MARGIN_MS = 2_000;
+/**
+ * Safety margin kept between the repair's deadline and the platform's hard kill. Now the shared
+ * budget-partition constant (REACT-AGENT-TIMEOUT-FALLBACK-RELIABILITY-1) so one number governs
+ * every reserve calculation.
+ */
+const ROUTE_BUDGET_SAFETY_MARGIN_MS = ROUTE_RESPONSE_MARGIN_MS;
 
 export interface EnforcePreviewFirstInput {
   /** The initial guidance reply (already `ok: true`; the route handles failures before this). */
