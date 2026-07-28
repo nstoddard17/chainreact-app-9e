@@ -18,6 +18,7 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
   ConnectButton: ({
     provider,
     label,
+    ariaLabel,
     variant,
     testId,
     title,
@@ -25,6 +26,7 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
   }: {
     provider: string;
     label: string;
+    ariaLabel?: string;
     variant?: string;
     testId?: string;
     title?: string;
@@ -35,6 +37,7 @@ jest.mock("@/features/integrations/ConnectButton", () => ({
       data-testid={testId ?? "mock-connect-button"}
       data-provider={provider}
       data-label={label}
+      {...(ariaLabel !== undefined && { "aria-label": ariaLabel })}
       data-variant={variant ?? "primary"}
       {...(title !== undefined && { title })}
       {...(reconnect !== undefined && {
@@ -102,7 +105,11 @@ describe("AppCard — not connected", () => {
     const buttons = screen.getAllByTestId("mock-connect-button");
     expect(buttons).toHaveLength(1);
     expect(buttons[0]).toHaveAttribute("data-provider", "slack");
-    expect(buttons[0]).toHaveAttribute("data-label", "Connect Slack");
+    // Visible text is the bare verb (the card already names the app); the
+    // accessible name still says WHICH app, so a screen-reader user can tell
+    // the page's many Connect buttons apart.
+    expect(buttons[0]).toHaveAttribute("data-label", "Connect");
+    expect(buttons[0]).toHaveAttribute("aria-label", "Connect Slack");
   });
 
   it("does NOT render a Connect button when canConnect=false (manifest.isEnabled=false or no oauth)", () => {
@@ -446,7 +453,7 @@ describe("AppCard — APPS-PERM-2 admin-required copy", () => {
       />,
     );
     expect(screen.queryByTestId("app-card-admin-required")).toBeNull();
-    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute("data-label", "Connect Slack");
+    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute("aria-label", "Connect Slack");
   });
 
   it("member viewing a CONNECTED account provider sees the manage-restriction copy in the expanded body (no actions)", async () => {
@@ -482,7 +489,7 @@ describe("AppCard — APPS-PERM-2 admin-required copy", () => {
       />,
     );
     expect(screen.queryByTestId("app-card-admin-required")).toBeNull();
-    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute("data-label", "Connect Gmail");
+    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute("aria-label", "Connect Gmail");
   });
 
   it("NO LEAK: admin-required copy contains no identity / token / scope / provider_account_id", async () => {

@@ -121,9 +121,10 @@ export function OnboardingChecklistCard({
           onClick={onDismiss}
           disabled={actionPending}
           data-testid="onboarding-dismiss"
+          aria-label="Dismiss the getting-started guide"
           className="rounded-[7px] px-2 py-[5px] text-xs text-muted-foreground/70 transition hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Dismiss guide
+          Dismiss
         </button>
         {footerExtras}
       </div>

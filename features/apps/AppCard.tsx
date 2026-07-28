@@ -208,7 +208,12 @@ export function AppCard({
           {!app.isConnected && app.canConnect && (
             <ConnectButton
               provider={app.providerId}
-              label={`Connect ${app.name}`}
+              // The card already names the app one line to the left, so the
+              // button reads as a bare "Connect" — repeating the name made
+              // every row's CTA a different width and a different length.
+              // `ariaLabel` keeps the per-app accessible name.
+              label="Connect"
+              ariaLabel={`Connect ${app.name}`}
               connectInput={app.connectInput}
             />
           )}

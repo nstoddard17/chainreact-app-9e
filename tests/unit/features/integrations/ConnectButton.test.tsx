@@ -40,6 +40,23 @@ describe("ConnectButton", () => {
     });
   });
 
+  it("ariaLabel names the app while the visible label stays the bare verb", () => {
+    // The Apps grid shows "Connect" (the card already names the app), so the
+    // accessible name is the only thing telling one row's CTA from another's.
+    render(<ConnectButton provider="slack" label="Connect" ariaLabel="Connect Slack" />);
+    const btn = screen.getByRole("button", { name: "Connect Slack" });
+    expect(btn.textContent).toBe("Connect");
+  });
+
+  it("drops the ariaLabel override while pending so the name matches 'Redirecting…'", async () => {
+    mockStartOAuth.mockImplementationOnce(() => new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<ConnectButton provider="slack" label="Connect" ariaLabel="Connect Slack" />);
+    await user.click(screen.getByRole("button", { name: "Connect Slack" }));
+    expect(screen.queryByRole("button", { name: "Connect Slack" })).toBeNull();
+    expect(screen.getByRole("button", { name: /redirecting/i })).toBeDisabled();
+  });
+
   it("disables the button while the request is in flight", async () => {
     let resolveCall: (v: { redirectUrl: string }) => void = () => {};
     mockStartOAuth.mockImplementationOnce(

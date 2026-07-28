@@ -11,8 +11,12 @@
 import { render, screen, within } from "@testing-library/react";
 
 jest.mock("@/features/integrations/ConnectButton", () => ({
-  ConnectButton: ({ label }: { label: string }) => (
-    <button type="button" data-testid="mock-connect-button">
+  ConnectButton: ({ label, ariaLabel }: { label: string; ariaLabel?: string }) => (
+    <button
+      type="button"
+      data-testid="mock-connect-button"
+      {...(ariaLabel !== undefined && { "aria-label": ariaLabel })}
+    >
       {label}
     </button>
   ),
@@ -81,7 +85,11 @@ describe("AppCard — provider setup-guide link", () => {
     expect(guide).toHaveAttribute("href", "/help/connect-slack");
     expect(guide).toHaveTextContent("View setup guide");
     // The primary Connect action is untouched.
-    expect(screen.getByTestId("mock-connect-button")).toHaveTextContent("Connect Slack");
+    expect(screen.getByTestId("mock-connect-button")).toHaveTextContent("Connect");
+    expect(screen.getByTestId("mock-connect-button")).toHaveAttribute(
+      "aria-label",
+      "Connect Slack",
+    );
   });
 
   it("not-connected provider WITHOUT a dedicated article renders no setup-guide link", () => {

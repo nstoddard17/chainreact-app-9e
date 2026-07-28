@@ -7,6 +7,14 @@ interface Props {
   provider: string;
   label: string;
   /**
+   * Accessible name, when the visible label is deliberately shorter than the
+   * name a screen-reader user needs. The Apps grid shows a bare "Connect" —
+   * the app name is right there on the card — but each button must still
+   * announce WHICH app it connects, so the card passes "Connect <App>" here.
+   * Defaults to `label`.
+   */
+  ariaLabel?: string;
+  /**
    * Visual treatment.
    *   - `primary` (default) is the filled Connect CTA.
    *   - `outline` is a flat bordered, transparent affordance.
@@ -56,6 +64,7 @@ interface Props {
 export function ConnectButton({
   provider,
   label,
+  ariaLabel,
   variant = "primary",
   testId,
   title,
@@ -170,6 +179,11 @@ export function ConnectButton({
         ? "rounded border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
         : "rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60";
 
+  // While pending the visible text becomes "Redirecting…", so the override is
+  // dropped rather than announcing a stale "Connect <App>".
+  const accessibleName =
+    ariaLabel !== undefined && !pending ? { "aria-label": ariaLabel } : {};
+
   return (
     <div className="flex flex-col items-end gap-1">
       <button
@@ -179,6 +193,7 @@ export function ConnectButton({
         className={className}
         {...(testId !== undefined && { "data-testid": testId })}
         {...(title !== undefined && { title })}
+        {...accessibleName}
       >
         {variant === "reconnect" && <RefreshIcon spinning={pending} />}
         {pending ? "Redirecting…" : label}

@@ -114,9 +114,10 @@ export function CollaborationChecklistCard({
           onClick={onDismiss}
           disabled={actionPending}
           data-testid="collab-dismiss"
+          aria-label="Dismiss the collaboration guide"
           className="rounded-[7px] px-2 py-[5px] text-xs text-muted-foreground/70 transition hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Dismiss guide
+          Dismiss
         </button>
       </div>
     </section>
