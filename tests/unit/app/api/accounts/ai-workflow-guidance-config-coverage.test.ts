@@ -59,7 +59,11 @@ jest.mock("@/app/api/workflows/_shared", () => ({
 }));
 
 const mockGate = jest.fn();
-jest.mock("@/services/billing/aiCreditGate", () => ({ aiCreditGate: (...a: unknown[]) => mockGate(...a) }));
+// REACT-AGENT-FIRST-TURN-1 — the route prechecks before the model call and charges on success.
+jest.mock("@/services/billing/aiCreditGate", () => ({
+  aiCreditPrecheck: (...a: unknown[]) => mockGate(...a),
+  chargeAiCreditsForSuccess: async () => ({ charged: 0, outcome: "not_owed" }),
+}));
 
 const mockEnabled = jest.fn();
 const mockConfig = jest.fn();

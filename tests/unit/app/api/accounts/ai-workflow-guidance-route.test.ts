@@ -37,8 +37,16 @@ jest.mock("@/app/api/workflows/_shared", () => ({
   },
 }));
 
+// REACT-AGENT-FIRST-TURN-1 — the route now PRECHECKS before the model call and CHARGES only on the
+// success exit. `mockGate` stands in for the precheck (identical call signature to the old gate, so
+// every existing "was the caller metered exactly once / not at all" assertion still reads true);
+// `mockCharge` is the deferred customer charge, which failure paths must never reach.
 const mockGate = jest.fn();
-jest.mock("@/services/billing/aiCreditGate", () => ({ aiCreditGate: (...a: unknown[]) => mockGate(...a) }));
+const mockCharge = jest.fn();
+jest.mock("@/services/billing/aiCreditGate", () => ({
+  aiCreditPrecheck: (...a: unknown[]) => mockGate(...a),
+  chargeAiCreditsForSuccess: (...a: unknown[]) => mockCharge(...a),
+}));
 
 const mockEnabled = jest.fn();
 const mockConfig = jest.fn();
@@ -103,6 +111,7 @@ beforeEach(() => {
   mockRequireUserWithAccount.mockReset().mockResolvedValue({ ok: true, userId: "user-1", accountId: ACCOUNT });
   mockLoadWorkflowForMember.mockReset().mockResolvedValue({ ok: true, record: wfRecord });
   mockGate.mockReset().mockResolvedValue({ ok: true, skipped: true, reason: "enforcement_disabled" });
+  mockCharge.mockReset().mockResolvedValue({ charged: 0, outcome: "not_owed" });
   mockEnabled.mockReset().mockReturnValue(true);
   mockConfig.mockReset().mockReturnValue({ gatewayUrl: "https://gw.example.com", gatewayToken: "tok", timeoutMs: 30000 });
   mockAuditRecord.mockReset().mockResolvedValue(undefined);
@@ -643,12 +652,17 @@ describe("workflow-guidance route — capability call + safe response", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.code).toBe("PREVIEW_PLAN_MISSING");
-    // Actionable retry copy; NOT the questionnaire, NOT model text, nothing changed.
-    expect(body.message).toMatch(/send the request again/i);
+    // Actionable copy; NOT the questionnaire, NOT model text, nothing changed.
     expect(body.message).not.toMatch(/Which note/);
-    // Exactly one repair -- no loop -- and still one credit.
+    // REACT-AGENT-FIRST-TURN-1 — never tell the user to resend the SAME request. That instruction is
+    // what trained duplicate submission, and re-sending identical text does not change the outcome.
+    expect(body.message).not.toMatch(/send the request again|try again|resend/i);
+    expect(body.message).toMatch(/nothing was changed/i);
+    expect(body.message).toMatch(/no AI credit was used/i);
+    // Exactly one repair -- no loop -- and the customer is NOT billed for a failed turn.
     expect(mockRunner).toHaveBeenCalledTimes(2);
     expect(mockGate).toHaveBeenCalledTimes(1);
+    expect(mockCharge).not.toHaveBeenCalled();
   });
 
   it("SERVER-ENFORCED PREVIEW-FIRST -- the repair is SKIPPED when too little route budget remains; the deterministic fallback still rescues the named-provider chain (1 call)", async () => {
@@ -1356,20 +1370,19 @@ describe("workflow-guidance route — retry stays inside one metered submission"
 });
 
 /**
- * REACT-AGENT-RETRY-BACKOFF-1 — AI-credit semantics, pinned HONESTLY.
+ * AI-credit semantics — REACT-AGENT-RETRY-BACKOFF-1, closed by REACT-AGENT-FIRST-TURN-1.
  *
- * The requirement "a failed submission consumes no PERMANENT credit" implies a reserve/release (or
- * refund) model. ChainReact does not have one: `aiCreditGate` is DEDUCT-ONLY (one atomic
- * `deduct_ai_credits_if_available` RPC) and there is no refund/release RPC anywhere in the repo. So
- * the achievable invariant today is the one that retry could actually have broken — AT MOST ONE gate
- * call per user submission — and these tests pin exactly that, plus the fact that no reversal is
- * attempted (which is also why a double-refund is impossible).
+ * The old invariant was only "AT MOST ONE gate call per submission", because `aiCreditGate` was
+ * DEDUCT-BEFORE-THE-CALL and the ledger has no refund/release RPC — so a failed submission kept its
+ * credit, and the failure copy told the user to send the same request again (charging them twice
+ * for one answer).
  *
- * The residual gap is documented in the closeout: with `ENABLE_AI_CREDIT_ENFORCEMENT=true`, a failed
- * submission still consumes its credit. That is PRE-EXISTING (unchanged by retry) and inert today
- * because enforcement is off by default. Closing it needs a deliberate billing slice.
+ * That is now structural rather than documented-as-a-gap: the route PRECHECKS before the model call
+ * (no ledger write) and CHARGES once on its single success exit. Every typed terminal failure exits
+ * BEFORE the charge, so nothing is taken and nothing needs refunding — which is also why no
+ * double-refund is possible: there is no refund path at all.
  */
-describe("workflow-guidance route — AI-credit semantics (documented, incl. the known gap)", () => {
+describe("workflow-guidance route — AI-credit semantics (failed turns are never billed)", () => {
   let errorSpy: jest.SpyInstance;
   beforeEach(() => {
     errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -1381,26 +1394,174 @@ describe("workflow-guidance route — AI-credit semantics (documented, incl. the
     ["timeout", { ok: false, code: "TIMEOUT", message: "x" }],
     ["provider failure", { ok: false, code: "PROVIDER_ERROR", message: "x" }],
     ["invalid response", { ok: false, code: "INVALID_RESPONSE", message: "x" }],
-  ])("(#7,#32) %s → the credit gate is invoked exactly once, never per attempt", async (_label, runnerResult) => {
+  ])("(#7,#32) %s → the credit precheck runs exactly once, never per attempt", async (_label, runnerResult) => {
     mockRunner.mockResolvedValueOnce(runnerResult);
     await call(ACCOUNT, goodBody);
     expect(mockGate).toHaveBeenCalledTimes(1);
   });
 
-  it("(#34) no refund/release is attempted on failure — so a double-refund is impossible by construction", async () => {
+  it("no refund/release is attempted on failure — nothing was taken, so nothing can be double-refunded", async () => {
     mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "x" });
     await call(ACCOUNT, goodBody);
-    // The gate module exposes only `aiCreditGate` (deduct-only). If a refund/release helper is ever
-    // added, this assertion must be revisited together with the failure paths above.
     expect(mockGate).toHaveBeenCalledTimes(1);
     expect(mockGate.mock.calls[0]![0]).not.toHaveProperty("refund");
     expect(mockGate.mock.calls[0]![0]).not.toHaveProperty("release");
+    expect(mockCharge).not.toHaveBeenCalled();
   });
 
-  it("(#13,#18) a failed submission does not re-enter the gate (the known gap is 'not refunded', not 'charged twice')", async () => {
-    mockRunner.mockResolvedValueOnce({ ok: false, code: "TIMEOUT", message: "x" });
+  // The core of REACT-AGENT-FIRST-TURN-1: every typed terminal failure leaves the customer unbilled.
+  it.each([
+    ["GUIDANCE_TIMEOUT", { ok: false, code: "TIMEOUT", message: "x" }],
+    ["GUIDANCE_UNAVAILABLE", { ok: false, code: "PROVIDER_ERROR", message: "x" }],
+    ["GUIDANCE_UNAVAILABLE (invalid response)", { ok: false, code: "INVALID_RESPONSE", message: "x" }],
+  ])("%s → precheck ran, but NO customer charge is taken", async (_label, runnerResult) => {
+    mockGate.mockResolvedValueOnce({
+      ok: true,
+      pending: { accountId: ACCOUNT, credits: 1 },
+      used: 3,
+      limit: 20,
+    });
+    mockRunner.mockResolvedValueOnce(runnerResult);
     const res = await call(ACCOUNT, goodBody);
     expect(res.status).toBe(503);
     expect(mockGate).toHaveBeenCalledTimes(1);
+    expect(mockCharge).not.toHaveBeenCalled();
+  });
+
+  it("PREVIEW_PLAN_MISSING → precheck ran, but NO customer charge is taken", async () => {
+    mockGate.mockResolvedValueOnce({
+      ok: true,
+      pending: { accountId: ACCOUNT, credits: 1 },
+      used: 3,
+      limit: 20,
+    });
+    // A plan-expected request (two named apps) whose replies never carry a plan, and which the
+    // deterministic fallback cannot resolve either (three apps in one clause → ambiguous).
+    mockRunner.mockResolvedValue({
+      ok: true,
+      guidanceText: "Which list should I use?",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "Use Mailchimp and HubSpot to do something with a Typeform entry",
+      recentTurns: [{ role: "user", text: "earlier" }],
+    });
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("PREVIEW_PLAN_MISSING");
+    expect(mockCharge).not.toHaveBeenCalled();
+  });
+
+  it("a SUCCESSFUL turn charges exactly once, with the pre-authorized amount", async () => {
+    mockGate.mockResolvedValueOnce({
+      ok: true,
+      pending: { accountId: ACCOUNT, credits: 2 },
+      used: 3,
+      limit: 20,
+    });
+    mockCharge.mockResolvedValueOnce({ charged: 2, outcome: "charged" });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    expect(mockCharge).toHaveBeenCalledTimes(1);
+    expect(mockCharge).toHaveBeenCalledWith({ accountId: ACCOUNT, credits: 2 });
+  });
+
+  it("a successful CLARIFICATION (a real answer that asks for required info) is still charged", async () => {
+    // guidanceOk is a clarification: no plan, but it IS the billed deliverable the user asked for.
+    mockGate.mockResolvedValueOnce({
+      ok: true,
+      pending: { accountId: ACCOUNT, credits: 1 },
+      used: 0,
+      limit: 20,
+    });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    expect(mockCharge).toHaveBeenCalledTimes(1);
+  });
+
+  it("enforcement disabled → a successful turn charges nothing (no artificial credits either way)", async () => {
+    // The default precheck outcome is `skipped: enforcement_disabled`, which carries no `pending`.
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    expect(mockCharge).toHaveBeenCalledTimes(1);
+    expect(mockCharge).toHaveBeenCalledWith(null); // nothing owed → the repo is never touched
+  });
+
+  it("a charge that races past the cap never turns a delivered answer into an error", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockGate.mockResolvedValueOnce({
+      ok: true,
+      pending: { accountId: ACCOUNT, credits: 1 },
+      used: 19,
+      limit: 20,
+    });
+    mockCharge.mockResolvedValueOnce({ charged: 0, outcome: "cap_reached" });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+    expect(warnSpy).toHaveBeenCalled(); // unbilled successful usage is logged, not hidden
+    warnSpy.mockRestore();
+  });
+
+  it("a credit denial still refuses BEFORE the model call and never charges", async () => {
+    mockGate.mockResolvedValueOnce({ ok: false, reason: "insufficient_ai_credits", used: 20, limit: 20 });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(402);
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockCharge).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * REACT-AGENT-FIRST-TURN-1 — the owner-observed first-turn regression, at the ROUTE level.
+ *
+ * "When a Stripe invoice is paid, post a message in our Slack billing channel…" used to return
+ * PREVIEW_PLAN_MISSING on the first submission and succeed on an identical second one. The route's
+ * registry-first short-circuit only runs on a FIRST turn (empty recentTurns); the deterministic
+ * planner declined on the Slack clause, so the turn fell through to the model + repair + the same
+ * declining fallback. With ranked object matching the short-circuit resolves it, which means the
+ * model is never called and no credit is charged.
+ */
+describe("workflow-guidance route — first-turn Stripe→Slack regression", () => {
+  const OWNER_PROMPT =
+    "When a Stripe invoice is paid, post a message in our Slack billing channel that includes the " +
+    "customer name, invoice number, amount paid, and a link to the invoice.";
+
+  it("returns a preview on the FIRST request, with no model call and no credit charged", async () => {
+    const res = await call(ACCOUNT, { goalText: OWNER_PROMPT });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.source).toBe("registry_planner");
+    expect(body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`)).toEqual([
+      "stripe:event_received",
+      "slack:send_channel_message",
+    ]);
+    // A real, renderable preview — the thing the user was missing.
+    expect(body.previewDraft.nodes.length).toBe(2);
+
+    // The whole point: no Hermes, no repair, no retry, no billing.
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCharge).not.toHaveBeenCalled();
+  });
+
+  it("the shorter explicit form also previews on the first request", async () => {
+    const res = await call(ACCOUNT, {
+      goalText: "When a Stripe invoice is paid, send a channel message in Slack.",
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("registry_planner");
+    expect(mockRunner).not.toHaveBeenCalled();
+  });
+
+  it("no error transcript entry is possible — the response is a success envelope", async () => {
+    const res = await call(ACCOUNT, { goalText: OWNER_PROMPT });
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body).not.toHaveProperty("code");
   });
 });

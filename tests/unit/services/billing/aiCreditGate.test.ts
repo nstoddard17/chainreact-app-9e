@@ -90,3 +90,113 @@ describe("aiCreditGate — flag ON", () => {
     expect(outcome).toEqual({ ok: false, reason: "gate_error", used: 0, limit: 0 });
   });
 });
+
+/**
+ * REACT-AGENT-FIRST-TURN-1 — the DEFERRED-CHARGE pair.
+ *
+ * `aiCreditGate` charges before the model call, which meant a guidance turn that ended in a typed
+ * terminal failure billed the customer for nothing (the ledger is deduct-only — no refund RPC
+ * exists, so the charge could not be undone). The guidance route now PRECHECKS, then charges once
+ * on success. These pin that the precheck refuses exactly like the gate but writes nothing, and
+ * that the charge is the only thing that touches the balance.
+ */
+import { aiCreditPrecheck, chargeAiCreditsForSuccess } from "@/services/billing/aiCreditGate";
+
+describe("aiCreditPrecheck — authorizes without touching the balance", () => {
+  it("flag OFF is a pure no-op: no frozen check, no ledger call at all", async () => {
+    mockFlag.mockReturnValue(false);
+    const outcome = await aiCreditPrecheck({ accountId: "a1", feature: "workflow_guidance" });
+    expect(outcome).toEqual({ ok: true, skipped: true, reason: "enforcement_disabled" });
+    expect(mockIsAccountFrozen).not.toHaveBeenCalled();
+    expect(mockDeductAiCredits).not.toHaveBeenCalled();
+  });
+
+  it("authorizes an affordable call and CHARGES NOTHING (the probe is a zero-amount no-op)", async () => {
+    mockDeductAiCredits.mockResolvedValue({ ok: true, used: 5, limit: 20 });
+    const outcome = await aiCreditPrecheck({ accountId: "a1", feature: "workflow_guidance" });
+    expect(outcome).toEqual({
+      ok: true,
+      pending: { accountId: "a1", credits: 1 },
+      used: 5,
+      limit: 20,
+    });
+    // The ONLY ledger call is the zero-amount rollover probe — no credit is taken here.
+    expect(mockDeductAiCredits).toHaveBeenCalledTimes(1);
+    expect(mockDeductAiCredits).toHaveBeenCalledWith("a1", 0);
+  });
+
+  it("reads through a ZERO-amount deduct so a new billing period's reset is seen", async () => {
+    // A plain SELECT would miss the lazy AI-period rollover the RPC performs, and would wrongly
+    // refuse a user whose credits had in fact just reset.
+    mockDeductAiCredits.mockResolvedValue({ ok: true, used: 0, limit: 20 });
+    await aiCreditPrecheck({ accountId: "a1", feature: "workflow_guidance" });
+    expect(mockDeductAiCredits).toHaveBeenCalledWith("a1", 0);
+  });
+
+  it("refuses when the charge would exceed the limit — before any model call", async () => {
+    mockDeductAiCredits.mockResolvedValue({ ok: true, used: 20, limit: 20 });
+    const outcome = await aiCreditPrecheck({ accountId: "a1", feature: "workflow_guidance" });
+    expect(outcome).toEqual({ ok: false, reason: "insufficient_ai_credits", used: 20, limit: 20 });
+  });
+
+  it("refuses a frozen account before touching the ledger", async () => {
+    mockIsAccountFrozen.mockResolvedValue(true);
+    const outcome = await aiCreditPrecheck({ accountId: "frozen", feature: "workflow_guidance" });
+    expect(outcome).toEqual({ ok: false, reason: "account_frozen", used: 0, limit: 0 });
+    expect(mockDeductAiCredits).not.toHaveBeenCalled();
+  });
+
+  it("test mode authorizes nothing to charge", async () => {
+    const outcome = await aiCreditPrecheck({ accountId: "a1", feature: "workflow_guidance", testMode: true });
+    expect(outcome).toEqual({ ok: true, skipped: true, reason: "test_mode" });
+    expect(mockDeductAiCredits).not.toHaveBeenCalled();
+  });
+
+  it("FAILS CLOSED on an RPC error, exactly like the pre-call gate", async () => {
+    mockDeductAiCredits.mockRejectedValue(new Error("rpc down"));
+    const outcome = await aiCreditPrecheck({ accountId: "a1", feature: "workflow_guidance" });
+    expect(outcome).toEqual({ ok: false, reason: "gate_error", used: 0, limit: 0 });
+  });
+});
+
+describe("chargeAiCreditsForSuccess — the single customer charge", () => {
+  it("charges the pre-authorized amount exactly once", async () => {
+    mockDeductAiCredits.mockResolvedValue({ ok: true, used: 6, limit: 20 });
+    const result = await chargeAiCreditsForSuccess({ accountId: "a1", credits: 1 });
+    expect(result).toEqual({ charged: 1, outcome: "charged" });
+    expect(mockDeductAiCredits).toHaveBeenCalledTimes(1);
+    expect(mockDeductAiCredits).toHaveBeenCalledWith("a1", 1);
+  });
+
+  it("a null authorization (nothing owed) never touches the ledger — no artificial credits", async () => {
+    const result = await chargeAiCreditsForSuccess(null);
+    expect(result).toEqual({ charged: 0, outcome: "not_owed" });
+    expect(mockDeductAiCredits).not.toHaveBeenCalled();
+  });
+
+  it("a zero-credit authorization never touches the ledger", async () => {
+    const result = await chargeAiCreditsForSuccess({ accountId: "a1", credits: 0 });
+    expect(result).toEqual({ charged: 0, outcome: "not_owed" });
+    expect(mockDeductAiCredits).not.toHaveBeenCalled();
+  });
+
+  it("reports a cap race without throwing (the user keeps their delivered answer)", async () => {
+    mockDeductAiCredits.mockResolvedValue({ ok: false, used: 20, limit: 20 });
+    const result = await chargeAiCreditsForSuccess({ accountId: "a1", credits: 1 });
+    expect(result).toEqual({ charged: 0, outcome: "cap_reached" });
+  });
+
+  it("NEVER throws on an RPC failure — a ledger problem cannot fail a successful turn", async () => {
+    mockDeductAiCredits.mockRejectedValue(new Error("rpc down"));
+    await expect(chargeAiCreditsForSuccess({ accountId: "a1", credits: 1 })).resolves.toEqual({
+      charged: 0,
+      outcome: "charge_error",
+    });
+  });
+
+  it("charges once per call — a repeated terminal handler cannot double-bill (the route calls it once)", async () => {
+    mockDeductAiCredits.mockResolvedValue({ ok: true, used: 6, limit: 20 });
+    await chargeAiCreditsForSuccess({ accountId: "a1", credits: 1 });
+    expect(mockDeductAiCredits).toHaveBeenCalledTimes(1);
+  });
+});

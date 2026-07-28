@@ -133,10 +133,24 @@ function namedProvidersByClause(clauses: readonly string[]): Map<string, number>
  * Resolve ONE provider's clause to exactly one capability, or null.
  *
  *   1. verb gate — the capability's verb token must appear in the clause;
- *   2. object gate — if any verb-matched candidate's object noun appears in the clause, only those
- *      candidates survive; otherwise, if the clause references a PERSON, only candidates whose
- *      object nouns are person-class survive;
+ *   2. object gate — RANKED (REACT-AGENT-FIRST-TURN-1). Score each verb-matched candidate by how
+ *      many DISTINCT object nouns of its own the clause contains, and keep the unique top scorer;
+ *      otherwise, if the clause references a PERSON, only candidates whose object nouns are
+ *      person-class survive;
  *   3. exactly one survivor → matched; zero or several → null (never guess).
+ *
+ * Why ranked and not binary (the first-turn defect): scoring used to be "matched at least one
+ * object noun", so a candidate stayed alive on a single GENERIC noun it happened to share with a
+ * more specific sibling. "post a message in our Slack billing channel" kept BOTH
+ * `slack:send_channel_message` (matches `channel` + `message`) and `slack:send_direct_message`
+ * (matches `message` only — the user never said "direct"), tied, and declined — so the request the
+ * user stated most explicitly was the one ChainReact refused to plan. Counting matched nouns lets
+ * the strictly better-specified capability win.
+ *
+ * This RELAXES nothing about genuine ambiguity: the winner must be a UNIQUE maximum. Two candidates
+ * that match the clause equally well (Mailchimp's `add_note` vs `add_tag` for "add a note and a
+ * tag", each scoring 1) still tie and still decline. A higher score means the clause named strictly
+ * more of that capability's own nouns — evidence, not a tie-break heuristic.
  */
 function resolveUniqueCapability(
   candidates: readonly CapabilityCandidate[],
@@ -147,9 +161,20 @@ function resolveUniqueCapability(
   if (verbMatched.length === 0) return null;
   if (verbMatched.length === 1) return verbMatched[0]!;
 
-  const objectMatched = verbMatched.filter((c) => [...c.objects].some((o) => words.has(o)));
-  if (objectMatched.length === 1) return objectMatched[0]!;
-  if (objectMatched.length > 1) return null;
+  // Score = how many of the candidate's OWN object nouns the clause contains. Zero-score candidates
+  // are not eligible here (unchanged: a clause naming no object noun falls through to person-class).
+  const scored = verbMatched
+    .map((candidate) => ({
+      candidate,
+      score: [...candidate.objects].filter((o) => words.has(o)).length,
+    }))
+    .filter((s) => s.score > 0);
+  if (scored.length > 0) {
+    const topScore = Math.max(...scored.map((s) => s.score));
+    const top = scored.filter((s) => s.score === topScore);
+    // A UNIQUE strongest match may be selected; a genuine tie stays unresolved.
+    return top.length === 1 ? top[0]!.candidate : null;
+  }
 
   // No object noun in the clause at all — fall back to the person-reference class.
   if (PERSON_REFERENCE_RE.test(clause)) {

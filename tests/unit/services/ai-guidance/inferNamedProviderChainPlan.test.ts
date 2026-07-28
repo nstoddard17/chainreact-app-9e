@@ -112,3 +112,90 @@ describe("inferNamedProviderChainPlan — tokenized (sensitive-literal) goals st
     ]);
   });
 });
+
+/**
+ * REACT-AGENT-FIRST-TURN-1 — the owner-observed first-turn failure.
+ *
+ * Object matching used to be BINARY ("matched at least one object noun"), so
+ * `slack:send_direct_message` survived on the generic word "message" alongside
+ * `slack:send_channel_message` (which matches BOTH "channel" and "message"). Two survivors → the
+ * planner declined → the route fell through to the model, the repair call, and this same fallback
+ * again, and the user got PREVIEW_PLAN_MISSING on a request they had stated completely.
+ *
+ * These pin the ranked behavior: the UNIQUE strongest match wins, a genuine tie still declines.
+ */
+const OWNER_PROMPT =
+  "When a Stripe invoice is paid, post a message in our Slack billing channel that includes the " +
+  "customer name, invoice number, amount paid, and a link to the invoice.";
+
+describe("inferNamedProviderChainPlan — ranked object matching (REACT-AGENT-FIRST-TURN-1)", () => {
+  it("the exact owner-observed prompt resolves on the FIRST turn (no conversation history)", () => {
+    const plan = inferNamedProviderChainPlan(OWNER_PROMPT);
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.role}:${s.provider}:${s.type}`)).toEqual([
+      "trigger:stripe:event_received",
+      "action:slack:send_channel_message",
+    ]);
+  });
+
+  it("the owner prompt's plan is real, validated, and carries no fabricated config", () => {
+    const plan = inferNamedProviderChainPlan(OWNER_PROMPT)!;
+    expect(validateWorkflowPlan(plan).ok).toBe(true);
+    expect(plan.notApplied).toBe(true);
+    for (const step of plan.steps) expect(step.config).toBeUndefined();
+    // requiredInputs come from REAL registry metadata, not from the sentence.
+    const action = plan.steps.find((s) => s.role === "action")!;
+    const meta = getActionMeta(`${action.provider}:${action.type}`)!;
+    expect(action.requiredInputs ?? []).toEqual(
+      meta.fields.filter((f) => f.required).map((f) => f.name),
+    );
+  });
+
+  it("the shorter explicit 'channel message' form also resolves", () => {
+    const plan = inferNamedProviderChainPlan(
+      "When a Stripe invoice is paid, send a channel message in Slack.",
+    );
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.provider}:${s.type}`)).toEqual([
+      "stripe:event_received",
+      "slack:send_channel_message",
+    ]);
+  });
+
+  it("'channel' is what breaks the tie — the same sentence without it stays ambiguous", () => {
+    // "message" alone matches send_channel_message and send_direct_message EQUALLY (score 1 each).
+    // A tie at the top score is a genuine user decision, so the planner must still decline.
+    expect(
+      inferNamedProviderChainPlan("When a Stripe invoice is paid, send a message in Slack."),
+    ).toBeNull();
+  });
+
+  it("a generic 'notify Slack' with no object noun at all still declines", () => {
+    expect(inferNamedProviderChainPlan("When a Stripe invoice is paid, notify Slack.")).toBeNull();
+  });
+
+  it("naming the provider is never on its own enough to pick between equal actions", () => {
+    // Slack is named and the verb matches, but nothing distinguishes channel from direct.
+    expect(
+      inferNamedProviderChainPlan("When a Stripe invoice is paid, post a message to Slack."),
+    ).toBeNull();
+  });
+
+  it("the pre-existing equal-score ambiguity (Mailchimp note vs tag) is UNCHANGED", () => {
+    // Both score exactly 1 ("note" / "tag"); ranking must not manufacture a winner.
+    expect(
+      inferNamedProviderChainPlan("When a Typeform response arrives, add a note and a tag in Mailchimp"),
+    ).toBeNull();
+  });
+
+  it("a punctuation-heavy positive case still resolves through ranking", () => {
+    const plan = inferNamedProviderChainPlan(
+      "When a Stripe invoice is paid; post a message in our Slack billing channel, please.",
+    );
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.provider}:${s.type}`)).toEqual([
+      "stripe:event_received",
+      "slack:send_channel_message",
+    ]);
+  });
+});

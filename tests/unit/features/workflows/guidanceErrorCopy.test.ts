@@ -12,13 +12,14 @@
 import { safeErrorMessage, UNAVAILABLE_MESSAGE } from "@/features/workflows/guidancePanelShared";
 
 describe("safeErrorMessage — actionable codes speak, everything else stays opaque", () => {
-  it("(#19) GUIDANCE_TIMEOUT keeps its server copy, which tells the user to retry manually", () => {
-    const message = "That took longer than the assistant could work on it. Try again, or ask for one smaller change at a time.";
+  it("(#19) GUIDANCE_TIMEOUT keeps its server copy, which suggests a smaller request", () => {
+    const message =
+      "That took longer than the assistant could work on it. Nothing was changed, and no AI credit was used. Try asking for one smaller change at a time.";
     const rendered = safeErrorMessage({ code: "GUIDANCE_TIMEOUT", message });
     expect(rendered).toBe(message);
-    // The manual-retry affordance IS this instruction plus the always-present composer: the user
-    // resubmits. Nothing here auto-retries a timeout.
-    expect(rendered).toMatch(/try again/i);
+    // A timeout is genuinely transient, so a narrower re-ask is a real remedy — unlike
+    // PREVIEW_PLAN_MISSING below, where re-sending IDENTICAL text is not.
+    expect(rendered).toMatch(/smaller/i);
   });
 
   it("credit exhaustion keeps its specific, actionable copy", () => {
@@ -26,14 +27,30 @@ describe("safeErrorMessage — actionable codes speak, everything else stays opa
     expect(safeErrorMessage({ code: "AI_CREDITS_EXHAUSTED", message })).toBe(message);
   });
 
-  // REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — the typed no-plan failure carries its own
-  // retry instruction; collapsing it to the outage copy would wrongly imply the assistant is down.
-  it("PREVIEW_PLAN_MISSING keeps its retry copy (nothing changed; re-send retries)", () => {
+  // REACT-AGENT-PREVIEW-FIRST-SERVER-ENFORCEMENT-1 — the typed no-plan failure speaks in its own
+  // words; collapsing it to the outage copy would wrongly imply the assistant is down.
+  // REACT-AGENT-FIRST-TURN-1 — and it must NOT ask for an identical resubmission.
+  it("PREVIEW_PLAN_MISSING speaks, and never asks for the same request again", () => {
     const message =
-      "I understood the workflow you want, but couldn't produce the preview this time. Nothing was changed — send the request again and I'll build the preview with the remaining choices as setup fields.";
+      "I understood the workflow, but couldn't create a valid preview. Nothing was changed, and no AI credit was used. Try describing it as a single trigger and one or two steps, naming the apps you want to use.";
     const rendered = safeErrorMessage({ code: "PREVIEW_PLAN_MISSING", message });
     expect(rendered).toBe(message);
-    expect(rendered).toMatch(/send the request again/i);
+    expect(rendered).not.toMatch(/send the request again|resend|try again/i);
+    expect(rendered).toMatch(/nothing was changed/i);
+    expect(rendered).toMatch(/no AI credit was used/i);
+  });
+
+  it("the typed categories stay DISTINCT — one message must not serve for all of them", () => {
+    const timeout = "That took longer than the assistant could work on it.";
+    const planMissing = "I understood the workflow, but couldn't create a valid preview.";
+    const credits = "You've used all AI credits for this billing period.";
+    const rendered = [
+      safeErrorMessage({ code: "GUIDANCE_TIMEOUT", message: timeout }),
+      safeErrorMessage({ code: "PREVIEW_PLAN_MISSING", message: planMissing }),
+      safeErrorMessage({ code: "AI_CREDITS_EXHAUSTED", message: credits }),
+      safeErrorMessage({ code: "GUIDANCE_UNAVAILABLE", message: "x" }),
+    ];
+    expect(new Set(rendered).size).toBe(4);
   });
 
   it.each([

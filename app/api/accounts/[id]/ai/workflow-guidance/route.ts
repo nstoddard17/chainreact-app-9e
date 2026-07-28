@@ -7,7 +7,12 @@ import {
   parseJsonBody,
   workflowNotFoundResponse,
 } from "@/app/api/workflows/_shared";
-import { aiCreditGate, type AiCreditGateOutcome } from "@/services/billing/aiCreditGate";
+import {
+  aiCreditPrecheck,
+  chargeAiCreditsForSuccess,
+  type AiCreditDenial,
+  type AiCreditPrecheckOutcome,
+} from "@/services/billing/aiCreditGate";
 import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai-guidance/gateway/gatewayConfig";
 import { enforcePreviewFirst } from "@/services/ai-guidance/previewFirst/enforcePreviewFirst";
 import { recoverGuidanceTimeoutWithFallback } from "@/services/ai-guidance/previewFirst/recoverTimeoutFallback";
@@ -82,7 +87,9 @@ import * as accountsRepo from "@/repositories/accounts";
  *      The workflow's saved draft is passed as the OPTIONAL safe context (sanitized by the runner).
  *   4. Hermes availability (`HERMES_AGENT_ENABLED` + gateway config) BEFORE any charge → 503 when
  *      disabled/unconfigured (no credit charge, no network).
- *   5. `aiCreditGate` (feature `workflow_guidance`, fast tier) BEFORE the capability call → 402/403/503.
+ *   5. `aiCreditPrecheck` (feature `workflow_guidance`, fast tier) BEFORE the capability call →
+ *      402/403/503. The CHARGE is deferred to the single success exit (REACT-AGENT-FIRST-TURN-1) so
+ *      a typed terminal failure never bills the customer and no refund is ever needed.
  *   6. `runWorkflowGuidanceIntakeCapability` through the `runAuthorizedCapability` governance seam,
  *      injecting the persistent audit recorder (one safe `react_agent_audit_events` row).
  *
@@ -154,7 +161,7 @@ const BodySchema = z
   .strict();
 
 /** Typed, no-leak credit-denial bodies (mirrors the diagnose/qa route). */
-function aiCreditDenialResponse(gate: Extract<AiCreditGateOutcome, { ok: false }>): NextResponse {
+function aiCreditDenialResponse(gate: AiCreditDenial): NextResponse {
   if (gate.reason === "account_frozen") {
     return NextResponse.json(
       { ok: false, code: "ACCOUNT_PENDING_DELETION", message: "This account is pending deletion." },
@@ -176,13 +183,30 @@ function aiCreditDenialResponse(gate: Extract<AiCreditGateOutcome, { ok: false }
 /**
  * REACT-AGENT-RETRY-BACKOFF-1 — the credit outcome as a SAFE enum for the failure log.
  *
- * The gate runs ONCE per user submission, before the brain call and outside the retry, so this also
- * documents the invariant in production output: whatever `attempts=` says, `creditOutcome=` describes
- * a single gate decision. Carries no counters/limits/account data — just which branch fired.
+ * The precheck runs ONCE per user submission, before the brain call and outside the retry, so this
+ * also documents the invariant in production output: whatever `attempts=` says, `creditOutcome=`
+ * describes a single decision. Carries no counters/limits/account data — just which branch fired.
+ *
+ * REACT-AGENT-FIRST-TURN-1 — this helper is only ever called on a FAILURE exit, and the charge now
+ * happens after every one of those, so an authorized turn that reaches here was NOT billed. The enum
+ * says `authorized_not_charged` rather than the old `charged_once` precisely so a production log line
+ * proves the customer was not charged for a failed turn.
  */
-function describeCreditOutcome(gate: AiCreditGateOutcome): string {
-  if (!gate.ok) return `denied_${gate.reason}`;
-  return "skipped" in gate ? `skipped_${gate.reason}` : "charged_once";
+function describeCreditOutcome(precheck: AiCreditPrecheckOutcome): string {
+  if (!precheck.ok) return `denied_${precheck.reason}`;
+  return "skipped" in precheck ? `skipped_${precheck.reason}` : "authorized_not_charged";
+}
+
+/**
+ * REACT-AGENT-FIRST-TURN-1 — the customer got their guidance but the ledger did not record the
+ * charge (raced past the cap, or the RPC failed). Deliberately never fails the turn; logged so
+ * unbilled successful usage is visible rather than silent. Safe enum + requestId only.
+ */
+function logGuidanceChargeAnomaly(info: { requestId: string; outcome: string }): void {
+  console.warn(
+    `[workflow-guidance] credit charge skipped after a successful turn ` +
+      `requestId=${info.requestId} outcome=${info.outcome} — guidance was delivered unbilled.`,
+  );
 }
 
 /** Safe "guidance unavailable" response — disabled config or a provider/transport failure. */
@@ -191,7 +215,8 @@ function guidanceUnavailableResponse(): NextResponse {
     {
       ok: false,
       code: "GUIDANCE_UNAVAILABLE",
-      message: "Workflow guidance isn't available right now. Please try again later.",
+      message:
+        "Workflow guidance isn't available right now. Nothing was changed, and no AI credit was used. Please try again later.",
     },
     { status: 503 },
   );
@@ -212,7 +237,7 @@ function guidanceTimeoutResponse(): NextResponse {
       ok: false,
       code: "GUIDANCE_TIMEOUT",
       message:
-        "That took longer than the assistant could work on it. Try again, or ask for one smaller change at a time.",
+        "That took longer than the assistant could work on it. Nothing was changed, and no AI credit was used. Try asking for one smaller change at a time.",
     },
     { status: 503 },
   );
@@ -224,9 +249,15 @@ function guidanceTimeoutResponse(): NextResponse {
  *
  * Deliberately NOT the model's questionnaire: the server already determined the topology is clear
  * and every open question is a setup value, so re-surfacing a long list of chat questions would
- * re-create the exact regression this slice fixes. Nothing was changed (this route never mutates a
- * draft); the useful retry is re-sending, which starts a fresh two-attempt sequence. Fixed code +
- * fixed copy — no model text, no classification internals, no provider detail.
+ * re-create the exact regression this slice fixes. Fixed code + fixed copy — no model text, no
+ * classification internals, no provider detail.
+ *
+ * REACT-AGENT-FIRST-TURN-1 — the copy no longer says "send the request again". That instruction
+ * trained users to duplicate-submit an identical request, which is what made this defect look
+ * intermittent (the second identical submission takes a different route path and often succeeds).
+ * Re-sending the SAME text is not a fix, so it is not offered as one; rephrasing or simplifying is
+ * the action that can actually change the outcome. The no-credit sentence is honest because the
+ * charge is now deferred past every failure exit (see `chargeAiCreditsForSuccess`).
  */
 function previewPlanMissingResponse(): NextResponse {
   return NextResponse.json(
@@ -234,7 +265,7 @@ function previewPlanMissingResponse(): NextResponse {
       ok: false,
       code: "PREVIEW_PLAN_MISSING",
       message:
-        "I understood the workflow you want, but couldn't produce the preview this time. Nothing was changed — send the request again and I'll build the preview with the remaining choices as setup fields.",
+        "I understood the workflow, but couldn't create a valid preview. Nothing was changed, and no AI credit was used. Try describing it as a single trigger and one or two steps, naming the apps you want to use.",
     },
     { status: 503 },
   );
@@ -486,9 +517,19 @@ export async function POST(
     return guidanceUnavailableResponse();
   }
 
-  // 5. Credit gate BEFORE the capability call. Metered as `workflow_guidance` (fast tier).
-  const gate = await aiCreditGate({ accountId, feature: "workflow_guidance", plannedTier: "fast" });
-  if (!gate.ok) return aiCreditDenialResponse(gate);
+  // 5. Credit PRECHECK before the capability call — same refusals as the old pre-call gate
+  // (frozen / test / zero-credit / insufficient), but NO ledger write. The charge itself is
+  // DEFERRED to the single success exit (REACT-AGENT-FIRST-TURN-1): a turn that ends in a typed
+  // terminal failure must not bill the customer for guidance they never received, and the
+  // deduct-only ledger has no idempotent refund to undo a premature charge with.
+  const precheck = await aiCreditPrecheck({
+    accountId,
+    feature: "workflow_guidance",
+    plannedTier: "fast",
+  });
+  if (!precheck.ok) return aiCreditDenialResponse(precheck);
+  /** Charged ONLY on the success return below; every failure exit leaves it unbilled. */
+  const pendingCharge = "pending" in precheck ? precheck.pending : null;
 
   // HERMES-AGENT-MEMORY-SCOPE-GUARD — resolve the account-scope summary for the context guard. Only
   // the account TYPE crosses the boundary (never the id/name). Credential-availability summaries are
@@ -599,7 +640,7 @@ export async function POST(
         fieldSchemaLines: fieldSchemaLines.length,
         recentTurns: boundedRecentTurns?.length ?? 0,
         telemetry: result.attemptTelemetry,
-        creditOutcome: describeCreditOutcome(gate),
+        creditOutcome: describeCreditOutcome(precheck),
       });
     }
     if (cancelled) return guidanceCancelledResponse();
@@ -977,6 +1018,16 @@ export async function POST(
     planSteps: workflowPlan?.steps.length ?? 0,
     totalMs: Date.now() - routeStartedAt,
   });
+
+  // REACT-AGENT-FIRST-TURN-1 — the ONE customer charge for this logical turn, taken only now that a
+  // usable result exists. Placed after every failure exit, so a terminal failure is never billed and
+  // no refund is ever required; never throws, so a ledger problem cannot turn a delivered answer into
+  // an error. The two internal Hermes attempts and the repair call remain ONE charge (this line runs
+  // once per request, whatever happened upstream).
+  const creditCharge = await chargeAiCreditsForSuccess(pendingCharge);
+  if (creditCharge.outcome === "cap_reached" || creditCharge.outcome === "charge_error") {
+    logGuidanceChargeAnomaly({ requestId, outcome: creditCharge.outcome });
+  }
 
   // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no secrets. The
   // proposedDefinition is the user's OWN draft + the validated change; Apply (client) is still explicit.
