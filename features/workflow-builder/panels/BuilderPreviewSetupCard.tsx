@@ -252,7 +252,11 @@ export function BuilderPreviewSetupCard({
         </div>
       ) : null}
 
-      <div className="mt-2 max-h-[40vh] space-y-2.5 overflow-y-auto">
+      {/* REACT-AGENT-RAIL-SINGLE-SCROLL-1 — no inner scroll region. This card renders INSIDE the
+          chat transcript (`workflow-guidance-messages`, the rail's only scroll container), so a
+          capped, independently-scrolling body produced a nested second scrollbar. The list grows to
+          its natural height and the transcript scrolls it. */}
+      <div className="mt-2 space-y-2.5">
         {setupNodes.map(({ node, supported, afterApply, prefilledReadOnly }) => (
           <div key={node.previewId}>
             <div className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
