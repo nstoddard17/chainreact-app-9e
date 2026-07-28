@@ -13,7 +13,7 @@ import {
   formatReference,
   parseReferences,
   type VariableReference,
-} from "@/core/workflows/variableReferences";
+} from "@/core/workflows/variables/variableReferences";
 
 describe("parseReferences", () => {
   it("returns [] for non-string inputs", () => {

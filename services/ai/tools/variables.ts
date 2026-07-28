@@ -17,7 +17,7 @@
 import type { OutputMeta, OutputType } from "@/contracts/actionMeta";
 import type { WorkflowNode } from "@/contracts/workflow";
 import { applyDynamicOutputs } from "@/core/workflows/dynamicOutputs";
-import { formatReference } from "@/core/workflows/variableReferences";
+import { formatReference } from "@/core/workflows/variables/variableReferences";
 import { findUpstreamNodes } from "@/core/workflows/upstreamVariables";
 import {
   getActionMeta as lookupActionMeta,

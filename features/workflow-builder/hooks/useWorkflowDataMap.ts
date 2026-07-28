@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { ActionCategory, FieldMeta } from "@/contracts/actionMeta";
-import { collectConfigVariableReferences } from "@/core/workflows/configVariableReferences";
+import { collectConfigVariableReferences } from "@/core/workflows/variables/configVariableReferences";
 import {
   describeSampleChildren,
   flattenOutputFields,
@@ -12,7 +12,7 @@ import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePrev
 import { buildLatestValuesBySource } from "@/core/workflows/latestRunValues";
 import { formatTypeKey, getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { resolveValueAtPath } from "@/core/workflows/resolveValueAtPath";
-import { formatReference } from "@/core/workflows/variableReferences";
+import { formatReference } from "@/core/workflows/variables/variableReferences";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
 import { useNativeActions } from "./useNativeActions";

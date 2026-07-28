@@ -129,8 +129,10 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
       plan: { title: "Lead follow-up" },
       preview: { title: "Lead follow-up" },
     });
-    await screen.findByTestId("workflow-guidance-preview");
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+    // REACT-AGENT-RAIL-NO-DUPLICATE-PREVIEW-1 — the rail always wires a canvas, so the sketch is shown
+    // there and never ALSO restated in the chat as a textual "Draft preview" card.
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
   });
 
   it("maps a route failure to safe copy (no internal detail)", async () => {

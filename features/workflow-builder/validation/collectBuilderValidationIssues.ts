@@ -81,6 +81,13 @@ export interface BuilderValidationIssue {
   readonly nodeId?: string;
   /** When set, hints which field inside the node is the source of the issue. */
   readonly fieldName?: string;
+  /**
+   * BUILDER-ISSUES-RAIL-1 — the field's author-facing LABEL ("Channel"), when the issue is about a
+   * specific named field. Carried alongside `fieldName` (the KEY) so the drawer can write an exact
+   * next step ("Open the Channel field and fill it in.") without re-deriving it from metadata it
+   * would have to be threaded separately. A label, never a value.
+   */
+  readonly fieldLabel?: string;
 }
 
 export interface CollectBuilderValidationIssuesInput {
@@ -191,6 +198,7 @@ export function collectBuilderValidationIssues(
           message: `${displayName} needs a ${field.label}.`,
           nodeId: node.id,
           fieldName: field.name,
+          fieldLabel: field.label,
         });
       }
     }

@@ -134,13 +134,10 @@ export function useBuilderPreview({
   // short-lived "Added from preview" badge on those cards AND the post-apply required-field hint
   // list. Lifetime is tied to the notice: cleared on dismiss / workflow switch / a new preview.
   const [appliedNodeIds, setAppliedNodeIds] = useState<readonly string[]>([]);
-  // REACT-AGENT-REVIEW-TRAY-UX-1 + -RECOVERY-MERGE-1 — the current review session's identity
-  // (token) and the field it opened straight into, if any. See `useAgentReviewSession`.
-  const {
-    token: reviewSessionToken,
-    focus: reviewSessionFocus,
-    setFocus: setReviewSessionFocus,
-  } = useAgentReviewSession(appliedNodeIds);
+  // BUILDER-ISSUES-RAIL-1 — the current review session's identity. One token per apply, so a
+  // consumer can react once per session rather than on every issue-list change. The session's
+  // opened-into field went away with the floating tray. See `useAgentReviewSession`.
+  const { token: reviewSessionToken } = useAgentReviewSession(appliedNodeIds);
   // HERMES-AGENT-GUIDED-PREVIEW-SETUP — ephemeral guided-setup values for the CURRENT holographic
   // preview, keyed by previewId → fieldName → value. Preview-only: never written to configSlice / the
   // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
@@ -452,7 +449,6 @@ export function useBuilderPreview({
     if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
       setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
       setAppliedNodeIds([]);
-      setReviewSessionFocus(null);
       if (agentChangeId) {
         agentChanges.emitApplyFailed({
           agentChangeId,
@@ -543,17 +539,11 @@ export function useBuilderPreview({
         if (focusNodeId) config.revealNode({ nodeId: openId, initialValues, fieldKey: focusTarget!.fieldName });
         else config.openNode({ nodeId: openId, initialValues });
       }
-      // Only a RESOLVED focus target counts: an unresolvable one fell back to the generic open, so
-      // the session did not start on a specific field and the tray should expand as usual.
-      setReviewSessionFocus(
-        focusNodeId ? { nodeId: focusNodeId, fieldKey: focusTarget!.fieldName } : null,
-      );
     } else {
       // No patch could be built, or nothing safe to apply (e.g. trigger-only into a graph that
       // already has a trigger). Surface a safe, non-scary notice.
       setApplyNotice("ChainReact could not safely apply this preview.");
       setAppliedNodeIds([]);
-      setReviewSessionFocus(null);
       if (agentChangeId) {
         agentChanges.emitApplyFailed({
           agentChangeId,
@@ -566,7 +556,7 @@ export function useBuilderPreview({
     // Provenance is preview-only editor state: it must never reach workflow runtime configuration.
     setPreviewProvenance(EMPTY_PROVENANCE);
     return outcome?.ok === true;
-  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges, setReviewSessionFocus]);
+  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges]);
 
   // REACT-AGENT-APPLY-MODES-1 — the three explicit apply-mode handlers wired to the rail picker.
   // Availability (enabled / disabled-reason / confirmation) is decided deterministically in
@@ -693,9 +683,8 @@ export function useBuilderPreview({
     applyNotice,
     appliedConfigHints,
     agentSetupIssues,
-    // REACT-AGENT-REVIEW-TRAY-UX-1 / -RECOVERY-MERGE-1 — review-session identity for the tray.
+    // BUILDER-ISSUES-RAIL-1 — review-session identity; bumps once per apply.
     reviewSessionToken,
-    reviewSessionFocus,
     previewConfig,
     // REACT-AGENT-PREVIEW-FIELD-PROVENANCE-1 — ownership + the derived shape the enricher consumes.
     // Exposed for the readiness UI and for tests; never persisted with the workflow.

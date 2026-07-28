@@ -7,7 +7,7 @@
  * UI, and dispatches `configSlice.openNode` when an issue with a
  * nodeId is clicked. No backend / AI / provider-specific logic.
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ValidationSummary } from "@/features/workflow-builder/validation/ValidationSummary";
@@ -43,7 +43,11 @@ describe("ValidationSummary — ready state", () => {
     render(<ValidationSummary />);
     const summary = screen.getByTestId("validation-summary");
     expect(summary.getAttribute("data-state")).toBe("ready");
-    expect(screen.getByText(/ready to run/i)).toBeInTheDocument();
+    // BUILDER-ISSUES-RAIL-1 — the rail now leads with the shared status pill, so "ready" reads the
+    // same word here as everywhere else that answers "can this run yet?".
+    expect(screen.getByTestId("validation-summary-status")).toHaveAttribute("data-status", "ready");
+    expect(screen.getByText("All setup complete")).toBeInTheDocument();
+    expect(screen.getByText(/no builder validation issues detected/i)).toBeInTheDocument();
   });
 });
 
@@ -57,7 +61,10 @@ describe("ValidationSummary — has-issues state", () => {
     // Slice 4.BUILDER-VALIDATION-CATEGORIES — no_trigger is a structural problem.
     const group = screen.getByTestId("validation-summary-group");
     expect(group.getAttribute("data-category")).toBe("workflow_setup");
-    expect(screen.getByText(/^Workflow setup · 1$/)).toBeInTheDocument();
+    // BUILDER-ISSUES-RAIL-1 — the heading carries the label; the count lives in the right-hand
+    // blocking counter, so it is not also repeated inline.
+    expect(screen.getByText(/^Workflow setup$/)).toBeInTheDocument();
+    expect(screen.getByTestId("validation-summary-blocking")).toHaveTextContent("1 to fix before active");
   });
 
   it("groups blank/unconfigured nodes under 'Needs your input' with a count", () => {
@@ -71,7 +78,8 @@ describe("ValidationSummary — has-issues state", () => {
     const group = screen.getByTestId("validation-summary-group");
     expect(group.getAttribute("data-category")).toBe("needs_input");
     expect(group.getAttribute("data-severity")).toBe("error");
-    expect(screen.getByText(/^Needs your input · 2$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Needs your input$/)).toBeInTheDocument();
+    expect(screen.getByTestId("validation-summary-blocking")).toHaveTextContent("2 to fix before active");
   });
 
   it("renders a friendly node label on each row (never the raw provider:type key)", () => {
@@ -338,5 +346,78 @@ describe("ValidationSummary — post-template setup readiness (categories)", () 
       .getAllByTestId("validation-summary-issue")
       .find((el) => el.getAttribute("data-code") === "broken_variable_reference");
     expect(issue).toBeDefined();
+  });
+});
+
+/**
+ * BUILDER-ISSUES-RAIL-1 — the rail took over the agent tray's presentation, so these pin the
+ * details that made the tray readable rather than just the fact that issues render.
+ */
+describe("ValidationSummary — issue card presentation", () => {
+  const REQUIRED = {
+    "slack:slack.message.channel": { displayName: "Slack Message", requiredFields: [] },
+    "slack:send_channel_message": {
+      displayName: "Send Channel Message",
+      requiredFields: [{ name: "channel", label: "Channel" }],
+    },
+  };
+
+  function hydrateChain(config: Record<string, unknown>) {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "slack.message.channel", config: {}, position: { x: 0, y: 0 } },
+        { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config, position: { x: 0, y: 1 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    });
+  }
+
+  it("renders three lines per issue: what, why, and the single next step", () => {
+    hydrateChain({});
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    const issue = screen.getAllByTestId("validation-summary-issue")[0]!;
+    expect(issue).toHaveTextContent("Send Channel Message needs a Channel.");
+    expect(within(issue).getByTestId("validation-summary-explanation")).toBeInTheDocument();
+    expect(within(issue).getByTestId("validation-summary-next-step")).toHaveTextContent(
+      "Open the Channel field and fill it in.",
+    );
+  });
+
+  it("does not repeat the step name a third time as a locator line", () => {
+    hydrateChain({});
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    const issue = screen.getAllByTestId("validation-summary-issue")[0]!;
+    // The message names the step and the next step names the field — a "Send Channel Message ·
+    // channel" line underneath would be the same words again, which the tray deliberately omitted.
+    expect(within(issue).queryByTestId("validation-summary-locator")).toBeNull();
+  });
+
+  it("keeps issue cards neutral — severity reads from the pill and the counter, not a red border", () => {
+    hydrateChain({});
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    const issue = screen.getAllByTestId("validation-summary-issue")[0]!;
+    expect(issue.getAttribute("data-severity")).toBe("error");
+    // A blocking issue is still a calm card; the alarm lives in the header, once.
+    expect(issue.getAttribute("style") ?? "").not.toMatch(/danger|#b91c1c/);
+    expect(screen.getByTestId("validation-summary-status")).toHaveAttribute("data-status", "blocked");
+    expect(screen.getByTestId("validation-summary-blocking")).toHaveTextContent("1 to fix before active");
+  });
+
+  it("leads with the status pill and the remaining count", () => {
+    hydrateChain({});
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    expect(screen.getByTestId("validation-summary-status")).toHaveTextContent("Blocked");
+    expect(screen.getByTestId("validation-summary-remaining")).toHaveTextContent("1 issue remaining");
+  });
+
+  it("renders the agent's apply confirmation above the list when a session is active", () => {
+    hydrateChain({});
+    render(
+      <ValidationSummary
+        requiredFieldsByType={REQUIRED}
+        reviewNotice="Preview applied to draft — review required fields before saving or activating."
+      />,
+    );
+    expect(screen.getByTestId("validation-summary-notice")).toHaveTextContent("Preview applied to draft");
   });
 });

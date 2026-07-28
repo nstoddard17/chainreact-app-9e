@@ -114,7 +114,9 @@ export function BuilderNodeSetupCard({
         saved, activated, or run until you choose to.
       </p>
 
-      <div className="mt-2 max-h-[40vh] space-y-3 overflow-y-auto">
+      {/* REACT-AGENT-RAIL-SINGLE-SCROLL-1 — no inner scroll region; the chat transcript is the rail's
+          only scroll container (see BuilderPreviewSetupCard for the same change). */}
+      <div className="mt-2 space-y-3">
         {resolved.map(({ target, supported, unsupported }) => {
           const nodeConfig = values[target.nodeId];
           const isApplied = applied.has(target.nodeId);

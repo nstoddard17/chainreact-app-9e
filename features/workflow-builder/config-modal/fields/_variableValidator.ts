@@ -24,7 +24,7 @@
  * `useMemo` per field.
  */
 
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import type { OutputMeta } from "@/contracts/actionMeta";
 
 export interface ValidatorSource {

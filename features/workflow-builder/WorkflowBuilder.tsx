@@ -24,7 +24,6 @@ import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields
 import { useResourceLabelCache } from "./state/resourceLabelCache";
 import { PreviewReviewPanel } from "./panels/PreviewReviewPanel";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
-import type { AgentSetupIssue } from "@/core/workflows/agentSetupIssues";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -500,6 +499,18 @@ export function WorkflowBuilder({
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
 
+  // REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — `provider:type` → registry display name, derived from the
+  // requirements map the server already threads in (it carries `displayName` per node type). The React
+  // rail's setup card uses it to name each sketched step the way the canvas and config panel do,
+  // instead of printing the raw capability key. No new server plumbing, no new fetch.
+  const nodeDisplayNames = useMemo(
+    () =>
+      requiredFieldsByType
+        ? Object.fromEntries(Object.entries(requiredFieldsByType).map(([key, r]) => [key, r.displayName]))
+        : undefined,
+    [requiredFieldsByType],
+  );
+
   // CONFIG-UX-NODE-SUMMARY-1 — the canvas adapter is a PURE synchronous converter and must not read
   // the label store itself, so subscribe here and thread the snapshot down. The subscription is what
   // makes a card's summary line appear as its picker resolves the resource's name.
@@ -856,7 +867,6 @@ export function WorkflowBuilder({
     applyNotice,
     agentSetupIssues,
     reviewSessionToken,
-    reviewSessionFocus,
     previewConfig,
     previewPrefilledConfig,
     // REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — mapped / ambiguous / missing / waiting / invalid
@@ -936,6 +946,46 @@ export function WorkflowBuilder({
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
   });
 
+  /**
+   * BUILDER-ISSUES-RAIL-1 — the nodes React itself just added/edited, so the issues rail can pick
+   * honest explanation copy. A gap on one of these can say the agent left it empty; a gap on a
+   * hand-built or template step must not (see `validationIssueGuidance`). Derived from the agent's
+   * own setup-issue read-model, so it is empty outside a review session.
+   */
+  const agentNodeIds = useMemo(
+    () => new Set(agentSetupIssues.map((issue) => issue.nodeId)),
+    [agentSetupIssues],
+  );
+
+  /**
+   * BUILDER-ISSUES-RAIL-1 — an apply opens the issues rail, UNLESS the apply already took the user
+   * somewhere more specific.
+   *
+   * The floating review tray used to be how a user learned "applied, but N things still need you".
+   * With that list re-homed into the rail, the apply has to open the rail or the signal is lost.
+   *
+   * But the right drawer is single-slot (`useRightDrawer` enforces one panel at a time), and
+   * HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY already opens the first incomplete node's
+   * config panel — often revealing the exact field that needs a value. Opening the rail on top of
+   * that would pull the user OFF the field they were just sent to, which is strictly worse than
+   * the list they'd gain. So the rail yields whenever a node is open: the header issue-count pill
+   * still reports the total and opens the rail on demand. This is the same conflict the old tray's
+   * `sessionFocus` handled by opening collapsed — it just resolves in the drawer's favor now.
+   *
+   * Keyed on `reviewSessionToken`, which the preview hook bumps once per NEW session (a fresh
+   * apply / restore / template notice), so ordinary issue churn while the user fixes fields never
+   * re-opens a drawer they deliberately closed. A clean apply (no issues) opens nothing — the
+   * toast is enough.
+   */
+  const reviewOpenedTokenRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (reviewSessionToken === reviewOpenedTokenRef.current) return;
+    reviewOpenedTokenRef.current = reviewSessionToken;
+    if (agentSetupIssues.length === 0) return;
+    if (useConfigSlice.getState().activeNodeId !== null) return;
+    openDrawer("validation");
+  }, [reviewSessionToken, agentSetupIssues, openDrawer]);
+
   const handleSelectApplyMode = useCallback(
     (mode: AgentApplyMode) => {
       if (mode === "apply_to_draft") handleApplyPreview();
@@ -978,25 +1028,10 @@ export function WorkflowBuilder({
     [workflow.id, hydrate, closeNode, refreshAgentChanges, router, showApplyNotice],
   );
 
-  // CHECKLIST-ITEM-10 — open the node's config panel and highlight the missing
-  // field for a clicked post-apply "Setup needed" issue. NAVIGATION ONLY:
-  // `revealNode` never writes a value, saves, runs, or activates. The drawer flips
-  // to inspector via the existing `activeNodeId` transition effect (same path the
-  // validation drawer + repair loop use).
-  const handleOpenSetupIssue = useCallback(
-    (issue: AgentSetupIssue) => {
-      const target = issue.focusTarget;
-      if (!target) return;
-      const node = pendingNodes.find((n) => n.id === target.nodeId);
-      if (!node) return;
-      revealNode({
-        nodeId: target.nodeId,
-        initialValues: node.config ?? {},
-        ...(target.fieldPath ? { fieldKey: target.fieldPath } : {}),
-      });
-    },
-    [pendingNodes, revealNode],
-  );
+  // CHECKLIST-ITEM-10's open-and-highlight for a clicked setup issue now lives in the issues rail
+  // itself (`ValidationSummary.handleOpen` → `configSlice.revealNode`), which is the same
+  // navigation-only path this held. Removed with the floating tray that was its only caller
+  // (BUILDER-ISSUES-RAIL-1).
 
   // AGENT-CHANGE-HISTORY-1 (View diff) — the past change whose stored, redacted diff is shown read-only
   // in the right drawer. Set from the Agent changes timeline; cleared on drawer close.
@@ -1137,6 +1172,7 @@ export function WorkflowBuilder({
             // the latest shown preview. PreviewConfig stays owned here (ephemeral, never dirty/saved).
             previewForSetup={previewOverlay?.preview ?? null}
             {...(setupFieldsByType ? { setupFieldsByType } : {})}
+            {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
             previewConfig={previewConfig}
             previewPrefilledConfig={previewPrefilledConfig}
             previewEnrichment={previewEnrichment}
@@ -1194,9 +1230,15 @@ export function WorkflowBuilder({
               <RunResultsPanel {...(accountId ? { accountId } : {})} />
             ) : null}
             {mode === "validation" ? (
+              /* BUILDER-ISSUES-RAIL-1 — the single issues surface. The post-apply agent review
+                 (its confirmation line, readiness verdict, and which nodes React itself added)
+                 folds in here instead of raising a second floating list over the canvas. */
               <ValidationSummary
                 onChooseTrigger={openTriggerPicker}
                 requiredFieldsByType={requiredFieldsByType}
+                reviewNotice={applyNotice}
+                readiness={agentReadiness}
+                agentNodeIds={agentNodeIds}
               />
             ) : null}
           </BuilderRightDrawer>
@@ -1285,6 +1327,7 @@ export function WorkflowBuilder({
                   onShowPreview={handleShowPreview}
                   previewForSetup={previewOverlay?.preview ?? null}
                   {...(setupFieldsByType ? { setupFieldsByType } : {})}
+                  {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
                   previewConfig={previewConfig}
                   previewPrefilledConfig={previewPrefilledConfig}
                   previewEnrichment={previewEnrichment}
@@ -1381,26 +1424,17 @@ export function WorkflowBuilder({
             onDiscard={handleDiscardPreview}
             providerLabels={providerLabels}
             providerIcons={providerIcons}
+            {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
           />
         ) : null}
         {/* HERMES-AGENT-APPLY-PREVIEW-PATCH / -CONFIG-HINTS — transient confirmation after an explicit
             apply. The nodes are now part of the local draft (dirty); the user still reviews required
-            fields + saves. The notice lists each newly-added node's still-empty required fields (names
-            only, from metadata) so the user knows the workflow is incomplete.
-            REACT-AGENT-REVIEW-TRAY-UX-1 — that list is now a COLLAPSIBLE review tray: selecting an
-            issue reuses `handleOpenSetupIssue` (node + field reveal) and collapses the tray so the
-            config panel is usable. `reviewSessionToken` marks a NEW session (a fresh apply / restore /
-            template notice) — the only thing that resets the tray's presentation state. */}
+            fields + saves.
+            BUILDER-ISSUES-RAIL-1 — what still needs setup is NOT listed here any more. It is the
+            issues rail's job (one issues surface, one presentation), and the apply opens that rail.
+            This stays a one-line acknowledgement that cannot cover the canvas or a config field. */}
         {applyNotice ? (
-          <BuilderApplyNotice
-            notice={applyNotice}
-            setupIssues={agentSetupIssues}
-            readiness={agentReadiness}
-            sessionToken={reviewSessionToken}
-            sessionFocus={reviewSessionFocus}
-            onOpenIssue={handleOpenSetupIssue}
-            onDismiss={dismissApplyNotice}
-          />
+          <BuilderApplyNotice notice={applyNotice} onDismiss={dismissApplyNotice} />
         ) : null}
       </div>
     </BuilderShell>

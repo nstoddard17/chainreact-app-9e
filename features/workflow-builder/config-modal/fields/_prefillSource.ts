@@ -19,7 +19,7 @@
  * value is not a single resolvable reference or the source/output is unknown.
  */
 
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import type { VariableSource } from "../../hooks/useUpstreamVariables";
 import type { OutputMeta } from "@/contracts/actionMeta";
 

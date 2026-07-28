@@ -73,6 +73,13 @@ export interface BuilderGuidanceRailProps {
   readonly previewForSetup?: DraftPreview | null;
   /** Supported, metadata-derived setup fields per `provider:type` (drives the card's controls). */
   readonly setupFieldsByType?: PreviewSetupFieldsByType;
+  /**
+   * REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — registry display name per `provider:type`
+   * (`slack:send_channel_message` → "Send Channel Message"), so the setup card names each step the
+   * way the canvas and the config panel do instead of printing the raw capability key. Absent → the
+   * card title-cases the type key itself (the shared `getNodeDisplayName` fallback).
+   */
+  readonly nodeDisplayNames?: Readonly<Record<string, string>>;
   /** Ephemeral guided-setup values (previewId → field → value). Owned by `WorkflowBuilder`. */
   readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** REACT-CONFIG-COVERAGE-1 — user-request plan-config values (previewId → field → value) for display. */
@@ -152,6 +159,7 @@ export function BuilderGuidanceRail({
   getCurrentDraft,
   previewForSetup,
   setupFieldsByType,
+  nodeDisplayNames,
   previewConfig,
   previewPrefilledConfig,
   onPreviewConfigChange,
@@ -209,6 +217,7 @@ export function BuilderGuidanceRail({
                     <BuilderPreviewSetupCard
                       preview={previewForSetup}
                       {...(setupFieldsByType ? { setupFieldsByType } : {})}
+                      {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
                       {...(previewConfig ? { previewConfig } : {})}
                       {...(previewPrefilledConfig ? { prefilledConfig: previewPrefilledConfig } : {})}
                       {...(previewEnrichment ? { enrichment: previewEnrichment } : {})}

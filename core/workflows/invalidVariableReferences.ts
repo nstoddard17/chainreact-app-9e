@@ -25,7 +25,7 @@
  *     happen in the diagnostics layer that consumes this.
  */
 
-import { parseReferences } from "./variableReferences";
+import { parseReferences } from "./variables/variableReferences";
 
 const TRIGGER_ALIAS = "trigger";
 

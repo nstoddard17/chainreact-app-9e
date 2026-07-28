@@ -24,7 +24,7 @@
 import {
   formatReference,
   parseReferences,
-} from "@/core/workflows/variableReferences";
+} from "@/core/workflows/variables/variableReferences";
 import { NEW_NODE_REF_PREFIX } from "@/contracts/editableWorkflowGraph";
 import type { PatchOperation } from "@/services/workflows/patch/types";
 

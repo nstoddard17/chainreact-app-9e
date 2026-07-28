@@ -26,7 +26,7 @@
  * resolver semantics are owned solely by `workflow-engine/variables/resolveValue.ts`.
  */
 
-import { parseReferences } from "./variableReferences";
+import { parseReferences } from "./variables/variableReferences";
 import { isRequiredValueMissing } from "./requiredFields";
 
 /**

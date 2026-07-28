@@ -69,6 +69,39 @@ describe("BuilderPreviewSetupCard", () => {
     expect(screen.getByText(/Finish these details before applying:/i)).toBeInTheDocument();
   });
 
+  // REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — a preview node's `label` is the raw `provider:type`
+  // capability key by contract. It is an internal identifier and must never be a step's NAME.
+  it("names each step with its registry display name, never the raw provider:type key", () => {
+    render(
+      <BuilderPreviewSetupCard
+        preview={preview(["text"])}
+        setupFieldsByType={setupFieldsByType}
+        nodeDisplayNames={{ "slack:send_message": "Send Channel Message" }}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApply={() => {}}
+      />,
+    );
+    const card = screen.getByTestId("builder-preview-setup-rail");
+    expect(card).toHaveTextContent("Send Channel Message");
+    expect(card).not.toHaveTextContent("slack:send_message");
+  });
+
+  it("falls back to the title-cased type key when no display-name map is supplied", () => {
+    render(
+      <BuilderPreviewSetupCard
+        preview={preview(["text"])}
+        setupFieldsByType={setupFieldsByType}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApply={() => {}}
+      />,
+    );
+    const card = screen.getByTestId("builder-preview-setup-rail");
+    expect(card).toHaveTextContent("Send Message");
+    expect(card).not.toHaveTextContent("slack:send_message");
+  });
+
   it("defers an async optionsSource field (not in supported metadata) to 'Choose after Apply'", () => {
     render(
       <BuilderPreviewSetupCard

@@ -7,7 +7,7 @@
  * the shared `parseReferences`, so it can never disagree on what a reference IS.
  */
 
-import { collectConfigVariableReferences } from "@/core/workflows/configVariableReferences";
+import { collectConfigVariableReferences } from "@/core/workflows/variables/configVariableReferences";
 
 describe("collectConfigVariableReferences", () => {
   it("returns an empty list when the config holds no references", () => {

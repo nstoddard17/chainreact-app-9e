@@ -10,6 +10,11 @@ import {
   type PreviewReadinessKind,
   type PreviewReadinessRow,
 } from "@/core/workflows/mapping/previewReadiness";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import {
+  humanizeVariableTokens,
+  type VariableSourceLabels,
+} from "@/core/workflows/variables/variableTokenDisplay";
 import { SetupAsyncSelectControl, SetupFieldControl } from "./builderSetupFieldControls";
 
 /**
@@ -41,6 +46,13 @@ export interface BuilderPreviewSetupCardProps {
   readonly preview: DraftPreview;
   /** Supported, metadata-derived setup fields per `provider:type`. Absent → nothing to collect. */
   readonly setupFieldsByType?: PreviewSetupFieldsByType;
+  /**
+   * REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — registry display name per `provider:type`. A preview
+   * node's `label` is the raw capability key by contract (`slack:send_channel_message`), which is an
+   * internal identifier, not a name a person should have to read. Absent → `getNodeDisplayName`
+   * title-cases the type key ("Send Channel Message"), the same fallback the rest of the builder uses.
+   */
+  readonly nodeDisplayNames?: Readonly<Record<string, string>>;
   /** Ephemeral guided-setup values, keyed previewId → fieldName → value. Owned by `WorkflowBuilder`. */
   readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /**
@@ -135,6 +147,7 @@ function ReadinessRow({ row }: { row: PreviewReadinessRow }) {
 export function BuilderPreviewSetupCard({
   preview,
   setupFieldsByType,
+  nodeDisplayNames,
   previewConfig,
   prefilledConfig,
   onPreviewConfigChange,
@@ -144,6 +157,33 @@ export function BuilderPreviewSetupCard({
   providerLabels,
   onOpenStepEditor,
 }: BuilderPreviewSetupCardProps) {
+  /**
+   * REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — the human name for a preview step.
+   *
+   * `DraftPreviewNode.label` is the raw `provider:type` capability key by contract, so it must never
+   * be shown as a step's name. Resolve it the same way every other builder surface does: registry
+   * `displayName` when the caller supplied the map, otherwise the shared title-cased type fallback.
+   * A preview node is never user-renamed, so there is no custom name to prefer.
+   */
+  const displayNameFor = (node: DraftPreviewNode): string =>
+    getNodeDisplayName(
+      { kind: node.role === "trigger" ? "trigger" : "action", provider: node.provider, type: node.type },
+      { displayName: nodeDisplayNames?.[`${node.provider}:${node.type}`] ?? null },
+    );
+
+  /**
+   * REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — how a `{{...}}` reference inside a requested value
+   * names its source. Preview steps are keyed by their preview id; the `trigger` alias resolves to
+   * the sketched trigger's own name when there is one, so a reference reads "Stripe Event Received →
+   * data.object.id" rather than exposing an id the user has no way to interpret.
+   */
+  const variableSourceLabels: VariableSourceLabels = Object.fromEntries([
+    ...preview.nodes.map((node) => [node.previewId, displayNameFor(node)] as const),
+    ...preview.nodes
+      .filter((node) => node.role === "trigger")
+      .map((node) => ["trigger", displayNameFor(node)] as const),
+  ]);
+
   /**
    * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — the per-field outcome rows.
    *
@@ -158,7 +198,7 @@ export function BuilderPreviewSetupCard({
         const all = setupFieldsByType?.[`${node.provider}:${node.type}`] ?? [];
         return {
           nodeId: node.previewId,
-          nodeLabel: node.label,
+          nodeLabel: displayNameFor(node),
           fieldLabels: Object.fromEntries(all.map((f) => [f.name, f.label])),
           missingInputs: node.missingInputs ?? [],
         };
@@ -252,11 +292,15 @@ export function BuilderPreviewSetupCard({
         </div>
       ) : null}
 
-      <div className="mt-2 max-h-[40vh] space-y-2.5 overflow-y-auto">
+      {/* REACT-AGENT-RAIL-SINGLE-SCROLL-1 — no inner scroll region. This card renders INSIDE the
+          chat transcript (`workflow-guidance-messages`, the rail's only scroll container), so a
+          capped, independently-scrolling body produced a nested second scrollbar. The list grows to
+          its natural height and the transcript scrolls it. */}
+      <div className="mt-2 space-y-2.5">
         {setupNodes.map(({ node, supported, afterApply, prefilledReadOnly }) => (
           <div key={node.previewId}>
             <div className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
-              {node.label}
+              {displayNameFor(node)}
             </div>
             {supported.map((field) =>
               field.type === "select-async" ? (
@@ -302,7 +346,17 @@ export function BuilderPreviewSetupCard({
               >
                 From your request:{" "}
                 {prefilledReadOnly
-                  .map(({ name, value }) => `${name}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+                  .map(
+                    ({ name, value }) =>
+                      // REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — a requested value is often a
+                      // template ("New order from {{trigger.customer.name}}"). Show the reference as
+                      // `Trigger → customer.name` in place; literal text around it is untouched.
+                      `${name}: ${
+                        Array.isArray(value)
+                          ? value.map((v) => humanizeVariableTokens(v, variableSourceLabels)).join(", ")
+                          : humanizeVariableTokens(value, variableSourceLabels)
+                      }`,
+                  )
                   .join(" · ")}
               </div>
             )}

@@ -24,7 +24,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 
 // Discover EVERY official-seed migration (batch 1 + 2 + any future batch) rather than
 // hard-coding one file, so this guard validates the whole shipped catalog against the live

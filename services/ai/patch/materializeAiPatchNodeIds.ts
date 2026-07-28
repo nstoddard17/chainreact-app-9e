@@ -30,7 +30,7 @@ import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflow";
 import {
   formatReference,
   parseReferences,
-} from "@/core/workflows/variableReferences";
+} from "@/core/workflows/variables/variableReferences";
 import type {
   PatchOperation,
   PatchValidationError,
