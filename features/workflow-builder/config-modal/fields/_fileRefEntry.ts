@@ -26,7 +26,7 @@
  */
 
 import { FileRefSchema, type FileRef } from "@/contracts/file";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 
 /**
  * True when `trimmed` is exactly one `{{nodeId.path}}` token and

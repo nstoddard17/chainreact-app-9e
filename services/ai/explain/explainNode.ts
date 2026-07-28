@@ -13,7 +13,7 @@
  * Plan reference: docs/slices/phase-4/ai-architecture-react-agent-plan.md §2/§3.
  */
 
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import { getActionMeta, getTriggerMeta } from "@/services/ai/tools/providerCatalog";
 import type { NodeRiskView } from "@/services/ai/tools/providerCatalog";
 import { getConnectedIntegrationsForAI } from "@/services/ai/tools/integrations";

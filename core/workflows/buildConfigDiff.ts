@@ -3,7 +3,7 @@ import {
   isRequiredValueMissing,
   requirementLookupKey,
 } from "@/core/workflows/requiredFields";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import type {
   ConfigDiffFieldMeta,
   ConfigDiffFieldMetaByType,

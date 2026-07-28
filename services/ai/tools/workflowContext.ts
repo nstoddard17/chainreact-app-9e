@@ -26,7 +26,7 @@ import type {
 import { WorkflowDefinitionSchema } from "@/contracts/workflow";
 import type { RiskLevel } from "@/contracts/actionMeta";
 import type { TriggerActivation } from "@/contracts/triggerMeta";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import {
   getActionMeta as lookupActionMeta,
   getTriggerMeta as lookupTriggerMeta,

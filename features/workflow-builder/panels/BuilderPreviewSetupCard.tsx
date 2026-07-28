@@ -11,6 +11,10 @@ import {
   type PreviewReadinessRow,
 } from "@/core/workflows/mapping/previewReadiness";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import {
+  humanizeVariableTokens,
+  type VariableSourceLabels,
+} from "@/core/workflows/variables/variableTokenDisplay";
 import { SetupAsyncSelectControl, SetupFieldControl } from "./builderSetupFieldControls";
 
 /**
@@ -166,6 +170,19 @@ export function BuilderPreviewSetupCard({
       { kind: node.role === "trigger" ? "trigger" : "action", provider: node.provider, type: node.type },
       { displayName: nodeDisplayNames?.[`${node.provider}:${node.type}`] ?? null },
     );
+
+  /**
+   * REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — how a `{{...}}` reference inside a requested value
+   * names its source. Preview steps are keyed by their preview id; the `trigger` alias resolves to
+   * the sketched trigger's own name when there is one, so a reference reads "Stripe Event Received →
+   * data.object.id" rather than exposing an id the user has no way to interpret.
+   */
+  const variableSourceLabels: VariableSourceLabels = Object.fromEntries([
+    ...preview.nodes.map((node) => [node.previewId, displayNameFor(node)] as const),
+    ...preview.nodes
+      .filter((node) => node.role === "trigger")
+      .map((node) => ["trigger", displayNameFor(node)] as const),
+  ]);
 
   /**
    * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — the per-field outcome rows.
@@ -329,7 +346,17 @@ export function BuilderPreviewSetupCard({
               >
                 From your request:{" "}
                 {prefilledReadOnly
-                  .map(({ name, value }) => `${name}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+                  .map(
+                    ({ name, value }) =>
+                      // REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — a requested value is often a
+                      // template ("New order from {{trigger.customer.name}}"). Show the reference as
+                      // `Trigger → customer.name` in place; literal text around it is untouched.
+                      `${name}: ${
+                        Array.isArray(value)
+                          ? value.map((v) => humanizeVariableTokens(v, variableSourceLabels)).join(", ")
+                          : humanizeVariableTokens(value, variableSourceLabels)
+                      }`,
+                  )
                   .join(" · ")}
               </div>
             )}

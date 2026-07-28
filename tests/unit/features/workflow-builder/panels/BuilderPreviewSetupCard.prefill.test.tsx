@@ -59,6 +59,26 @@ describe("BuilderPreviewSetupCard — prefilled request values", () => {
     );
   });
 
+  // REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — a requested value is often a template. The read-only
+  // row shows what the reference MEANS, not the engine token that produces it.
+  it("shows an embedded {{...}} reference in its friendly form, not as a raw token", () => {
+    render(
+      <BuilderPreviewSetupCard
+        preview={PREVIEW}
+        setupFieldsByType={SETUP_FIELDS}
+        prefilledConfig={{
+          "preview-step-1": { body: "New mail from {{trigger.from.name}}" },
+        }}
+        onPreviewConfigChange={jest.fn()}
+        onApply={jest.fn()}
+      />,
+    );
+    const row = screen.getByTestId("preview-setup-prefilled");
+    // The trigger alias resolves to the sketched trigger's own name.
+    expect(row.textContent ?? "").toContain("New mail from New Email → from.name");
+    expect(row.textContent ?? "").not.toContain("{{");
+  });
+
   it("renders nothing extra when there is no prefill and nothing missing", () => {
     render(
       <BuilderPreviewSetupCard

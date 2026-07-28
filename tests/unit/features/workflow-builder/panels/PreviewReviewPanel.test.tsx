@@ -79,8 +79,69 @@ describe("PreviewReviewPanel", () => {
     expect(slackCard).toHaveTextContent("#sales");
     // Setup needed surfaces the missing required field.
     expect(screen.getByTestId("preview-review-missing-gmail-1-to")).toHaveTextContent("To: required");
-    // Variables used are listed for the Gmail node.
-    expect(screen.getByTestId("preview-review-variables-gmail-1")).toHaveTextContent("{{trigger.email}}");
+    // Variables used are listed for the Gmail node. REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — in the
+    // friendly `Source → path` form, never the raw engine token.
+    expect(screen.getByTestId("preview-review-variables-gmail-1")).toHaveTextContent("Trigger → email");
+  });
+
+  // REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — `{{...}}` is engine syntax. It stays reachable (the row
+  // carries it as a tooltip / data attribute for copy) but is never what a person has to read.
+  describe("variable display", () => {
+    it("shows the friendly form and keeps the raw token out of the visible text", () => {
+      render(<PreviewReviewPanel configDiff={diff} hideActions />);
+      const row = screen.getByTestId("preview-review-variable");
+      expect(row).toHaveTextContent("Trigger → email");
+      expect(row.textContent ?? "").not.toContain("{{");
+      // Still recoverable for copy / a show-token affordance.
+      expect(row).toHaveAttribute("title", "{{trigger.email}}");
+      expect(row).toHaveAttribute("data-token", "{{trigger.email}}");
+    });
+
+    it("names an upstream node from the diff's own labels", () => {
+      const withNodeRef = {
+        nodes: [
+          { ...diff.nodes[0]!, variablesUsed: ["{{slack-1.ts}}"] },
+          diff.nodes[1]!,
+        ],
+      };
+      render(<PreviewReviewPanel configDiff={withNodeRef} hideActions />);
+      expect(screen.getByTestId("preview-review-variable")).toHaveTextContent(
+        "Slack / Send Channel Message → ts",
+      );
+    });
+
+    it("degrades a reference to an untouched upstream node to 'Earlier step', never its id", () => {
+      const withUnknownRef = {
+        nodes: [{ ...diff.nodes[0]!, variablesUsed: ["{{n_untouched.messageId}}"] }],
+      };
+      render(<PreviewReviewPanel configDiff={withUnknownRef} hideActions />);
+      const row = screen.getByTestId("preview-review-variable");
+      expect(row).toHaveTextContent("Earlier step → messageId");
+      expect(row.textContent ?? "").not.toContain("n_untouched");
+    });
+
+    it("humanizes a reference embedded inside a config value", () => {
+      const withTemplate = {
+        nodes: [
+          {
+            ...diff.nodes[0]!,
+            addedFields: [
+              {
+                name: "subject",
+                label: "Subject",
+                secret: false,
+                after: { kind: "text" as const, preview: "Order from {{trigger.customer.name}}", truncated: false },
+              },
+            ],
+            variablesUsed: [],
+          },
+        ],
+      };
+      render(<PreviewReviewPanel configDiff={withTemplate} hideActions />);
+      const card = screen.getByTestId("preview-review-node-gmail-1");
+      expect(card).toHaveTextContent("Order from Trigger → customer.name");
+      expect(card.textContent ?? "").not.toContain("{{");
+    });
   });
 
   it("renders the 'Why this change?' bullets near the top when a rationale is provided", () => {

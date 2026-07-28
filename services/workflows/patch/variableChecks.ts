@@ -3,7 +3,7 @@ import type {
   WorkflowDefinition,
   WorkflowNode,
 } from "@/contracts/workflowDefinition";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import { findUpstreamNodes } from "@/core/workflows/upstreamVariables";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 import type { PatchValidationError } from "./types";

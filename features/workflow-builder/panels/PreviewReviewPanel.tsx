@@ -17,6 +17,11 @@ import type {
 } from "@/core/workflows/agentApplyModes";
 import type { DestructivePreviewClassification } from "@/core/workflows/destructivePreview";
 import type { AgentReadinessVerdict } from "@/core/workflows/agentReadiness";
+import {
+  describeVariableToken,
+  humanizeVariableTokens,
+  type VariableSourceLabels,
+} from "@/core/workflows/variables/variableTokenDisplay";
 import { AgentApplyModeActions } from "./AgentApplyModeActions";
 import { AgentReadinessSummary } from "./AgentReadinessSummary";
 
@@ -153,6 +158,11 @@ export function PreviewReviewPanel({
 
   const { nodes } = configDiff;
   const missingByNode = nodes.filter((n) => n.missingRequiredFields.length > 0);
+  // REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — the diff already carries every node's author-facing
+  // label, which is exactly what a `{{nodeId.path}}` token needs to name its source. A referenced
+  // node that is NOT part of this diff (an untouched upstream step) has no label here and renders
+  // as the neutral "Earlier step" — never its raw id.
+  const sourceLabels: VariableSourceLabels = Object.fromEntries(nodes.map((n) => [n.nodeId, n.label]));
 
   return (
     <div data-testid="preview-review-panel" className="flex flex-col gap-3 p-3">
@@ -249,7 +259,7 @@ export function PreviewReviewPanel({
           <SectionHeading>Config changes</SectionHeading>
           <div className="mt-1 space-y-3">
             {nodes.map((node) => (
-              <NodeChangeCard key={`card-${node.nodeId}`} node={node} />
+              <NodeChangeCard key={`card-${node.nodeId}`} node={node} sourceLabels={sourceLabels} />
             ))}
           </div>
         </section>
@@ -286,7 +296,14 @@ export function PreviewReviewPanel({
   );
 }
 
-function NodeChangeCard({ node }: { readonly node: NodeConfigDiff }) {
+function NodeChangeCard({
+  node,
+  sourceLabels,
+}: {
+  readonly node: NodeConfigDiff;
+  /** Node id → author-facing label, so a `{{...}}` token can name its source instead of its id. */
+  readonly sourceLabels: VariableSourceLabels;
+}) {
   const nothing =
     node.addedFields.length === 0 &&
     node.changedFields.length === 0 &&
@@ -304,7 +321,7 @@ function NodeChangeCard({ node }: { readonly node: NodeConfigDiff }) {
       {node.addedFields.length > 0 ? (
         <FieldGroup title="Added fields" testid={`preview-review-added-${node.nodeId}`}>
           {node.addedFields.map((f) => (
-            <FieldRow key={f.name} change={f} show="after" />
+            <FieldRow key={f.name} change={f} show="after" sourceLabels={sourceLabels} />
           ))}
         </FieldGroup>
       ) : null}
@@ -312,7 +329,7 @@ function NodeChangeCard({ node }: { readonly node: NodeConfigDiff }) {
       {node.changedFields.length > 0 ? (
         <FieldGroup title="Changed" testid={`preview-review-changed-${node.nodeId}`}>
           {node.changedFields.map((f) => (
-            <FieldRow key={f.name} change={f} show="both" />
+            <FieldRow key={f.name} change={f} show="both" sourceLabels={sourceLabels} />
           ))}
         </FieldGroup>
       ) : null}
@@ -320,7 +337,7 @@ function NodeChangeCard({ node }: { readonly node: NodeConfigDiff }) {
       {node.removedFields.length > 0 ? (
         <FieldGroup title="Removed config" testid={`preview-review-removed-${node.nodeId}`}>
           {node.removedFields.map((f) => (
-            <FieldRow key={f.name} change={f} show="before" />
+            <FieldRow key={f.name} change={f} show="before" sourceLabels={sourceLabels} />
           ))}
         </FieldGroup>
       ) : null}
@@ -328,11 +345,24 @@ function NodeChangeCard({ node }: { readonly node: NodeConfigDiff }) {
       {node.variablesUsed.length > 0 ? (
         <FieldGroup title="Variables used" testid={`preview-review-variables-${node.nodeId}`}>
           <ul className="ml-3 list-disc">
-            {node.variablesUsed.map((token) => (
-              <li key={token} className="font-mono text-[11px]" style={{ color: "var(--builder-muted)" }}>
-                {token}
-              </li>
-            ))}
+            {node.variablesUsed.map((token) => {
+              // REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — the friendly `Source → path` form is the
+              // PRIMARY display (the Data Map's established contract); the raw engine token stays
+              // reachable as the row's tooltip rather than being the thing a person has to read.
+              const display = describeVariableToken(token, sourceLabels);
+              return (
+                <li
+                  key={token}
+                  data-testid="preview-review-variable"
+                  data-token={token}
+                  title={token}
+                  className="text-[11px]"
+                  style={{ color: "var(--builder-muted)" }}
+                >
+                  {display.text}
+                </li>
+              );
+            })}
           </ul>
         </FieldGroup>
       ) : null}
@@ -349,9 +379,11 @@ function NodeChangeCard({ node }: { readonly node: NodeConfigDiff }) {
 function FieldRow({
   change,
   show,
+  sourceLabels,
 }: {
   readonly change: ConfigFieldChange;
   readonly show: "before" | "after" | "both";
+  readonly sourceLabels: VariableSourceLabels;
 }) {
   return (
     <div
@@ -360,12 +392,12 @@ function FieldRow({
       style={{ color: "var(--builder-text)" }}
     >
       <span className="font-medium">{change.label}</span>:{" "}
-      {show === "before" ? <ValueText value={change.before} /> : null}
-      {show === "after" ? <ValueText value={change.after} /> : null}
+      {show === "before" ? <ValueText value={change.before} sourceLabels={sourceLabels} /> : null}
+      {show === "after" ? <ValueText value={change.after} sourceLabels={sourceLabels} /> : null}
       {show === "both" ? (
         <>
-          <ValueText value={change.before} /> <span aria-hidden>→</span>{" "}
-          <ValueText value={change.after} />
+          <ValueText value={change.before} sourceLabels={sourceLabels} /> <span aria-hidden>→</span>{" "}
+          <ValueText value={change.after} sourceLabels={sourceLabels} />
         </>
       ) : null}
     </div>
@@ -375,8 +407,19 @@ function FieldRow({
 /**
  * Render one redacted/summarized value. A redacted value shows a fixed "hidden" label and NEVER a
  * value (the raw value is not even present in props). Plain English for empties/summaries.
+ *
+ * REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — a config value the agent proposes is frequently a
+ * template ("New order from {{trigger.customer.name}}"). Scalar and text values run through the
+ * shared humanizer so the embedded reference reads as `Trigger → customer.name` in place; the
+ * surrounding literal text is untouched, and a value with no reference is unchanged.
  */
-function ValueText({ value }: { readonly value?: ConfigDiffValue }) {
+function ValueText({
+  value,
+  sourceLabels,
+}: {
+  readonly value?: ConfigDiffValue;
+  readonly sourceLabels: VariableSourceLabels;
+}) {
   if (!value) return <span style={{ color: "var(--builder-muted)" }}>(none)</span>;
   switch (value.kind) {
     case "redacted":
@@ -388,11 +431,12 @@ function ValueText({ value }: { readonly value?: ConfigDiffValue }) {
     case "empty":
       return <span style={{ color: "var(--builder-muted)" }}>(empty)</span>;
     case "scalar":
-      return <span className="font-mono">{String(value.value)}</span>;
+      return <span className="font-mono">{humanizeVariableTokens(value.value, sourceLabels)}</span>;
     case "text":
       return (
         <span>
-          “{value.preview}”{value.truncated ? <span style={{ color: "var(--builder-muted)" }}>… (truncated)</span> : null}
+          “{humanizeVariableTokens(value.preview, sourceLabels)}”
+          {value.truncated ? <span style={{ color: "var(--builder-muted)" }}>… (truncated)</span> : null}
         </span>
       );
     case "summary":

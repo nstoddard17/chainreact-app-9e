@@ -33,7 +33,7 @@ import { join, resolve } from "node:path";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import { TemplateDefinitionSchema, type TemplateDefinition } from "@/contracts/workflowTemplate";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
-import { parseReferences } from "@/core/workflows/variableReferences";
+import { parseReferences } from "@/core/workflows/variables/variableReferences";
 import { resolveStrict } from "@/workflow-engine/variables/resolveValue";
 import { deriveTemplateCardMeta } from "@/core/workflows/templateCardMeta";
 

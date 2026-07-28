@@ -8,7 +8,7 @@ import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
 import type { OutputMeta } from "@/contracts/actionMeta";
 import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePreview";
 import { resolveValueAtPath } from "@/core/workflows/resolveValueAtPath";
-import { formatReference } from "@/core/workflows/variableReferences";
+import { formatReference } from "@/core/workflows/variables/variableReferences";
 import type { VariableSource } from "../../hooks/useUpstreamVariables";
 
 /**
