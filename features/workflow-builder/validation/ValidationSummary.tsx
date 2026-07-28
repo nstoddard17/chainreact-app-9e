@@ -189,7 +189,9 @@ export function ValidationSummary({
       data-testid="validation-summary"
       data-state="has-issues"
       data-status={status}
-      className="flex flex-col gap-3 text-sm"
+      /* The drawer body supplies no padding, so the rail owns its own — the tray's px-3/py-2
+         breathing room, which is part of why it read as a card rather than a flush list. */
+      className="flex flex-col gap-2.5 p-3 text-sm"
     >
       {/* BUILDER-ISSUES-RAIL-1 — the header the floating tray used to carry: status pill + the
           remaining count, so the rail answers "can this run yet?" before any scrolling. */}
@@ -255,15 +257,17 @@ function IssueGroup({
   onChooseTrigger?: () => void;
   agentNodeIds?: ReadonlySet<string>;
 }) {
-  // Heading color follows the group's actual severity (all-warning → amber, else
-  // destructive) so styling stays driven by severity, not hard-coded per category.
   const hasError = issues.some((i) => i.severity === "error");
-  const headingClass = hasError
-    ? "text-destructive"
-    : "text-amber-700 dark:text-amber-300";
   // BUILDER-ISSUES-RAIL-1 — the tray's "N to fix before active" counter, per group. Errors are
   // exactly the issues that gate a test run / activation, so the count needs no separate rule.
   const blocking = issues.filter((i) => i.severity === "error").length;
+  // The tray's header shape: a MUTED label on the left and the amber blocking counter on the
+  // right. The label carries no inline "· N" when that counter is present — showing the same
+  // number twice on one line is what made the old heading noisy. A warning-only group has no
+  // counter, so it keeps the inline count.
+  const label = blocking > 0
+    ? validationCategoryLabel(category)
+    : `${validationCategoryLabel(category)} · ${issues.length}`;
   return (
     <section
       data-testid="validation-summary-group"
@@ -271,14 +275,13 @@ function IssueGroup({
       data-severity={hasError ? "error" : "warning"}
       className="flex flex-col gap-1.5"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h3 className={`text-xs font-semibold uppercase tracking-wide ${headingClass}`}>
-          {`${validationCategoryLabel(category)} · ${issues.length}`}
-        </h3>
+      <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide">
+        {/* Muted, not severity-tinted: severity now reads from the status pill and the counter,
+            so the heading can stay quiet and let the issue cards carry the weight. */}
+        <h3 style={{ color: "var(--builder-muted)" }}>{label}</h3>
         {blocking > 0 ? (
           <span
             data-testid="validation-summary-blocking"
-            className="text-[11px] font-semibold uppercase tracking-wide"
             style={{ color: "var(--builder-warning, #b45309)" }}
           >
             {blocking} to fix before active
@@ -324,25 +327,21 @@ function IssueRow({
   const nodeLabel = node ? getNodeDisplayName(node) : null;
   const guidance = validationIssueGuidance(issue, agentNodeIds ? { agentNodeIds } : undefined);
 
-  // BUILDER-ISSUES-RAIL-1 — the tray's card surface (panel background + neutral border) rather
-  // than the old severity-tinted row. Severity now reads from the group heading, the status pill,
-  // and the "to fix before active" counter, so the row itself can stay calm and legible while
-  // carrying three lines instead of one.
+  // BUILDER-ISSUES-RAIL-1 — the tray's card surface EXACTLY: panel background, neutral border, no
+  // severity tint. Colouring the border red made a list of blocking issues read as a wall of
+  // alarm; severity is already carried by the status pill and the "to fix before active" counter,
+  // and the row's job is to be readable while it carries three lines.
   const containerClass = "w-full rounded border px-2.5 py-1.5 text-left transition";
   const containerStyle = {
     background: "var(--builder-panel-2)",
-    borderColor:
-      issue.severity === "error"
-        ? "var(--builder-danger, #b91c1c)"
-        : "var(--builder-border)",
+    borderColor: "var(--builder-border)",
   };
   const body = (
     <IssueBody
       message={issue.message}
       explanation={guidance.explanation}
       nextStep={guidance.nextStep}
-      nodeLabel={nodeLabel}
-      fieldName={issue.fieldName}
+      {...(nodeLabel && !issue.message.includes(nodeLabel) ? { nodeLabel } : {})}
     />
   );
 
@@ -398,20 +397,23 @@ function IssueRow({
 
 /**
  * The three-line issue body the agent tray used: WHAT is wrong, WHY, and the single next step.
- * The node · field line is kept underneath as the precise locator.
+ *
+ * There is deliberately no fourth "node · field" locator line. The tray had none because its
+ * message already names the step and its next step already names the field ("Send Channel Message
+ * needs a Channel." / "Open the Channel field and fill it in."), so the locator was the same words
+ * a third time. `nodeLabel` is passed ONLY for the issues whose message does not name the step
+ * itself, so those stay attributable.
  */
 function IssueBody({
   message,
   explanation,
   nextStep,
   nodeLabel,
-  fieldName,
 }: {
   message: string;
   explanation: string;
   nextStep: string;
-  nodeLabel: string | null;
-  fieldName?: string;
+  nodeLabel?: string;
 }) {
   return (
     <span className="flex flex-col gap-0.5">
@@ -432,12 +434,15 @@ function IssueBody({
       >
         {nextStep}
       </span>
-      {nodeLabel && (
-        <span className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
+      {nodeLabel ? (
+        <span
+          data-testid="validation-summary-locator"
+          className="text-[11px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
           {nodeLabel}
-          {fieldName ? ` · ${fieldName}` : ""}
         </span>
-      )}
+      ) : null}
     </span>
   );
 }

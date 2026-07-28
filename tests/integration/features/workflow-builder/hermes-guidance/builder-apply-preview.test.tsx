@@ -850,10 +850,15 @@ describe("builder apply-preview — post-approval review loop in the issues rail
     return screen.findByTestId("validation-summary");
   }
 
+  /**
+   * Locate a row by its field. Matched case-insensitively against the row's text because the row
+   * names the field by its LABEL ("Channel"), not its key — BUILDER-ISSUES-RAIL-1 dropped the
+   * redundant "node · fieldKey" locator line the tray never had.
+   */
   function issueRow(fieldPath: string): HTMLElement {
     const row = screen
       .getAllByTestId("validation-summary-issue")
-      .find((el) => el.textContent?.includes(fieldPath));
+      .find((el) => el.textContent?.toLowerCase().includes(fieldPath.toLowerCase()));
     if (!row) throw new Error(`no issues-rail row for field ${fieldPath}`);
     return row;
   }
