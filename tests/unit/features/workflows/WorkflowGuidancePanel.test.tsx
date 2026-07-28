@@ -492,16 +492,16 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
 
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await screen.findByTestId("workflow-guidance-preview");
     // Auto-shown on the canvas — NO extra click required.
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
     expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "First" } });
     // No manual "Show on canvas" — the preview auto-showed.
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+    // REACT-AGENT-RAIL-NO-DUPLICATE-PREVIEW-1 — with a canvas wired, the canvas IS the presentation.
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
 
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add delay");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await waitFor(() => expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Second"));
     // The newer preview auto-supersedes (one auto-show per turn; latest wins downstream).
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(2));
     expect(onPreviewToCanvas.mock.calls[1]![0]).toMatchObject({ plan: { title: "Second" }, preview: { title: "Second" } });
@@ -552,7 +552,10 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     // The labeled starter skeleton auto-shows on the canvas — the canvas is no longer empty.
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
     expect(onPreviewToCanvas.mock.calls[0]![0].plan.title).toContain("Starter");
-    expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Starter");
+    expect(onPreviewToCanvas.mock.calls[0]![0].preview.title).toContain("Starter");
+    // REACT-AGENT-RAIL-NO-DUPLICATE-PREVIEW-1 — the skeleton is shown on the canvas, so the rail does
+    // NOT also restate it as a textual "Draft preview" card. The reply above is what the rail carries.
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
   });
 
   // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — a valid skeleton preview auto-shows on the canvas, so the
@@ -567,7 +570,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     // The suggestion renders and auto-shows on the canvas…
-    await screen.findByTestId("workflow-guidance-preview");
+    await screen.findByTestId("workflow-guidance-result");
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalled());
     // …but there is no manual "Show on canvas" control.
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
@@ -815,7 +818,10 @@ describe("WorkflowGuidancePanel — auto-show eligibility guard", () => {
     );
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "review my workflow");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await screen.findByTestId("workflow-guidance-preview");
+    // Sync on the assistant turn itself. REACT-AGENT-RAIL-NO-DUPLICATE-PREVIEW-1 removed the textual
+    // "Draft preview" card whenever a canvas is wired (which it always is here), so it is no longer a
+    // usable settle signal — and every case below asserts canvas behavior, not rail prose.
+    await screen.findByTestId("workflow-guidance-result");
     return user;
   }
 
@@ -840,9 +846,11 @@ describe("WorkflowGuidancePanel — auto-show eligibility guard", () => {
     // Same-shape restatement → NOT auto-shown (would ghost duplicates), and never a manual button.
     expect(onPreviewToCanvas).not.toHaveBeenCalled();
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
-    // The suggestion still reads in the rail as text.
+    // The suggestion still reads in the rail as React's reply. REACT-AGENT-RAIL-NO-DUPLICATE-PREVIEW-1
+    // — a same-shape restatement is by definition already on the canvas, so the rail does not repeat
+    // it as a textual "Draft preview" card either.
     expect(screen.getByTestId("workflow-guidance-result")).toHaveTextContent("Here's a thought.");
-    expect(screen.getByTestId("workflow-guidance-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
     // No raw JSON leaked into the rail.
     expect(screen.getByTestId("workflow-guidance-messages").textContent ?? "").not.toContain('"nodes"');
   });
@@ -1004,7 +1012,6 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
     render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "watch new gmail");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await screen.findByTestId("workflow-guidance-preview");
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
     expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "Auto" }, preview: { title: "Auto" } });
   });
@@ -1069,8 +1076,10 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
     render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "send slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    expect(await screen.findByTestId("workflow-guidance-preview")).toBeInTheDocument();
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
+    // The still-incomplete node reaches the canvas with its missing fields intact — the "Needs setup"
+    // badge and the rail's setup card are what surface them, not a restated prose list.
+    expect(onPreviewToCanvas.mock.calls[0]![0].preview.nodes[0].missingInputs).toEqual(["channel", "text"]);
   });
 
   it("surfaces a catalog-gap warning when no plan could be built", async () => {

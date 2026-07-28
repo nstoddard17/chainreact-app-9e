@@ -375,11 +375,15 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   as a diff graph (Apply/Discard in the top bar; setup surfaces on the canvas node / config
                   panel / guided-setup card). The rail shows the conversational summary ONLY — no auto-show
                   error, no orphaned "Still needs", no "Show on canvas". So nothing extra is rendered here. */}
-              {/* HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — new-workflow skeleton (not an edit): an
-                  INFORMATIONAL "Draft preview" card. A valid skeleton auto-shows on the canvas; a
-                  same-shape restatement intentionally does not (it would ghost duplicate nodes) and stays
-                  here as text. Either way there is NO manual "Show on canvas" button. */}
-              {isLatest && m.preview && m.proposedDefinition == null && (
+              {/* REACT-AGENT-RAIL-NO-DUPLICATE-PREVIEW-1 — the textual "Draft preview" card is rendered
+                  ONLY when this panel has no canvas to show the sketch on (`onPreviewToCanvas` unwired).
+                  Inside the builder the workspace already renders the very same thing — title, summary,
+                  per-step list, and per-node "Needs setup" — as the holographic preview, so repeating it
+                  as prose made the chat read as a wall of restated text. A same-shape restatement (which
+                  deliberately does not auto-show, to avoid ghosting duplicates) is by definition already
+                  on the canvas, so it loses nothing here either. There is still NO manual "Show on
+                  canvas" button (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH). */}
+              {isLatest && m.preview && m.proposedDefinition == null && !onPreviewToCanvas && (
                 <GuidancePreviewSection preview={m.preview} plan={m.plan} />
               )}
             </div>

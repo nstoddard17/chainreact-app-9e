@@ -60,6 +60,23 @@ describe("BuilderPreviewOverlay", () => {
     expect(nodes[1]).toHaveTextContent("slack:send_message");
   });
 
+  // REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — when the builder threads the registry names in, the ghost
+  // card titles the step exactly as the real node card and the rail's setup card do. The humanized key
+  // asserted above is only the fallback, and it can differ from the registry name.
+  it("prefers the registry display name for the card title when one is supplied", () => {
+    render(
+      <BuilderPreviewOverlay
+        preview={preview}
+        onDiscard={() => {}}
+        nodeDisplayNames={{ "gmail:new_email": "New Email Received" }}
+      />,
+    );
+    const nodes = screen.getAllByTestId("builder-preview-node");
+    expect(nodes[0]).toHaveTextContent("New Email Received");
+    // Unmapped types still fall back to the title-cased key.
+    expect(nodes[1]).toHaveTextContent("Send Message");
+  });
+
   it("shows a SHORT 'Needs setup' badge (with count) on incomplete nodes — never a field list", () => {
     render(<BuilderPreviewOverlay preview={preview} onDiscard={() => {}} />);
     const nodes = screen.getAllByTestId("builder-preview-node");

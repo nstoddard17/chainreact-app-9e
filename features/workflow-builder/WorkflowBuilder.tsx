@@ -500,6 +500,18 @@ export function WorkflowBuilder({
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
 
+  // REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — `provider:type` → registry display name, derived from the
+  // requirements map the server already threads in (it carries `displayName` per node type). The React
+  // rail's setup card uses it to name each sketched step the way the canvas and config panel do,
+  // instead of printing the raw capability key. No new server plumbing, no new fetch.
+  const nodeDisplayNames = useMemo(
+    () =>
+      requiredFieldsByType
+        ? Object.fromEntries(Object.entries(requiredFieldsByType).map(([key, r]) => [key, r.displayName]))
+        : undefined,
+    [requiredFieldsByType],
+  );
+
   // CONFIG-UX-NODE-SUMMARY-1 — the canvas adapter is a PURE synchronous converter and must not read
   // the label store itself, so subscribe here and thread the snapshot down. The subscription is what
   // makes a card's summary line appear as its picker resolves the resource's name.
@@ -1137,6 +1149,7 @@ export function WorkflowBuilder({
             // the latest shown preview. PreviewConfig stays owned here (ephemeral, never dirty/saved).
             previewForSetup={previewOverlay?.preview ?? null}
             {...(setupFieldsByType ? { setupFieldsByType } : {})}
+            {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
             previewConfig={previewConfig}
             previewPrefilledConfig={previewPrefilledConfig}
             previewEnrichment={previewEnrichment}
@@ -1285,6 +1298,7 @@ export function WorkflowBuilder({
                   onShowPreview={handleShowPreview}
                   previewForSetup={previewOverlay?.preview ?? null}
                   {...(setupFieldsByType ? { setupFieldsByType } : {})}
+                  {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
                   previewConfig={previewConfig}
                   previewPrefilledConfig={previewPrefilledConfig}
                   previewEnrichment={previewEnrichment}
@@ -1381,6 +1395,7 @@ export function WorkflowBuilder({
             onDiscard={handleDiscardPreview}
             providerLabels={providerLabels}
             providerIcons={providerIcons}
+            {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
           />
         ) : null}
         {/* HERMES-AGENT-APPLY-PREVIEW-PATCH / -CONFIG-HINTS — transient confirmation after an explicit

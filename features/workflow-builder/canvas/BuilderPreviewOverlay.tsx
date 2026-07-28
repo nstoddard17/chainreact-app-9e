@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { DraftPreview, DraftPreviewNode } from "@/contracts/workflowPlanPreview";
 import { ChainReactMark } from "@/components/brand/ChainReactMark";
 import { isConnectionlessProvider } from "@/core/integrations/connectionlessProviders";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 
 /**
  * Non-applied AI draft preview overlay (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY +
@@ -56,6 +57,14 @@ export interface BuilderPreviewOverlayProps {
    * (never credentials / account ids).
    */
   readonly providerIcons?: Readonly<Record<string, string>>;
+  /**
+   * REACT-AGENT-RAIL-NODE-DISPLAY-NAMES-1 — registry display name per `provider:type`, so the ghost
+   * card titles a step exactly as the real node card and the rail's setup card do. Optional — absent,
+   * the shared `getNodeDisplayName` fallback title-cases the type key, which is what this overlay did
+   * on its own before. Threading it removes the divergence where the registry name differs from the
+   * humanized key (`stripe:event_received` is "Stripe Event Received", not "Event Received").
+   */
+  readonly nodeDisplayNames?: Readonly<Record<string, string>>;
 }
 
 export function BuilderPreviewOverlay({
@@ -64,6 +73,7 @@ export function BuilderPreviewOverlay({
   onApply,
   providerLabels,
   providerIcons,
+  nodeDisplayNames,
 }: BuilderPreviewOverlayProps) {
   return (
     <div
@@ -141,6 +151,14 @@ export function BuilderPreviewOverlay({
               node={node}
               providerLabel={providerLabels?.[node.provider] ?? node.provider}
               iconUrl={providerIcons?.[node.provider]}
+              displayName={getNodeDisplayName(
+                {
+                  kind: node.role === "trigger" ? "trigger" : "action",
+                  provider: node.provider,
+                  type: node.type,
+                },
+                { displayName: nodeDisplayNames?.[`${node.provider}:${node.type}`] ?? null },
+              )}
             />
             {/* Dashed preview edge to the next ghost node (linear chain). */}
             {i < preview.nodes.length - 1 && (
@@ -169,10 +187,13 @@ function PreviewNodeCard({
   node,
   providerLabel,
   iconUrl,
+  displayName,
 }: {
   node: DraftPreviewNode;
   providerLabel: string;
   iconUrl?: string;
+  /** Resolved human step name (registry display name, else the title-cased type key). */
+  displayName: string;
 }) {
   const isTrigger = node.role === "trigger";
   const railColor = isTrigger ? "var(--builder-success)" : "var(--builder-accent)";
@@ -216,7 +237,7 @@ function PreviewNodeCard({
             title={node.label}
             style={{ color: "var(--builder-text)" }}
           >
-            {humanizeType(node.type)}
+            {displayName}
           </div>
           {/* `provider:type` capability label (mono subtitle), mirroring the card's mono subtitle. */}
           <code
@@ -385,16 +406,6 @@ function PreviewProviderAvatar({
       {initials}
     </span>
   );
-}
-
-/** Humanize a capability `type` into a node-card-style title: `send_message` → "Send Message". */
-function humanizeType(type: string): string {
-  const cleaned = type.replace(/[_-]+/g, " ").trim();
-  if (!cleaned) return type;
-  return cleaned
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 /** Up to two leading initials, uppercase. Falls back to "?" for empty input. */
