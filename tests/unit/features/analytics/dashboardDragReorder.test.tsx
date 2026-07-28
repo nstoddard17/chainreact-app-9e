@@ -91,30 +91,61 @@ function dashboard(widgets: AnalyticsWidget[] = [A, B, C]): Dashboard {
  */
 const SLOT_SIZE = 200;
 const SLOT_PITCH = 220;
-const GRID_ORIGIN = { left: 50, top: 30 };
+/**
+ * Deliberately a LARGE offset from the viewport origin, like the real page: the
+ * grid sits right of a sidebar and below a header and the edit banner. A small
+ * origin is what let the coordinate-space bug hide — with the grid near (0,0),
+ * viewport, grid-local and document coordinates are close enough that mixing
+ * them still lands in roughly the right slot.
+ */
+const GRID_ORIGIN = { left: 288, top: 412 };
 
-function layoutCards() {
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return {
+    left, top, width, height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
+
+/**
+ * @param gridIsOffsetParent whether the grid is the cards' offsetParent.
+ *
+ * TRUE models production, where the grid sets `position: relative` so offset*
+ * is already grid-local. FALSE models what happens if it does not: offset*
+ * then measures from the document, which is precisely the mismatch that put the
+ * overlay hundreds of pixels from the cursor and made every slot unreachable.
+ * Both must behave identically — the drag must never depend on which is true.
+ */
+function layoutCards({ gridIsOffsetParent = true } = {}) {
   const cards = Array.from(document.querySelectorAll("[data-widget-id]")) as HTMLElement[];
+  const grid = cards[0]?.parentElement ?? null;
   cards.forEach((card, index) => {
-    Object.defineProperty(card, "offsetLeft", { value: index * SLOT_PITCH, configurable: true });
-    Object.defineProperty(card, "offsetTop", { value: 0, configurable: true });
+    const localLeft = index * SLOT_PITCH;
+    // offset* is relative to the offsetParent: grid-local when that is the
+    // grid, document-space when it is not.
+    const base = gridIsOffsetParent ? { left: 0, top: 0 } : GRID_ORIGIN;
+    Object.defineProperty(card, "offsetParent", {
+      value: gridIsOffsetParent ? grid : document.body,
+      configurable: true,
+    });
+    Object.defineProperty(card, "offsetLeft", {
+      value: base.left + localLeft,
+      configurable: true,
+    });
+    Object.defineProperty(card, "offsetTop", { value: base.top, configurable: true });
     Object.defineProperty(card, "offsetWidth", { value: SLOT_SIZE, configurable: true });
     Object.defineProperty(card, "offsetHeight", { value: SLOT_SIZE, configurable: true });
+    // getBoundingClientRect is always VIEWPORT space, whatever offset* does.
+    card.getBoundingClientRect = () =>
+      rect(GRID_ORIGIN.left + localLeft, GRID_ORIGIN.top, SLOT_SIZE, SLOT_SIZE);
   });
-  const grid = cards[0]?.parentElement;
   if (grid) {
     grid.getBoundingClientRect = () =>
-      ({
-        left: GRID_ORIGIN.left,
-        top: GRID_ORIGIN.top,
-        right: GRID_ORIGIN.left + SLOT_PITCH * 3,
-        bottom: GRID_ORIGIN.top + SLOT_SIZE,
-        width: SLOT_PITCH * 3,
-        height: SLOT_SIZE,
-        x: GRID_ORIGIN.left,
-        y: GRID_ORIGIN.top,
-        toJSON: () => ({}),
-      }) as DOMRect;
+      rect(GRID_ORIGIN.left, GRID_ORIGIN.top, SLOT_PITCH * 3, SLOT_SIZE);
   }
 }
 
@@ -189,8 +220,9 @@ function pointerDown(
   at: { clientX: number; clientY: number },
   pointerId = 1,
   button = 0,
+  layout: { gridIsOffsetParent?: boolean } = {},
 ) {
-  layoutCards();
+  layoutCards(layout);
   firePointer(handleEl(id), "pointerDown", { pointerId, button, ...at });
 }
 
@@ -498,6 +530,64 @@ describe("overlay and destination placeholder", () => {
     // Placeholder is the dragged card itself, so it IS at the destination.
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
     expect(screen.getByTestId("analytics-drag-placeholder-w-a")).toBeTruthy();
+  });
+
+  it("places the overlay exactly on the grabbed card, with no jump", () => {
+    // ANALYTICS-DRAG-COORDINATE-SPACE-REPAIR-1: the overlay's position formula
+    // is pointer − grabOffset, which at rest IS the card's viewport top-left.
+    // The broken version added the grid's origin to a document-space offset,
+    // so the ghost appeared far down and right of the cursor the instant the
+    // drag began.
+    renderEditing();
+    const grabbedAt = { clientX: GRID_ORIGIN.left + 40, clientY: GRID_ORIGIN.top + 25 };
+    pointerDown("w-a", grabbedAt);
+
+    const overlay = screen.getByTestId("analytics-drag-overlay");
+    expect(overlay.style.transform).toBe(
+      `translate3d(${GRID_ORIGIN.left}px, ${GRID_ORIGIN.top}px, 0)`,
+    );
+  });
+
+  it("keeps the grabbed point under the pointer as it moves", () => {
+    renderEditing();
+    // Grab well away from the card's centre so a lost grab offset shows up.
+    const grabX = GRID_ORIGIN.left + 12;
+    const grabY = GRID_ORIGIN.top + 8;
+    pointerDown("w-a", { clientX: grabX, clientY: grabY });
+    const grabOffsetX = grabX - GRID_ORIGIN.left;
+    const grabOffsetY = grabY - GRID_ORIGIN.top;
+
+    const target = { clientX: 620, clientY: 480 };
+    pointerMove("w-a", target);
+
+    const overlay = screen.getByTestId("analytics-drag-overlay");
+    const [, ox, oy] = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(
+      overlay.style.transform,
+    ) as RegExpExecArray;
+    // The same point inside the overlay is still under the cursor.
+    expect(Number(ox) + grabOffsetX).toBe(target.clientX);
+    expect(Number(oy) + grabOffsetY).toBe(target.clientY);
+  });
+
+  it("resolves destinations identically when offset* is NOT grid-local", () => {
+    // The production grid is `position: relative`, so offset* is grid-local. If
+    // that ever stops being true the slot capture must fall back rather than
+    // compare a document-space box against a grid-local pointer — which is the
+    // failure that made every slot unreachable.
+    renderEditing();
+    pointerDown("w-a", slotPoint(0), 1, 0, { gridIsOffsetParent: false });
+
+    // The overlay is still placed from the CARD's own viewport rect, so it sits
+    // on the card rather than at gridOrigin + a document-space offset.
+    expect(screen.getByTestId("analytics-drag-overlay").style.transform).toBe(
+      `translate3d(${GRID_ORIGIN.left}px, ${GRID_ORIGIN.top}px, 0)`,
+    );
+
+    pointerMove("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+
+    pointerMove("w-a", slotPoint(0));
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
   it("the overlay follows the pointer", () => {

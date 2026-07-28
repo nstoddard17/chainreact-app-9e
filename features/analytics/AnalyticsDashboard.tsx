@@ -571,7 +571,11 @@ export function AnalyticsDashboard({
       ) : (
         <div
           ref={gridRef}
-          className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]"
+          // `relative` is load-bearing, not cosmetic: it makes this element the
+          // offsetParent of the cards, so their offsetLeft/offsetTop ARE
+          // grid-local and can be compared with grid-local pointer coordinates
+          // during a drag (see useWidgetDragSession's coordinate contract).
+          className="relative grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]"
         >
           {orderedWidgets.map((w) => (
             <Widget

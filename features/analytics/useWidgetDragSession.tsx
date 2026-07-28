@@ -14,6 +14,29 @@ import { AnalyticsIcon } from "@/components/analytics/icons";
 import { computeDragPreview, hitTestSlot, type DragSlot } from "./dashboardHelpers";
 
 /**
+ * COORDINATE-SPACE CONTRACT (ANALYTICS-DRAG-COORDINATE-SPACE-REPAIR-1).
+ *
+ * There are exactly two spaces in this file and they are never mixed:
+ *
+ *   VIEWPORT — `event.clientX/clientY`, `getBoundingClientRect()`. The ONLY
+ *     space used to position the fixed overlay. The overlay's position has one
+ *     formula and one only: `pointer − grabOffset`, where `grabOffset` is the
+ *     pointer's position inside the dragged card captured at pointer-down from
+ *     that card's OWN rect. Nothing else is ever added — not scroll, not the
+ *     grid's origin, not the card's starting coordinates.
+ *
+ *   GRID-LOCAL — `clientX − gridRect.left`, `clientY − gridRect.top`, and the
+ *     frozen slot boxes. The ONLY space used for destination hit-testing.
+ *
+ * The bug this contract exists to prevent: slot boxes were built from
+ * `offsetLeft/offsetTop` (relative to the OFFSETPARENT, which was the document
+ * body, not the grid) and then compared against grid-local pointer coordinates,
+ * while the overlay was placed at `gridRect + offsetLeft` — double-counting the
+ * grid's own position. The ghost sat hundreds of pixels down and right of the
+ * cursor, and no pointer position could ever fall inside a slot. The grid now
+ * sets `position: relative` so it IS the offsetParent, and the slot capture
+ * asserts that before trusting offset*.
+ *
  * Pointer-driven widget drag session (ANALYTICS-WIDGET-DRAG-STABILITY-1).
  *
  * The previous drag models re-ordered on whichever widget the pointer happened
@@ -143,20 +166,44 @@ export function useWidgetDragSession({
       const widget = startOrder.find((w) => w.id === widgetId);
       if (originSlot < 0 || !widget || cards.length !== startOrder.length) return;
 
-      // Frozen collision geometry for the whole session. offset* is layout
-      // position — a FLIP transform still running from a previous drop cannot
-      // leak into it the way getBoundingClientRect() would let it.
-      const slots: DragSlot[] = cards.map((c) => ({
-        left: c.offsetLeft,
-        top: c.offsetTop,
-        width: c.offsetWidth,
-        height: c.offsetHeight,
-      }));
-
       const gridRect = grid.getBoundingClientRect();
-      const origin = slots[originSlot]!;
-      const cardClientX = gridRect.left + origin.left;
-      const cardClientY = gridRect.top + origin.top;
+
+      // Frozen collision geometry, in GRID-LOCAL coordinates (see the
+      // coordinate-space contract above).
+      //
+      // offset* is preferred because it is layout position: a FLIP transform
+      // still running from a previous drop cannot leak into it the way
+      // getBoundingClientRect() would. But offset* is relative to the
+      // OFFSETPARENT, which is grid-local only because the grid sets
+      // `position: relative` for exactly this purpose. If some future ancestor
+      // ever takes that role, fall back to rect arithmetic rather than let the
+      // two spaces silently diverge again — that divergence was this bug.
+      const slots: DragSlot[] = cards.map((c) => {
+        if (c.offsetParent === grid) {
+          return {
+            left: c.offsetLeft,
+            top: c.offsetTop,
+            width: c.offsetWidth,
+            height: c.offsetHeight,
+          };
+        }
+        const r = c.getBoundingClientRect();
+        return {
+          left: r.left - gridRect.left,
+          top: r.top - gridRect.top,
+          width: r.width,
+          height: r.height,
+        };
+      });
+
+      // Overlay geometry is VIEWPORT space, taken from the dragged card's own
+      // rect. Never gridRect + offset*: that mixes spaces and double-counts the
+      // grid's position within its offsetParent.
+      const cardRect = cards[originSlot]!.getBoundingClientRect();
+      // Where inside the card the user grabbed it. Subtracted exactly once,
+      // every frame, to place the overlay.
+      const grabDx = e.clientX - cardRect.left;
+      const grabDy = e.clientY - cardRect.top;
 
       e.preventDefault();
       const handle = e.currentTarget;
@@ -232,18 +279,21 @@ export function useWidgetDragSession({
         startOrder,
         slots,
         originSlot,
-        grabDx: e.clientX - cardClientX,
-        grabDy: e.clientY - cardClientY,
+        grabDx,
+        grabDy,
         handle,
         removeListeners,
         destination: originSlot,
       };
-      posRef.current = { x: cardClientX, y: cardClientY };
+      // The single overlay-position formula: pointer − grabOffset. At rest that
+      // is exactly the card's current top-left, so the ghost appears under the
+      // cursor with no jump.
+      posRef.current = { x: e.clientX - grabDx, y: e.clientY - grabDy };
       document.body.style.userSelect = "none";
       document.body.style.cursor = "grabbing";
       setDraggingId(widgetId);
       setPreviewOrder(startOrder);
-      setOverlay({ widget, width: origin.width, height: origin.height });
+      setOverlay({ widget, width: cardRect.width, height: cardRect.height });
     },
     [gridRef, commitDrag, cancelDrag],
   );
