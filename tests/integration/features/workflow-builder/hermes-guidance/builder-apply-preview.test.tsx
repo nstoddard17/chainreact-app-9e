@@ -434,7 +434,9 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     renderWithMeta(workflow([], []));
     await applyPreview(user);
 
-    const card = await screen.findByTestId("builder-setup-needed");
+    // BUILDER-ISSUES-RAIL-1 — the gaps are reported in the issues rail, not a floating card.
+    await user.click(screen.getByTestId("builder-header-validation-pill"));
+    const card = await screen.findByTestId("validation-summary");
     // One actionable row per missing required field — field LABELS from metadata, names only.
     expect(card).toHaveTextContent("Send Message needs a Channel.");
     expect(card).toHaveTextContent("Send Message needs a Message.");
@@ -453,8 +455,8 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     // ...but the noisy on-card badge is gone.
     expect(screen.queryByTestId("added-from-preview-badge")).not.toBeInTheDocument();
     expect(screen.queryByText(/added from preview/i)).not.toBeInTheDocument();
-    // The post-apply "Setup needed" card still renders (still useful) — and nothing was saved.
-    expect(screen.getByTestId("builder-setup-needed")).toBeInTheDocument();
+    // The apply is still acknowledged (now a toast, with the gaps in the rail) — nothing saved.
+    expect(screen.getByTestId("builder-apply-notice")).toBeInTheDocument();
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
@@ -464,10 +466,11 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     renderBuilder(workflow([], []));
     await applyPreview(user);
 
-    const card = await screen.findByTestId("builder-setup-needed");
-    // Unknown-type nodes get a conservative, non-blocking review prompt — never a field-specific row.
-    expect(card).toHaveTextContent("Review its required fields");
-    expect(card).not.toHaveTextContent("needs a");
+    // Without metadata the validator can confirm no field gap, so the rail has nothing to flag on
+    // those nodes — the apply is acknowledged by the toast alone and nothing invents a gap.
+    const notice = await screen.findByTestId("builder-apply-notice");
+    expect(notice).toBeInTheDocument();
+    expect(notice).not.toHaveTextContent("needs a");
   });
 
   it("does not auto-save / update the workflow when surfacing hints", async () => {
@@ -482,10 +485,11 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     renderWithMeta(workflow([], []));
     await applyPreview(user);
 
-    const card = await screen.findByTestId("builder-setup-needed");
+    await user.click(screen.getByTestId("builder-header-validation-pill"));
+    const card = await screen.findByTestId("validation-summary");
     const channelRow = within(card)
-      .getAllByTestId("builder-setup-needed-issue")
-      .find((el) => el.getAttribute("data-field-path") === "channel");
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.textContent?.includes("Channel"));
     expect(channelRow).toBeDefined();
 
     const slack = useGraphSlice.getState().pendingNodes.find(
@@ -538,8 +542,10 @@ describe("builder apply-preview — auto-open first incomplete node (HERMES-AGEN
     // The no-metadata gmail trigger is NOT auto-opened (we can't confirm it's incomplete).
     const gmail = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "gmail");
     expect(useConfigSlice.getState().activeNodeId).not.toBe(gmail!.id);
-    // Existing post-apply "Setup needed" card still renders; nothing was saved.
-    expect(screen.getByTestId("builder-setup-needed")).toBeInTheDocument();
+    // BUILDER-ISSUES-RAIL-1 — the apply is still acknowledged, and the drawer stays on the node it
+    // deliberately opened rather than being taken over by the issues rail. Nothing was saved.
+    expect(screen.getByTestId("builder-apply-notice")).toBeInTheDocument();
+    expect(screen.queryByTestId("validation-summary")).not.toBeInTheDocument();
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
@@ -800,13 +806,18 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
 });
 
 /**
- * REACT-AGENT-REVIEW-TRAY-UX-1 — the post-approval review loop, driven through the REAL builder.
+ * BUILDER-ISSUES-RAIL-1 — the post-approval review loop, driven through the REAL builder.
  *
- * The user should be able to repeat: expand tray → pick an issue → tray collapses → fill the
- * highlighted field → expand again → pick the next one. These tests prove that loop preserves the
- * review session, the config panel, the selected node, unsaved config values, and issue progress.
+ * The floating review tray is gone. What still has to work is the loop it existed for: after an
+ * apply, the user can see everything that is still unset, click one, land on that exact field, fix
+ * it, and watch the count fall to zero — now entirely inside the issues rail, which is also where
+ * the same gaps were already reported before an agent was ever involved.
+ *
+ * Note the drawer is single-slot. An apply that leaves a node incomplete ALREADY opens that node's
+ * config panel (HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY), so these tests open the rail
+ * the way a user does — the header issue-count pill.
  */
-describe("builder apply-preview — collapsible review tray (REACT-AGENT-REVIEW-TRAY-UX-1)", () => {
+describe("builder apply-preview — post-approval review loop in the issues rail", () => {
   const requiredFieldsByType = {
     "gmail:new_email": { displayName: "New Email", requiredFields: [{ name: "label", label: "Label" }] },
     "slack:send_message": {
@@ -834,11 +845,16 @@ describe("builder apply-preview — collapsible review tray (REACT-AGENT-REVIEW-
   const slackNode = () =>
     useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message")!;
 
+  async function openIssuesRail(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTestId("builder-header-validation-pill"));
+    return screen.findByTestId("validation-summary");
+  }
+
   function issueRow(fieldPath: string): HTMLElement {
     const row = screen
-      .getAllByTestId("builder-setup-needed-issue")
-      .find((el) => el.getAttribute("data-field-path") === fieldPath);
-    if (!row) throw new Error(`no review-tray row for field ${fieldPath}`);
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.textContent?.includes(fieldPath));
+    if (!row) throw new Error(`no issues-rail row for field ${fieldPath}`);
     return row;
   }
 
@@ -850,159 +866,110 @@ describe("builder apply-preview — collapsible review tray (REACT-AGENT-REVIEW-
     });
   }
 
-  it("opens EXPANDED right after the approval, blocked, with every issue listed", async () => {
+  it("reports every remaining gap in the rail, blocked, with the tray's three-line presentation", async () => {
     const user = userEvent.setup();
     renderWithMeta();
     await applyPreview(user);
+    const rail = await openIssuesRail(user);
 
-    await screen.findByTestId("builder-review-tray-expanded");
-    expect(screen.getByTestId("builder-review-tray-status")).toHaveTextContent("Blocked");
-    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("3 issues remaining");
-    expect(screen.getAllByTestId("builder-setup-needed-issue")).toHaveLength(3);
+    expect(screen.getByTestId("validation-summary-status")).toHaveTextContent("Blocked");
+    expect(screen.getByTestId("validation-summary-remaining")).toHaveTextContent("3 issues remaining");
+    expect(screen.getAllByTestId("validation-summary-issue")).toHaveLength(3);
+    // The presentation the tray was liked for: what, why, and the next step — per row.
+    expect(rail).toHaveTextContent("Send Message needs a Channel.");
+    expect(rail).toHaveTextContent("Open the Channel field and fill it in.");
+    expect(screen.getAllByTestId("validation-summary-explanation").length).toBe(3);
+    // Still labels only — no values, secrets, tokens, or credential ids.
+    expect(rail.textContent ?? "").not.toMatch(/token|secret|xox|Bearer|account[_-]?id|password/i);
   });
 
-  it("selecting an issue opens the right node, highlights the right field, and collapses the tray", async () => {
+  it("attributes an agent-added gap to React, and never claims that for a hand-built step", async () => {
     const user = userEvent.setup();
     renderWithMeta();
     await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
+    await openIssuesRail(user);
+    // These nodes WERE added by the agent, so the honest explanation names it.
+    expect(screen.getAllByTestId("validation-summary-explanation")[0]).toHaveTextContent(
+      /React added this step/i,
+    );
+  });
+
+  it("clicking an issue opens the right node and highlights the right field (no save/run)", async () => {
+    const user = userEvent.setup();
+    renderWithMeta();
+    await applyPreview(user);
+    await openIssuesRail(user);
 
     await user.click(issueRow("channel"));
 
-    // The EXISTING reveal path ran — correct node selected, correct field highlighted, nothing saved.
     expect(useConfigSlice.getState().activeNodeId).toBe(slackNode().id);
     expect(useConfigSlice.getState().focusFieldKey).toBe("channel");
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
-    // ...and the tray got out of the way.
-    expect(screen.queryByTestId("builder-review-tray-expanded")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-review-tray-collapsed")).toHaveTextContent("3 issues remaining");
   });
 
-  it("collapsing does not close the config panel, change the selected node, or end the review", async () => {
+  it("drops the remaining count as each field is completed", async () => {
     const user = userEvent.setup();
     renderWithMeta();
     await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
-    await user.click(issueRow("message"));
+    await openIssuesRail(user);
+    expect(screen.getByTestId("validation-summary-remaining")).toHaveTextContent("3 issues remaining");
 
-    const openNodeId = useConfigSlice.getState().activeNodeId;
-    expect(openNodeId).toBe(slackNode().id);
-
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
-    await user.click(screen.getByTestId("builder-review-tray-collapse"));
-
-    expect(useConfigSlice.getState().activeNodeId).toBe(openNodeId);
-    expect(useConfigSlice.getState().focusFieldKey).toBe("message");
-    // The review session is still there (not dismissed), with its issue list intact.
-    expect(screen.getByTestId("builder-apply-notice")).toBeInTheDocument();
-    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("3 issues remaining");
-  });
-
-  it("keeps unsaved node configuration values through an expand/collapse round-trip", async () => {
-    const user = userEvent.setup();
-    renderWithMeta();
-    await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
-    await user.click(issueRow("message"));
-
-    const nodeId = slackNode().id;
-    // An in-progress (NOT committed) config edit — the draft the config panel holds.
-    act(() => useConfigSlice.getState().updateField({ nodeId, name: "message", value: "half typed" }));
-    expect(useConfigSlice.getState().drafts[nodeId]?.isDirty).toBe(true);
-
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
-    await user.click(screen.getByTestId("builder-review-tray-collapse"));
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
-
-    expect(useConfigSlice.getState().drafts[nodeId]?.values.message).toBe("half typed");
-    expect(useConfigSlice.getState().drafts[nodeId]?.isDirty).toBe(true);
-    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)?.config?.message).toBeUndefined();
-  });
-
-  it("drops the remaining count as a field is completed, WITHOUT re-opening the tray", async () => {
-    const user = userEvent.setup();
-    renderWithMeta();
-    await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
+    // Follow the real path: the row opens the node's config draft, which is what a value can then
+    // be committed into. (Committing into a node whose draft was never opened is a no-op.)
     await user.click(issueRow("channel"));
-    expect(screen.getByTestId("builder-review-tray-collapsed")).toBeInTheDocument();
-
     fillField(slackNode().id, "channel", "C123");
 
-    // Still collapsed — the count updates in place on the compact bar.
+    await openIssuesRail(user);
     await waitFor(() =>
-      expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("2 issues remaining"),
+      expect(screen.getByTestId("validation-summary-remaining")).toHaveTextContent("2 issues remaining"),
     );
-    expect(screen.queryByTestId("builder-review-tray-expanded")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-review-tray-status")).toHaveTextContent("Blocked");
+    expect(screen.getByTestId("validation-summary-status")).toHaveTextContent("Blocked");
   });
 
-  it("marks the fixed issue Resolved in place when the tray is expanded again, and keeps the rest actionable", async () => {
+  it("runs the whole loop: issue → fill → next issue, ending in the ready state", async () => {
     const user = userEvent.setup();
     renderWithMeta();
     await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
-    await user.click(issueRow("channel"));
-    fillField(slackNode().id, "channel", "C123");
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
-
-    expect(screen.getAllByTestId("builder-setup-needed-issue")).toHaveLength(3); // resolved rows keep their place
-    expect(issueRow("channel")).toHaveAttribute("data-resolved", "true");
-    expect(issueRow("message")).toHaveAttribute("data-resolved", "false");
-    expect(screen.getByTestId("builder-setup-needed-blocking")).toHaveTextContent("2 to fix before active");
-  });
-
-  it("runs the whole loop: issue → collapse → fill → expand → next issue, ending in the ready state", async () => {
-    const user = userEvent.setup();
-    renderWithMeta();
-    await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
+    await openIssuesRail(user);
 
     const gmailId = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "gmail")!.id;
     const slackId = slackNode().id;
 
-    // 1st issue
     await user.click(issueRow("label"));
     expect(useConfigSlice.getState().activeNodeId).toBe(gmailId);
-    expect(screen.getByTestId("builder-review-tray-collapsed")).toBeInTheDocument();
     fillField(gmailId, "label", "INBOX");
 
-    // 2nd issue
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
+    await openIssuesRail(user);
     await user.click(issueRow("channel"));
     expect(useConfigSlice.getState().activeNodeId).toBe(slackId);
     expect(useConfigSlice.getState().focusFieldKey).toBe("channel");
     fillField(slackId, "channel", "C123");
 
-    // 3rd issue
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
+    await openIssuesRail(user);
     await user.click(issueRow("message"));
     fillField(slackId, "message", "New lead");
 
+    await openIssuesRail(user);
     await waitFor(() =>
-      expect(screen.getByTestId("builder-review-tray-status")).toHaveTextContent("Ready"),
+      expect(screen.getByTestId("validation-summary-status")).toHaveTextContent("Ready"),
     );
-    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("All setup complete");
+    expect(screen.getByText("All setup complete")).toBeInTheDocument();
     // Nothing was saved, run, or activated by the review loop itself.
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("Escape collapses the tray without dismissing the review or losing progress", async () => {
+  // The regression this batch exists to prevent: two issue surfaces for one problem.
+  it("raises NO floating issue list over the canvas — the apply notice is a one-line toast", async () => {
     const user = userEvent.setup();
     renderWithMeta();
     await applyPreview(user);
-    await screen.findByTestId("builder-review-tray-expanded");
-    await user.click(issueRow("channel"));
-    fillField(slackNode().id, "channel", "C123");
-    await user.click(screen.getByTestId("builder-review-tray-expand"));
 
-    screen.getByTestId("builder-review-tray-collapse").focus();
-    await user.keyboard("{Escape}");
-
-    expect(screen.getByTestId("builder-review-tray-collapsed")).toBeInTheDocument();
-    expect(screen.getByTestId("builder-apply-notice")).toBeInTheDocument();
-    expect(screen.getByTestId("builder-review-tray-remaining")).toHaveTextContent("2 issues remaining");
-    // The config panel and its selection are untouched.
-    expect(useConfigSlice.getState().activeNodeId).toBe(slackNode().id);
+    const notice = await screen.findByTestId("builder-apply-notice");
+    expect(notice).toHaveAttribute("data-tray", "none");
+    expect(screen.queryByTestId("builder-setup-needed")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-review-tray-expanded")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-review-tray-collapsed")).not.toBeInTheDocument();
+    // The toast does not restate the issues — that is the rail's job now.
+    expect(notice).not.toHaveTextContent("needs a Channel");
   });
 });

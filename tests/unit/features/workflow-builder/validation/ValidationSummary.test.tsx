@@ -43,7 +43,11 @@ describe("ValidationSummary — ready state", () => {
     render(<ValidationSummary />);
     const summary = screen.getByTestId("validation-summary");
     expect(summary.getAttribute("data-state")).toBe("ready");
-    expect(screen.getByText(/ready to run/i)).toBeInTheDocument();
+    // BUILDER-ISSUES-RAIL-1 — the rail now leads with the shared status pill, so "ready" reads the
+    // same word here as everywhere else that answers "can this run yet?".
+    expect(screen.getByTestId("validation-summary-status")).toHaveAttribute("data-status", "ready");
+    expect(screen.getByText("All setup complete")).toBeInTheDocument();
+    expect(screen.getByText(/no builder validation issues detected/i)).toBeInTheDocument();
   });
 });
 

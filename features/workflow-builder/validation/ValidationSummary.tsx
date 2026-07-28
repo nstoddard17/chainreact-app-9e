@@ -3,13 +3,21 @@
 import Link from "next/link";
 import type { WorkflowNode } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import type { AgentReadinessVerdict } from "@/core/workflows/agentReadiness";
+import {
+  describeRemainingIssues,
+  REVIEW_STATUS_LABEL,
+  type AgentReviewStatus,
+} from "@/core/workflows/agentReviewStatus";
 import { resolveHelpLink } from "@/features/marketing/help/contextualHelp";
+import { AgentReadinessSummary } from "../panels/AgentReadinessSummary";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 import {
   collectBuilderValidationIssues,
   type BuilderValidationIssue,
 } from "./collectBuilderValidationIssues";
+import { validationIssueGuidance } from "./validationIssueGuidance";
 import {
   categorizeValidationIssue,
   validationCategoryLabel,
@@ -43,6 +51,26 @@ interface Props {
    * required-field rows), preserving isolated-test behavior.
    */
   requiredFieldsByType?: import("./collectBuilderValidationIssues").RequiredFieldsByType;
+  /**
+   * BUILDER-ISSUES-RAIL-1 — the post-apply agent review, folded INTO this rail.
+   *
+   * The React agent used to raise its own floating "Blocked · N issues remaining" tray over the
+   * canvas listing the same gaps this rail already listed. There is now one issues surface: when an
+   * apply has just happened, the parent passes its confirmation line here and it renders above the
+   * list. Absent → the rail is the plain always-available issues view.
+   */
+  reviewNotice?: string | null;
+  /**
+   * REACT-AGENT-READINESS-1 — the post-apply readiness verdict, previously shown inside the tray.
+   * Rendered under the notice so "what is left before this can run?" stays answered in one place.
+   */
+  readiness?: AgentReadinessVerdict | null;
+  /**
+   * Node ids the agent added/edited in the current review session. Used ONLY to pick honest
+   * explanation copy: a gap on an agent-added step can say the agent left it empty; a gap on a
+   * hand-built or template step must not. See `validationIssueGuidance`.
+   */
+  agentNodeIds?: ReadonlySet<string>;
 }
 
 /**
@@ -72,6 +100,9 @@ export function ValidationSummary({
   onOpenNode,
   onChooseTrigger,
   requiredFieldsByType,
+  reviewNotice,
+  readiness,
+  agentNodeIds,
 }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -99,6 +130,13 @@ export function ValidationSummary({
     concept: "setup_issues",
   });
 
+  // BUILDER-ISSUES-RAIL-1 — the status the tray used to show in its pill, derived from the SAME
+  // severity the validator already assigns: an error blocks test/activation, a warning does not.
+  // No second ruleset — `blocked` exactly means "at least one error remains".
+  const blockingCount = issues.filter((i) => i.severity === "error").length;
+  const status: AgentReviewStatus =
+    issues.length === 0 ? "ready" : blockingCount > 0 ? "blocked" : "review";
+
   if (issues.length === 0) {
     return (
       <div
@@ -106,12 +144,19 @@ export function ValidationSummary({
         data-state="ready"
         className="flex flex-col items-start gap-2 p-3 text-[13px]"
       >
-        <p
-          className="font-semibold"
-          style={{ color: "var(--builder-success)" }}
-        >
-          Ready to run
-        </p>
+        {/* An apply that resolved everything still confirms itself here, so the rail is never a
+            blank panel after the user acts on the last issue. */}
+        <div className="flex items-center gap-2">
+          <StatusPill status="ready" />
+          <span className="text-[11.5px]" style={{ color: "var(--builder-text-2)" }}>
+            {describeRemainingIssues(0)}
+          </span>
+        </div>
+        {reviewNotice ? (
+          <p data-testid="validation-summary-notice" className="text-[11.5px]" style={{ color: "var(--builder-text)" }}>
+            {reviewNotice}
+          </p>
+        ) : null}
         <p className="text-[11.5px]" style={{ color: "var(--builder-muted)" }}>
           No builder validation issues detected.
         </p>
@@ -143,8 +188,29 @@ export function ValidationSummary({
     <div
       data-testid="validation-summary"
       data-state="has-issues"
+      data-status={status}
       className="flex flex-col gap-3 text-sm"
     >
+      {/* BUILDER-ISSUES-RAIL-1 — the header the floating tray used to carry: status pill + the
+          remaining count, so the rail answers "can this run yet?" before any scrolling. */}
+      <div className="flex items-center gap-2">
+        <StatusPill status={status} />
+        <span
+          data-testid="validation-summary-remaining"
+          className="text-[11.5px]"
+          style={{ color: "var(--builder-text-2)" }}
+        >
+          {describeRemainingIssues(issues.length)}
+        </span>
+      </div>
+
+      {reviewNotice ? (
+        <p data-testid="validation-summary-notice" className="text-[11.5px]" style={{ color: "var(--builder-text)" }}>
+          {reviewNotice}
+        </p>
+      ) : null}
+      {readiness ? <AgentReadinessSummary verdict={readiness} compact /> : null}
+
       {groups.map((group) => (
         <IssueGroup
           key={group.category}
@@ -153,6 +219,7 @@ export function ValidationSummary({
           pendingNodes={pendingNodes}
           onOpen={handleOpen}
           onChooseTrigger={onChooseTrigger}
+          {...(agentNodeIds ? { agentNodeIds } : {})}
         />
       ))}
       {/* HELP-CENTER-CONTEXTUAL-1 — one footer link to the setup-issues Help
@@ -179,12 +246,14 @@ function IssueGroup({
   pendingNodes,
   onOpen,
   onChooseTrigger,
+  agentNodeIds,
 }: {
   category: ValidationIssueCategory;
   issues: readonly BuilderValidationIssue[];
   pendingNodes: readonly WorkflowNode[];
   onOpen: (issue: BuilderValidationIssue) => void;
   onChooseTrigger?: () => void;
+  agentNodeIds?: ReadonlySet<string>;
 }) {
   // Heading color follows the group's actual severity (all-warning → amber, else
   // destructive) so styling stays driven by severity, not hard-coded per category.
@@ -192,18 +261,31 @@ function IssueGroup({
   const headingClass = hasError
     ? "text-destructive"
     : "text-amber-700 dark:text-amber-300";
-  const label = `${validationCategoryLabel(category)} · ${issues.length}`;
+  // BUILDER-ISSUES-RAIL-1 — the tray's "N to fix before active" counter, per group. Errors are
+  // exactly the issues that gate a test run / activation, so the count needs no separate rule.
+  const blocking = issues.filter((i) => i.severity === "error").length;
   return (
     <section
       data-testid="validation-summary-group"
       data-category={category}
       data-severity={hasError ? "error" : "warning"}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-1.5"
     >
-      <h3 className={`text-xs font-semibold uppercase tracking-wide ${headingClass}`}>
-        {label}
-      </h3>
-      <ul className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className={`text-xs font-semibold uppercase tracking-wide ${headingClass}`}>
+          {`${validationCategoryLabel(category)} · ${issues.length}`}
+        </h3>
+        {blocking > 0 ? (
+          <span
+            data-testid="validation-summary-blocking"
+            className="text-[11px] font-semibold uppercase tracking-wide"
+            style={{ color: "var(--builder-warning, #b45309)" }}
+          >
+            {blocking} to fix before active
+          </span>
+        ) : null}
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {issues.map((issue) => (
           <li key={issue.id}>
             <IssueRow
@@ -211,6 +293,7 @@ function IssueGroup({
               pendingNodes={pendingNodes}
               onOpen={onOpen}
               onChooseTrigger={onChooseTrigger}
+              {...(agentNodeIds ? { agentNodeIds } : {})}
             />
           </li>
         ))}
@@ -224,11 +307,13 @@ function IssueRow({
   pendingNodes,
   onOpen,
   onChooseTrigger,
+  agentNodeIds,
 }: {
   issue: BuilderValidationIssue;
   pendingNodes: readonly WorkflowNode[];
   onOpen: (issue: BuilderValidationIssue) => void;
   onChooseTrigger?: () => void;
+  agentNodeIds?: ReadonlySet<string>;
 }) {
   const node = issue.nodeId
     ? pendingNodes.find((n) => n.id === issue.nodeId)
@@ -237,10 +322,29 @@ function IssueRow({
   // name → metadata-derived default → formatted type key), never the raw
   // provider:type key or node id.
   const nodeLabel = node ? getNodeDisplayName(node) : null;
+  const guidance = validationIssueGuidance(issue, agentNodeIds ? { agentNodeIds } : undefined);
 
-  const containerClass =
-    severity(issue.severity) +
-    " w-full rounded border px-3 py-2 text-left text-xs transition";
+  // BUILDER-ISSUES-RAIL-1 — the tray's card surface (panel background + neutral border) rather
+  // than the old severity-tinted row. Severity now reads from the group heading, the status pill,
+  // and the "to fix before active" counter, so the row itself can stay calm and legible while
+  // carrying three lines instead of one.
+  const containerClass = "w-full rounded border px-2.5 py-1.5 text-left transition";
+  const containerStyle = {
+    background: "var(--builder-panel-2)",
+    borderColor:
+      issue.severity === "error"
+        ? "var(--builder-danger, #b91c1c)"
+        : "var(--builder-border)",
+  };
+  const body = (
+    <IssueBody
+      message={issue.message}
+      explanation={guidance.explanation}
+      nextStep={guidance.nextStep}
+      nodeLabel={nodeLabel}
+      fieldName={issue.fieldName}
+    />
+  );
 
   if (issue.nodeId) {
     return (
@@ -250,13 +354,11 @@ function IssueRow({
         data-testid="validation-summary-issue"
         data-code={issue.code}
         data-node-id={issue.nodeId}
+        data-severity={issue.severity}
         className={`${containerClass} hover:brightness-95 dark:hover:brightness-110`}
+        style={containerStyle}
       >
-        <IssueBody
-          message={issue.message}
-          nodeLabel={nodeLabel}
-          fieldName={issue.fieldName}
-        />
+        {body}
       </button>
     );
   }
@@ -264,7 +366,7 @@ function IssueRow({
   // Slice 4.BUILDER-TRIGGER-RECOVERY-1 — the graph-level `no_trigger` issue
   // carries no nodeId so it can't open an inspector. When the parent supplies
   // `onChooseTrigger`, render an inline action button so the missing-trigger
-  // error is directly fixable from the validation drawer.
+  // error is directly fixable from the issues rail.
   const showChooseTrigger =
     issue.code === "no_trigger" && onChooseTrigger !== undefined;
 
@@ -272,20 +374,19 @@ function IssueRow({
     <div
       data-testid="validation-summary-issue"
       data-code={issue.code}
+      data-severity={issue.severity}
       className={containerClass}
+      style={containerStyle}
     >
       <span className="flex items-start justify-between gap-2">
-        <IssueBody
-          message={issue.message}
-          nodeLabel={nodeLabel}
-          fieldName={issue.fieldName}
-        />
+        {body}
         {showChooseTrigger ? (
           <button
             type="button"
             onClick={onChooseTrigger}
             data-testid="validation-choose-trigger"
-            className="shrink-0 rounded border border-current px-2 py-1 text-[11px] font-medium hover:brightness-95 dark:hover:brightness-110"
+            className="shrink-0 rounded border px-2 py-1 text-[11px] font-medium hover:brightness-95 dark:hover:brightness-110"
+            style={{ borderColor: "var(--builder-border)", color: "var(--builder-accent)" }}
           >
             Choose trigger
           </button>
@@ -295,20 +396,44 @@ function IssueRow({
   );
 }
 
+/**
+ * The three-line issue body the agent tray used: WHAT is wrong, WHY, and the single next step.
+ * The node · field line is kept underneath as the precise locator.
+ */
 function IssueBody({
   message,
+  explanation,
+  nextStep,
   nodeLabel,
   fieldName,
 }: {
   message: string;
+  explanation: string;
+  nextStep: string;
   nodeLabel: string | null;
   fieldName?: string;
 }) {
   return (
     <span className="flex flex-col gap-0.5">
-      <span className="font-medium">{message}</span>
+      <span className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
+        {message}
+      </span>
+      <span
+        data-testid="validation-summary-explanation"
+        className="text-[11px]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        {explanation}
+      </span>
+      <span
+        data-testid="validation-summary-next-step"
+        className="text-[11px] font-medium"
+        style={{ color: "var(--builder-accent)" }}
+      >
+        {nextStep}
+      </span>
       {nodeLabel && (
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
           {nodeLabel}
           {fieldName ? ` · ${fieldName}` : ""}
         </span>
@@ -317,8 +442,20 @@ function IssueBody({
   );
 }
 
-function severity(s: "error" | "warning"): string {
-  return s === "error"
-    ? "border-destructive/40 bg-destructive/5 text-destructive"
-    : "border-amber-300/50 bg-amber-50 text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300";
+function StatusPill({ status }: { status: AgentReviewStatus }) {
+  const tone: Record<AgentReviewStatus, { bg: string; fg: string }> = {
+    blocked: { bg: "var(--builder-danger-bg, rgba(185,28,28,0.12))", fg: "var(--builder-danger, #b91c1c)" },
+    review: { bg: "var(--builder-warning-bg, rgba(180,83,9,0.12))", fg: "var(--builder-warning, #b45309)" },
+    ready: { bg: "var(--builder-success-bg, rgba(21,128,61,0.12))", fg: "var(--builder-success, #15803d)" },
+  };
+  return (
+    <span
+      data-testid="validation-summary-status"
+      data-status={status}
+      className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      style={{ background: tone[status].bg, color: tone[status].fg }}
+    >
+      {REVIEW_STATUS_LABEL[status]}
+    </span>
+  );
 }
