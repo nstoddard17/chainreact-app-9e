@@ -32,6 +32,8 @@ interface Props {
   seatsUsed: number;
   memberCap: number | null;
   teamMaxMembers: number;
+  /** Signed-in email — shown in the heading subtitle (TEAM-HEADER-DEDUPE-1). */
+  currentUserEmail: string;
   onChanged: () => void;
 }
 
@@ -44,9 +46,9 @@ export function OverviewSection({
   seatsUsed,
   memberCap,
   teamMaxMembers,
+  currentUserEmail,
   onChanged,
 }: Props) {
-  const crumbRoot = active?.name ?? "Personal";
   const planLine =
     active && memberCap !== null
       ? `${typeLabel(active.type)} plan · ${seatsUsed} of ${memberCap} members`
@@ -57,10 +59,8 @@ export function OverviewSection({
   return (
     <div data-testid="team-overview" className="flex flex-col gap-5">
       <SectionHeading
-        crumbRoot={crumbRoot}
-        crumb="Overview"
         title="Overview"
-        sub="Your accounts and a summary of the active workspace."
+        sub={`Your accounts and a summary of the active workspace. Signed in as ${currentUserEmail}.`}
       />
 
       <AccountSwitcher

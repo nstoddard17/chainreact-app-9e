@@ -95,7 +95,6 @@ export function AccountSettings({
     initialSection ?? DEFAULT_ACCOUNT_SECTION,
   );
   const heading = ACCOUNT_SECTION_HEADINGS[section];
-  const crumbRoot = active?.name ?? "Personal";
 
   return (
     <section
@@ -146,12 +145,7 @@ export function AccountSettings({
 
       {/* Content column. */}
       <div className="min-w-0 flex-1">
-        <SectionHeading
-          crumbRoot={crumbRoot}
-          crumb={heading.title}
-          title={heading.title}
-          sub={heading.sub}
-        />
+        <SectionHeading title={heading.title} sub={heading.sub} />
 
         {section === "account" && (
           <AccountOverview active={active} isPersonal={isPersonal} />

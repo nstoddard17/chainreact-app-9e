@@ -37,6 +37,7 @@ function renderOverview() {
       seatsUsed={1}
       memberCap={null}
       teamMaxMembers={5}
+      currentUserEmail="owner@example.com"
       onChanged={() => {}}
     />,
   );

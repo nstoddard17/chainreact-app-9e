@@ -14,11 +14,16 @@ import type { TeamInvitationView, TeamMemberView, TeamSection } from "./teamType
  * Team page top-level client orchestrator (Slice 4.TEAM-PAGE-1; rebuilt as a
  * settings surface in 4.TEAM-PAGE-4 to match the Teams.html layout).
  *
- * Layout: page header + a design-style two-column settings shell — a left
- * `SettingsNav` (Overview / Members / Roles, plus disabled "coming soon"
- * Account items) and a content column that renders the active section. Members
- * and Roles only exist for a team/org active account; a personal account shows
- * just Overview (switcher + create-a-team nudge).
+ * Layout: a design-style two-column settings shell — a left `SettingsNav`
+ * (Overview / Members / Roles, plus disabled "coming soon" Account items) and a
+ * content column that renders the active section. Members and Roles only exist
+ * for a team/org active account; a personal account shows just Overview
+ * (switcher + create-a-team nudge).
+ *
+ * TEAM-HEADER-DEDUPE-1: there is deliberately NO page-level "Team" header here.
+ * The shell's top bar already labels the page "Team", and each section's
+ * `SectionHeading` is the page `h1` — the old header + breadcrumb stack printed
+ * "Team" twice and the section name three times.
  *
  * Every mutation (switch, create, invite, revoke, role change, remove) goes
  * through the typed `lib/api/accounts` client inside the section components; on
@@ -68,14 +73,6 @@ export function TeamDashboard({
       aria-label="Team"
       className="flex flex-col gap-6"
     >
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Team</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your accounts and team members. Signed in as{" "}
-          <span className="font-medium text-foreground">{currentUserEmail}</span>.
-        </p>
-      </header>
-
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
         <SettingsNav
           section={effectiveSection}
@@ -95,6 +92,7 @@ export function TeamDashboard({
               seatsUsed={seatsUsed}
               memberCap={memberCap}
               teamMaxMembers={teamMaxMembers}
+              currentUserEmail={currentUserEmail}
               onChanged={refresh}
             />
           )}
@@ -113,8 +111,6 @@ export function TeamDashboard({
           {effectiveSection === "roles" && isTeam && active && (
             <div data-testid="team-roles-section">
               <SectionHeading
-                crumbRoot={active.name}
-                crumb="Roles & access"
                 title="Roles & access"
                 sub="What each role can do across this team. Assign roles per member in Members."
               />

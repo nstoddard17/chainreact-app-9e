@@ -70,12 +70,7 @@ export function TeamMembersPanel({
       aria-label="Team members"
       className="flex flex-col gap-4"
     >
-      <SectionHeading
-        crumbRoot={account.name}
-        crumb="Members"
-        title="Members"
-        sub={capSub}
-      />
+      <SectionHeading title="Members" sub={capSub} />
 
       {atLimit && (
         <div
