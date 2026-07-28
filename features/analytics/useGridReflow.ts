@@ -29,6 +29,12 @@ export function useGridReflow(
   /** Changes whenever the rendered order changes (e.g. the joined widget ids). */
   orderKey: string,
   enabled: boolean,
+  /**
+   * The drag source, if any. Its card is the destination placeholder, which
+   * must appear AT the destination immediately — sliding it there would put a
+   * moving blue box on screen that lags the answer it is supposed to give.
+   */
+  excludeId?: string | null,
 ): void {
   const previous = useRef<Map<string, DOMRect>>(new Map());
   const running = useRef<Map<string, Animation>>(new Map());
@@ -71,6 +77,7 @@ export function useGridReflow(
 
     for (const item of items) {
       const id = item.dataset.widgetId as string;
+      if (id === excludeId) continue;
       const from = before.get(id);
       const to = next.get(id);
       // A widget that was just added has no prior position to travel from.
@@ -91,5 +98,5 @@ export function useGridReflow(
         if (running.current.get(id) === animation) running.current.delete(id);
       });
     }
-  }, [containerRef, orderKey, enabled]);
+  }, [containerRef, orderKey, enabled, excludeId]);
 }

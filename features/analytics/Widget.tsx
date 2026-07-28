@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { AnalyticsWidget, AnalyticsWidgetSize } from "@/contracts/analytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
-import { isPointerInCommitZone } from "./dashboardHelpers";
 
 /**
  * Widget chrome (Slice ANALYTICS-1) — header (icon + title + range pill) plus the
  * edit-mode controls (drag handle, configure, resize, remove) wrapping a body.
- * Drag-reorder is HTML5 drag/drop; the parent owns the reorder + persistence.
+ *
+ * Drag-reorder (ANALYTICS-WIDGET-DRAG-STABILITY-1) is a pointer session owned
+ * by the dashboard: the header handle starts it, and while this widget is the
+ * drag source the card renders as the blue destination placeholder — the
+ * in-flow answer to "where will this land" — while a floating overlay follows
+ * the pointer. The card carries no drag geometry of its own: collision targets
+ * are slot boxes frozen at drag start, so nothing here does hit-testing.
  */
 
 export const SIZE_GRID_CLASS: Record<AnalyticsWidgetSize, string> = {
@@ -29,7 +34,7 @@ const SIZE_OPTIONS: { id: AnalyticsWidgetSize; label: string }[] = [
   { id: "tall", label: "1×2" },
 ];
 
-/** Same labels, keyed — the drop preview names the footprint it is reserving. */
+/** Same labels, keyed — the drop placeholder names the footprint it reserves. */
 const SIZE_LABEL: Record<AnalyticsWidgetSize, string> = SIZE_OPTIONS.reduce(
   (acc, s) => ({ ...acc, [s.id]: s.label }),
   {} as Record<AnalyticsWidgetSize, string>,
@@ -38,23 +43,20 @@ const SIZE_LABEL: Record<AnalyticsWidgetSize, string> = SIZE_OPTIONS.reduce(
 export interface WidgetProps {
   widget: AnalyticsWidget;
   isEditing: boolean;
-  isDragging: boolean;
+  /**
+   * True while this widget is the drag source. The card stays MOUNTED in the
+   * preview slot as the blue placeholder (content hidden, not removed) —
+   * unmounting it would destroy the handle holding the pointer capture.
+   */
+  isDragSource: boolean;
   rangeLabel?: string;
   onResize: (id: string, size: AnalyticsWidgetSize) => void;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onConfigure: (id: string) => void;
-  /**
-   * Drag lifecycle. "over" fires continuously while the pointer is in this
-   * card's middle and carries the pointer position, which the parent uses to
-   * tell a deliberate move from the layout shifting under a still pointer.
-   */
-  onMove: (
-    phase: "start" | "end" | "over" | "drop",
-    id: string,
-    point?: { x: number; y: number },
-  ) => void;
+  /** Starts the dashboard's pointer drag session from the header handle. */
+  onDragHandleDown: (id: string, e: ReactPointerEvent<HTMLButtonElement>) => void;
   /**
    * Offered only when the widget currently has exportable data on screen
    * (CD-5A). Absent for widget types that have no per-widget export.
@@ -66,14 +68,14 @@ export interface WidgetProps {
 export function Widget({
   widget,
   isEditing,
-  isDragging,
+  isDragSource,
   rangeLabel,
   onResize,
   onDuplicate,
   onRemove,
   onRename,
   onConfigure,
-  onMove,
+  onDragHandleDown,
   onExportCsv,
   children,
 }: WidgetProps) {
@@ -87,67 +89,51 @@ export function Widget({
     else setTitle(widget.title);
   };
 
-  // While this widget is the one being dragged it renders IN its previewed slot
-  // as the drop target itself: the card keeps its real column/row span, so the
-  // blue outline shows exactly where it will land and how much space it takes.
-  const dimmed = isDragging ? " opacity-25" : "";
+  // Placeholder mode: keep the layout box, hide the content. `invisible`
+  // (visibility) rather than unmounting, so the drag handle stays alive for
+  // pointer capture and the body keeps its state for the drop.
+  const hidden = isDragSource ? " invisible" : "";
 
   return (
     <div
       data-testid={`analytics-widget-${widget.id}`}
       data-widget-id={widget.id}
-      {...(isDragging ? { "data-drop-preview": "true" } : {})}
       className={
-        "relative flex min-h-[190px] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20 " +
-        SIZE_GRID_CLASS[widget.size]
+        "relative flex min-h-[190px] min-w-0 flex-col overflow-hidden rounded-xl transition-colors " +
+        SIZE_GRID_CLASS[widget.size] +
+        (isDragSource
+          ? " border-2 border-dashed border-primary bg-primary/10"
+          : " border border-border bg-card hover:border-foreground/20")
       }
-      draggable={isEditing}
-      onDragStart={() => onMove("start", widget.id)}
-      onDragEnd={() => onMove("end", widget.id)}
-      onDragOver={(e) => {
-        if (!isEditing) return;
-        e.preventDefault();
-        // The grid listens too, so it can treat a gutter hover as "outside every
-        // middle". This event is about THIS card, so don't let it count as one.
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "move";
-        // Only claim this slot once the pointer has actually reached the middle
-        // of the card. Reacting to the whole box makes a passing drag disturb
-        // the layout it is only travelling across.
-        const inZone = isPointerInCommitZone(
-          e.currentTarget.getBoundingClientRect(),
-          e.clientX,
-          e.clientY,
-        );
-        if (inZone) onMove("over", widget.id, { x: e.clientX, y: e.clientY });
-      }}
-      onDrop={(e) => {
-        if (isEditing) {
-          e.preventDefault();
-          // The grid also listens, so releasing over a gap still commits. Don't
-          // let this drop reach it as well.
-          e.stopPropagation();
-          onMove("drop", widget.id);
-        }
-      }}
     >
-      {isDragging && (
+      {isDragSource && (
         <div
-          data-testid={`analytics-drop-preview-${widget.id}`}
+          data-testid={`analytics-drag-placeholder-${widget.id}`}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/10"
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
         >
           <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[11px] font-semibold text-primary-foreground">
             {SIZE_LABEL[widget.size]}
           </span>
         </div>
       )}
-      <div className={"flex items-center justify-between border-b border-border px-3.5 py-2.5" + dimmed}>
+      <div
+        className={
+          "flex items-center justify-between border-b border-border px-3.5 py-2.5" + hidden
+        }
+      >
         <div className="flex min-w-0 items-center gap-2">
           {isEditing && (
-            <span className="cursor-grab p-0.5 text-muted-foreground" title="Drag to move">
+            <button
+              type="button"
+              data-testid={`analytics-widget-drag-handle-${widget.id}`}
+              aria-label={`Move ${widget.title}`}
+              title="Drag to move"
+              className="cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onPointerDown={(e) => onDragHandleDown(widget.id, e)}
+            >
               <AnalyticsIcon name="Drag" size={12} />
-            </span>
+            </button>
           )}
           {renaming ? (
             <input
@@ -246,7 +232,7 @@ export function Widget({
           )}
         </div>
       </div>
-      <div className={"min-h-0 flex-1 overflow-hidden p-4" + dimmed}>{children}</div>
+      <div className={"min-h-0 flex-1 overflow-hidden p-4" + hidden}>{children}</div>
     </div>
   );
 }

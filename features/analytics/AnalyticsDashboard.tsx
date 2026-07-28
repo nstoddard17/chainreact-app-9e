@@ -32,13 +32,12 @@ import {
   makeWidget,
   newWidgetId,
   duplicateWidgetAt,
-  moveWidgetTo,
-  hasTravelledEnoughToReorder,
   ErrorBanner,
   EmptyDashboard,
   downloadDashboardExport,
 } from "./dashboardHelpers";
 import { useGridReflow } from "./useGridReflow";
+import { DragOverlayGhost, useWidgetDragSession } from "./useWidgetDragSession";
 import { DashboardConfirmDialog, DashboardNameDialog } from "./DashboardDialogs";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
@@ -138,37 +137,31 @@ export function AnalyticsDashboard({
     suggestedTitle: string;
   } | null>(null);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
-  const draggingId = useRef<string | null>(null);
-  const [draggingState, setDraggingState] = useState<string | null>(null);
-  /**
-   * The order the grid is showing mid-drag, or null when nothing is being
-   * dragged. Each re-order is applied to THIS order rather than recomputed from
-   * the committed one, so the arrangement is cumulative: stepping a widget one
-   * slot and then back lands exactly where it started. Recomputing from the
-   * committed order instead makes the original position unreachable, because
-   * the only target that would restore it is the dragged widget itself.
-   */
-  const [previewOrder, setPreviewOrder] = useState<readonly AnalyticsWidget[] | null>(null);
-  /** Same value, readable synchronously inside the high-frequency drag handler. */
-  const previewOrderRef = useRef<readonly AnalyticsWidget[] | null>(null);
-  /**
-   * Where the pointer was when the preview last changed. The next re-order has
-   * to out-travel it — see the "over" branch of handleMove.
-   */
-  const lastSwapPoint = useRef<{ x: number; y: number } | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   const active = dashboards.find((d) => d.id === activeId) ?? dashboards[0] ?? null;
   const widgets = editing ? draftWidgets : (active?.widgets ?? []);
   /**
-   * What the grid RENDERS while a drag is in flight: exactly what the drop will
-   * commit, so the other widgets shove aside into their real resting places and
-   * the outlined slot is where the widget genuinely lands. The committed order
-   * (`draftWidgets`) is untouched until the drop, so a cancelled drag needs no
-   * undo — clearing the preview is the undo.
+   * Pointer drag session (ANALYTICS-WIDGET-DRAG-STABILITY-1): slot geometry is
+   * frozen at drag start, the held card floats as an overlay, the in-flow card
+   * becomes the blue destination placeholder, and the preview is always
+   * start-order + destination slot. The commit is exactly the previewed order;
+   * a cancelled session just clears it — the draft is untouched until drop.
    */
+  const handleDragCommit = useCallback(
+    (order: readonly AnalyticsWidget[]) => setDraftWidgets(order),
+    [],
+  );
+  const { draggingId, previewOrder, overlay, overlayRef, startDrag } = useWidgetDragSession({
+    gridRef,
+    widgets,
+    enabled: editing,
+    onCommit: handleDragCommit,
+  });
   const orderedWidgets = previewOrder ?? widgets;
-  useGridReflow(gridRef, orderedWidgets.map((w) => w.id).join(","), editing);
+  // FLIP the surrounding cards between preview positions; the drag source is
+  // excluded — its placeholder snaps to the new destination, cards slide.
+  useGridReflow(gridRef, orderedWidgets.map((w) => w.id).join(","), editing, draggingId);
   const configuringWidget = configuringId
     ? (editing ? draftWidgets : widgets).find((w) => w.id === configuringId) ?? null
     : null;
@@ -252,62 +245,6 @@ export function AnalyticsDashboard({
     setShowLibrary(false);
     setConfiguringId(widget.id);
   };
-  const handleMove = (
-    phase: "start" | "end" | "over" | "drop",
-    id: string,
-    point?: { x: number; y: number },
-  ) => {
-    if (phase === "start") {
-      draggingId.current = id;
-      setDraggingState(id);
-      previewOrderRef.current = null;
-      setPreviewOrder(null);
-      lastSwapPoint.current = null;
-    } else if (phase === "over") {
-      // Fires continuously while hovering, so every guard here is load-bearing.
-      if (!draggingId.current || id === draggingId.current) return;
-      // A re-order MOVES a card's middle under a stationary pointer, which then
-      // qualifies to re-order straight back, forever — the slingshot. The cure
-      // has to be the POINTER's own travel: nothing the layout (or the reflow
-      // animation) does underneath can manufacture that, and unlike waiting for
-      // a sample outside the middles it cannot be skipped by a fast gesture.
-      const since = lastSwapPoint.current;
-      if (since && point && !hasTravelledEnoughToReorder(since, point)) return;
-      // Applied to the order on screen, not the committed one — see previewOrder.
-      const next = moveWidgetTo(
-        previewOrderRef.current ?? widgets,
-        draggingId.current,
-        id,
-      );
-      if (!next) return;
-      previewOrderRef.current = next;
-      lastSwapPoint.current = point ?? null;
-      setPreviewOrder(next);
-    } else if (phase === "end") {
-      // Also fires after a cancelled drag (Escape / drop outside), which is why
-      // the preview lives in its own state: clearing it restores the real order.
-      draggingId.current = null;
-      previewOrderRef.current = null;
-      setDraggingState(null);
-      setPreviewOrder(null);
-      lastSwapPoint.current = null;
-    } else if (phase === "drop") {
-      const from = draggingId.current;
-      const previewed = previewOrderRef.current;
-      draggingId.current = null;
-      previewOrderRef.current = null;
-      setDraggingState(null);
-      setPreviewOrder(null);
-      lastSwapPoint.current = null;
-      if (!from) return;
-      // Commit what was on screen. Only when the drag never previewed anything
-      // (a flick too quick to sample a middle) does the release itself decide,
-      // which is still the user's explicit choice of where to put it.
-      if (previewed) setDraftWidgets(previewed);
-      else if (id) setDraftWidgets((ws) => moveWidgetTo(ws, from, id) ?? ws);
-    }
-  };
-
   const switchDashboard = (id: string) => {
     if (editing) return;
     setActiveId(id);
@@ -599,8 +536,9 @@ export function AnalyticsDashboard({
               <AnalyticsIcon name="Sparkle" size={13} />
             </span>
             <span>
-              <strong className="font-semibold text-foreground">Edit mode is on.</strong> Drag to reorder, resize with
-              the dropdown, rename by clicking a title, or add a widget. Nothing's saved until you click Done editing.
+              <strong className="font-semibold text-foreground">Edit mode is on.</strong> Drag a widget by its grip to
+              reorder, resize with the dropdown, rename by clicking a title, or add a widget. Nothing&apos;s saved until
+              you click Done editing.
             </span>
           </div>
           <button
@@ -634,32 +572,20 @@ export function AnalyticsDashboard({
         <div
           ref={gridRef}
           className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]"
-          onDragOver={(e) => {
-            // Cards stop their own dragover, so reaching here means a gutter or
-            // an empty track — a legitimate release point, with the previewed
-            // slot as the honest answer for where the widget lands.
-            if (editing && draggingId.current) e.preventDefault();
-          }}
-          onDrop={(e) => {
-            if (!editing || !draggingId.current) return;
-            e.preventDefault();
-            // No card under the pointer, so the previewed order is the answer.
-            handleMove("drop", "");
-          }}
         >
           {orderedWidgets.map((w) => (
             <Widget
               key={w.id}
               widget={w}
               isEditing={editing}
-              isDragging={draggingState === w.id}
+              isDragSource={draggingId === w.id}
               {...(rangeLabel && w.type !== "insight" ? { rangeLabel } : {})}
               onResize={handleResize}
               onDuplicate={handleDuplicate}
               onRemove={handleRemove}
               onRename={handleRename}
               onConfigure={(id) => setConfiguringId(id)}
-              onMove={handleMove}
+              onDragHandleDown={startDrag}
               {...(w.type === "insight" && insightResults[w.id]
                 ? { onExportCsv: exportWidgetCsv }
                 : {})}
@@ -698,6 +624,9 @@ export function AnalyticsDashboard({
           )}
         </div>
       )}
+
+      {/* The held card, following the pointer outside the grid's flow. */}
+      {overlay && <DragOverlayGhost overlay={overlay} overlayRef={overlayRef} />}
 
       {nameDialog && (
         <DashboardNameDialog

@@ -16,16 +16,10 @@ jest.mock("@/lib/api/analytics", () => ({
 }));
 jest.mock("@/lib/api/options", () => ({ fetchOptionsSource: jest.fn() }));
 
-import { createEvent, fireEvent, render, screen } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as analyticsApi from "@/lib/api/analytics";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
-import {
-  hasTravelledEnoughToReorder,
-  isPointerInCommitZone,
-  moveWidgetTo,
-  REORDER_COMMIT_ZONE,
-  REORDER_TRAVEL_PX,
-} from "@/features/analytics/dashboardHelpers";
+import { computeDragPreview, hitTestSlot } from "@/features/analytics/dashboardHelpers";
 import type {
   AnalyticsDashboard as Dashboard,
   AnalyticsOverview,
@@ -36,11 +30,14 @@ import { FIXTURE_CATALOG, kpiResult } from "./insights/fixtures";
 const mockedApi = analyticsApi as jest.Mocked<typeof analyticsApi>;
 
 /**
- * CD-DRAG-1 — edit-mode drag reorder shows a LIVE preview: the other widgets
- * move aside into their real resting places and the dragged widget outlines the
- * slot it will occupy. The contract these tests defend is that the preview and
- * the committed drop are the same reorder — a preview that showed one layout and
- * saved another would be a lie about what the drop does.
+ * ANALYTICS-WIDGET-DRAG-STABILITY-1 — the drag model and its session lifecycle.
+ *
+ * The contract under test is that the destination is derived from geometry
+ * FROZEN at drag start plus the pointer's current position — never from which
+ * card happens to be under the pointer. That is what stops the feedback loop
+ * (re-order moves cards under the pointer → re-target → re-order …) which no
+ * threshold could fix, and it is what gives every slot one stable meaning, so
+ * a widget can be stepped out and back within a single drag.
  */
 
 const OVERVIEW: AnalyticsOverview = {
@@ -70,8 +67,8 @@ const stat = (id: string, title: string, size: AnalyticsWidget["size"]): Analyti
 });
 
 const A = stat("w-a", "Alpha", "s");
-const B = stat("w-b", "Bravo", "m");
-const C = stat("w-c", "Charlie", "l");
+const B = stat("w-b", "Bravo", "s");
+const C = stat("w-c", "Charlie", "s");
 
 function dashboard(widgets: AnalyticsWidget[] = [A, B, C]): Dashboard {
   return {
@@ -86,53 +83,130 @@ function dashboard(widgets: AnalyticsWidget[] = [A, B, C]): Dashboard {
 }
 
 /**
- * jsdom lays nothing out, so every rect is 0×0 and the commit-zone guard would
- * take its "can't measure" branch.
- *
- * Model the real thing instead: three fixed SLOTS in a row, with whichever card
- * currently sits in a slot occupying that box. Pinning a box to a widget id
- * would miss the bug this file exists to cover — after a re-order the cards have
- * swapped slots, and dragging "back to where it came from" means hovering
- * whatever moved into the slot you left.
+ * jsdom lays nothing out, so the slot capture would read every card as 0×0.
+ * Model three slots in a row and give each CARD the box of the slot it occupies
+ * at the moment of capture. Crucially the drag session snapshots these once, so
+ * later re-orders move cards between boxes without moving the boxes — exactly
+ * the property the implementation relies on and the old harness lacked.
  */
 const SLOT_SIZE = 200;
 const SLOT_PITCH = 220;
-const slotRect = (index: number) => ({
-  left: index * SLOT_PITCH,
-  top: 0,
-  width: SLOT_SIZE,
-  height: SLOT_SIZE,
-});
+const GRID_ORIGIN = { left: 50, top: 30 };
 
-/** Re-stamp every card with the box of the slot it currently occupies. */
-function relayout() {
+function layoutCards() {
   const cards = Array.from(document.querySelectorAll("[data-widget-id]")) as HTMLElement[];
   cards.forEach((card, index) => {
-    const r = slotRect(index);
-    card.getBoundingClientRect = () =>
+    Object.defineProperty(card, "offsetLeft", { value: index * SLOT_PITCH, configurable: true });
+    Object.defineProperty(card, "offsetTop", { value: 0, configurable: true });
+    Object.defineProperty(card, "offsetWidth", { value: SLOT_SIZE, configurable: true });
+    Object.defineProperty(card, "offsetHeight", { value: SLOT_SIZE, configurable: true });
+  });
+  const grid = cards[0]?.parentElement;
+  if (grid) {
+    grid.getBoundingClientRect = () =>
       ({
-        ...r,
-        right: r.left + r.width,
-        bottom: r.top + r.height,
-        x: r.left,
-        y: r.top,
+        left: GRID_ORIGIN.left,
+        top: GRID_ORIGIN.top,
+        right: GRID_ORIGIN.left + SLOT_PITCH * 3,
+        bottom: GRID_ORIGIN.top + SLOT_SIZE,
+        width: SLOT_PITCH * 3,
+        height: SLOT_SIZE,
+        x: GRID_ORIGIN.left,
+        y: GRID_ORIGIN.top,
         toJSON: () => ({}),
       }) as DOMRect;
+  }
+}
+
+/** Client coordinates of a slot's centre. */
+const slotPoint = (index: number) => ({
+  clientX: GRID_ORIGIN.left + index * SLOT_PITCH + SLOT_SIZE / 2,
+  clientY: GRID_ORIGIN.top + SLOT_SIZE / 2,
+});
+
+/** Client coordinates of the gutter after a slot (between two slots). */
+const gutterPoint = (afterIndex: number) => ({
+  clientX: GRID_ORIGIN.left + afterIndex * SLOT_PITCH + SLOT_SIZE + 10,
+  clientY: GRID_ORIGIN.top + SLOT_SIZE / 2,
+});
+
+const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
+const handleEl = (id: string) =>
+  screen.getByTestId(`analytics-widget-drag-handle-${id}`) as HTMLElement;
+
+/** The grid's DOM order — what CSS grid auto-places from. */
+function renderedOrder(): string[] {
+  return Array.from(document.querySelectorAll("[data-widget-id]")).map(
+    (el) => (el as HTMLElement).dataset.widgetId as string,
+  );
+}
+
+/**
+ * requestAnimationFrame is where pointer moves are coalesced, so tests drive it
+ * explicitly. Draining ONCE per batch of moves is also how the coalescing gets
+ * verified: several moves in a frame must produce a single settled destination.
+ */
+let frames: ((time: number) => void)[] = [];
+function drainFrames() {
+  const queued = frames;
+  frames = [];
+  act(() => {
+    queued.forEach((cb) => cb(performance.now()));
   });
 }
 
-const slotCentre = (index: number) => ({
-  clientX: index * SLOT_PITCH + SLOT_SIZE / 2,
-  clientY: SLOT_SIZE / 2,
-});
+/**
+ * jsdom implements no PointerEvent, and an event built from an init alone
+ * arrives with pointerId, button, pointerType and coordinates all null — the
+ * very fields the session lifecycle is built on. A real browser always supplies
+ * them, so stamp them here rather than weakening the guards to suit the test
+ * environment.
+ */
+function firePointer(
+  el: HTMLElement,
+  type: "pointerDown" | "pointerMove" | "pointerUp" | "pointerCancel" | "lostPointerCapture",
+  props: {
+    pointerId?: number;
+    button?: number;
+    pointerType?: string;
+    clientX?: number;
+    clientY?: number;
+  },
+) {
+  const event = createEvent[type](el);
+  for (const [key, value] of Object.entries({
+    pointerType: "mouse",
+    button: 0,
+    ...props,
+  })) {
+    Object.defineProperty(event, key, { value, configurable: true });
+  }
+  fireEvent(el, event);
+}
 
-/** The centre of the slot a card is in right now — where a re-order is accepted. */
-const centre = (id: string) => {
-  relayout();
-  const r = widgetEl(id).getBoundingClientRect();
-  return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
-};
+function pointerDown(
+  id: string,
+  at: { clientX: number; clientY: number },
+  pointerId = 1,
+  button = 0,
+) {
+  layoutCards();
+  firePointer(handleEl(id), "pointerDown", { pointerId, button, ...at });
+}
 
+/** Move the pointer and let the coalescing frame run. */
+function pointerMove(
+  id: string,
+  at: { clientX: number; clientY: number },
+  pointerId = 1,
+) {
+  firePointer(handleEl(id), "pointerMove", { pointerId, ...at });
+  drainFrames();
+}
+
+function pointerUp(id: string, at: { clientX: number; clientY: number }, pointerId = 1) {
+  firePointer(handleEl(id), "pointerUp", { pointerId, ...at });
+}
 
 function renderEditing(widgets?: AnalyticsWidget[]) {
   const view = render(
@@ -147,50 +221,21 @@ function renderEditing(widgets?: AnalyticsWidget[]) {
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /Edit dashboard/ }));
-  relayout();
+  layoutCards();
   return view;
 }
 
-/** Hover the middle of a SLOT — whichever card is sitting there right now. */
-function hoverSlot(index: number) {
-  relayout();
-  const card = document.querySelectorAll("[data-widget-id]")[index] as HTMLElement;
-  const point = slotCentre(index);
-  const event = createEvent.dragOver(card, { dataTransfer: { dropEffect: "none" } });
-  Object.defineProperty(event, "clientX", { value: point.clientX });
-  Object.defineProperty(event, "clientY", { value: point.clientY });
-  fireEvent(card, event);
-}
-
-/** The grid's current DOM order — what CSS grid auto-places from. */
-function renderedOrder(): string[] {
-  return Array.from(document.querySelectorAll("[data-widget-id]")).map(
-    (el) => (el as HTMLElement).dataset.widgetId as string,
-  );
-}
-
-const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
-
-/**
- * Drag over a widget, by default landing on its centre (a deliberate move).
- *
- * jsdom implements neither `DragEvent` nor a `DataTransfer` on drag events, so
- * an event built from an init alone arrives with null coordinates. A real
- * browser always supplies both, so they are stamped on here rather than making
- * the component defend against a condition that cannot happen in a browser.
- */
-const dragOver = (id: string, at?: { clientX: number; clientY: number }) => {
-  relayout();
-  const el = widgetEl(id);
-  const point = at ?? centre(id);
-  const event = createEvent.dragOver(el, { dataTransfer: { dropEffect: "none" } });
-  Object.defineProperty(event, "clientX", { value: point.clientX });
-  Object.defineProperty(event, "clientY", { value: point.clientY });
-  fireEvent(el, event);
-};
-
 beforeEach(() => {
   jest.clearAllMocks();
+  frames = [];
+  jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+    frames.push(cb);
+    return frames.length;
+  });
+  jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+  // jsdom implements neither pointer capture method.
+  Element.prototype.setPointerCapture = function setPointerCapture() {};
+  Element.prototype.releasePointerCapture = function releasePointerCapture() {};
   mockedApi.queryInsight.mockResolvedValue({ ok: true, result: kpiResult() });
   mockedApi.updateDashboard.mockImplementation(async (id, patch) => ({
     ...dashboard(),
@@ -199,140 +244,309 @@ beforeEach(() => {
   }));
 });
 
-describe("drag preview — the other widgets move aside", () => {
-  it("reorders the rendered grid while the drag is still in flight", () => {
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+describe("destination is derived from the drag-start layout", () => {
+  it("moves a widget one slot forward", () => {
     renderEditing();
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
 
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
 
-    // Nothing has been dropped yet, but the grid already shows the result:
-    // Bravo and Charlie have shifted back to make room for Alpha.
-    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
   });
 
-  it("follows the pointer to a new target without needing a drop", () => {
+  it("moves back to the original slot within the same drag", () => {
+    // The old model could not express this: the only target that would restore
+    // the original was the dragged widget itself, which was never a target.
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+    pointerDown("w-a", slotPoint(0));
 
-    // Bravo now sits in slot 0; hovering it puts Alpha back at the front.
-    dragOver("w-b");
+    pointerMove("w-a", slotPoint(1));
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+
+    pointerMove("w-a", slotPoint(0));
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
-  it("moves one slot and back again, in a single drag", () => {
-    // The reported bug. Stepping Alpha one slot right leaves Bravo in slot 0;
-    // dragging back over slot 0 must undo it. Recomputing the preview from the
-    // COMMITTED order can't: the only target that would restore the original is
-    // the dragged widget itself, which is never a target — so the layout got
-    // stuck one slot over and only a second slot's travel did anything.
+  it("steps through consecutive slots and back, every step reachable", () => {
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
+    pointerDown("w-a", slotPoint(0));
 
-    hoverSlot(1);
+    pointerMove("w-a", slotPoint(1));
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
-
-    hoverSlot(0);
-    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
-
-    // And it keeps working, rather than needing an ever-larger gesture.
-    hoverSlot(1);
-    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
-  });
-
-  it("steps through consecutive slots one at a time", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-
-    hoverSlot(1);
-    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
-    hoverSlot(2);
+    pointerMove("w-a", slotPoint(2));
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
-    hoverSlot(1);
+    pointerMove("w-a", slotPoint(1));
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+    pointerMove("w-a", slotPoint(0));
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
-  it("stops after one swap while the pointer sits still", () => {
-    // The slingshot: a re-order moves a card's middle under a stationary
-    // pointer, which then qualifies to re-order straight back, forever. Only
-    // the pointer's own travel can distinguish that from a real move, so the
-    // layout must be inert while the pointer is not moving.
+  it("a slot means the same thing however it is reached", () => {
+    // Slot 2 via 0→1→2 and slot 2 via 0→2 must produce the same layout: the
+    // destination is start-order + slot, not a history of mutations.
+    const view = renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
+    pointerMove("w-a", slotPoint(2));
+    const stepped = renderedOrder();
+    view.unmount();
+
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(stepped);
+  });
+});
+
+describe("stability — a moving layout must not drive the drag", () => {
+  it("a stationary pointer produces no further re-orders", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
     const settled = renderedOrder();
-    expect(settled).toEqual(["w-b", "w-c", "w-a"]);
+    expect(settled).toEqual(["w-b", "w-a", "w-c"]);
 
-    // The pointer has not moved from where it caused the swap.
-    const held = slotCentre(2);
-    for (let i = 0; i < 6; i += 1) {
-      dragOver("w-b", held);
-      dragOver("w-c", held);
-    }
+    // Bravo now occupies slot 0 and Alpha's placeholder slot 1 — under the old
+    // model this was the slingshot. The pointer has not moved, so nothing may.
+    for (let i = 0; i < 8; i += 1) pointerMove("w-a", slotPoint(1));
     expect(renderedOrder()).toEqual(settled);
   });
 
-  it("ignores a jitter smaller than a deliberate move", () => {
+  it("moving within one slot does not re-order", () => {
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-    const held = slotCentre(2);
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
+    const settled = renderedOrder();
 
-    dragOver("w-b", { clientX: held.clientX + 5, clientY: held.clientY - 3 });
+    const p = slotPoint(1);
+    pointerMove("w-a", { clientX: p.clientX - 40, clientY: p.clientY - 30 });
+    pointerMove("w-a", { clientX: p.clientX + 40, clientY: p.clientY + 30 });
+    expect(renderedOrder()).toEqual(settled);
+  });
+
+  it("creeping across a boundary changes the destination exactly once each way", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+
+    const y = slotPoint(0).clientY;
+    // Grid-relative: slot 0 is 0–200, the gutter 200–220, slot 1 220–420.
+    // Creep from inside slot 0, through the gutter, to inside slot 1.
+    const sweep = (from: number, to: number, step: number) => {
+      const seen: string[] = [renderedOrder().join(",")];
+      for (let x = from; step > 0 ? x <= to : x >= to; x += step) {
+        pointerMove("w-a", { clientX: GRID_ORIGIN.left + x, clientY: y });
+        const now = renderedOrder().join(",");
+        if (now !== seen[seen.length - 1]) seen.push(now);
+      }
+      return seen;
+    };
+
+    const forward = sweep(180, 240, 5);
+    expect(forward).toEqual(["w-a,w-b,w-c", "w-b,w-a,w-c"]);
+
+    const back = sweep(240, 180, -5);
+    expect(back).toEqual(["w-b,w-a,w-c", "w-a,w-b,w-c"]);
+  });
+
+  it("a gutter keeps the current destination rather than flickering", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
+
+    pointerMove("w-a", gutterPoint(1));
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+  });
+
+  it("coalesces a burst of pointer moves into one settled destination", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+
+    firePointer(handleEl("w-a"), "pointerMove", { pointerId: 1, ...slotPoint(1) });
+    firePointer(handleEl("w-a"), "pointerMove", { pointerId: 1, ...slotPoint(2) });
+    firePointer(handleEl("w-a"), "pointerMove", { pointerId: 1, ...slotPoint(1) });
+    // One frame for the whole burst, settling on the LAST position.
+    expect(frames).toHaveLength(1);
+    drainFrames();
+
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+  });
+});
+
+describe("drag session lifecycle", () => {
+  it("pointer movement without a pointer-down never changes the layout", () => {
+    renderEditing();
+    pointerMove("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
+  });
+
+  it("pointer movement after pointerup never changes the layout", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
+    pointerUp("w-a", slotPoint(1));
+    const committed = renderedOrder();
+
+    pointerMove("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(committed);
+  });
+
+  it("ignores events carrying a different pointer id", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0), 1);
+
+    pointerMove("w-a", slotPoint(2), 99);
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+
+    // The real pointer still works.
+    pointerMove("w-a", slotPoint(2), 1);
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+
+    // A foreign pointer cannot end the session either.
+    pointerUp("w-a", slotPoint(0), 99);
+    expect(screen.getByTestId("analytics-drag-overlay")).toBeTruthy();
   });
 
-  it("moving back re-orders as soon as the pointer has travelled, in ONE gesture", () => {
-    // The move-back must not depend on catching a sample in the gap between two
-    // middles: dragover only reports where the pointer IS, and a quick gesture
-    // can jump straight from one middle to another without ever landing there.
+  it("a non-primary mouse button does not start a drag", () => {
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
+    pointerDown("w-a", slotPoint(0), 1, 2);
+    pointerMove("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
+  });
+
+  it.each([
+    ["pointercancel", (el: HTMLElement) => firePointer(el, "pointerCancel", { pointerId: 1 })],
+    ["lostpointercapture", (el: HTMLElement) => firePointer(el, "lostPointerCapture", { pointerId: 1 })],
+    ["Escape", () => fireEvent.keyDown(window, { key: "Escape" })],
+    ["window blur", () => fireEvent.blur(window)],
+  ])("%s cancels the session and restores the committed layout", (_label, exit) => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
-    dragOver("w-b");
+    act(() => {
+      exit(handleEl("w-a"));
+    });
+
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
+    expect(document.querySelector("[data-testid^='analytics-drag-placeholder']")).toBeNull();
+    expect(mockedApi.updateDashboard).not.toHaveBeenCalled();
+
+    // And the dead session cannot be resurrected by more movement.
+    pointerMove("w-a", slotPoint(1));
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
-  it("ignores a pointer that has only clipped the edge of a card", () => {
-    // The oscillation bug: re-ordering on entry slides cards out from under the
-    // pointer, which immediately re-triggers on whatever lands there next, and
-    // the grid never settles. Only the centre may claim a slot.
+  it("leaving edit mode mid-drag cancels the session", async () => {
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
 
-    const c = slotRect(2); // Charlie starts in the third slot
-    dragOver("w-c", { clientX: c.left + 4, clientY: c.top + c.height / 2 });
-    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
-
-    dragOver("w-c", { clientX: c.left + c.width / 2, clientY: c.top + 4 });
-    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    fireEvent.click(screen.getByRole("button", { name: /Done editing/ }));
+    // Done editing saves, then leaves edit mode; the session cannot outlive it.
+    await waitFor(() => expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull());
+    // The in-flight preview was never committed — only the real draft was saved.
+    expect(mockedApi.updateDashboard.mock.calls[0]![1].widgets?.map((w) => w.id)).toEqual([
+      "w-a",
+      "w-b",
+      "w-c",
+    ]);
   });
 
-  it("re-orders once the pointer reaches the middle of the card", () => {
+  it("unmounting mid-drag tears the session down without leaking listeners", () => {
+    const view = renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(1));
+
+    expect(() => view.unmount()).not.toThrow();
+    // Post-unmount movement reaches no handler.
+    expect(() => fireEvent.keyDown(window, { key: "Escape" })).not.toThrow();
+  });
+});
+
+describe("overlay and destination placeholder", () => {
+  it("shows the floating overlay and turns the in-flow card into the placeholder", () => {
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    const c = slotRect(2); // Charlie starts in the third slot
+    expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
 
-    dragOver("w-c", { clientX: c.left + 10, clientY: c.top + 10 });
-    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    pointerDown("w-a", slotPoint(0));
 
-    dragOver("w-c");
+    const overlay = screen.getByTestId("analytics-drag-overlay");
+    expect(overlay.textContent).toContain("Alpha");
+    // The overlay is sized to the card it replaced.
+    expect(overlay.style.width).toBe(`${SLOT_SIZE}px`);
+    expect(overlay.style.height).toBe(`${SLOT_SIZE}px`);
+    // The card stays mounted (it holds the pointer capture) as the placeholder.
+    expect(screen.getByTestId("analytics-drag-placeholder-w-a")).toBeTruthy();
+    expect(widgetEl("w-a").className).toContain("border-primary");
+  });
+
+  it("the placeholder travels with the destination, and names the footprint", () => {
+    renderEditing([stat("w-a", "Alpha", "l"), B, C]);
+    pointerDown("w-a", slotPoint(0));
+    expect(screen.getByTestId("analytics-drag-placeholder-w-a").textContent).toBe("2×2");
+
+    pointerMove("w-a", slotPoint(1));
+    // Placeholder is the dragged card itself, so it IS at the destination.
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+    expect(screen.getByTestId("analytics-drag-placeholder-w-a")).toBeTruthy();
+  });
+
+  it("the overlay follows the pointer", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", { clientX: 400, clientY: 260 });
+
+    const overlay = screen.getByTestId("analytics-drag-overlay");
+    // Grab offset was the slot-0 centre, i.e. half a card in on each axis.
+    expect(overlay.style.transform).toBe(
+      `translate3d(${400 - SLOT_SIZE / 2}px, ${260 - SLOT_SIZE / 2}px, 0)`,
+    );
+  });
+});
+
+describe("commit", () => {
+  it("the drop commits exactly the previewed order", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    const previewed = renderedOrder();
+
+    pointerUp("w-a", slotPoint(2));
+
+    expect(renderedOrder()).toEqual(previewed);
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+    expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
   });
 
-  it("hovering the dragged widget itself changes nothing", () => {
+  it("nothing is persisted until Done editing", () => {
     renderEditing();
-    fireEvent.dragStart(widgetEl("w-b"));
-    dragOver("w-b");
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    pointerUp("w-a", slotPoint(2));
+
+    expect(mockedApi.updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it("releasing back on the origin leaves the order untouched", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    pointerMove("w-a", slotPoint(0));
+    pointerUp("w-a", slotPoint(0));
+
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
-  it("does not preview outside edit mode (drag is disabled there)", () => {
+  it("no drag handle outside edit mode", () => {
     render(
       <AnalyticsDashboard
         accountName="Acme Co"
@@ -344,168 +558,76 @@ describe("drag preview — the other widgets move aside", () => {
         initialRange="7d"
       />,
     );
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    expect(screen.queryByTestId("analytics-widget-drag-handle-w-a")).toBeNull();
   });
 });
 
-describe("drop-target outline", () => {
-  it("marks the dragged widget as the drop preview, at its previewed slot", () => {
-    renderEditing();
-    expect(document.querySelector("[data-drop-preview]")).toBeNull();
+describe("computeDragPreview (pure)", () => {
+  const order = [A, B, C];
 
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-
-    const preview = document.querySelectorAll("[data-drop-preview]");
-    expect(preview).toHaveLength(1);
-    expect((preview[0] as HTMLElement).dataset.widgetId).toBe("w-a");
-    // The outline overlay is the widget's own footprint, so it spans exactly the
-    // columns/rows the widget will occupy once dropped.
-    expect(widgetEl("w-a").className).toContain("col-span-1");
-    expect(screen.getByTestId("analytics-drop-preview-w-a").textContent).toBe("1×1");
-  });
-
-  it("names the footprint of a multi-cell widget", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-c"));
-    expect(widgetEl("w-c").className).toContain("col-span-2");
-    expect(widgetEl("w-c").className).toContain("row-span-2");
-    expect(screen.getByTestId("analytics-drop-preview-w-c").textContent).toBe("2×2");
-  });
-
-  it("clears the outline when the drag ends", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    fireEvent.dragEnd(widgetEl("w-a"));
-    expect(document.querySelector("[data-drop-preview]")).toBeNull();
-  });
-});
-
-describe("commit and cancel", () => {
-  it("the drop commits exactly the order the preview showed", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-    const previewed = renderedOrder();
-
-    fireEvent.drop(widgetEl("w-c"));
-    fireEvent.dragEnd(widgetEl("w-a"));
-
-    expect(renderedOrder()).toEqual(previewed);
-    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
-  });
-
-  it("a cancelled drag (dragEnd without a drop) restores the real order", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
-
-    fireEvent.dragEnd(widgetEl("w-a"));
-    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
-  });
-
-  it("releasing over a grid gutter still commits the previewed slot", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-b");
-    // The pointer leaves the card and is released on the grid itself.
-    const grid = widgetEl("w-a").parentElement as HTMLElement;
-    fireEvent.drop(grid);
-    fireEvent.dragEnd(widgetEl("w-a"));
-    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
-  });
-
-  it("nothing is persisted until Done editing", () => {
-    renderEditing();
-    fireEvent.dragStart(widgetEl("w-a"));
-    dragOver("w-c");
-    fireEvent.drop(widgetEl("w-c"));
-    expect(mockedApi.updateDashboard).not.toHaveBeenCalled();
-  });
-});
-
-describe("moveWidgetTo (pure)", () => {
-  it("dragging forwards lands after the target", () => {
-    expect(moveWidgetTo([A, B, C], "w-a", "w-c")?.map((w) => w.id)).toEqual([
-      "w-b",
-      "w-c",
-      "w-a",
+  it("is derived from the start order, so a slot always means the same thing", () => {
+    expect(computeDragPreview(order, "w-a", 0)?.map((w) => w.id)).toEqual([
+      "w-a", "w-b", "w-c",
+    ]);
+    expect(computeDragPreview(order, "w-a", 1)?.map((w) => w.id)).toEqual([
+      "w-b", "w-a", "w-c",
+    ]);
+    expect(computeDragPreview(order, "w-a", 2)?.map((w) => w.id)).toEqual([
+      "w-b", "w-c", "w-a",
     ]);
   });
 
-  it("dragging backwards lands before the target", () => {
-    expect(moveWidgetTo([A, B, C], "w-c", "w-a")?.map((w) => w.id)).toEqual([
-      "w-c",
-      "w-a",
-      "w-b",
+  it("is idempotent — recomputing the same slot yields the same layout", () => {
+    const once = computeDragPreview(order, "w-b", 2)?.map((w) => w.id);
+    const twice = computeDragPreview(order, "w-b", 2)?.map((w) => w.id);
+    expect(once).toEqual(twice);
+    expect(once).toEqual(["w-a", "w-c", "w-b"]);
+  });
+
+  it("clamps an out-of-range slot instead of dropping the widget", () => {
+    expect(computeDragPreview(order, "w-a", 99)?.map((w) => w.id)).toEqual([
+      "w-b", "w-c", "w-a",
+    ]);
+    expect(computeDragPreview(order, "w-a", -5)?.map((w) => w.id)).toEqual([
+      "w-a", "w-b", "w-c",
     ]);
   });
 
-  it("refuses no-op and unknown moves so the caller can keep its array", () => {
-    expect(moveWidgetTo([A, B, C], "w-a", "w-a")).toBeNull();
-    expect(moveWidgetTo([A, B, C], "w-a", "nope")).toBeNull();
-    expect(moveWidgetTo([A, B, C], "nope", "w-a")).toBeNull();
-  });
-
-  it("never mutates the input list", () => {
-    const input = [A, B, C];
-    moveWidgetTo(input, "w-a", "w-c");
-    expect(input.map((w) => w.id)).toEqual(["w-a", "w-b", "w-c"]);
+  it("returns null for an unknown widget and never mutates the input", () => {
+    expect(computeDragPreview(order, "nope", 1)).toBeNull();
+    computeDragPreview(order, "w-a", 2);
+    expect(order.map((w) => w.id)).toEqual(["w-a", "w-b", "w-c"]);
   });
 });
 
-describe("isPointerInCommitZone (pure)", () => {
-  const rect = { left: 100, top: 100, width: 200, height: 200 };
+describe("hitTestSlot (pure)", () => {
+  const slots = [
+    { left: 0, top: 0, width: 200, height: 200 },
+    { left: 220, top: 0, width: 200, height: 200 },
+    { left: 440, top: 0, width: 200, height: 200 },
+  ];
 
-  it("accepts the exact centre", () => {
-    expect(isPointerInCommitZone(rect, 200, 200)).toBe(true);
+  it("finds the slot containing the point", () => {
+    expect(hitTestSlot(slots, 100, 100)).toBe(0);
+    expect(hitTestSlot(slots, 320, 100)).toBe(1);
+    expect(hitTestSlot(slots, 540, 100)).toBe(2);
   });
 
-  it("accepts the boundary of the central band and rejects just past it", () => {
-    // Zone is REORDER_COMMIT_ZONE of the box, centred: ±50px on a 200px side.
-    const edge = (rect.width * REORDER_COMMIT_ZONE) / 2;
-    expect(isPointerInCommitZone(rect, 200 + edge, 200)).toBe(true);
-    expect(isPointerInCommitZone(rect, 200 + edge + 1, 200)).toBe(false);
-    expect(isPointerInCommitZone(rect, 200, 200 - edge)).toBe(true);
-    expect(isPointerInCommitZone(rect, 200, 200 - edge - 1)).toBe(false);
+  it("returns null in a gutter, so the destination is held rather than flickering", () => {
+    expect(hitTestSlot(slots, 210, 100)).toBeNull();
+    expect(hitTestSlot(slots, 430, 100)).toBeNull();
   });
 
-  it("rejects a pointer inside the card but outside the band, on either axis", () => {
-    expect(isPointerInCommitZone(rect, 105, 200)).toBe(false);
-    expect(isPointerInCommitZone(rect, 200, 295)).toBe(false);
-    expect(isPointerInCommitZone(rect, 105, 105)).toBe(false);
+  it("returns null outside the grid entirely", () => {
+    expect(hitTestSlot(slots, -20, 100)).toBeNull();
+    expect(hitTestSlot(slots, 100, 400)).toBeNull();
+    expect(hitTestSlot(slots, 900, 100)).toBeNull();
   });
 
-  it("allows the move when there is no geometry to judge", () => {
-    // A guard that cannot measure must not disable dragging altogether.
-    expect(isPointerInCommitZone({ left: 0, top: 0, width: 0, height: 0 }, 0, 0)).toBe(true);
-  });
-});
-
-describe("hasTravelledEnoughToReorder (pure)", () => {
-  const origin = { x: 100, y: 100 };
-
-  it("rejects a stationary pointer — the slingshot's only fuel", () => {
-    expect(hasTravelledEnoughToReorder(origin, { ...origin })).toBe(false);
-  });
-
-  it("measures real distance, not per-axis, so diagonal travel counts", () => {
-    // 30px on each axis is under the threshold per-axis but ~42px in total.
-    expect(hasTravelledEnoughToReorder(origin, { x: 130, y: 130 })).toBe(true);
-  });
-
-  it("accepts exactly the threshold and rejects just under it", () => {
-    expect(hasTravelledEnoughToReorder(origin, { x: 100 + REORDER_TRAVEL_PX, y: 100 })).toBe(true);
-    expect(hasTravelledEnoughToReorder(origin, { x: 100 + REORDER_TRAVEL_PX - 1, y: 100 })).toBe(
-      false,
-    );
-  });
-
-  it("is direction-agnostic — moving back counts the same as moving on", () => {
-    expect(hasTravelledEnoughToReorder(origin, { x: 100 - REORDER_TRAVEL_PX, y: 100 })).toBe(true);
-    expect(hasTravelledEnoughToReorder(origin, { x: 100, y: 100 - REORDER_TRAVEL_PX })).toBe(true);
+  it("is half-open, so adjacent slots cannot both claim a boundary pixel", () => {
+    expect(hitTestSlot(slots, 0, 0)).toBe(0);
+    expect(hitTestSlot(slots, 199, 199)).toBe(0);
+    expect(hitTestSlot(slots, 200, 100)).toBeNull();
+    expect(hitTestSlot(slots, 220, 100)).toBe(1);
   });
 });

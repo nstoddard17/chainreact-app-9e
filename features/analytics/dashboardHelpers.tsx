@@ -138,86 +138,55 @@ export function duplicateWidgetAt(
   return { widgets: next, newId };
 }
 
+/** One grid slot's geometry, captured at drag start (grid-relative, px). */
+export interface DragSlot {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
- * Move `fromId` to `toId`'s slot (drag-reorder). PURE — returns the next list,
- * or null when the move is a no-op or either id is gone.
- *
- * The grid auto-places in DOM order, so this single function decides BOTH the
- * live drag preview and the committed drop. They must never disagree: a preview
- * that shows one layout and commits another is a lie about what the drop will do.
- *
- * Semantics are the usual sortable ones — remove, then insert at the target's
- * ORIGINAL index. Dragging forwards therefore lands after the target, dragging
- * backwards lands before it, which is what the pointer position implies.
+ * The drag preview/commit order (ANALYTICS-WIDGET-DRAG-STABILITY-1). PURE —
+ * always derived from the DRAG-START order plus the current destination slot,
+ * never from a chain of mutations to whatever preview is on screen. That gives
+ * every destination a stable meaning for the whole drag: slot 0 always means
+ * the first position, so stepping a widget out and back restores the starting
+ * arrangement without the dragged widget ever needing to be a hover target.
  */
-export function moveWidgetTo(
-  widgets: readonly AnalyticsWidget[],
-  fromId: string,
-  toId: string,
+export function computeDragPreview(
+  startOrder: readonly AnalyticsWidget[],
+  draggedId: string,
+  destinationSlot: number,
 ): AnalyticsWidget[] | null {
-  if (fromId === toId) return null;
-  const fromIdx = widgets.findIndex((w) => w.id === fromId);
-  const toIdx = widgets.findIndex((w) => w.id === toId);
-  if (fromIdx < 0 || toIdx < 0) return null;
-  const next = widgets.slice();
-  const [moved] = next.splice(fromIdx, 1);
-  if (!moved) return null;
-  next.splice(toIdx, 0, moved);
+  const dragged = startOrder.find((w) => w.id === draggedId);
+  if (!dragged) return null;
+  const rest = startOrder.filter((w) => w.id !== draggedId);
+  const at = Math.max(0, Math.min(Math.trunc(destinationSlot), rest.length));
+  const next = rest.slice();
+  next.splice(at, 0, dragged);
   return next;
 }
 
 /**
- * Fraction of a widget's box, measured from its centre, that accepts a re-order.
- * Anything outside it is "just passing over" and must not disturb the layout.
+ * Map a grid-relative point to the slot containing it, or null for a gutter /
+ * outside point. Null means "keep the current destination": the gaps between
+ * slots are a natural dead zone, so a pointer resting on a boundary cannot
+ * flutter between two destinations. Slots come from the drag-start capture and
+ * never move mid-drag — animated cards must not redefine collision targets.
  */
-export const REORDER_COMMIT_ZONE = 0.5;
-
-/**
- * Is the pointer far enough INTO this widget to claim its slot?
- *
- * Re-ordering the moment a drag touches a card is unusable: the re-order moves
- * cards out from under the pointer, the pointer then lands on a different card,
- * and the grid oscillates for as long as you hold the drag. Requiring the
- * pointer to reach the target's central band breaks that loop — by the time it
- * gets there the card it is over is the one it means, and after the swap the
- * pointer sits over the dragged widget itself, which is a no-op.
- *
- * A zero-sized rect means we have no geometry to judge (an unmeasured or
- * offscreen node), so the move is allowed rather than silently blocked — a
- * guard that can't measure must not disable dragging altogether.
- */
-export function isPointerInCommitZone(
-  rect: { left: number; top: number; width: number; height: number },
-  pointerX: number,
-  pointerY: number,
-): boolean {
-  if (rect.width <= 0 || rect.height <= 0) return true;
-  const centreX = rect.left + rect.width / 2;
-  const centreY = rect.top + rect.height / 2;
-  return (
-    Math.abs(pointerX - centreX) <= (rect.width * REORDER_COMMIT_ZONE) / 2 &&
-    Math.abs(pointerY - centreY) <= (rect.height * REORDER_COMMIT_ZONE) / 2
-  );
-}
-
-/**
- * How far the pointer must travel between two consecutive re-orders, in CSS px.
- *
- * Any positive value defeats the slingshot, since that needs no pointer motion
- * at all. This one is small enough that a genuine change of mind — moving back
- * towards the card you came from — clears it immediately, and large enough that
- * the jitter of holding a drag still does not.
- */
-export const REORDER_TRAVEL_PX = 36;
-
-/** Has the pointer moved far enough since the last re-order to justify another? */
-export function hasTravelledEnoughToReorder(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-): boolean {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  return dx * dx + dy * dy >= REORDER_TRAVEL_PX * REORDER_TRAVEL_PX;
+export function hitTestSlot(
+  slots: readonly DragSlot[],
+  x: number,
+  y: number,
+): number | null {
+  for (let i = 0; i < slots.length; i += 1) {
+    const s = slots[i]!;
+    if (x >= s.left && x < s.left + s.width && y >= s.top && y < s.top + s.height) {
+      return i;
+    }
+  }
+  return null;
 }
 
 export function ErrorBanner({

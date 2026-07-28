@@ -1,0 +1,304 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from "react";
+import type { AnalyticsWidget } from "@/contracts/analytics";
+import { AnalyticsIcon } from "@/components/analytics/icons";
+import { computeDragPreview, hitTestSlot, type DragSlot } from "./dashboardHelpers";
+
+/**
+ * Pointer-driven widget drag session (ANALYTICS-WIDGET-DRAG-STABILITY-1).
+ *
+ * The previous drag models re-ordered on whichever widget the pointer happened
+ * to be over — a feedback loop, because every re-order moves cards (and their
+ * rectangles) under the pointer, which then re-targets on whatever arrives.
+ * Thresholds only muffled it. This model removes moving geometry from the
+ * interaction entirely:
+ *
+ * - At drag start, the committed order and every card's slot box are captured
+ *   ONCE. Those slots are the collision targets for the whole session; the
+ *   cards may animate, but the animation cannot redefine where the slots are.
+ *   Slot boxes come from offset* geometry, which ignores the transforms a
+ *   running FLIP animation applies.
+ * - The held card floats as a fixed-position overlay following the pointer
+ *   (moved via direct style mutation, coalesced through rAF — no per-frame
+ *   React renders). The in-flow card stays mounted as the blue destination
+ *   placeholder, so the layout always answers "where will this land".
+ * - The preview is always `computeDragPreview(startOrder, draggedId, slot)` —
+ *   derived, never mutated — so every slot keeps one stable meaning and the
+ *   origin stays reachable. State updates only when the slot actually changes;
+ *   a still pointer is inert, and gutters keep the current destination.
+ * - The session is bounded by pointer capture on the handle plus explicit
+ *   exits: pointerup commits exactly the preview; pointercancel,
+ *   lostpointercapture, Escape, window blur, unmount, and leaving edit mode
+ *   all cancel. Events from any other pointer id are ignored, so ordinary
+ *   hover can never move a widget.
+ */
+
+export interface DragOverlayState {
+  readonly widget: AnalyticsWidget;
+  readonly width: number;
+  readonly height: number;
+}
+
+interface ActiveSession {
+  readonly pointerId: number;
+  readonly draggedId: string;
+  readonly startOrder: readonly AnalyticsWidget[];
+  readonly slots: readonly DragSlot[];
+  readonly originSlot: number;
+  readonly grabDx: number;
+  readonly grabDy: number;
+  readonly handle: HTMLElement;
+  readonly removeListeners: () => void;
+  /** The only mutable field: the current destination slot. */
+  destination: number;
+}
+
+export function useWidgetDragSession({
+  gridRef,
+  widgets,
+  enabled,
+  onCommit,
+}: {
+  gridRef: RefObject<HTMLDivElement | null>;
+  /** The COMMITTED order — captured as the session's start order at drag start. */
+  widgets: readonly AnalyticsWidget[];
+  enabled: boolean;
+  onCommit: (order: readonly AnalyticsWidget[]) => void;
+}) {
+  const sessionRef = useRef<ActiveSession | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [previewOrder, setPreviewOrder] = useState<readonly AnalyticsWidget[] | null>(null);
+  const [overlay, setOverlay] = useState<DragOverlayState | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const posRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const framePendingRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
+
+  const widgetsRef = useRef(widgets);
+  widgetsRef.current = widgets;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
+
+  const teardown = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    sessionRef.current = null;
+    framePendingRef.current = false;
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    s.removeListeners();
+    try {
+      s.handle.releasePointerCapture(s.pointerId);
+    } catch {
+      // Capture already released (pointerup) or unsupported — fine either way.
+    }
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    posRef.current = null;
+    lastPointRef.current = null;
+    setDraggingId(null);
+    setPreviewOrder(null);
+    setOverlay(null);
+  }, []);
+
+  const cancelDrag = useCallback(() => teardown(), [teardown]);
+
+  const commitDrag = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    const next =
+      s.destination === s.originSlot
+        ? null // Landed where it started — nothing to write.
+        : computeDragPreview(s.startOrder, s.draggedId, s.destination);
+    teardown();
+    if (next) onCommitRef.current(next);
+  }, [teardown]);
+
+  const startDrag = useCallback(
+    (widgetId: string, e: ReactPointerEvent<HTMLElement>) => {
+      if (!enabledRef.current || sessionRef.current) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      const grid = gridRef.current;
+      if (!grid) return;
+
+      const cards = Array.from(grid.children).filter(
+        (c): c is HTMLElement => c instanceof HTMLElement && Boolean(c.dataset.widgetId),
+      );
+      const startOrder = widgetsRef.current;
+      const originSlot = cards.findIndex((c) => c.dataset.widgetId === widgetId);
+      const widget = startOrder.find((w) => w.id === widgetId);
+      if (originSlot < 0 || !widget || cards.length !== startOrder.length) return;
+
+      // Frozen collision geometry for the whole session. offset* is layout
+      // position — a FLIP transform still running from a previous drop cannot
+      // leak into it the way getBoundingClientRect() would let it.
+      const slots: DragSlot[] = cards.map((c) => ({
+        left: c.offsetLeft,
+        top: c.offsetTop,
+        width: c.offsetWidth,
+        height: c.offsetHeight,
+      }));
+
+      const gridRect = grid.getBoundingClientRect();
+      const origin = slots[originSlot]!;
+      const cardClientX = gridRect.left + origin.left;
+      const cardClientY = gridRect.top + origin.top;
+
+      e.preventDefault();
+      const handle = e.currentTarget;
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {
+        // Unsupported environment — the explicit exit listeners still bound it.
+      }
+
+      const onPointerMove = (ev: PointerEvent) => {
+        const s = sessionRef.current;
+        if (!s || ev.pointerId !== s.pointerId) return;
+        lastPointRef.current = { x: ev.clientX, y: ev.clientY };
+        if (framePendingRef.current) return;
+        framePendingRef.current = true;
+        frameRef.current = requestAnimationFrame(() => {
+          framePendingRef.current = false;
+          frameRef.current = null;
+          const live = sessionRef.current;
+          const point = lastPointRef.current;
+          const gridEl = gridRef.current;
+          if (!live || !point || !gridEl) return;
+          // Overlay follows the pointer via style mutation — zero React state.
+          posRef.current = { x: point.x - live.grabDx, y: point.y - live.grabDy };
+          const el = overlayRef.current;
+          if (el) {
+            el.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0)`;
+          }
+          const rect = gridEl.getBoundingClientRect();
+          const slot = hitTestSlot(live.slots, point.x - rect.left, point.y - rect.top);
+          // Null (gutter/outside) keeps the destination; same slot changes
+          // nothing — React state moves ONLY when the destination slot does.
+          if (slot === null || slot === live.destination) return;
+          live.destination = slot;
+          const preview = computeDragPreview(live.startOrder, live.draggedId, slot);
+          if (preview) setPreviewOrder(preview);
+        });
+      };
+      const onPointerUp = (ev: PointerEvent) => {
+        const s = sessionRef.current;
+        if (!s || ev.pointerId !== s.pointerId) return;
+        commitDrag();
+      };
+      const onPointerCancel = (ev: PointerEvent) => {
+        const s = sessionRef.current;
+        if (!s || ev.pointerId !== s.pointerId) return;
+        cancelDrag();
+      };
+      const onLostCapture = () => cancelDrag();
+      const onKeyDown = (ev: KeyboardEvent) => {
+        if (ev.key === "Escape") cancelDrag();
+      };
+      const onWindowBlur = () => cancelDrag();
+
+      handle.addEventListener("pointermove", onPointerMove);
+      handle.addEventListener("pointerup", onPointerUp);
+      handle.addEventListener("pointercancel", onPointerCancel);
+      handle.addEventListener("lostpointercapture", onLostCapture);
+      window.addEventListener("keydown", onKeyDown);
+      window.addEventListener("blur", onWindowBlur);
+      const removeListeners = () => {
+        handle.removeEventListener("pointermove", onPointerMove);
+        handle.removeEventListener("pointerup", onPointerUp);
+        handle.removeEventListener("pointercancel", onPointerCancel);
+        handle.removeEventListener("lostpointercapture", onLostCapture);
+        window.removeEventListener("keydown", onKeyDown);
+        window.removeEventListener("blur", onWindowBlur);
+      };
+
+      sessionRef.current = {
+        pointerId: e.pointerId,
+        draggedId: widgetId,
+        startOrder,
+        slots,
+        originSlot,
+        grabDx: e.clientX - cardClientX,
+        grabDy: e.clientY - cardClientY,
+        handle,
+        removeListeners,
+        destination: originSlot,
+      };
+      posRef.current = { x: cardClientX, y: cardClientY };
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "grabbing";
+      setDraggingId(widgetId);
+      setPreviewOrder(startOrder);
+      setOverlay({ widget, width: origin.width, height: origin.height });
+    },
+    [gridRef, commitDrag, cancelDrag],
+  );
+
+  // Leaving edit mode mid-drag cancels rather than stranding a session.
+  useEffect(() => {
+    if (!enabled) cancelDrag();
+  }, [enabled, cancelDrag]);
+
+  // Unmount is a session exit like any other.
+  useEffect(() => () => cancelDrag(), [cancelDrag]);
+
+  // A React re-render rewrites the overlay's style prop; re-apply the latest
+  // pointer-driven transform so a destination change can't snap the ghost back.
+  useLayoutEffect(() => {
+    const el = overlayRef.current;
+    const p = posRef.current;
+    if (el && p) el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
+  });
+
+  return { draggingId, previewOrder, overlay, overlayRef, startDrag };
+}
+
+/**
+ * The floating card that follows the pointer. Deliberately a lightweight ghost
+ * (chrome + title, muted body): re-mounting a live widget body here would
+ * re-run its data fetching mid-drag. No transition — surrounding cards animate,
+ * the held card tracks the pointer exactly.
+ */
+export function DragOverlayGhost({
+  overlay,
+  overlayRef,
+}: {
+  overlay: DragOverlayState;
+  overlayRef: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      ref={overlayRef}
+      data-testid="analytics-drag-overlay"
+      aria-hidden="true"
+      className="pointer-events-none fixed left-0 top-0 z-50 flex flex-col overflow-hidden rounded-xl border border-primary bg-card opacity-90 shadow-2xl"
+      style={{ width: overlay.width, height: overlay.height }}
+    >
+      <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
+        {overlay.widget.icon && (
+          <span className="text-primary">
+            <AnalyticsIcon name={overlay.widget.icon} size={12} />
+          </span>
+        )}
+        <span className="truncate text-sm font-semibold text-foreground">
+          {overlay.widget.title}
+        </span>
+      </div>
+      <div className="flex-1 bg-muted/40" />
+    </div>
+  );
+}
