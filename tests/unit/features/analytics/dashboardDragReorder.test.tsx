@@ -87,19 +87,29 @@ function dashboard(widgets: AnalyticsWidget[] = [A, B, C]): Dashboard {
 
 /**
  * jsdom lays nothing out, so every rect is 0×0 and the commit-zone guard would
- * take its "can't measure" branch. Give the cards real boxes instead, so these
- * tests exercise the SAME geometry path a browser does.
+ * take its "can't measure" branch.
+ *
+ * Model the real thing instead: three fixed SLOTS in a row, with whichever card
+ * currently sits in a slot occupying that box. Pinning a box to a widget id
+ * would miss the bug this file exists to cover — after a re-order the cards have
+ * swapped slots, and dragging "back to where it came from" means hovering
+ * whatever moved into the slot you left.
  */
-const RECTS: Record<string, { left: number; top: number; width: number; height: number }> = {
-  "w-a": { left: 0, top: 0, width: 200, height: 200 },
-  "w-b": { left: 220, top: 0, width: 200, height: 200 },
-  "w-c": { left: 440, top: 0, width: 200, height: 200 },
-};
+const SLOT_SIZE = 200;
+const SLOT_PITCH = 220;
+const slotRect = (index: number) => ({
+  left: index * SLOT_PITCH,
+  top: 0,
+  width: SLOT_SIZE,
+  height: SLOT_SIZE,
+});
 
-function stubRects() {
-  for (const [id, r] of Object.entries(RECTS)) {
-    const el = screen.getByTestId(`analytics-widget-${id}`);
-    el.getBoundingClientRect = () =>
+/** Re-stamp every card with the box of the slot it currently occupies. */
+function relayout() {
+  const cards = Array.from(document.querySelectorAll("[data-widget-id]")) as HTMLElement[];
+  cards.forEach((card, index) => {
+    const r = slotRect(index);
+    card.getBoundingClientRect = () =>
       ({
         ...r,
         right: r.left + r.width,
@@ -108,15 +118,18 @@ function stubRects() {
         y: r.top,
         toJSON: () => ({}),
       }) as DOMRect;
-  }
+  });
 }
 
-const rectOf = (id: string) =>
-  RECTS[id] as { left: number; top: number; width: number; height: number };
+const slotCentre = (index: number) => ({
+  clientX: index * SLOT_PITCH + SLOT_SIZE / 2,
+  clientY: SLOT_SIZE / 2,
+});
 
-/** The exact centre of a card — the only place a re-order is accepted. */
+/** The centre of the slot a card is in right now — where a re-order is accepted. */
 const centre = (id: string) => {
-  const r = rectOf(id);
+  relayout();
+  const r = widgetEl(id).getBoundingClientRect();
   return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
 };
 
@@ -134,8 +147,19 @@ function renderEditing(widgets?: AnalyticsWidget[]) {
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /Edit dashboard/ }));
-  stubRects();
+  relayout();
   return view;
+}
+
+/** Hover the middle of a SLOT — whichever card is sitting there right now. */
+function hoverSlot(index: number) {
+  relayout();
+  const card = document.querySelectorAll("[data-widget-id]")[index] as HTMLElement;
+  const point = slotCentre(index);
+  const event = createEvent.dragOver(card, { dataTransfer: { dropEffect: "none" } });
+  Object.defineProperty(event, "clientX", { value: point.clientX });
+  Object.defineProperty(event, "clientY", { value: point.clientY });
+  fireEvent(card, event);
 }
 
 /** The grid's current DOM order — what CSS grid auto-places from. */
@@ -156,6 +180,7 @@ const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
  * the component defend against a condition that cannot happen in a browser.
  */
 const dragOver = (id: string, at?: { clientX: number; clientY: number }) => {
+  relayout();
   const el = widgetEl(id);
   const point = at ?? centre(id);
   const event = createEvent.dragOver(el, { dataTransfer: { dropEffect: "none" } });
@@ -193,8 +218,40 @@ describe("drag preview — the other widgets move aside", () => {
     dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
-    // Bravo's centre is a card away, so the pointer has plainly travelled.
+    // Bravo now sits in slot 0; hovering it puts Alpha back at the front.
     dragOver("w-b");
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+  });
+
+  it("moves one slot and back again, in a single drag", () => {
+    // The reported bug. Stepping Alpha one slot right leaves Bravo in slot 0;
+    // dragging back over slot 0 must undo it. Recomputing the preview from the
+    // COMMITTED order can't: the only target that would restore the original is
+    // the dragged widget itself, which is never a target — so the layout got
+    // stuck one slot over and only a second slot's travel did anything.
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+
+    hoverSlot(1);
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+
+    hoverSlot(0);
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+
+    // And it keeps working, rather than needing an ever-larger gesture.
+    hoverSlot(1);
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+  });
+
+  it("steps through consecutive slots one at a time", () => {
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+
+    hoverSlot(1);
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+    hoverSlot(2);
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+    hoverSlot(1);
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
   });
 
@@ -209,7 +266,8 @@ describe("drag preview — the other widgets move aside", () => {
     const settled = renderedOrder();
     expect(settled).toEqual(["w-b", "w-c", "w-a"]);
 
-    const held = centre("w-c");
+    // The pointer has not moved from where it caused the swap.
+    const held = slotCentre(2);
     for (let i = 0; i < 6; i += 1) {
       dragOver("w-b", held);
       dragOver("w-c", held);
@@ -221,7 +279,7 @@ describe("drag preview — the other widgets move aside", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
     dragOver("w-c");
-    const held = centre("w-c");
+    const held = slotCentre(2);
 
     dragOver("w-b", { clientX: held.clientX + 5, clientY: held.clientY - 3 });
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
@@ -237,7 +295,7 @@ describe("drag preview — the other widgets move aside", () => {
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
     dragOver("w-b");
-    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
   it("ignores a pointer that has only clipped the edge of a card", () => {
@@ -247,7 +305,7 @@ describe("drag preview — the other widgets move aside", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
 
-    const c = RECTS["w-c"] as { left: number; top: number; width: number; height: number };
+    const c = slotRect(2); // Charlie starts in the third slot
     dragOver("w-c", { clientX: c.left + 4, clientY: c.top + c.height / 2 });
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
 
@@ -258,7 +316,7 @@ describe("drag preview — the other widgets move aside", () => {
   it("re-orders once the pointer reaches the middle of the card", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
-    const c = RECTS["w-c"] as { left: number; top: number; width: number; height: number };
+    const c = slotRect(2); // Charlie starts in the third slot
 
     dragOver("w-c", { clientX: c.left + 10, clientY: c.top + 10 });
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);

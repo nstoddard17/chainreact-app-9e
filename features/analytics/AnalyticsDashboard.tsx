@@ -140,10 +140,17 @@ export function AnalyticsDashboard({
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const draggingId = useRef<string | null>(null);
   const [draggingState, setDraggingState] = useState<string | null>(null);
-  /** The widget currently under the pointer — drives the live drop preview. */
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  /**
+   * The order the grid is showing mid-drag, or null when nothing is being
+   * dragged. Each re-order is applied to THIS order rather than recomputed from
+   * the committed one, so the arrangement is cumulative: stepping a widget one
+   * slot and then back lands exactly where it started. Recomputing from the
+   * committed order instead makes the original position unreachable, because
+   * the only target that would restore it is the dragged widget itself.
+   */
+  const [previewOrder, setPreviewOrder] = useState<readonly AnalyticsWidget[] | null>(null);
   /** Same value, readable synchronously inside the high-frequency drag handler. */
-  const dragOverIdRef = useRef<string | null>(null);
+  const previewOrderRef = useRef<readonly AnalyticsWidget[] | null>(null);
   /**
    * Where the pointer was when the preview last changed. The next re-order has
    * to out-travel it — see the "over" branch of handleMove.
@@ -154,16 +161,13 @@ export function AnalyticsDashboard({
   const active = dashboards.find((d) => d.id === activeId) ?? dashboards[0] ?? null;
   const widgets = editing ? draftWidgets : (active?.widgets ?? []);
   /**
-   * What the grid RENDERS while a drag is in flight: the same reorder the drop
-   * will commit, so the other widgets shove aside into their real resting places
-   * and the outlined slot is where the widget genuinely lands. The committed
-   * order (`draftWidgets`) is untouched until the drop, so a cancelled drag
-   * needs no undo — clearing the preview state is the undo.
+   * What the grid RENDERS while a drag is in flight: exactly what the drop will
+   * commit, so the other widgets shove aside into their real resting places and
+   * the outlined slot is where the widget genuinely lands. The committed order
+   * (`draftWidgets`) is untouched until the drop, so a cancelled drag needs no
+   * undo — clearing the preview is the undo.
    */
-  const orderedWidgets =
-    draggingState && dragOverId
-      ? (moveWidgetTo(widgets, draggingState, dragOverId) ?? widgets)
-      : widgets;
+  const orderedWidgets = previewOrder ?? widgets;
   useGridReflow(gridRef, orderedWidgets.map((w) => w.id).join(","), editing);
   const configuringWidget = configuringId
     ? (editing ? draftWidgets : widgets).find((w) => w.id === configuringId) ?? null
@@ -256,13 +260,12 @@ export function AnalyticsDashboard({
     if (phase === "start") {
       draggingId.current = id;
       setDraggingState(id);
-      dragOverIdRef.current = null;
-      setDragOverId(null);
+      previewOrderRef.current = null;
+      setPreviewOrder(null);
       lastSwapPoint.current = null;
     } else if (phase === "over") {
       // Fires continuously while hovering, so every guard here is load-bearing.
       if (!draggingId.current || id === draggingId.current) return;
-      if (dragOverIdRef.current === id) return;
       // A re-order MOVES a card's middle under a stationary pointer, which then
       // qualifies to re-order straight back, forever — the slingshot. The cure
       // has to be the POINTER's own travel: nothing the layout (or the reflow
@@ -270,26 +273,38 @@ export function AnalyticsDashboard({
       // a sample outside the middles it cannot be skipped by a fast gesture.
       const since = lastSwapPoint.current;
       if (since && point && !hasTravelledEnoughToReorder(since, point)) return;
-      dragOverIdRef.current = id;
+      // Applied to the order on screen, not the committed one — see previewOrder.
+      const next = moveWidgetTo(
+        previewOrderRef.current ?? widgets,
+        draggingId.current,
+        id,
+      );
+      if (!next) return;
+      previewOrderRef.current = next;
       lastSwapPoint.current = point ?? null;
-      setDragOverId(id);
+      setPreviewOrder(next);
     } else if (phase === "end") {
       // Also fires after a cancelled drag (Escape / drop outside), which is why
       // the preview lives in its own state: clearing it restores the real order.
       draggingId.current = null;
-      dragOverIdRef.current = null;
+      previewOrderRef.current = null;
       setDraggingState(null);
-      setDragOverId(null);
+      setPreviewOrder(null);
       lastSwapPoint.current = null;
     } else if (phase === "drop") {
       const from = draggingId.current;
+      const previewed = previewOrderRef.current;
       draggingId.current = null;
-      dragOverIdRef.current = null;
+      previewOrderRef.current = null;
       setDraggingState(null);
-      setDragOverId(null);
+      setPreviewOrder(null);
       lastSwapPoint.current = null;
       if (!from) return;
-      setDraftWidgets((ws) => moveWidgetTo(ws, from, id) ?? ws);
+      // Commit what was on screen. Only when the drag never previewed anything
+      // (a flick too quick to sample a middle) does the release itself decide,
+      // which is still the user's explicit choice of where to put it.
+      if (previewed) setDraftWidgets(previewed);
+      else if (id) setDraftWidgets((ws) => moveWidgetTo(ws, from, id) ?? ws);
     }
   };
 
@@ -628,8 +643,8 @@ export function AnalyticsDashboard({
           onDrop={(e) => {
             if (!editing || !draggingId.current) return;
             e.preventDefault();
-            if (dragOverId) handleMove("drop", dragOverId);
-            else handleMove("end", "");
+            // No card under the pointer, so the previewed order is the answer.
+            handleMove("drop", "");
           }}
         >
           {orderedWidgets.map((w) => (
