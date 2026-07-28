@@ -6,7 +6,7 @@ import type { ObIconName } from "./onboardingIcons";
  *
  * Voice ports the imported design's step rows ("Create your first workflow",
  * "Run a test execution"-style descriptions) onto the LOCKED product steps
- * (create → connect → configure → test → activate). The design's demo steps
+ * (connect → create → configure → test → activate). The design's demo steps
  * ("Add a trigger", "Invite a teammate") and its "Mark done" fake-completion
  * affordance are deliberately NOT carried over.
  */
@@ -19,18 +19,18 @@ export interface StepPresentation {
 }
 
 export const STEP_PRESENTATION: Record<OnboardingStepKey, StepPresentation> = {
+  connect: {
+    label: "Connect an app",
+    icon: "Database",
+    description: "Connect an app you want to use in your workflows.",
+    cta: "Open Apps",
+  },
   create: {
     label: "Create your first workflow",
     icon: "Bolt",
     description:
       "Describe an automation to React, start from a template, or build from scratch.",
     cta: "New workflow",
-  },
-  connect: {
-    label: "Connect an app",
-    icon: "Database",
-    description: "Connect an app you want to use in your workflows.",
-    cta: "Open Apps",
   },
   configure: {
     label: "Finish configuring your steps",

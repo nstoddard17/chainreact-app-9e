@@ -115,12 +115,13 @@ beforeEach(() => {
 
 describe("getOnboardingChecklist", () => {
 
-  it("brand-new account: no workflows, no row → create current, first_shown latched, no completion latch", async () => {
+  it("brand-new account: no workflows, no row → connect current, first_shown latched, no completion latch", async () => {
     mockGetState.mockResolvedValue(null);
     mockListByAccount.mockResolvedValue([]);
     const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
     expect(dto.completed).toBe(false);
-    expect(dto.steps?.[0]).toMatchObject({ key: "create", status: "current" });
+    // Connect leads the checklist, so it is the first row and the current step.
+    expect(dto.steps?.[0]).toMatchObject({ key: "connect", status: "current" });
     expect(mockLatchFirstShown).toHaveBeenCalledWith(USER, ACCOUNT);
     expect(mockLatchCompletion).not.toHaveBeenCalled();
   });

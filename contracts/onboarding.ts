@@ -11,9 +11,12 @@ import { z } from "zod";
  * only mutate PRESENTATION state via `OnboardingPresentationActionSchema`.
  */
 
+// Order is the user-facing checklist order. `connect` leads: connecting an app
+// is account-level, needs no workflow, and is the prerequisite a user is most
+// likely to hit mid-build — so the guide teaches it before creating anything.
 export const ONBOARDING_STEP_KEYS = [
-  "create",
   "connect",
+  "create",
   "configure",
   "test",
   "activate",

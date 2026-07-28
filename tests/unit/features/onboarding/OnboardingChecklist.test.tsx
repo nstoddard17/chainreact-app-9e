@@ -35,9 +35,10 @@ jest.mock("@/lib/api/workflows", () => ({
 function steps(overrides: Partial<Record<string, Partial<OnboardingStepDTO>>> = {}) {
   // 5.ONBOARD-2: each step carries its OWN CTA target (`ctaWorkflowId`); there
   // is no shared "selected workflow" any more.
+  // Connect leads the checklist order (contracts/onboarding.ts).
   const base: OnboardingStepDTO[] = [
-    { key: "create", status: "complete" },
     { key: "connect", status: "current" },
+    { key: "create", status: "complete" },
     { key: "configure", status: "pending", ctaWorkflowId: "wf-1", ctaWorkflowName: "Lead intake" },
     { key: "test", status: "pending", testable: true, ctaWorkflowId: "wf-1", ctaWorkflowName: "Lead intake" },
     { key: "activate", status: "pending", ctaWorkflowId: "wf-1", ctaWorkflowName: "Lead intake" },

@@ -359,6 +359,14 @@ New table `user_onboarding_states` (sketch in §6). Presentation fields: `dismis
 
 ### 4.2 Step derivation — one existing source of truth per step
 
+> **Superseded (order, 2026-07-27):** the shipped checklist order is
+> **connect → create → configure → test → activate**. Connect leads because it is
+> account-level, needs no workflow, and is the prerequisite users hit mid-build.
+> The completion rules below still describe each step (as amended by 5.ONBOARD-2/3);
+> only the numbering in this table is stale. Order lives in
+> [`contracts/onboarding.ts`](../../../contracts/onboarding.ts) and is emitted by
+> [`services/onboarding/checklistDerivation.ts`](../../../services/onboarding/checklistDerivation.ts).
+
 | Step | Completion rule (server-derived) | Source of truth (existing) |
 |---|---|---|
 | 1. Create your first workflow | ≥1 non-deleted workflow exists in the account | `workflows` via [repositories/workflows.ts](../../../repositories/workflows.ts) list-by-account |

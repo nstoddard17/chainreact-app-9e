@@ -15,8 +15,8 @@ import type { OnboardingStepDTO, OnboardingStepKey } from "@/contracts/onboardin
  *
  * Completion sources (one existing source of truth per step — never a parallel
  * validator, and never a stored "step done" boolean):
- *   create    → ≥1 non-deleted workflow in the account
  *   connect   → the ACCOUNT has ≥1 healthy integration (5.ONBOARD-3)
+ *   create    → ≥1 non-deleted workflow in the account
  *   configure → SOME workflow has checkWritePathReadiness(draft) === null
  *   test      → SOME workflow has a real workflow_runs row status='succeeded'
  *   activate  → SOME workflow has state === 'active' exactly
@@ -199,8 +199,8 @@ export function deriveChecklistSteps(input: {
   // app is a standalone action a user can take at any time, so it stays a
   // legitimate next move even before any workflow has steps.
   const order: OnboardingStepKey[] = [
-    "create",
     "connect",
+    "create",
     "configure",
     "test",
     "activate",
@@ -208,8 +208,8 @@ export function deriveChecklistSteps(input: {
   let currentKey: OnboardingStepKey | null = null;
   for (const key of order) {
     if (doneByKey[key]) continue;
-    // With no workflows at all, steps 2–5 cannot be evaluated or acted on —
-    // only "create" may be current.
+    // With no workflows at all, configure/test/activate cannot be evaluated or
+    // acted on — only "connect" and "create" may be current.
     if (!createDone && key !== "create" && key !== "connect") break;
     if (key === "test" && testTarget !== null && !testTarget.hasManualTrigger && !activateDone) {
       // The best testable candidate has no manual-trigger test path yet:
@@ -239,11 +239,12 @@ export function deriveChecklistSteps(input: {
     return t ? { ctaWorkflowId: t.id, ctaWorkflowName: t.name } : {};
   };
 
+  // Emitted in ONBOARDING_STEP_KEYS order — the UI renders the DTO order as-is.
   const steps: OnboardingStepDTO[] = [
-    { key: "create", status: statusFor("create") },
     // No providers / no blockedReason: connect is the general "connect an app"
     // action with a fixed /apps destination and carries no provider detail.
     { key: "connect", status: statusFor("connect") },
+    { key: "create", status: statusFor("create") },
     { key: "configure", status: statusFor("configure"), ...ctaId("configure") },
     {
       key: "test",

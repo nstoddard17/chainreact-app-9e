@@ -19,7 +19,7 @@ function facts(overrides: Partial<WorkflowChecklistFacts> = {}): WorkflowCheckli
     name: "Lead intake",
     state: "draft",
     nodeCount: 2,
-    hasManualTrigger: true,
+    hasManualTrigger: true,
     writePathReady: false,
     hasSucceededRun: false,
     lastRunFailed: false,
@@ -34,10 +34,21 @@ function stepByKey(result: ReturnType<typeof deriveChecklistSteps>, key: string)
 }
 
 describe("deriveChecklistSteps", () => {
-  it("brand-new account: no workflows → only create is current, nothing complete", () => {
+  it("emits the steps in checklist order — connect leads, then create", () => {
     const r = deriveChecklistSteps({ workflows: [], accountHasHealthyIntegration: false });
-    expect(stepByKey(r, "create").status).toBe("current");
-    for (const key of ["connect", "configure", "test", "activate"]) {
+    expect(r.steps.map((s) => s.key)).toEqual([
+      "connect",
+      "create",
+      "configure",
+      "test",
+      "activate",
+    ]);
+  });
+
+  it("brand-new account: no workflows → only connect is current, nothing complete", () => {
+    const r = deriveChecklistSteps({ workflows: [], accountHasHealthyIntegration: false });
+    expect(stepByKey(r, "connect").status).toBe("current");
+    for (const key of ["create", "configure", "test", "activate"]) {
       expect(stepByKey(r, key).status).toBe("pending");
     }
     expect(r.completedStepCount).toBe(0);
@@ -213,12 +224,12 @@ describe("deriveChecklistSteps — account-level aggregation", () => {
     // progress of whichever one happened to be selected.
     const connected = facts({
       id: "wf-connected",
-      nodeCount: 2,
+      nodeCount: 2,
       writePathReady: false,
     });
     const configured = facts({
       id: "wf-configured",
-      nodeCount: 3,
+      nodeCount: 3,
       writePathReady: true,
     });
     const tested = facts({ id: "wf-tested", hasSucceededRun: true });

@@ -95,18 +95,26 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     const card = page.getByTestId("onboarding-checklist-card");
     await expect(card).toBeVisible();
     await expect(card).toContainText("Launch your first workflow");
-    await expect(page.getByTestId("onboarding-step-create")).toHaveAttribute(
+    // Connect leads the checklist, so it is the current step on a fresh account.
+    await expect(page.getByTestId("onboarding-step-connect")).toHaveAttribute(
       "data-status",
       "current",
+    );
+    await expect(page.getByTestId("onboarding-step-create")).toHaveAttribute(
+      "data-status",
+      "pending",
     );
     // The checklist REPLACES the no-workflows empty state (no duplicate CTA).
     await expect(page.getByTestId("workflows-empty-no-workflows")).toHaveCount(0);
 
     // ── 3–4. Create through the chooser (real workflow row) ──
-    // The dev server hydrates lazily, so a click can land on a not-yet-
-    // interactive button and silently do nothing. Retry opening the chooser
-    // until its content is actually present, then pick a path.
+    // Create is not the current step any more, so peek at it first (the row's
+    // CTA only renders while expanded). The dev server hydrates lazily, so a
+    // click can land on a not-yet-interactive button and silently do nothing:
+    // retry opening the chooser until its content is actually present, then
+    // pick a path.
     await expect(async () => {
+      await page.getByTestId("onboarding-step-create-focus").click();
       await page.getByTestId("onboarding-create-cta").click();
       await expect(page.getByTestId("onboarding-create-scratch")).toBeVisible({
         timeout: 2_000,
@@ -118,7 +126,7 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     ]);
     const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
 
-    // ── 5. Step 1 complete; Connect is actionable even on an empty graph ──
+    // ── 5. Create complete; Connect is actionable even on an empty graph ──
     // 5.ONBOARD-3: the `blocked` status was removed and connect is no longer
     // skipped for a workflow with no steps. Connecting an app is a standalone
     // account-level action, so it is a legitimate next move immediately.
