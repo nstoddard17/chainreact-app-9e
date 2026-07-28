@@ -111,18 +111,38 @@ These are two independent dials, by design.
   -- Per-feature real cost profile (last 60 days)
   select feature,
          model_name,
-         count(*)                                             as calls,
-         round(avg(estimated_cost_micros) / 1e6, 5)           as avg_usd,
-         round((percentile_cont(0.95) within group (order by estimated_cost_micros)) / 1e6, 5)
-                                                              as p95_usd,
-         round(avg(input_tokens))                             as avg_in_tok,
-         round(avg(output_tokens))                            as avg_out_tok,
-         round(avg(ai_credits_charged), 2)                    as avg_credits
+         count(*)                                                as calls,
+         round((avg(estimated_cost_micros) / 1e6)::numeric, 5)   as avg_usd,
+         round(((percentile_cont(0.95) within group (order by estimated_cost_micros)) / 1e6)::numeric, 5)
+                                                                 as p95_usd,
+         round(avg(input_tokens))                                as avg_in_tok,
+         round(avg(output_tokens))                               as avg_out_tok,
+         round(avg(ai_credits_charged), 2)                       as avg_credits
     from ai_cost_events
    where created_at > now() - interval '60 days'
      and estimated_cost_micros is not null
    group by feature, model_name
    order by avg_usd desc;
+  ```
+
+  First calibration pass (2026-07-27): `estimated_cost_micros` was NULL on all 422
+  ledger rows — the recorder does not populate it yet — so USD was derived from the
+  recorded token counts × current model list prices instead. document_analysis
+  (n=19 with tokens, ~13.5k in / ~130 out): ≈$0.014/call fast-tier ⇒ ~$0.0014/credit
+  at 10 credits (comfortably under threshold; even strong-tier assumptions stay
+  under). data_transform (n=2 — insufficient data): ≈$0.015/call fast ⇒
+  ~$0.003/credit at 5. **10/5 confirmed; re-run once estimated_cost_micros is
+  populated and data_transform has real volume.**
+
+  ```sql
+  -- Fallback while estimated_cost_micros is unpopulated: token-based profile
+  select feature, model_name, count(*) as calls,
+         round(avg(input_tokens))  as avg_in_tok,
+         round(avg(output_tokens)) as avg_out_tok,
+         round(avg(ai_credits_charged), 2) as avg_credits
+    from ai_cost_events
+   where created_at > now() - interval '60 days' and input_tokens is not null
+   group by feature, model_name order by calls desc;
   ```
 
   Decision rule: with Pro at $25 / 2,000 credits, one credit represents ~$0.0125 of
