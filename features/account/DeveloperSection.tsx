@@ -61,7 +61,7 @@ export function DeveloperSection({
               frozen={frozen}
             />
           ) : (
-            <p data-testid="mcp-tokens-member-note" className="max-w-xl text-xs text-muted-foreground">
+            <p data-testid="mcp-tokens-member-note" className="max-w-4xl text-xs text-muted-foreground">
               {accountId ? (
                 <>Owners and admins manage this account&apos;s MCP tokens.</>
               ) : (
@@ -83,7 +83,7 @@ export function DeveloperSection({
         desc="Point any MCP-compatible client at ChainReact."
       >
         <SettingRow label="Server URL" stacked>
-          <div className="flex max-w-xl flex-col gap-1 text-xs text-muted-foreground">
+          <div className="flex max-w-4xl flex-col gap-1 text-xs text-muted-foreground">
             <code data-testid="mcp-server-url" className="font-mono text-foreground">
               https://mcp.chainreact.app/mcp
             </code>

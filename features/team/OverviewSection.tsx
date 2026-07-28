@@ -104,7 +104,7 @@ export function OverviewSection({
 
       {!isTeam && (
         <Panel title="You're on a personal account">
-          <p className="max-w-xl text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Personal accounts are just for you. Create a team above to invite
             members and share automations — Teams support up to {teamMaxMembers}{" "}
             members, billed as one account with shared usage.

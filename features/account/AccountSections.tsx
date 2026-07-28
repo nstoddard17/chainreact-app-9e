@@ -213,7 +213,7 @@ export function ApiSection({
           {canManage && accountId ? (
             <ApiKeysPanel accountId={accountId} frozen={frozen} />
           ) : (
-            <p data-testid="api-keys-member-note" className="max-w-xl text-xs text-muted-foreground">
+            <p data-testid="api-keys-member-note" className="max-w-4xl text-xs text-muted-foreground">
               {accountId ? (
                 <>Owners and admins manage this account&apos;s API keys.</>
               ) : (
@@ -238,7 +238,7 @@ export function ApiSection({
 
       <Panel title="Webhooks" desc="Event webhooks to your URLs — coming soon.">
         <SettingRow label="Outbound webhooks" stacked>
-          <p data-testid="api-webhooks-copy" className="max-w-xl text-xs text-muted-foreground">
+          <p data-testid="api-webhooks-copy" className="max-w-4xl text-xs text-muted-foreground">
             Webhooks will let ChainReact send your account&apos;s events — like a
             failed run — to your own URLs. This is separate from the provider
             webhooks that already power your triggers internally; those connect your

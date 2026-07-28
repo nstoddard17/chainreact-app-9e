@@ -272,7 +272,7 @@ export function VehicleLinksDashboard({
           Motive <span aria-hidden>⇄</span> Fleetio
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Vehicle links</h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           Each truck exists twice — once in Motive, once in Fleetio. Say which pairs
           are the same truck, and every workflow finds the right Fleetio vehicle on
           its own. One workflow covers the fleet instead of one per truck.

@@ -293,7 +293,7 @@ export function AccountDeletionCard({
       <div data-testid="account-deletion-card" className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium text-foreground">Delete my ChainReact account</p>
-          <p className="max-w-xl text-xs text-muted-foreground">
+          <p className="max-w-4xl text-xs text-muted-foreground">
             This deletes your personal account and its information. It is not the same as
             cancelling your plan — if you only want to stop paying,{" "}
             <span className="font-medium text-foreground">
@@ -303,7 +303,7 @@ export function AccountDeletionCard({
           </p>
           <ul
             data-testid="account-delete-consequences"
-            className="max-w-xl list-disc space-y-1 pl-4 text-xs text-muted-foreground"
+            className="max-w-4xl list-disc space-y-1 pl-4 text-xs text-muted-foreground"
           >
             <li>Your access is frozen immediately and your automations stop running.</li>
             <li>

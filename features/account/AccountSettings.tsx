@@ -211,7 +211,7 @@ function NonPersonalDangerNote() {
       <p className="text-sm font-medium text-foreground">
         Switch to your personal account to manage its deletion.
       </p>
-      <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+      <p className="mt-1 text-xs text-muted-foreground">
         Account deletion applies to your personal account. Team and Business
         accounts are managed from the Team page — there's no delete here.
       </p>

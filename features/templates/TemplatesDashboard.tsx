@@ -233,7 +233,7 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
     <section data-testid="templates-dashboard" aria-label="Templates" className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Template marketplace</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Start from an automation that already works — built by ChainReact or shared by the community —
           or save your own and reuse it across your workflows.
         </p>
