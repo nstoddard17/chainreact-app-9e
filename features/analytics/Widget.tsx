@@ -28,6 +28,12 @@ const SIZE_OPTIONS: { id: AnalyticsWidgetSize; label: string }[] = [
   { id: "tall", label: "1×2" },
 ];
 
+/** Same labels, keyed — the drop preview names the footprint it is reserving. */
+const SIZE_LABEL: Record<AnalyticsWidgetSize, string> = SIZE_OPTIONS.reduce(
+  (acc, s) => ({ ...acc, [s.id]: s.label }),
+  {} as Record<AnalyticsWidgetSize, string>,
+);
+
 export interface WidgetProps {
   widget: AnalyticsWidget;
   isEditing: boolean;
@@ -38,7 +44,11 @@ export interface WidgetProps {
   onRemove: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onConfigure: (id: string) => void;
-  onMove: (phase: "start" | "end" | "drop", id: string) => void;
+  /**
+   * "over" fires continuously while a drag hovers this widget — the parent uses
+   * it to preview the drop, so it must be cheap and idempotent.
+   */
+  onMove: (phase: "start" | "end" | "over" | "drop", id: string) => void;
   /**
    * Offered only when the widget currently has exportable data on screen
    * (CD-5A). Absent for widget types that have no per-widget export.
@@ -71,13 +81,19 @@ export function Widget({
     else setTitle(widget.title);
   };
 
+  // While this widget is the one being dragged it renders IN its previewed slot
+  // as the drop target itself: the card keeps its real column/row span, so the
+  // blue outline shows exactly where it will land and how much space it takes.
+  const dimmed = isDragging ? " opacity-25" : "";
+
   return (
     <div
       data-testid={`analytics-widget-${widget.id}`}
+      data-widget-id={widget.id}
+      {...(isDragging ? { "data-drop-preview": "true" } : {})}
       className={
-        "flex min-h-[190px] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20 " +
-        SIZE_GRID_CLASS[widget.size] +
-        (isDragging ? " opacity-40" : "")
+        "relative flex min-h-[190px] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20 " +
+        SIZE_GRID_CLASS[widget.size]
       }
       draggable={isEditing}
       onDragStart={() => onMove("start", widget.id)}
@@ -86,16 +102,31 @@ export function Widget({
         if (isEditing) {
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
+          onMove("over", widget.id);
         }
       }}
       onDrop={(e) => {
         if (isEditing) {
           e.preventDefault();
+          // The grid also listens, so releasing over a gap still commits. Don't
+          // let this drop reach it as well.
+          e.stopPropagation();
           onMove("drop", widget.id);
         }
       }}
     >
-      <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
+      {isDragging && (
+        <div
+          data-testid={`analytics-drop-preview-${widget.id}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/10"
+        >
+          <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[11px] font-semibold text-primary-foreground">
+            {SIZE_LABEL[widget.size]}
+          </span>
+        </div>
+      )}
+      <div className={"flex items-center justify-between border-b border-border px-3.5 py-2.5" + dimmed}>
         <div className="flex min-w-0 items-center gap-2">
           {isEditing && (
             <span className="cursor-grab p-0.5 text-muted-foreground" title="Drag to move">
@@ -199,7 +230,7 @@ export function Widget({
           )}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden p-4">{children}</div>
+      <div className={"min-h-0 flex-1 overflow-hidden p-4" + dimmed}>{children}</div>
     </div>
   );
 }

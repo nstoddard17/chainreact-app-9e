@@ -32,10 +32,12 @@ import {
   makeWidget,
   newWidgetId,
   duplicateWidgetAt,
+  moveWidgetTo,
   ErrorBanner,
   EmptyDashboard,
   downloadDashboardExport,
 } from "./dashboardHelpers";
+import { useGridReflow } from "./useGridReflow";
 import { DashboardConfirmDialog, DashboardNameDialog } from "./DashboardDialogs";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
@@ -137,9 +139,24 @@ export function AnalyticsDashboard({
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const draggingId = useRef<string | null>(null);
   const [draggingState, setDraggingState] = useState<string | null>(null);
+  /** The widget currently under the pointer — drives the live drop preview. */
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   const active = dashboards.find((d) => d.id === activeId) ?? dashboards[0] ?? null;
   const widgets = editing ? draftWidgets : (active?.widgets ?? []);
+  /**
+   * What the grid RENDERS while a drag is in flight: the same reorder the drop
+   * will commit, so the other widgets shove aside into their real resting places
+   * and the outlined slot is where the widget genuinely lands. The committed
+   * order (`draftWidgets`) is untouched until the drop, so a cancelled drag
+   * needs no undo — clearing the preview state is the undo.
+   */
+  const orderedWidgets =
+    draggingState && dragOverId
+      ? (moveWidgetTo(widgets, draggingState, dragOverId) ?? widgets)
+      : widgets;
+  useGridReflow(gridRef, orderedWidgets.map((w) => w.id).join(","), editing);
   const configuringWidget = configuringId
     ? (editing ? draftWidgets : widgets).find((w) => w.id === configuringId) ?? null
     : null;
@@ -223,27 +240,29 @@ export function AnalyticsDashboard({
     setShowLibrary(false);
     setConfiguringId(widget.id);
   };
-  const handleMove = (phase: "start" | "end" | "drop", id: string) => {
+  const handleMove = (phase: "start" | "end" | "over" | "drop", id: string) => {
     if (phase === "start") {
       draggingId.current = id;
       setDraggingState(id);
+      setDragOverId(null);
+    } else if (phase === "over") {
+      // Fires continuously while hovering. React bails out when the value is
+      // unchanged, so this only re-renders when the drop target actually moves.
+      if (!draggingId.current) return;
+      setDragOverId((prev) => (prev === id ? prev : id));
     } else if (phase === "end") {
+      // Also fires after a cancelled drag (Escape / drop outside), which is why
+      // the preview lives in its own state: clearing it restores the real order.
       draggingId.current = null;
       setDraggingState(null);
+      setDragOverId(null);
     } else if (phase === "drop") {
       const from = draggingId.current;
       draggingId.current = null;
       setDraggingState(null);
-      if (!from || from === id) return;
-      setDraftWidgets((ws) => {
-        const fromIdx = ws.findIndex((w) => w.id === from);
-        const toIdx = ws.findIndex((w) => w.id === id);
-        if (fromIdx < 0 || toIdx < 0) return ws;
-        const next = ws.slice();
-        const [moved] = next.splice(fromIdx, 1);
-        if (moved) next.splice(toIdx, 0, moved);
-        return next;
-      });
+      setDragOverId(null);
+      if (!from) return;
+      setDraftWidgets((ws) => moveWidgetTo(ws, from, id) ?? ws);
     }
   };
 
@@ -570,8 +589,22 @@ export function AnalyticsDashboard({
           onEdit={startEditing}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]">
-          {widgets.map((w) => (
+        <div
+          ref={gridRef}
+          className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]"
+          onDragOver={(e) => {
+            // Grid gutters and empty tracks are legitimate release points; the
+            // previewed slot is already the honest answer for where it lands.
+            if (editing && draggingId.current) e.preventDefault();
+          }}
+          onDrop={(e) => {
+            if (!editing || !draggingId.current) return;
+            e.preventDefault();
+            if (dragOverId) handleMove("drop", dragOverId);
+            else handleMove("end", "");
+          }}
+        >
+          {orderedWidgets.map((w) => (
             <Widget
               key={w.id}
               widget={w}

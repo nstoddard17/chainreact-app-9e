@@ -138,6 +138,34 @@ export function duplicateWidgetAt(
   return { widgets: next, newId };
 }
 
+/**
+ * Move `fromId` to `toId`'s slot (drag-reorder). PURE — returns the next list,
+ * or null when the move is a no-op or either id is gone.
+ *
+ * The grid auto-places in DOM order, so this single function decides BOTH the
+ * live drag preview and the committed drop. They must never disagree: a preview
+ * that shows one layout and commits another is a lie about what the drop will do.
+ *
+ * Semantics are the usual sortable ones — remove, then insert at the target's
+ * ORIGINAL index. Dragging forwards therefore lands after the target, dragging
+ * backwards lands before it, which is what the pointer position implies.
+ */
+export function moveWidgetTo(
+  widgets: readonly AnalyticsWidget[],
+  fromId: string,
+  toId: string,
+): AnalyticsWidget[] | null {
+  if (fromId === toId) return null;
+  const fromIdx = widgets.findIndex((w) => w.id === fromId);
+  const toIdx = widgets.findIndex((w) => w.id === toId);
+  if (fromIdx < 0 || toIdx < 0) return null;
+  const next = widgets.slice();
+  const [moved] = next.splice(fromIdx, 1);
+  if (!moved) return null;
+  next.splice(toIdx, 0, moved);
+  return next;
+}
+
 export function ErrorBanner({
   message,
   onRetry,
