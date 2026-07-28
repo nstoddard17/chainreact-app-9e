@@ -46,10 +46,11 @@ export interface WidgetProps {
   onRename: (id: string, title: string) => void;
   onConfigure: (id: string) => void;
   /**
-   * "over" fires continuously while a drag hovers this widget — the parent uses
-   * it to preview the drop, so it must be cheap and idempotent.
+   * Drag lifecycle. "over" (pointer in this card's middle) and "away" (pointer
+   * on the card but outside it) both fire continuously, so the parent's handling
+   * must be cheap and idempotent.
    */
-  onMove: (phase: "start" | "end" | "over" | "drop", id: string) => void;
+  onMove: (phase: "start" | "end" | "over" | "away" | "drop", id: string) => void;
   /**
    * Offered only when the widget currently has exportable data on screen
    * (CD-5A). Absent for widget types that have no per-widget export.
@@ -102,14 +103,19 @@ export function Widget({
       onDragOver={(e) => {
         if (!isEditing) return;
         e.preventDefault();
+        // The grid listens too, so it can treat a gutter hover as "outside every
+        // middle". This event is about THIS card, so don't let it count as one.
+        e.stopPropagation();
         e.dataTransfer.dropEffect = "move";
         // Only claim this slot once the pointer has actually reached the middle
-        // of the card. Reacting to the whole box makes the grid oscillate: the
-        // re-order slides cards out from under the pointer, which immediately
-        // re-triggers on whatever lands there next.
-        if (isPointerInCommitZone(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY)) {
-          onMove("over", widget.id);
-        }
+        // of the card; report anything else so the parent knows the pointer has
+        // left a middle and a further re-order may be armed again.
+        const inZone = isPointerInCommitZone(
+          e.currentTarget.getBoundingClientRect(),
+          e.clientX,
+          e.clientY,
+        );
+        onMove(inZone ? "over" : "away", widget.id);
       }}
       onDrop={(e) => {
         if (isEditing) {

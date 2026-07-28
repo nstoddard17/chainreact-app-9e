@@ -109,10 +109,19 @@ function stubRects() {
   }
 }
 
+const rectOf = (id: string) =>
+  RECTS[id] as { left: number; top: number; width: number; height: number };
+
 /** The exact centre of a card — the only place a re-order is accepted. */
 const centre = (id: string) => {
-  const r = RECTS[id] as { left: number; top: number; width: number; height: number };
+  const r = rectOf(id);
   return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+};
+
+/** Just inside a card but outside its middle — where the next swap re-arms. */
+const edgeOf = (id: string) => {
+  const r = rectOf(id);
+  return { clientX: r.left + 2, clientY: r.top + 2 };
 };
 
 function renderEditing(widgets?: AnalyticsWidget[]) {
@@ -140,6 +149,7 @@ function renderedOrder(): string[] {
 }
 
 const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
+const gridEl = () => widgetEl("w-a").parentElement as HTMLElement;
 
 /**
  * Drag over a widget, by default landing on its centre (a deliberate move).
@@ -187,6 +197,53 @@ describe("drag preview — the other widgets move aside", () => {
     dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
+    // Travelling to another card passes outside the middles on the way, which
+    // is what re-arms the next re-order.
+    dragOver("w-c", edgeOf("w-c"));
+    dragOver("w-b");
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+  });
+
+  it("stops after one swap while the pointer sits still", () => {
+    // The slingshot: a re-order moves a card's middle under a stationary
+    // pointer, which then qualifies to re-order straight back, forever.
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+    dragOver("w-c");
+    const settled = renderedOrder();
+    expect(settled).toEqual(["w-b", "w-c", "w-a"]);
+
+    // Every card now reports a middle hit at the unchanged pointer position.
+    for (let i = 0; i < 6; i += 1) {
+      dragOver("w-b");
+      dragOver("w-c");
+    }
+    expect(renderedOrder()).toEqual(settled);
+  });
+
+  it("swapping back requires leaving a middle and returning to the other one", () => {
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+    dragOver("w-c");
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+
+    // Straight back to Bravo's middle: refused, no middle was left in between.
+    dragOver("w-b");
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+
+    // Out of the middles, then deliberately back in: accepted.
+    dragOver("w-b", edgeOf("w-b"));
+    dragOver("w-b");
+    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+  });
+
+  it("a gutter counts as leaving a middle", () => {
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+    dragOver("w-c");
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+
+    fireEvent.dragOver(gridEl(), { dataTransfer: { dropEffect: "none" } });
     dragOver("w-b");
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
   });
