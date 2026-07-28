@@ -16,10 +16,14 @@ jest.mock("@/lib/api/analytics", () => ({
 }));
 jest.mock("@/lib/api/options", () => ({ fetchOptionsSource: jest.fn() }));
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import * as analyticsApi from "@/lib/api/analytics";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
-import { moveWidgetTo } from "@/features/analytics/dashboardHelpers";
+import {
+  isPointerInCommitZone,
+  moveWidgetTo,
+  REORDER_COMMIT_ZONE,
+} from "@/features/analytics/dashboardHelpers";
 import type {
   AnalyticsDashboard as Dashboard,
   AnalyticsOverview,
@@ -79,6 +83,38 @@ function dashboard(widgets: AnalyticsWidget[] = [A, B, C]): Dashboard {
   };
 }
 
+/**
+ * jsdom lays nothing out, so every rect is 0×0 and the commit-zone guard would
+ * take its "can't measure" branch. Give the cards real boxes instead, so these
+ * tests exercise the SAME geometry path a browser does.
+ */
+const RECTS: Record<string, { left: number; top: number; width: number; height: number }> = {
+  "w-a": { left: 0, top: 0, width: 200, height: 200 },
+  "w-b": { left: 220, top: 0, width: 200, height: 200 },
+  "w-c": { left: 440, top: 0, width: 200, height: 200 },
+};
+
+function stubRects() {
+  for (const [id, r] of Object.entries(RECTS)) {
+    const el = screen.getByTestId(`analytics-widget-${id}`);
+    el.getBoundingClientRect = () =>
+      ({
+        ...r,
+        right: r.left + r.width,
+        bottom: r.top + r.height,
+        x: r.left,
+        y: r.top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  }
+}
+
+/** The exact centre of a card — the only place a re-order is accepted. */
+const centre = (id: string) => {
+  const r = RECTS[id] as { left: number; top: number; width: number; height: number };
+  return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+};
+
 function renderEditing(widgets?: AnalyticsWidget[]) {
   const view = render(
     <AnalyticsDashboard
@@ -92,6 +128,7 @@ function renderEditing(widgets?: AnalyticsWidget[]) {
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /Edit dashboard/ }));
+  stubRects();
   return view;
 }
 
@@ -105,13 +142,21 @@ function renderedOrder(): string[] {
 const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
 
 /**
- * jsdom does not attach a DataTransfer to synthetic drag events, but a real
- * browser always does — and the handler sets `dropEffect` on it, so supply one
- * rather than making the component defend against a browser condition that
- * cannot happen.
+ * Drag over a widget, by default landing on its centre (a deliberate move).
+ *
+ * jsdom implements neither `DragEvent` nor a `DataTransfer` on drag events, so
+ * an event built from an init alone arrives with null coordinates. A real
+ * browser always supplies both, so they are stamped on here rather than making
+ * the component defend against a condition that cannot happen in a browser.
  */
-const dragOver = (el: HTMLElement) =>
-  fireEvent.dragOver(el, { dataTransfer: { dropEffect: "none" } });
+const dragOver = (id: string, at?: { clientX: number; clientY: number }) => {
+  const el = widgetEl(id);
+  const point = at ?? centre(id);
+  const event = createEvent.dragOver(el, { dataTransfer: { dropEffect: "none" } });
+  Object.defineProperty(event, "clientX", { value: point.clientX });
+  Object.defineProperty(event, "clientY", { value: point.clientY });
+  fireEvent(el, event);
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -129,7 +174,7 @@ describe("drag preview — the other widgets move aside", () => {
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
 
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
 
     // Nothing has been dropped yet, but the grid already shows the result:
     // Bravo and Charlie have shifted back to make room for Alpha.
@@ -139,17 +184,44 @@ describe("drag preview — the other widgets move aside", () => {
   it("follows the pointer to a new target without needing a drop", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
-    dragOver(widgetEl("w-b"));
+    dragOver("w-b");
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
+  });
+
+  it("ignores a pointer that has only clipped the edge of a card", () => {
+    // The oscillation bug: re-ordering on entry slides cards out from under the
+    // pointer, which immediately re-triggers on whatever lands there next, and
+    // the grid never settles. Only the centre may claim a slot.
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+
+    const c = RECTS["w-c"] as { left: number; top: number; width: number; height: number };
+    dragOver("w-c", { clientX: c.left + 4, clientY: c.top + c.height / 2 });
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+
+    dragOver("w-c", { clientX: c.left + c.width / 2, clientY: c.top + 4 });
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+  });
+
+  it("re-orders once the pointer reaches the middle of the card", () => {
+    renderEditing();
+    fireEvent.dragStart(widgetEl("w-a"));
+    const c = RECTS["w-c"] as { left: number; top: number; width: number; height: number };
+
+    dragOver("w-c", { clientX: c.left + 10, clientY: c.top + 10 });
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+
+    dragOver("w-c");
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
   });
 
   it("hovering the dragged widget itself changes nothing", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-b"));
-    dragOver(widgetEl("w-b"));
+    dragOver("w-b");
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 
@@ -166,7 +238,7 @@ describe("drag preview — the other widgets move aside", () => {
       />,
     );
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
   });
 });
@@ -177,7 +249,7 @@ describe("drop-target outline", () => {
     expect(document.querySelector("[data-drop-preview]")).toBeNull();
 
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
 
     const preview = document.querySelectorAll("[data-drop-preview]");
     expect(preview).toHaveLength(1);
@@ -208,7 +280,7 @@ describe("commit and cancel", () => {
   it("the drop commits exactly the order the preview showed", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
     const previewed = renderedOrder();
 
     fireEvent.drop(widgetEl("w-c"));
@@ -221,7 +293,7 @@ describe("commit and cancel", () => {
   it("a cancelled drag (dragEnd without a drop) restores the real order", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
     fireEvent.dragEnd(widgetEl("w-a"));
@@ -231,7 +303,7 @@ describe("commit and cancel", () => {
   it("releasing over a grid gutter still commits the previewed slot", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-b"));
+    dragOver("w-b");
     // The pointer leaves the card and is released on the grid itself.
     const grid = widgetEl("w-a").parentElement as HTMLElement;
     fireEvent.drop(grid);
@@ -242,7 +314,7 @@ describe("commit and cancel", () => {
   it("nothing is persisted until Done editing", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
-    dragOver(widgetEl("w-c"));
+    dragOver("w-c");
     fireEvent.drop(widgetEl("w-c"));
     expect(mockedApi.updateDashboard).not.toHaveBeenCalled();
   });
@@ -275,5 +347,33 @@ describe("moveWidgetTo (pure)", () => {
     const input = [A, B, C];
     moveWidgetTo(input, "w-a", "w-c");
     expect(input.map((w) => w.id)).toEqual(["w-a", "w-b", "w-c"]);
+  });
+});
+
+describe("isPointerInCommitZone (pure)", () => {
+  const rect = { left: 100, top: 100, width: 200, height: 200 };
+
+  it("accepts the exact centre", () => {
+    expect(isPointerInCommitZone(rect, 200, 200)).toBe(true);
+  });
+
+  it("accepts the boundary of the central band and rejects just past it", () => {
+    // Zone is REORDER_COMMIT_ZONE of the box, centred: ±50px on a 200px side.
+    const edge = (rect.width * REORDER_COMMIT_ZONE) / 2;
+    expect(isPointerInCommitZone(rect, 200 + edge, 200)).toBe(true);
+    expect(isPointerInCommitZone(rect, 200 + edge + 1, 200)).toBe(false);
+    expect(isPointerInCommitZone(rect, 200, 200 - edge)).toBe(true);
+    expect(isPointerInCommitZone(rect, 200, 200 - edge - 1)).toBe(false);
+  });
+
+  it("rejects a pointer inside the card but outside the band, on either axis", () => {
+    expect(isPointerInCommitZone(rect, 105, 200)).toBe(false);
+    expect(isPointerInCommitZone(rect, 200, 295)).toBe(false);
+    expect(isPointerInCommitZone(rect, 105, 105)).toBe(false);
+  });
+
+  it("allows the move when there is no geometry to judge", () => {
+    // A guard that cannot measure must not disable dragging altogether.
+    expect(isPointerInCommitZone({ left: 0, top: 0, width: 0, height: 0 }, 0, 0)).toBe(true);
   });
 });

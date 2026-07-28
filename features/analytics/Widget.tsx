@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import type { AnalyticsWidget, AnalyticsWidgetSize } from "@/contracts/analytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
+import { isPointerInCommitZone } from "./dashboardHelpers";
 
 /**
  * Widget chrome (Slice ANALYTICS-1) — header (icon + title + range pill) plus the
@@ -99,9 +100,14 @@ export function Widget({
       onDragStart={() => onMove("start", widget.id)}
       onDragEnd={() => onMove("end", widget.id)}
       onDragOver={(e) => {
-        if (isEditing) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
+        if (!isEditing) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        // Only claim this slot once the pointer has actually reached the middle
+        // of the card. Reacting to the whole box makes the grid oscillate: the
+        // re-order slides cards out from under the pointer, which immediately
+        // re-triggers on whatever lands there next.
+        if (isPointerInCommitZone(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY)) {
           onMove("over", widget.id);
         }
       }}

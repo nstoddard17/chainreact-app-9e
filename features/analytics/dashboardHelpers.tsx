@@ -166,6 +166,40 @@ export function moveWidgetTo(
   return next;
 }
 
+/**
+ * Fraction of a widget's box, measured from its centre, that accepts a re-order.
+ * Anything outside it is "just passing over" and must not disturb the layout.
+ */
+export const REORDER_COMMIT_ZONE = 0.5;
+
+/**
+ * Is the pointer far enough INTO this widget to claim its slot?
+ *
+ * Re-ordering the moment a drag touches a card is unusable: the re-order moves
+ * cards out from under the pointer, the pointer then lands on a different card,
+ * and the grid oscillates for as long as you hold the drag. Requiring the
+ * pointer to reach the target's central band breaks that loop — by the time it
+ * gets there the card it is over is the one it means, and after the swap the
+ * pointer sits over the dragged widget itself, which is a no-op.
+ *
+ * A zero-sized rect means we have no geometry to judge (an unmeasured or
+ * offscreen node), so the move is allowed rather than silently blocked — a
+ * guard that can't measure must not disable dragging altogether.
+ */
+export function isPointerInCommitZone(
+  rect: { left: number; top: number; width: number; height: number },
+  pointerX: number,
+  pointerY: number,
+): boolean {
+  if (rect.width <= 0 || rect.height <= 0) return true;
+  const centreX = rect.left + rect.width / 2;
+  const centreY = rect.top + rect.height / 2;
+  return (
+    Math.abs(pointerX - centreX) <= (rect.width * REORDER_COMMIT_ZONE) / 2 &&
+    Math.abs(pointerY - centreY) <= (rect.height * REORDER_COMMIT_ZONE) / 2
+  );
+}
+
 export function ErrorBanner({
   message,
   onRetry,
