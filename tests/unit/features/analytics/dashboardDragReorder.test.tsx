@@ -20,9 +20,11 @@ import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import * as analyticsApi from "@/lib/api/analytics";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 import {
+  hasTravelledEnoughToReorder,
   isPointerInCommitZone,
   moveWidgetTo,
   REORDER_COMMIT_ZONE,
+  REORDER_TRAVEL_PX,
 } from "@/features/analytics/dashboardHelpers";
 import type {
   AnalyticsDashboard as Dashboard,
@@ -118,11 +120,6 @@ const centre = (id: string) => {
   return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
 };
 
-/** Just inside a card but outside its middle — where the next swap re-arms. */
-const edgeOf = (id: string) => {
-  const r = rectOf(id);
-  return { clientX: r.left + 2, clientY: r.top + 2 };
-};
 
 function renderEditing(widgets?: AnalyticsWidget[]) {
   const view = render(
@@ -149,7 +146,6 @@ function renderedOrder(): string[] {
 }
 
 const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
-const gridEl = () => widgetEl("w-a").parentElement as HTMLElement;
 
 /**
  * Drag over a widget, by default landing on its centre (a deliberate move).
@@ -197,53 +193,49 @@ describe("drag preview — the other widgets move aside", () => {
     dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
-    // Travelling to another card passes outside the middles on the way, which
-    // is what re-arms the next re-order.
-    dragOver("w-c", edgeOf("w-c"));
+    // Bravo's centre is a card away, so the pointer has plainly travelled.
     dragOver("w-b");
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
   });
 
   it("stops after one swap while the pointer sits still", () => {
     // The slingshot: a re-order moves a card's middle under a stationary
-    // pointer, which then qualifies to re-order straight back, forever.
+    // pointer, which then qualifies to re-order straight back, forever. Only
+    // the pointer's own travel can distinguish that from a real move, so the
+    // layout must be inert while the pointer is not moving.
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
     dragOver("w-c");
     const settled = renderedOrder();
     expect(settled).toEqual(["w-b", "w-c", "w-a"]);
 
-    // Every card now reports a middle hit at the unchanged pointer position.
+    const held = centre("w-c");
     for (let i = 0; i < 6; i += 1) {
-      dragOver("w-b");
-      dragOver("w-c");
+      dragOver("w-b", held);
+      dragOver("w-c", held);
     }
     expect(renderedOrder()).toEqual(settled);
   });
 
-  it("swapping back requires leaving a middle and returning to the other one", () => {
+  it("ignores a jitter smaller than a deliberate move", () => {
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
     dragOver("w-c");
-    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+    const held = centre("w-c");
 
-    // Straight back to Bravo's middle: refused, no middle was left in between.
-    dragOver("w-b");
+    dragOver("w-b", { clientX: held.clientX + 5, clientY: held.clientY - 3 });
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
-
-    // Out of the middles, then deliberately back in: accepted.
-    dragOver("w-b", edgeOf("w-b"));
-    dragOver("w-b");
-    expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
   });
 
-  it("a gutter counts as leaving a middle", () => {
+  it("moving back re-orders as soon as the pointer has travelled, in ONE gesture", () => {
+    // The move-back must not depend on catching a sample in the gap between two
+    // middles: dragover only reports where the pointer IS, and a quick gesture
+    // can jump straight from one middle to another without ever landing there.
     renderEditing();
     fireEvent.dragStart(widgetEl("w-a"));
     dragOver("w-c");
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
-    fireEvent.dragOver(gridEl(), { dataTransfer: { dropEffect: "none" } });
     dragOver("w-b");
     expect(renderedOrder()).toEqual(["w-b", "w-a", "w-c"]);
   });
@@ -432,5 +424,30 @@ describe("isPointerInCommitZone (pure)", () => {
   it("allows the move when there is no geometry to judge", () => {
     // A guard that cannot measure must not disable dragging altogether.
     expect(isPointerInCommitZone({ left: 0, top: 0, width: 0, height: 0 }, 0, 0)).toBe(true);
+  });
+});
+
+describe("hasTravelledEnoughToReorder (pure)", () => {
+  const origin = { x: 100, y: 100 };
+
+  it("rejects a stationary pointer — the slingshot's only fuel", () => {
+    expect(hasTravelledEnoughToReorder(origin, { ...origin })).toBe(false);
+  });
+
+  it("measures real distance, not per-axis, so diagonal travel counts", () => {
+    // 30px on each axis is under the threshold per-axis but ~42px in total.
+    expect(hasTravelledEnoughToReorder(origin, { x: 130, y: 130 })).toBe(true);
+  });
+
+  it("accepts exactly the threshold and rejects just under it", () => {
+    expect(hasTravelledEnoughToReorder(origin, { x: 100 + REORDER_TRAVEL_PX, y: 100 })).toBe(true);
+    expect(hasTravelledEnoughToReorder(origin, { x: 100 + REORDER_TRAVEL_PX - 1, y: 100 })).toBe(
+      false,
+    );
+  });
+
+  it("is direction-agnostic — moving back counts the same as moving on", () => {
+    expect(hasTravelledEnoughToReorder(origin, { x: 100 - REORDER_TRAVEL_PX, y: 100 })).toBe(true);
+    expect(hasTravelledEnoughToReorder(origin, { x: 100, y: 100 - REORDER_TRAVEL_PX })).toBe(true);
   });
 });

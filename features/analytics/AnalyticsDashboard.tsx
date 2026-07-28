@@ -33,6 +33,7 @@ import {
   newWidgetId,
   duplicateWidgetAt,
   moveWidgetTo,
+  hasTravelledEnoughToReorder,
   ErrorBanner,
   EmptyDashboard,
   downloadDashboardExport,
@@ -144,10 +145,10 @@ export function AnalyticsDashboard({
   /** Same value, readable synchronously inside the high-frequency drag handler. */
   const dragOverIdRef = useRef<string | null>(null);
   /**
-   * Whether the pointer has left a card's middle since the last re-order. One
-   * swap per entry — see the "over" branch of handleMove.
+   * Where the pointer was when the preview last changed. The next re-order has
+   * to out-travel it — see the "over" branch of handleMove.
    */
-  const rearmed = useRef(true);
+  const lastSwapPoint = useRef<{ x: number; y: number } | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   const active = dashboards.find((d) => d.id === activeId) ?? dashboards[0] ?? null;
@@ -247,26 +248,30 @@ export function AnalyticsDashboard({
     setShowLibrary(false);
     setConfiguringId(widget.id);
   };
-  const handleMove = (phase: "start" | "end" | "over" | "away" | "drop", id: string) => {
+  const handleMove = (
+    phase: "start" | "end" | "over" | "drop",
+    id: string,
+    point?: { x: number; y: number },
+  ) => {
     if (phase === "start") {
       draggingId.current = id;
       setDraggingState(id);
       dragOverIdRef.current = null;
       setDragOverId(null);
-      rearmed.current = true;
-    } else if (phase === "away") {
-      // The pointer is over the grid but outside any card's middle, so the next
-      // middle it reaches is a deliberate choice and may re-order.
-      rearmed.current = true;
+      lastSwapPoint.current = null;
     } else if (phase === "over") {
       // Fires continuously while hovering, so every guard here is load-bearing.
       if (!draggingId.current || id === draggingId.current) return;
+      if (dragOverIdRef.current === id) return;
       // A re-order MOVES a card's middle under a stationary pointer, which then
-      // qualifies to re-order straight back — the slingshot. One swap per
-      // entry: the pointer must leave a middle before it can claim another.
-      if (!rearmed.current || dragOverIdRef.current === id) return;
+      // qualifies to re-order straight back, forever — the slingshot. The cure
+      // has to be the POINTER's own travel: nothing the layout (or the reflow
+      // animation) does underneath can manufacture that, and unlike waiting for
+      // a sample outside the middles it cannot be skipped by a fast gesture.
+      const since = lastSwapPoint.current;
+      if (since && point && !hasTravelledEnoughToReorder(since, point)) return;
       dragOverIdRef.current = id;
-      rearmed.current = false;
+      lastSwapPoint.current = point ?? null;
       setDragOverId(id);
     } else if (phase === "end") {
       // Also fires after a cancelled drag (Escape / drop outside), which is why
@@ -275,14 +280,14 @@ export function AnalyticsDashboard({
       dragOverIdRef.current = null;
       setDraggingState(null);
       setDragOverId(null);
-      rearmed.current = true;
+      lastSwapPoint.current = null;
     } else if (phase === "drop") {
       const from = draggingId.current;
       draggingId.current = null;
       dragOverIdRef.current = null;
       setDraggingState(null);
       setDragOverId(null);
-      rearmed.current = true;
+      lastSwapPoint.current = null;
       if (!from) return;
       setDraftWidgets((ws) => moveWidgetTo(ws, from, id) ?? ws);
     }
@@ -616,11 +621,9 @@ export function AnalyticsDashboard({
           className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]"
           onDragOver={(e) => {
             // Cards stop their own dragover, so reaching here means a gutter or
-            // an empty track — outside every middle, and a legitimate release
-            // point (the previewed slot is the honest answer for where it lands).
-            if (!editing || !draggingId.current) return;
-            e.preventDefault();
-            handleMove("away", "");
+            // an empty track — a legitimate release point, with the previewed
+            // slot as the honest answer for where the widget lands.
+            if (editing && draggingId.current) e.preventDefault();
           }}
           onDrop={(e) => {
             if (!editing || !draggingId.current) return;

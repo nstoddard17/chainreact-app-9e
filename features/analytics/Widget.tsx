@@ -46,11 +46,15 @@ export interface WidgetProps {
   onRename: (id: string, title: string) => void;
   onConfigure: (id: string) => void;
   /**
-   * Drag lifecycle. "over" (pointer in this card's middle) and "away" (pointer
-   * on the card but outside it) both fire continuously, so the parent's handling
-   * must be cheap and idempotent.
+   * Drag lifecycle. "over" fires continuously while the pointer is in this
+   * card's middle and carries the pointer position, which the parent uses to
+   * tell a deliberate move from the layout shifting under a still pointer.
    */
-  onMove: (phase: "start" | "end" | "over" | "away" | "drop", id: string) => void;
+  onMove: (
+    phase: "start" | "end" | "over" | "drop",
+    id: string,
+    point?: { x: number; y: number },
+  ) => void;
   /**
    * Offered only when the widget currently has exportable data on screen
    * (CD-5A). Absent for widget types that have no per-widget export.
@@ -108,14 +112,14 @@ export function Widget({
         e.stopPropagation();
         e.dataTransfer.dropEffect = "move";
         // Only claim this slot once the pointer has actually reached the middle
-        // of the card; report anything else so the parent knows the pointer has
-        // left a middle and a further re-order may be armed again.
+        // of the card. Reacting to the whole box makes a passing drag disturb
+        // the layout it is only travelling across.
         const inZone = isPointerInCommitZone(
           e.currentTarget.getBoundingClientRect(),
           e.clientX,
           e.clientY,
         );
-        onMove(inZone ? "over" : "away", widget.id);
+        if (inZone) onMove("over", widget.id, { x: e.clientX, y: e.clientY });
       }}
       onDrop={(e) => {
         if (isEditing) {

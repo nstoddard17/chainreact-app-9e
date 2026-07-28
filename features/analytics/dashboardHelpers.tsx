@@ -200,6 +200,26 @@ export function isPointerInCommitZone(
   );
 }
 
+/**
+ * How far the pointer must travel between two consecutive re-orders, in CSS px.
+ *
+ * Any positive value defeats the slingshot, since that needs no pointer motion
+ * at all. This one is small enough that a genuine change of mind — moving back
+ * towards the card you came from — clears it immediately, and large enough that
+ * the jitter of holding a drag still does not.
+ */
+export const REORDER_TRAVEL_PX = 36;
+
+/** Has the pointer moved far enough since the last re-order to justify another? */
+export function hasTravelledEnoughToReorder(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): boolean {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  return dx * dx + dy * dy >= REORDER_TRAVEL_PX * REORDER_TRAVEL_PX;
+}
+
 export function ErrorBanner({
   message,
   onRetry,
