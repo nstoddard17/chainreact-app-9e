@@ -74,6 +74,11 @@ import { useAgentApplyModeAvailability } from "./hooks/useAgentApplyModeAvailabi
 import { useBuilderReadiness } from "./hooks/useBuilderReadiness";
 import { useGuidedBuildSession } from "./hooks/useGuidedBuildSession";
 import { useGuidedBuild } from "./hooks/useGuidedBuild";
+import { useAgentConversationPersistence } from "./hooks/useAgentConversationPersistence";
+import {
+  reconcilePersistedPreview,
+  type PersistedPreviewVerdict,
+} from "@/core/workflows/reactAgentPreviewReconciliation";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import { buildCheckReviewContext } from "./validation/buildCheckReviewContext";
@@ -631,12 +636,23 @@ export function WorkflowBuilder({
   // bottom workspace). Switching modes remounts the PRESENTATION only: the
   // transcript, the in-flight request and the pending proposal all survive
   // because the state lives at this level. There is no second agent store.
-  const agentConversation = useGuidanceConversation({
-    accountId: accountId ?? "",
+  // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the durable transcript for THIS
+  // workflow. The conversation stays the single owner of the message list; this
+  // only gives it somewhere to read from and write to. Off for the logged-out
+  // local-only builder (no account, no server workflow, no thread).
+  const agentConversationPersistence = useAgentConversationPersistence({
     workflowId: workflow.id,
-    getCurrentDraft,
-    getCheckReviewContext,
+    enabled: !localOnly && !!accountId,
   });
+  const agentConversation = useGuidanceConversation(
+    {
+      accountId: accountId ?? "",
+      workflowId: workflow.id,
+      getCurrentDraft,
+      getCheckReviewContext,
+    },
+    agentConversationPersistence ? { persistence: agentConversationPersistence } : {},
+  );
   // Expanded state of the Document agent workspace — also owned here so a
   // Visual round-trip returns to the same expanded workspace.
   const [agentWorkspaceExpanded, setAgentWorkspaceExpanded] = useState(false);
@@ -891,8 +907,12 @@ export function WorkflowBuilder({
     handleOpenPreviewStepEditor,
     handleApplyAndTest,
     handleKeepAsPreview,
-    handleRestoreCheckpoint,
-    handleDiscardPreview,
+    // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — both are re-exported below wrapped
+    // with `guidedSession.invalidate()`: restoring a checkpoint or discarding a
+    // preview changes what exists, and a guided session that survived either
+    // would be walking the user through work that is no longer there.
+    handleRestoreCheckpoint: restoreCheckpointOnly,
+    handleDiscardPreview: discardPreviewOnly,
     dismissApplyNotice,
     showApplyNotice,
     refreshAgentChanges,
@@ -907,6 +927,48 @@ export function WorkflowBuilder({
     runTestAfterApply: builderRunControls.handleTestWorkflow,
   });
 
+  // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the workflow as it is actually
+  // SAVED. `hydratedRevision` is the server `updatedAt` of the last accepted
+  // hydrate/save, so it identifies the graph version a returning user is looking
+  // at; `savedNodes` is what that version contains. Both feed the guided-session
+  // hint and the restored-proposal reconciliation, which is the whole point:
+  // neither may be decided from the local draft or from conversation history.
+  const savedGraphVersion = useGraphSlice((s) => s.hydratedRevision);
+  const savedWorkflowEmpty = useGraphSlice((s) => s.savedNodes.length === 0);
+
+  // REACT-AGENT-GUIDED-BUILD-1 — the guided build session switch. Starts on a
+  // React Agent apply (new review session while the notice is up).
+  // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — it now persists ONLY once the
+  // applied work has been SAVED, bound to that saved revision, so an
+  // applied-but-abandoned draft can never bring the setup card back.
+  const guidedSession = useGuidedBuildSession({
+    workflowId: workflow.id,
+    ...(localOnly ? { localOnly } : {}),
+    reviewSessionToken,
+    hasApplyNotice: !!applyNotice,
+    workflowState: workflow.state,
+    savedGraphVersion,
+    savedWorkflowEmpty,
+    draftIsDirty: isDirty,
+    // Nothing is left to walk the user through once the workflow is live; the
+    // stored hint is cleared at that point so a finished journey never returns.
+    hasRemainingSetupWork: workflow.state !== "active",
+  });
+  const invalidateGuidedSession = guidedSession.invalidate;
+
+  const handleDiscardPreview = useCallback(() => {
+    discardPreviewOnly();
+    invalidateGuidedSession();
+  }, [discardPreviewOnly, invalidateGuidedSession]);
+
+  const handleRestoreCheckpoint = useCallback(
+    (checkpointId: string) => {
+      restoreCheckpointOnly(checkpointId);
+      invalidateGuidedSession();
+    },
+    [restoreCheckpointOnly, invalidateGuidedSession],
+  );
+
   // CS-7 telemetry — Document-surface preview apply/reject. Emitted only while the
   // Document is the active surface (categorical, no workflow content); delegates
   // to the SAME canonical apply/discard handlers the rail uses.
@@ -918,6 +980,40 @@ export function WorkflowBuilder({
     emitDocumentBuilderEvent("document_agent_preview_rejected");
     handleDiscardPreview();
   }, [handleDiscardPreview]);
+
+  /**
+   * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — judge ONE restored proposal against
+   * the workflow as it stands now.
+   *
+   * The three inputs are deliberately all present-tense: the canonical lifecycle
+   * row from `agent_change_history`, the revision the proposal was pinned to, and
+   * the revision that is actually saved. The pure core helper turns them into the
+   * badge and decides whether reopening is safe; nothing here guesses.
+   */
+  const reconcileRestoredPreview = useCallback(
+    (message: {
+      readonly agentChangeId?: string;
+      readonly baseGraphVersion?: string | null;
+      readonly hasProposalPayload: boolean;
+    }): PersistedPreviewVerdict | null => {
+      // While the timeline is still loading we do not yet know what happened to
+      // this proposal, and a wrong badge is worse than none: "Not applied" on a
+      // change the user DID apply reads as data loss. Say nothing until the
+      // canonical record is in hand.
+      if (agentChangesLoading) return null;
+      const row = message.agentChangeId
+        ? agentChanges.find((item) => item.agentChangeId === message.agentChangeId)
+        : undefined;
+      return reconcilePersistedPreview({
+        ...(message.agentChangeId ? { agentChangeId: message.agentChangeId } : {}),
+        changeStatus: row?.status ?? null,
+        baseGraphVersion: message.baseGraphVersion ?? null,
+        savedGraphVersion,
+        hasProposalPayload: message.hasProposalPayload,
+      });
+    },
+    [agentChanges, agentChangesLoading, savedGraphVersion],
+  );
 
   // REACT-AGENT-APPLY-MODES-1 — deterministic availability of the three apply modes for the active
   // edit preview (readiness vs the proposed end-state, risk from the rationale, trigger/active
@@ -932,18 +1028,6 @@ export function WorkflowBuilder({
     workflowState: workflow.state,
     ...(localOnly ? { localOnly } : {}),
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
-  });
-
-  // REACT-AGENT-GUIDED-BUILD-1 — the guided build session switch. Starts on a
-  // React Agent apply (new review session while the notice is up), survives
-  // reloads/OAuth popups via a per-workflow localStorage FLAG (just "1" — no
-  // data), ends on the card's Exit / once the finished journey is closed.
-  const guidedSession = useGuidedBuildSession({
-    workflowId: workflow.id,
-    ...(localOnly ? { localOnly } : {}),
-    reviewSessionToken,
-    hasApplyNotice: !!applyNotice,
-    workflowState: workflow.state,
   });
 
   // REACT-AGENT-READINESS-1 — the readiness verdict ("what is left before this can run?").
@@ -1107,6 +1191,10 @@ export function WorkflowBuilder({
       // server already persisted). The fresh updatedAt clears the revision guard so it isn't stale.
       hydrate(workflow.id, detail.draftDefinition, detail.updatedAt);
       closeNode();
+      // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the workflow was REPLACED, so any
+      // guided session is describing a graph that no longer exists. End it (and
+      // drop its stored hint) rather than letting it re-point at the new draft.
+      invalidateGuidedSession();
       // Pull the server-recorded History row (checkpoint-linked → "Restore" available).
       await refreshAgentChanges();
       // Re-read the server-rendered lifecycle state (an ACTIVE workflow whose trigger changed was
@@ -1116,7 +1204,15 @@ export function WorkflowBuilder({
         `Applied the “${templateName}” template to this workflow — review required fields, then reconnect and reactivate if needed. You can restore the previous version from History.`,
       );
     },
-    [workflow.id, hydrate, closeNode, refreshAgentChanges, router, showApplyNotice],
+    [
+      workflow.id,
+      hydrate,
+      closeNode,
+      invalidateGuidedSession,
+      refreshAgentChanges,
+      router,
+      showApplyNotice,
+    ],
   );
 
   // CHECKLIST-ITEM-10's open-and-highlight for a clicked setup issue now lives in the issues rail
@@ -1279,6 +1375,7 @@ export function WorkflowBuilder({
             {...(documentComposerSeed ? { composerSeed: documentComposerSeed } : {})}
             onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
             conversation={agentConversation}
+            reconcileRestoredPreview={reconcileRestoredPreview}
             {...(guidedFooter ? { guidedFooter } : {})}
           />
           )}
@@ -1432,6 +1529,7 @@ export function WorkflowBuilder({
                   renderCheckSetup={renderCheckSetup}
                   onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
                   conversation={agentConversation}
+                  reconcileRestoredPreview={reconcileRestoredPreview}
                   hideComposer
                   {...(guidedFooter ? { guidedFooter } : {})}
                 />

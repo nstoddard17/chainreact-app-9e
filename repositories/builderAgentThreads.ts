@@ -6,14 +6,16 @@ import type {
 } from "@/contracts/builderAgentMessage";
 
 /**
- * Repository for builder_agent_threads + builder_agent_messages (Slice 4.AI-23).
+ * Repository for builder_agent_threads + builder_agent_messages (Slice 4.AI-23,
+ * repaired + reused by REACT-AGENT-CONVERSATION-PERSISTENCE-1).
  *
- * Persistent Builder Agent threads (workflow-scoped React Agent chat history).
- * All reads + writes go through the SSR-cookie client so RLS gates every row
- * to `auth.uid() = user_id` — no service-role escape hatch is needed because
- * persistence happens IN the user-authenticated route. The repository copies
- * `(user_id, workflow_id)` from the thread row onto every message at insert
- * time so the RLS predicate stays cheap (no JOIN through threads).
+ * Persistent React Agent threads (workflow-scoped conversation history). All
+ * reads + writes go through the SSR-cookie client so RLS gates every row to
+ * `auth.uid() = user_id` AND membership in the workflow's account — no
+ * service-role escape hatch is needed because persistence happens IN the
+ * user-authenticated route. The repository copies `(user_id, workflow_id)` from
+ * the thread row onto every message at insert time so the RLS predicate stays
+ * cheap (no JOIN through threads).
  *
  * NEVER persist raw model outputs / proposedPatch / configs / secrets — the
  * sanitizer at `services/ai/builderAgent/sanitizeAgentMessage.ts` is the only
@@ -40,6 +42,13 @@ export interface BuilderAgentMessageRecord {
   kind: AgentMessageKind;
   content: string | null;
   safePayload: Readonly<Record<string, unknown>>;
+  /** REACT-AGENT-CONVERSATION-PERSISTENCE-1 — idempotency key for this turn. */
+  clientMessageId: string | null;
+  requestId: string | null;
+  /** Reference to the canonical `agent_change_history` lifecycle row. */
+  agentChangeId: string | null;
+  baseGraphVersion: string | null;
+  proposal: Readonly<Record<string, unknown>> | null;
   createdAt: string;
 }
 
@@ -62,6 +71,11 @@ interface BuilderAgentMessagesRow {
   kind: AgentMessageKind;
   content: string | null;
   safe_payload: Record<string, unknown>;
+  client_message_id: string | null;
+  request_id: string | null;
+  agent_change_id: string | null;
+  base_graph_version: string | null;
+  proposal: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -89,6 +103,11 @@ function messageRowToRecord(
     kind: row.kind,
     content: row.content,
     safePayload: row.safe_payload ?? {},
+    clientMessageId: row.client_message_id ?? null,
+    requestId: row.request_id ?? null,
+    agentChangeId: row.agent_change_id ?? null,
+    baseGraphVersion: row.base_graph_version ?? null,
+    proposal: row.proposal ?? null,
     createdAt: row.created_at,
   };
 }
@@ -187,6 +206,15 @@ export interface AppendMessageInput {
   message: SanitizedAgentMessage;
 }
 
+/**
+ * Append one sanitized message.
+ *
+ * IDEMPOTENT on `(thread_id, client_message_id)`: the migration declares a
+ * partial UNIQUE index there, so a retried/duplicated POST for the same logical
+ * turn returns the ALREADY-STORED row instead of adding a second transcript
+ * entry. Messages stay immutable — a conflicting write is re-read, never
+ * updated. Omitting the key falls back to a plain insert (legacy callers).
+ */
 export async function appendMessageForWorkflow(
   input: AppendMessageInput,
 ): Promise<BuilderAgentMessageRecord> {
@@ -196,6 +224,16 @@ export async function appendMessageForWorkflow(
     workflowId: input.workflowId,
   });
   const supabase = await createClient();
+  const clientMessageId = input.message.clientMessageId;
+  if (clientMessageId) {
+    const existing = await supabase
+      .from("builder_agent_messages")
+      .select("*")
+      .eq("thread_id", thread.id)
+      .eq("client_message_id", clientMessageId)
+      .maybeSingle<BuilderAgentMessagesRow>();
+    if (existing.data) return messageRowToRecord(existing.data);
+  }
   const { data, error } = await supabase
     .from("builder_agent_messages")
     .insert({
@@ -206,10 +244,26 @@ export async function appendMessageForWorkflow(
       kind: input.message.kind,
       content: input.message.content,
       safe_payload: input.message.safePayload,
+      client_message_id: clientMessageId,
+      request_id: input.message.requestId,
+      agent_change_id: input.message.agentChangeId,
+      base_graph_version: input.message.baseGraphVersion,
+      proposal: input.message.proposal,
     })
     .select()
     .single<BuilderAgentMessagesRow>();
   if (error || !data) {
+    // Lost an idempotency race with a concurrent tab: the unique index rejected
+    // the duplicate, so the winning row is authoritative — re-read it.
+    if (clientMessageId) {
+      const reread = await supabase
+        .from("builder_agent_messages")
+        .select("*")
+        .eq("thread_id", thread.id)
+        .eq("client_message_id", clientMessageId)
+        .maybeSingle<BuilderAgentMessagesRow>();
+      if (reread.data) return messageRowToRecord(reread.data);
+    }
     throw new Error(
       `builderAgentThreads.appendMessageForWorkflow failed: ${
         error?.message ?? "no row returned"

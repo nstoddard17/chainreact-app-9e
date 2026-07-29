@@ -21,6 +21,7 @@ import {
   isPlanMeaningfulCanvasPreview,
   type CanvasPreviewGraphNode,
 } from "@/core/workflows/canvasPreviewEligibility";
+import type { PersistedPreviewVerdict } from "@/core/workflows/reactAgentPreviewReconciliation";
 import {
   CHAT_PLACEHOLDER,
   MAX_GOAL_LENGTH,
@@ -45,11 +46,13 @@ import { SparkleIcon } from "./guidanceRailIcons";
  *   - SINGLE-SHOT (default; the dashboard "Build with me", {@link SingleShotGuidancePanel}): one goal →
  *     one guidance result + optional review-only plan / non-applied preview.
  *   - CONVERSATIONAL (`conversational`, the builder rail; HERMES-AGENT-BUILDER-RAIL-CHAT-MODE): a
- *     session-scoped message list. A follow-up sends the prior turns as sanitized `recentTurns` so
- *     Hermes answers in context. Conversation is in-memory only — NOT persisted, no durable memory.
- *     Only the LATEST assistant turn's preview is actionable ("Show on canvas"); a newer preview
- *     supersedes the prior pending one. Apply / Discard live in the builder's canvas overlay (explicit,
- *     local-draft only) — this panel never applies/saves.
+ *     message list. A follow-up sends the prior turns as sanitized `recentTurns` so Hermes answers in
+ *     context. In the BUILDER the transcript is durable (REACT-AGENT-CONVERSATION-PERSISTENCE-1): the
+ *     builder supplies a persistence port and restored turns render as history, labelled with what
+ *     actually happened to them. On the dashboard (no port) it stays in-memory only.
+ *     Only the LATEST NON-RESTORED assistant turn's preview is actionable ("Show on canvas"); a newer
+ *     preview supersedes the prior pending one. Apply / Discard live in the builder's canvas overlay
+ *     (explicit, local-draft only) — this panel never applies/saves.
  */
 
 export interface WorkflowGuidancePanelProps {
@@ -65,7 +68,7 @@ export interface WorkflowGuidancePanelProps {
    * overlay NEVER applies/creates/mutates a workflow; an explicit "Apply preview" in the overlay does
    * the additive local-draft edit.
    */
-  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string }) => void;
+  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string; agentChangeId?: string }) => void;
   /**
    * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — render the session-scoped conversational rail (message list
    * + bottom input + recent-conversation context) instead of the single-shot form. Default false keeps
@@ -148,6 +151,22 @@ export interface WorkflowGuidancePanelProps {
    * here unchanged. Absent → the composer renders as before.
    */
   readonly hideComposer?: boolean;
+  /**
+   * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — builder-only: reconcile ONE restored
+   * proposal against the workflow as it stands now.
+   *
+   * The panel deliberately cannot answer this itself. Whether a past proposal
+   * was applied, saved, discarded, or has gone stale depends on the saved graph
+   * revision and the canonical `agent_change_history` row — both of which live
+   * in the builder. The panel renders the verdict and offers "Show on canvas
+   * again" only when the verdict says reopening is safe. Absent (dashboard,
+   * tests) → restored turns render as plain history with no badge.
+   */
+  readonly reconcileRestoredPreview?: (message: {
+    readonly agentChangeId?: string;
+    readonly baseGraphVersion?: string | null;
+    readonly hasProposalPayload: boolean;
+  }) => PersistedPreviewVerdict | null;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -166,7 +185,7 @@ export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
 type ChatMessage = GuidanceChatMessage;
 
 /** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
-function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string } {
+function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string; agentChangeId?: string } {
   return {
     plan: m.plan!,
     preview: m.preview!,
@@ -174,11 +193,20 @@ function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan
     ...(m.baseGraphVersion ? { baseGraphVersion: m.baseGraphVersion } : {}),
     // CHECKPOINTS-1 — carry the user prompt so the builder can name the pre-apply checkpoint.
     ...(m.prompt ? { prompt: m.prompt } : {}),
+    // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the lifecycle correlation id minted
+    // with the proposal, so preview/apply/discard and the persisted transcript
+    // all transition the SAME `agent_change_history` row.
+    ...(m.agentChangeId ? { agentChangeId: m.agentChangeId } : {}),
   };
 }
 
-/** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent, conversation, hideComposer }: WorkflowGuidancePanelProps) {
+/** A restored turn carries a reopenable proposal only when its payload survived persistence. */
+function hasProposalPayload(m: Extract<ChatMessage, { role: "assistant" }>): boolean {
+  return m.plan != null && m.preview != null;
+}
+
+/** The conversational rail. Durable in the builder (persistence port), in-memory on the dashboard. */
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent, conversation, hideComposer, reconcileRestoredPreview }: WorkflowGuidancePanelProps) {
   // DOC-REACT-AGENT-1 — ONE conversation. `WorkflowBuilder` owns it so the
   // Visual rail and the Document workspace are two presentations of the same
   // agent; without an injected one the panel owns its own (dashboard / tests).
@@ -230,11 +258,19 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   // Same-shape restatements are skipped (eligibility guard), and a no-plan/clarifying turn never
   // clears the standing preview. Auto-show is display-only — it NEVER applies/saves/activates/runs
   // (Apply stays an explicit click in the overlay). Dashboard (no builder callback) → no-op.
+  // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — a RESTORED turn is never auto-shown.
+  // A proposal from a previous session describes a draft the user may well have
+  // abandoned; putting it back on the canvas unasked would resurrect exactly the
+  // unsaved work returning to the workflow is supposed to have discarded. The
+  // conversation excludes restored turns from `latestAssistantId` for the same
+  // reason, so reading it here is the single guard.
   const autoShownPreviewRef = useRef<string | null>(null);
   useEffect(() => {
     if (!onPreviewToCanvas) return;
     let latest: Extract<ChatMessage, { role: "assistant" }> | null = null;
-    for (const m of messages) if (m.role === "assistant") latest = m;
+    for (const m of messages) {
+      if (m.role === "assistant" && !m.restored) latest = m;
+    }
     if (!latest || !latest.preview || !latest.plan) return;
     if (autoShownPreviewRef.current === latest.id) return; // already auto-shown this turn
     // HERMES-AGENT-WORKFLOW-EDITOR — an EDIT proposal (proposedDefinition) is a change by construction
@@ -346,6 +382,20 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             );
           }
           const isLatest = m.id === latestAssistantId;
+          // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — a restored proposal is
+          // labelled with what ACTUALLY happened to it, judged against the saved
+          // workflow: "Not saved", "Applied", "Discarded", "Stale". Without this
+          // the transcript would read as though every past suggestion is still
+          // pending, which is precisely the lie that made an abandoned draft look
+          // like unfinished setup.
+          const restoredVerdict =
+            m.restored && reconcileRestoredPreview && (m.plan || m.preview)
+              ? reconcileRestoredPreview({
+                  ...(m.agentChangeId ? { agentChangeId: m.agentChangeId } : {}),
+                  baseGraphVersion: m.baseGraphVersion ?? null,
+                  hasProposalPayload: hasProposalPayload(m),
+                })
+              : null;
           return (
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
               {m.text.length > 0 && (
@@ -385,6 +435,38 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   canvas" button (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH). */}
               {isLatest && m.preview && m.proposedDefinition == null && !onPreviewToCanvas && (
                 <GuidancePreviewSection preview={m.preview} plan={m.plan} />
+              )}
+              {restoredVerdict && (
+                <div
+                  className="mt-2 rounded-md border border-neutral-200 px-2 py-1.5 dark:border-neutral-700"
+                  data-testid="workflow-guidance-restored-preview"
+                  data-state={restoredVerdict.state}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      data-testid="workflow-guidance-restored-preview-label"
+                      className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                    >
+                      {restoredVerdict.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-neutral-600 dark:text-neutral-400">
+                    {restoredVerdict.detail}
+                  </p>
+                  {/* Reopening is offered ONLY when reconciliation says the proposal
+                      still fits the saved workflow — never as a disabled tease, and
+                      never for a proposal whose payload didn't survive persistence. */}
+                  {restoredVerdict.canReopen && onPreviewToCanvas && m.plan && m.preview && (
+                    <button
+                      type="button"
+                      data-testid="workflow-guidance-restored-preview-reopen"
+                      onClick={() => onPreviewToCanvas(toCanvasPayload(m))}
+                      className="mt-1.5 rounded-md border border-neutral-300 px-2 py-1 text-[11.5px] font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300"
+                    >
+                      Show on canvas again
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );

@@ -1,8 +1,10 @@
 import { isSecretLikeKey } from "@/core/security/secretKeys";
-import type {
-  AgentMessageKind,
-  AgentMessageRole,
-  SanitizedAgentMessage,
+import {
+  AGENT_MESSAGE_PROPOSAL_MAX_BYTES,
+  AGENT_MESSAGE_REF_MAX,
+  type AgentMessageKind,
+  type AgentMessageRole,
+  type SanitizedAgentMessage,
 } from "@/contracts/builderAgentMessage";
 
 /**
@@ -46,6 +48,19 @@ export interface AgentMessageInput {
   readonly content?: string | null;
   /** Allowlisted JSON projection of the route response. May be missing / {}. */
   readonly safePayload?: Readonly<Record<string, unknown>> | null;
+  /** Client-minted idempotency key for this logical turn. */
+  readonly clientMessageId?: string | null;
+  /** The request that produced this turn. */
+  readonly requestId?: string | null;
+  /** Reference to the canonical `agent_change_history` lifecycle row. */
+  readonly agentChangeId?: string | null;
+  /** The draft revision the proposal was validated against. */
+  readonly baseGraphVersion?: string | null;
+  /**
+   * Structured proposal/preview data (display preview + the validated plan +
+   * the proposed end-state graph). Deep-scrubbed below — never stored raw.
+   */
+  readonly proposal?: Readonly<Record<string, unknown>> | null;
 }
 
 export class SanitizeAgentMessageError extends Error {
@@ -89,6 +104,7 @@ const KINDS: ReadonlySet<AgentMessageKind> = new Set([
   "apply_failure",
   "error",
   "system_notice",
+  "review",
 ]);
 
 const USER_KINDS: ReadonlySet<AgentMessageKind> = new Set(["prompt", "followup"]);
@@ -99,6 +115,7 @@ const ASSISTANT_KINDS: ReadonlySet<AgentMessageKind> = new Set([
   "apply_failure",
   "error",
   "system_notice",
+  "review",
 ]);
 
 // ── Secret-shaped key denylist ─────────────────────────────────────────────
@@ -388,6 +405,88 @@ function sanitizeSafePayload(
   return out;
 }
 
+// ── Structured proposal scrubber (REACT-AGENT-CONVERSATION-PERSISTENCE-1) ────
+//
+// The transcript's proposal payload is NOT allowlisted key-by-key the way
+// `safe_payload` is, and that is a deliberate, different decision for a
+// different job: `safe_payload` is a lossy DISPLAY projection, while `proposal`
+// must round-trip faithfully enough that reopening a still-compatible preview
+// puts the SAME graph back on the canvas. An allowlist there would silently
+// drop fields and produce a preview that lies about what it would apply.
+//
+// So the proposal is deep-SCRUBBED instead of allowlisted:
+//   - any secret-shaped KEY (at any depth) drops the whole pair,
+//   - any secret-shaped VALUE becomes "[redacted]",
+//   - depth / array-length / total-size are hard-capped.
+//
+// `FORBIDDEN_INTERNAL_KEYS` deliberately does NOT apply here. That list keeps
+// graph internals (`config`, `definition`, `operations`) out of the lossy
+// `safe_payload` projection; the `proposal` column is the sanctioned home for
+// exactly those, so applying it would strip every node's config and leave a
+// proposal that reopens as a different workflow.
+//
+// The surviving content is the member's own workflow graph — the same class of
+// data `workflows.draft_definition` and `workflow_checkpoints.definition`
+// already store for this user. Tokens, credentials and provider payloads are
+// not in that class and are removed here regardless of where they appear.
+
+/** Depth cap for the structured proposal (a WorkflowDefinition nests deeper than safe_payload). */
+const MAX_PROPOSAL_DEPTH = 12;
+/** Array cap inside the proposal (node lists, edge lists, option lists). */
+const MAX_PROPOSAL_ARRAY_LENGTH = 500;
+
+function scrubProposalValue(value: unknown, depth: number): unknown {
+  if (depth > MAX_PROPOSAL_DEPTH) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string") return sanitizeString(value, MAX_PAYLOAD_STRING_LENGTH);
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, MAX_PROPOSAL_ARRAY_LENGTH)
+      .map((v) => scrubProposalValue(v, depth + 1))
+      .filter((v) => v !== undefined);
+  }
+  if (typeof value !== "object") return undefined;
+  const out: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+    if (isSecretKey(key)) continue;
+    const scrubbed = scrubProposalValue(v, depth + 1);
+    if (scrubbed !== undefined) out[key] = scrubbed;
+  }
+  return out;
+}
+
+/**
+ * Scrub + size-cap the structured proposal. Returns null when there is nothing
+ * to store OR when the result exceeds the storage cap — an over-cap proposal is
+ * dropped entirely rather than truncated, because half a graph would reopen as
+ * a preview that silently proposes something different from what was reviewed.
+ */
+export function sanitizeProposalForPersist(
+  raw: Readonly<Record<string, unknown>> | null | undefined,
+): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (isSecretKey(key)) continue;
+    const scrubbed = scrubProposalValue(value, 1);
+    if (scrubbed !== undefined) out[key] = scrubbed;
+  }
+  if (Object.keys(out).length === 0) return null;
+  if (JSON.stringify(out).length > AGENT_MESSAGE_PROPOSAL_MAX_BYTES) return null;
+  return out;
+}
+
+/** Trim + cap a reference-ish string column; empty/blank → null. */
+function sanitizeRef(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (looksLikeSecretValue(trimmed)) return null;
+  return trimmed.slice(0, AGENT_MESSAGE_REF_MAX);
+}
+
 function depthOf(value: unknown, depth = 0): number {
   if (depth > MAX_PAYLOAD_DEPTH) return depth;
   if (!value || typeof value !== "object") return depth;
@@ -448,7 +547,17 @@ export function sanitizeAgentMessageForPersist(
 
   const safePayload = sanitizeSafePayload(input.safePayload ?? null);
 
-  return { role: input.role, kind: input.kind, content, safePayload };
+  return {
+    role: input.role,
+    kind: input.kind,
+    content,
+    safePayload,
+    clientMessageId: sanitizeRef(input.clientMessageId),
+    requestId: sanitizeRef(input.requestId),
+    agentChangeId: sanitizeRef(input.agentChangeId),
+    baseGraphVersion: sanitizeRef(input.baseGraphVersion),
+    proposal: sanitizeProposalForPersist(input.proposal),
+  };
 }
 
 // Internals exported for unit tests only (not part of the public API).
@@ -457,6 +566,8 @@ export const __testing = {
   isForbiddenInternalKey,
   looksLikeSecretValue,
   sanitizeSafePayload,
+  sanitizeRef,
+  MAX_PROPOSAL_DEPTH,
   MAX_CONTENT_LENGTH,
   MAX_PAYLOAD_STRING_LENGTH,
   MAX_PAYLOAD_SERIALIZED_BYTES,

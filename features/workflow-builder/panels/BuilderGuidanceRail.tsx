@@ -10,7 +10,10 @@ import type {
   CheckWorkflowSetupTarget,
 } from "@/core/workflows/checkWorkflowReview";
 import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
-import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import {
+  WorkflowGuidancePanel,
+  type WorkflowGuidancePanelProps,
+} from "@/features/workflows/WorkflowGuidancePanel";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
 import type { GuidanceConversation } from "@/features/workflows/useGuidanceConversation";
 import {
@@ -157,6 +160,14 @@ export interface BuilderGuidanceRailProps {
    * `WorkflowBuilder` via `useGuidedBuild`.
    */
   readonly guidedFooter?: ReactNode;
+  /**
+   * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — judge a RESTORED proposal against
+   * the saved workflow ("Not saved" / "Applied" / "Discarded" / "Stale") and say
+   * whether reopening it is safe. Owned by `WorkflowBuilder` (only it knows the
+   * saved graph revision and the change-history lifecycle rows); forwarded
+   * verbatim so the rail stays presentation.
+   */
+  readonly reconcileRestoredPreview?: WorkflowGuidancePanelProps["reconcileRestoredPreview"];
 }
 
 export function BuilderGuidanceRail({
@@ -183,6 +194,7 @@ export function BuilderGuidanceRail({
   conversation,
   hideComposer,
   guidedFooter,
+  reconcileRestoredPreview,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -219,6 +231,7 @@ export function BuilderGuidanceRail({
             {...(onTemplateApplyToCurrent ? { onTemplateApplyToCurrent } : {})}
             {...(conversation ? { conversation } : {})}
             {...(hideComposer ? { hideComposer } : {})}
+            {...(reconcileRestoredPreview ? { reconcileRestoredPreview } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {

@@ -11,6 +11,16 @@
 > § "AI-AUDIT-1 + AI-26" for the implementation note. The audit text below
 > is preserved verbatim for historical reference; the §I recommended slice
 > has been completed.
+>
+> **Superseded (2026-07-29, REACT-AGENT-CONVERSATION-PERSISTENCE-1):** the
+> `BuilderAiPanel` / `/ai/thread` surface this audit describes was replaced by the
+> Hermes guidance rail (`WorkflowGuidancePanel` + `useGuidanceConversation`), which
+> was in-memory only until conversation persistence was rebuilt on the SAME
+> `builder_agent_threads` / `builder_agent_messages` tables behind
+> `/api/workflows/[id]/agent-thread`. §E.P1.2's Option A ("history is read-only
+> after a session ends") still holds, now enforced by a `restored` flag rather than
+> by a latest-plan skip. Current contract:
+> [`docs/rules/react-agent-conversation-persistence.md`](../../../rules/react-agent-conversation-persistence.md).
 
 ---
 

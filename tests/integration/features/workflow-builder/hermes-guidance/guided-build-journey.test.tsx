@@ -16,8 +16,12 @@
  *   4. No configuration required (manual trigger) → straight to Test; test
  *      passes → Activate.
  *   5. OAuth canceled (popup closed) → stays in Connect with Try again.
- *   6. Page reload mid-journey → the guided card resumes at the SAME stage
- *      (localStorage session flag + stage re-derived from readiness).
+ *   6. Apply → SAVE → reload → the guided card resumes at the SAME stage and the
+ *      conversation comes back (revision-bound hint + stage re-derived from
+ *      readiness). REACT-AGENT-CONVERSATION-PERSISTENCE-1 also pins the two
+ *      failure cases that motivated it: applied-but-UNSAVED work returns to an
+ *      empty canvas with the transcript intact and NO setup card, and a legacy
+ *      durable localStorage marker is cleared rather than resumed.
  *  10. Billing: the ENTIRE deterministic journey calls the guidance helper
  *      exactly once (the initial create) — no AI charge for connect /
  *      configure / test / activate steps.
@@ -58,6 +62,28 @@ jest.mock("@/lib/api/workflows", () => {
 const mockRequest = jest.fn();
 jest.mock("@/lib/api/ai/guidance", () => ({
   requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
+}));
+
+// REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the durable transcript, stubbed at
+// the typed-client boundary so the journeys exercise the REAL restore/append
+// wiring without a database.
+const agentThreadRows: Array<Record<string, unknown>> = [];
+const mockGetAgentThread = jest.fn();
+const mockAppendAgentMessage = jest.fn();
+jest.mock("@/lib/api/builderAgentThread", () => ({
+  getBuilderAgentThread: (...a: unknown[]) => mockGetAgentThread(...a),
+  appendBuilderAgentMessage: (...a: unknown[]) => mockAppendAgentMessage(...a),
+  clearBuilderAgentThread: jest.fn(async () => ({ deletedCount: 0 })),
+}));
+
+// The change-history timeline (the canonical proposal lifecycle record).
+const recordedAgentChanges: Array<Record<string, unknown>> = [];
+jest.mock("@/lib/api/agentChangeHistory", () => ({
+  listAgentChangeHistory: jest.fn(async () => []),
+  recordAgentChange: jest.fn(async (_wf: string, input: Record<string, unknown>) => {
+    recordedAgentChanges.push(input);
+    return { id: `row-${recordedAgentChanges.length}`, ...input };
+  }),
 }));
 
 const mockFetchOptionsSource = jest.fn();
@@ -251,6 +277,28 @@ beforeEach(() => {
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useRunSlice.getState().reset();
+  agentThreadRows.length = 0;
+  recordedAgentChanges.length = 0;
+  // A real thread: every append is stored and every load replays what was stored.
+  mockGetAgentThread.mockImplementation(async () => ({
+    thread: null,
+    messages: agentThreadRows.map((r, i) => ({
+      id: `msg-${i}`,
+      safePayload: {},
+      requestId: null,
+      agentChangeId: null,
+      baseGraphVersion: null,
+      proposal: null,
+      createdAt: "2026-07-29T00:00:00Z",
+      ...r,
+    })),
+  }));
+  mockAppendAgentMessage.mockImplementation(async (_wf: string, body: Record<string, unknown>) => {
+    if (!agentThreadRows.some((r) => r.clientMessageId === body.clientMessageId)) {
+      agentThreadRows.push(body);
+    }
+    return { id: `msg-${agentThreadRows.length}`, ...body };
+  });
 });
 
 afterEach(() => {
@@ -434,18 +482,33 @@ it("journey 5 — OAuth canceled: the popup closes unfinished; Connect stage sta
   expect(mockGetConnectionReadiness.mock.calls.length).toBeGreaterThanOrEqual(2);
 });
 
-it("journey 6 — reload mid-journey: the guided card resumes at the SAME stage from the session flag + readiness", async () => {
+it("journey 6 — apply, SAVE, reload: the guided card resumes at the SAME stage from the saved workflow + readiness", async () => {
   const user = userEvent.setup();
   const first = renderBuilder();
   await createAndApply(user);
   await screen.findByTestId("guided-build-card");
-  expect(window.localStorage.getItem("chainreact:builder:guidedBuild:wf-guided")).toBe("1");
+  // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — nothing is persisted yet: the change
+  // is on the draft only, and an unsaved journey must not survive leaving.
+  expect(window.localStorage.getItem("chainreact:builder:guidedBuild:wf-guided")).toBeNull();
 
-  // Simulate a reload: unmount everything, keep localStorage + the saved-ish
-  // draft (the graph slice re-hydrates from the server workflow on mount).
+  // The user SAVES. Only now does the guided hint exist, bound to the revision
+  // the save produced.
+  await act(async () => {
+    await useGraphSlice.getState().save();
+  });
+  const savedRevision = useGraphSlice.getState().hydratedRevision!;
+  await waitFor(() =>
+    expect(window.localStorage.getItem("chainreact:builder:guidedBuild:wf-guided")).not.toBeNull(),
+  );
+  expect(JSON.parse(window.localStorage.getItem("chainreact:builder:guidedBuild:wf-guided")!)).toEqual({
+    v: 2,
+    savedGraphVersion: savedRevision,
+  });
+
+  // Simulate a reload: unmount everything, keep localStorage + the SAVED draft.
   const draft = {
-    nodes: [...useGraphSlice.getState().pendingNodes],
-    edges: [...useGraphSlice.getState().pendingEdges],
+    nodes: [...useGraphSlice.getState().savedNodes],
+    edges: [...useGraphSlice.getState().savedEdges],
   };
   first.unmount();
   useGraphSlice.getState().reset();
@@ -453,7 +516,7 @@ it("journey 6 — reload mid-journey: the guided card resumes at the SAME stage 
 
   render(
     <WorkflowBuilder
-      workflow={{ ...workflow(), draftDefinition: draft }}
+      workflow={{ ...workflow(), draftDefinition: draft, updatedAt: savedRevision }}
       triggerProviders={triggerProviders}
       actionProviders={actionProviders}
       requiredFieldsByType={REQUIRED_FIELDS}
@@ -469,9 +532,81 @@ it("journey 6 — reload mid-journey: the guided card resumes at the SAME stage 
   await waitFor(() => expect(card).toHaveAttribute("data-stage", "connecting"));
   expect(screen.getByTestId("guided-connect-stripe")).toBeInTheDocument();
   expect(screen.getByTestId("guided-connect-slack")).toBeInTheDocument();
-  // The conversation transcript itself is in-memory only (pre-existing
-  // limitation) — the guided journey, not the chat, is what resumes.
+  // The saved nodes came back with the workflow…
+  expect(useGraphSlice.getState().pendingNodes.length).toBeGreaterThan(0);
+  // …and so did the conversation.
+  expect(await screen.findByText("post Stripe payments to Slack")).toBeInTheDocument();
+  // Restoring the transcript is a read: still exactly ONE guidance call.
   expect(mockRequest).toHaveBeenCalledTimes(1);
+  // The save promoted the change on the canonical lifecycle record.
+  expect(recordedAgentChanges.some((c) => c.status === "applied_saved")).toBe(true);
+});
+
+/**
+ * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the reported bug, pinned end-to-end.
+ *
+ * Apply the preview, DON'T save, leave, come back: the canvas loads the last
+ * saved workflow (empty), and "Finish setting up this workflow" must not appear.
+ * Nothing in the returning session may start Connect / Configure / Test /
+ * Activate, because none of those steps have anything to act on.
+ */
+it("applied but NOT saved → leave → return: empty canvas, and NO guided setup card", async () => {
+  const user = userEvent.setup();
+  const first = renderBuilder();
+  await createAndApply(user);
+  await screen.findByTestId("guided-build-card");
+  expect(useGraphSlice.getState().pendingNodes.length).toBeGreaterThan(0);
+  expect(useGraphSlice.getState().isDirty).toBe(true);
+
+  // Leave without saving.
+  first.unmount();
+  useGraphSlice.getState().reset();
+  useConfigSlice.getState().reset();
+
+  // Return: the server still has the LAST SAVED (empty) workflow.
+  render(
+    <WorkflowBuilder
+      workflow={workflow()}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+      requiredFieldsByType={REQUIRED_FIELDS}
+      setupFieldsByType={SETUP_FIELDS}
+      accountId="acct-1"
+      guidanceEnabled
+    />,
+  );
+
+  await screen.findByTestId("builder-guidance-rail");
+  await waitFor(() => expect(useGraphSlice.getState().isHydrated).toBe(true));
+  // Unsaved nodes stayed discarded.
+  expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  // The conversation is still visible…
+  expect(await screen.findByText("post Stripe payments to Slack")).toBeInTheDocument();
+  // …but the stale setup card is gone, and the previous session never reached
+  // `applied_saved`, so nothing claims the change landed.
+  expect(screen.queryByTestId("guided-build-card")).toBeNull();
+  expect(screen.queryByText(/Finish setting up this workflow/i)).toBeNull();
+  expect(recordedAgentChanges.some((c) => c.status === "applied_saved")).toBe(false);
+  // No AI request was re-issued to bring the conversation back.
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the legacy durable boolean.
+ *
+ * Sessions that ran the previous build left `"1"` in localStorage. On an empty
+ * workflow that marker used to resume setup on its own; it must now be cleared
+ * on sight and show nothing.
+ */
+it("stale legacy localStorage marker + empty workflow → marker cleared, no setup card", async () => {
+  window.localStorage.setItem("chainreact:builder:guidedBuild:wf-guided", "1");
+  renderBuilder();
+
+  await screen.findByTestId("builder-guidance-rail");
+  await waitFor(() =>
+    expect(window.localStorage.getItem("chainreact:builder:guidedBuild:wf-guided")).toBeNull(),
+  );
+  expect(screen.queryByTestId("guided-build-card")).toBeNull();
 });
 
 /**

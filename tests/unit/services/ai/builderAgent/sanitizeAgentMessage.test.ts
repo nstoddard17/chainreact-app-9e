@@ -525,3 +525,120 @@ describe("nuanced secret patterns", () => {
     expect(__testing.looksLikeSecretValue("a low-risk plan")).toBe(false);
   });
 });
+
+/**
+ * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the structured proposal column.
+ *
+ * The proposal must round-trip faithfully enough to reopen the SAME preview, so
+ * it is deep-scrubbed rather than allowlisted. What must never survive is
+ * anything credential-shaped, at any depth, whether it arrived as a key or as a
+ * value.
+ */
+describe("structured proposal scrubbing", () => {
+  function proposalOf(raw: Record<string, unknown>) {
+    return sanitizeAgentMessageForPersist({
+      role: "assistant",
+      kind: "plan_result",
+      content: "Here's the workflow.",
+      proposal: raw,
+    }).proposal;
+  }
+
+  it("keeps the member's own graph so a reopened preview proposes the same thing", () => {
+    const out = proposalOf({
+      preview: { title: "Payment alert", nodes: [{ previewId: "p1", label: "slack:send" }] },
+      definition: {
+        nodes: [{ id: "n1", provider: "slack", type: "send_channel_message", config: { channel: "C1", text: "hi" } }],
+        edges: [],
+      },
+    });
+    expect(out).toMatchObject({
+      preview: { title: "Payment alert" },
+      definition: { nodes: [{ id: "n1", config: { channel: "C1", text: "hi" } }] },
+    });
+  });
+
+  it("drops secret-shaped KEYS at any depth", () => {
+    const out = proposalOf({
+      definition: {
+        nodes: [
+          {
+            id: "n1",
+            config: {
+              channel: "C1",
+              accessToken: "abc",
+              refresh_token: "def",
+              apiKey: "ghi",
+              clientSecret: "jkl",
+              nested: { webhookSecret: "mno", keep: "yes" },
+            },
+          },
+        ],
+      },
+    });
+    const serialized = JSON.stringify(out);
+    for (const banned of ["accessToken", "refresh_token", "apiKey", "clientSecret", "webhookSecret"]) {
+      expect(serialized).not.toContain(banned);
+    }
+    expect(serialized).toContain("\"keep\":\"yes\"");
+    expect(serialized).toContain("C1");
+  });
+
+  it("redacts secret-shaped VALUES that arrive under innocent keys", () => {
+    const out = proposalOf({
+      definition: { nodes: [{ id: "n1", config: { note: "xoxb-1234567890abcdefghij" } }] },
+    });
+    expect(JSON.stringify(out)).not.toContain("xoxb-1234567890abcdefghij");
+    expect(JSON.stringify(out)).toContain("[redacted]");
+  });
+
+  it("drops an over-cap proposal ENTIRELY rather than storing half a graph", () => {
+    const nodes = Array.from({ length: 400 }, (_, i) => ({
+      id: `n${i}`,
+      config: { text: "x".repeat(500) },
+    }));
+    expect(proposalOf({ definition: { nodes, edges: [] } })).toBeNull();
+  });
+
+  it("returns null for an absent or empty proposal", () => {
+    expect(
+      sanitizeAgentMessageForPersist({ role: "assistant", kind: "plan_result" }).proposal,
+    ).toBeNull();
+    expect(proposalOf({})).toBeNull();
+  });
+});
+
+describe("reference columns", () => {
+  it("trims, caps, and nulls blank refs", () => {
+    const out = sanitizeAgentMessageForPersist({
+      role: "assistant",
+      kind: "review",
+      content: "Status: ready",
+      clientMessageId: "  m:3  ",
+      requestId: "   ",
+      baseGraphVersion: "v".repeat(500),
+    });
+    expect(out.clientMessageId).toBe("m:3");
+    expect(out.requestId).toBeNull();
+    expect(out.baseGraphVersion).toHaveLength(128);
+  });
+
+  it("refuses a secret-shaped value smuggled into a reference column", () => {
+    const out = sanitizeAgentMessageForPersist({
+      role: "user",
+      kind: "prompt",
+      content: "hi",
+      requestId: "xoxb-1234567890abcdefghij",
+    });
+    expect(out.requestId).toBeNull();
+  });
+
+  it("accepts the deterministic review turn as an assistant kind", () => {
+    expect(() =>
+      sanitizeAgentMessageForPersist({ role: "assistant", kind: "review", content: "Status: ready" }),
+    ).not.toThrow();
+    expect(() =>
+      sanitizeAgentMessageForPersist({ role: "user", kind: "review", content: "x" }),
+    ).toThrow(SanitizeAgentMessageError);
+  });
+});

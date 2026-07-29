@@ -26,6 +26,14 @@ export const AGENT_CHANGE_NEW_STATUSES = [
 /** Statuses that TRANSITION an existing item (the preview's agent_change_id). */
 export const AGENT_CHANGE_TRANSITION_STATUSES = [
   "preview_applied",
+  /**
+   * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the applied change reached the SAVED
+   * workflow, not just the local draft. This is the difference between "resume
+   * the guided journey" and "that change never existed": an applied-but-unsaved
+   * preview is abandoned when the user leaves, and a restored transcript must
+   * say so instead of offering to finish setting up nodes nobody saved.
+   */
+  "applied_saved",
   "preview_discarded",
   "apply_failed",
   "undone",

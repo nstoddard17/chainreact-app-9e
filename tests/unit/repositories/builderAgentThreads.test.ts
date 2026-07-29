@@ -246,6 +246,11 @@ describe("appendMessageForWorkflow", () => {
       kind: "prompt",
       content: "Post to Slack on new email",
       safePayload: {},
+      clientMessageId: null,
+      requestId: null,
+      agentChangeId: null,
+      baseGraphVersion: null,
+      proposal: null,
     };
     const out = await appendMessageForWorkflow({
       userId: "user-1",
@@ -285,6 +290,11 @@ describe("appendMessageForWorkflow", () => {
           kind: "prompt",
           content: "hi",
           safePayload: {},
+          clientMessageId: null,
+          requestId: null,
+          agentChangeId: null,
+          baseGraphVersion: null,
+          proposal: null,
         },
       }),
     ).rejects.toThrow(/appendMessageForWorkflow failed: boom/);
@@ -323,5 +333,101 @@ describe("clearThreadForWorkflow", () => {
     await expect(
       clearThreadForWorkflow("user-1", "wf-1"),
     ).rejects.toThrow(/clearThreadForWorkflow failed: boom/);
+  });
+});
+
+/**
+ * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — write idempotency.
+ *
+ * A retried append (network retry, a second tab, a re-render) must not add a
+ * second copy of the same turn to the transcript. The partial UNIQUE index on
+ * (thread_id, client_message_id) is the enforcement; the repository's job is to
+ * return the ALREADY-STORED row instead of inserting or updating.
+ */
+describe("appendMessageForWorkflow — idempotency on clientMessageId", () => {
+  const sanitizedWithKey: SanitizedAgentMessage = {
+    role: "user",
+    kind: "prompt",
+    content: "post Stripe payments to Slack",
+    safePayload: {},
+    clientMessageId: "m:7",
+    requestId: "req-1",
+    agentChangeId: null,
+    baseGraphVersion: null,
+    proposal: null,
+  };
+
+  it("returns the existing row and inserts NOTHING when the key is already stored", async () => {
+    const state = emptyState();
+    // 1) get-or-create finds the thread. 2) the idempotency probe finds the message.
+    state.scriptedMaybeSingles = [
+      { data: threadRow, error: null },
+      { data: { ...messageRow, client_message_id: "m:7" }, error: null },
+    ];
+    mockSSR.current = makeMockClient(state);
+
+    const out = await appendMessageForWorkflow({
+      userId: "user-1",
+      workflowId: "wf-1",
+      message: sanitizedWithKey,
+    });
+    expect(out.id).toBe("msg-1");
+    expect(out.clientMessageId).toBe("m:7");
+    // No duplicate transcript entry, and messages stay immutable.
+    expect(state.insertPayloads).toHaveLength(0);
+    expect(state.updatePayloads).toHaveLength(0);
+  });
+
+  it("re-reads the winning row when a concurrent write took the key first", async () => {
+    const state = emptyState();
+    state.scriptedMaybeSingles = [
+      { data: threadRow, error: null },
+      { data: null, error: null }, // probe: not there yet
+      { data: { ...messageRow, client_message_id: "m:7" }, error: null }, // post-conflict re-read
+    ];
+    state.scriptedSingles = [
+      { data: null, error: { message: "duplicate key value violates unique constraint" } },
+    ];
+    mockSSR.current = makeMockClient(state);
+
+    const out = await appendMessageForWorkflow({
+      userId: "user-1",
+      workflowId: "wf-1",
+      message: sanitizedWithKey,
+    });
+    expect(out.id).toBe("msg-1");
+  });
+
+  it("persists the reference columns on a fresh insert", async () => {
+    const state = emptyState();
+    state.scriptedMaybeSingles = [
+      { data: threadRow, error: null },
+      { data: null, error: null },
+    ];
+    state.scriptedSingles = [{ data: messageRow, error: null }];
+    state.scriptedThens = [{ data: null, error: null }];
+    mockSSR.current = makeMockClient(state);
+
+    await appendMessageForWorkflow({
+      userId: "user-1",
+      workflowId: "wf-1",
+      message: {
+        ...sanitizedWithKey,
+        role: "assistant",
+        kind: "plan_result",
+        agentChangeId: "11111111-1111-4111-8111-111111111111",
+        baseGraphVersion: "2026-07-29T10:00:00.000Z",
+        proposal: { preview: { title: "Payment alert" } },
+      },
+    });
+    expect(state.insertPayloads).toContainEqual(
+      expect.objectContaining({
+        client_message_id: "m:7",
+        request_id: "req-1",
+        agent_change_id: "11111111-1111-4111-8111-111111111111",
+        base_graph_version: "2026-07-29T10:00:00.000Z",
+        proposal: { preview: { title: "Payment alert" } },
+      }),
+    );
   });
 });

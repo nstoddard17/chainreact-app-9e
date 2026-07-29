@@ -179,6 +179,18 @@ export function useBuilderPreview({
   const previewOverlayRef = useRef<BuilderPreviewOverlayState | null>(null);
   previewOverlayRef.current = previewOverlay;
 
+  /**
+   * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the agent change that has landed on
+   * the LOCAL DRAFT but has not reached a SAVE yet.
+   *
+   * "Applied" and "applied and saved" are different facts, and only the second
+   * one means the change exists. Everything that returns to a workflow later —
+   * the restored transcript's badges, and whether the guided journey may resume
+   * at all — turns on that distinction, so it is recorded on the canonical
+   * timeline row rather than inferred afterwards from graph shape.
+   */
+  const unsavedAppliedChangeIdRef = useRef<string | null>(null);
+
   // Drop any AI preview overlay / apply notice when switching workflows (setters are stable). This is
   // the preview-state half of WorkflowBuilder's per-workflow reset effect; the slice resets stay there.
   // checkpointWarning is intentionally NOT cleared here (matches the prior in-component behavior).
@@ -188,7 +200,30 @@ export function useBuilderPreview({
     setAppliedNodeIds([]);
     setPreviewConfig({});
     setPreviewProvenance(EMPTY_PROVENANCE);
+    unsavedAppliedChangeIdRef.current = null;
   }, [workflowId]);
+
+  /**
+   * Record `applied_saved` the moment a save completes with an applied agent
+   * change still pending.
+   *
+   * Watching the SAVE rather than the apply is the point: a user who applies and
+   * then walks away has changed nothing, and the timeline must not claim
+   * otherwise. A save that errors, or one that leaves the draft dirty, is not a
+   * landing — both are ignored. Fail-open like every other emission: the
+   * timeline never blocks the builder.
+   */
+  useEffect(() => {
+    if (localOnly) return;
+    return useGraphSlice.subscribe((state, prev) => {
+      if (!prev.isSaving || state.isSaving) return;
+      if (state.saveError !== null || state.isDirty) return;
+      const agentChangeId = unsavedAppliedChangeIdRef.current;
+      if (!agentChangeId) return;
+      unsavedAppliedChangeIdRef.current = null;
+      agentChanges.emitAppliedSaved(agentChangeId);
+    });
+  }, [localOnly, agentChanges]);
 
   // HERMES-AGENT-PREVIEW-DIFF-GRAPH — for an EDIT proposal, compose the SINGLE read-only diff graph
   // (current + candidate) the canvas renders instead of the live graph. Null for additive/no preview.
@@ -449,6 +484,7 @@ export function useBuilderPreview({
     if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
       setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
       setAppliedNodeIds([]);
+      unsavedAppliedChangeIdRef.current = null;
       if (agentChangeId) {
         agentChanges.emitApplyFailed({
           agentChangeId,
@@ -476,6 +512,9 @@ export function useBuilderPreview({
         appliedDiff = undefined;
       }
       const appliedDiffArg = appliedDiff ? { diff: appliedDiff } : {};
+      // The change is now on the draft and NOT yet saved. The save watcher above
+      // promotes it to `applied_saved` if and when the user actually saves.
+      if (agentChangeId) unsavedAppliedChangeIdRef.current = agentChangeId;
       // CHECKPOINTS-1 — a real change landed: durably record a "Before React Agent change" restore
       // point with the captured pre-apply draft + the user's prompt + the change summary. Fire-and-
       // forget so apply stays instant; on failure surface a non-blocking warning (the local undo/redo
@@ -544,6 +583,7 @@ export function useBuilderPreview({
       // already has a trigger). Surface a safe, non-scary notice.
       setApplyNotice("ChainReact could not safely apply this preview.");
       setAppliedNodeIds([]);
+      unsavedAppliedChangeIdRef.current = null;
       if (agentChangeId) {
         agentChanges.emitApplyFailed({
           agentChangeId,

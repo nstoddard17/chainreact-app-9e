@@ -84,6 +84,12 @@ export interface UseAgentChangeEmission {
   refresh(): Promise<void>;
   emitPreviewCreated(input: EmitPreviewCreatedInput): void;
   emitApplied(input: EmitAppliedInput): void;
+  /**
+   * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the applied change was SAVED into
+   * the workflow. Recorded separately from `preview_applied` because only a
+   * saved change may resume the guided journey on a later visit.
+   */
+  emitAppliedSaved(agentChangeId: string): void;
   emitDiscarded(agentChangeId: string): void;
   /** Records the user choosing to keep the change as a preview (no apply). */
   emitKeptAsPreview(agentChangeId: string): void;
@@ -178,6 +184,14 @@ export function useAgentChangeEmission(
     [enabled, record],
   );
 
+  const emitAppliedSaved = useCallback(
+    (agentChangeId: string): void => {
+      if (!enabled) return;
+      void record({ agentChangeId, status: "applied_saved" });
+    },
+    [enabled, record],
+  );
+
   const emitDiscarded = useCallback(
     (agentChangeId: string): void => {
       if (!enabled) return;
@@ -228,6 +242,7 @@ export function useAgentChangeEmission(
     refresh,
     emitPreviewCreated,
     emitApplied,
+    emitAppliedSaved,
     emitDiscarded,
     emitKeptAsPreview,
     emitApplyFailed,
