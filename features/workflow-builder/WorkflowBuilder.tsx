@@ -76,6 +76,7 @@ import { useGuidedBuildSession } from "./hooks/useGuidedBuildSession";
 import { useGuidedBuild } from "./hooks/useGuidedBuild";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
+import { buildCheckReviewContext } from "./validation/buildCheckReviewContext";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
 import { useDestructivePreview } from "./hooks/useDestructivePreview";
 import {
@@ -967,6 +968,21 @@ export function WorkflowBuilder({
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
   });
 
+  // REACT-AGENT-GUIDED-BUILD-1 — Configure-stage targets: the live draft's
+  // nodes with missing required fields, from the SAME validator/grouping the
+  // Check-workflow review uses. Recomputed as the user fills fields, so a
+  // completed node drops out and the next becomes current automatically.
+  const guidedSetupTargets = useMemo(
+    () =>
+      buildCheckReviewContext({
+        pendingNodes,
+        pendingEdges,
+        ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
+        providerLabels,
+      }).setupTargets,
+    [pendingNodes, pendingEdges, requiredFieldsByType, providerLabels],
+  );
+
   // REACT-AGENT-GUIDED-BUILD-1 — the guided card (stage projection + popup
   // connect + rail footer). Deterministic wiring only; no model call, no
   // AI-credit charge on any guided control.
@@ -981,6 +997,8 @@ export function WorkflowBuilder({
     refreshConnections,
     providerLabels,
     onOpenIssues: handleOpenValidation,
+    guidedSetupTargets,
+    renderNodeSetup: renderCheckSetup,
   });
 
   /**

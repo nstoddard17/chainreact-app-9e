@@ -9,7 +9,9 @@ import {
   deriveGuidedBuildStage,
   type GuidedBuildSnapshot,
 } from "@/core/workflows/guidedBuildStage";
+import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
 import { GuidedBuildCard } from "../panels/GuidedBuildCard";
+import { GuidedConfigureSection } from "../panels/GuidedConfigureSection";
 import { useGuidedConnect } from "./useGuidedConnect";
 
 /**
@@ -36,8 +38,16 @@ export interface UseGuidedBuildInput {
   readonly providerLabels?: Readonly<Record<string, string>>;
   /** Open the issues rail (detailed secondary surface). */
   readonly onOpenIssues?: () => void;
-  /** Injected stage bodies (Configure / Test / Activate slices). */
-  readonly configureSection?: ReactNode;
+  /**
+   * Configure stage: the live draft's nodes with missing required fields
+   * (Check-workflow grouping) + the builder's existing node-setup renderer.
+   * Both present → the card walks them one node at a time with progress.
+   */
+  readonly guidedSetupTargets?: readonly CheckWorkflowSetupTarget[];
+  readonly renderNodeSetup?: (
+    targets: readonly CheckWorkflowSetupTarget[],
+  ) => ReactNode;
+  /** Injected stage bodies (Test / Activate slices). */
   readonly testSection?: ReactNode;
   readonly activateSection?: ReactNode;
 }
@@ -60,7 +70,8 @@ export function useGuidedBuild(input: UseGuidedBuildInput): GuidedBuildWiring {
     refreshConnections,
     providerLabels,
     onOpenIssues,
-    configureSection,
+    guidedSetupTargets,
+    renderNodeSetup,
     testSection,
     activateSection,
   } = input;
@@ -78,6 +89,17 @@ export function useGuidedBuild(input: UseGuidedBuildInput): GuidedBuildWiring {
   );
 
   const connect = useGuidedConnect({ onRefreshConnections: refreshConnections });
+
+  // Configure-stage body: the existing node setup card, one node at a time.
+  const configureSection =
+    guidedSetupTargets && renderNodeSetup ? (
+      <GuidedConfigureSection
+        targets={guidedSetupTargets}
+        renderNodeSetup={renderNodeSetup}
+        configureBlockers={snapshot.configureBlockers}
+        {...(onOpenIssues ? { onOpenIssues } : {})}
+      />
+    ) : undefined;
 
   const guidedFooter =
     sessionActive && !localOnly && snapshot.stage !== "creating" && snapshot.stage !== "preview_ready" ? (
