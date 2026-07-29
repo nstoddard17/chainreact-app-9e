@@ -259,3 +259,52 @@ describe("inferNamedProviderChainPlan — ambiguous Stripe payment phrasing (REA
     ).toBeNull();
   });
 });
+
+/**
+ * REACT-AGENT-RUNTIME-REPRO-1 — the run-on (comma-less) temporal sentence. The REAL first-turn
+ * failure text was lowercase casual speech with no punctuation: `splitClauses` saw ONE clause and
+ * the planner declined a fully-stated request. The run-on split recovers the trigger/action
+ * boundary before a send-class verb ONLY when both halves name a registered provider; anything
+ * else still declines (fail closed).
+ */
+describe("inferNamedProviderChainPlan — run-on comma-less speech (REACT-AGENT-RUNTIME-REPRO-1)", () => {
+  const EXACT_RUNTIME_TEXT =
+    'when i get a stripe payment from marcus send me a slack message to "test" channel';
+
+  it("the exact runtime text (lowercase, no comma, quoted channel name) plans on the first pass", () => {
+    const plan = inferNamedProviderChainPlan(EXACT_RUNTIME_TEXT);
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.role}:${s.provider}:${s.type}`)).toEqual([
+      "trigger:stripe:event_received",
+      "action:slack:send_channel_message",
+    ]);
+    expect(plan!.steps[0]!.requiredInputs).toEqual(["enabledEvents"]);
+    expect(plan!.steps[1]!.requiredInputs).toEqual(["channel", "text"]);
+    for (const step of plan!.steps) expect(step.config).toBeUndefined();
+    expect(JSON.stringify(plan)).not.toMatch(/marcus|"test"/i);
+  });
+
+  it("the split lands on the FIRST verb whose halves both name a provider — not on a decoy noun", () => {
+    // "message" is send-class but its left half names no provider; the scan moves on to "post".
+    const plan = inferNamedProviderChainPlan(
+      "when a message arrives in slack post a channel message in microsoft teams",
+    );
+    // Whatever the capability outcome, the run-on split must not produce a provider-less trigger
+    // clause; slack must own the trigger side.
+    if (plan) {
+      expect(plan.steps[0]!.provider).toBe("slack");
+    }
+  });
+
+  it("a run-on with only ONE named provider still declines (no split fabricated)", () => {
+    expect(
+      inferNamedProviderChainPlan("when i get a stripe payment send me a message"),
+    ).toBeNull();
+  });
+
+  it("a non-temporal run-on still declines", () => {
+    expect(
+      inferNamedProviderChainPlan("stripe payments should send me a slack channel message"),
+    ).toBeNull();
+  });
+});

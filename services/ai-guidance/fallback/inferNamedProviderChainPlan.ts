@@ -111,6 +111,37 @@ function splitClauses(goalText: string): string[] {
     .filter((c) => c.length > 0);
 }
 
+/**
+ * REACT-AGENT-RUNTIME-REPRO-1 — split a RUN-ON temporal sentence with no
+ * punctuation ("when i get a stripe payment from marcus send me a slack
+ * message to test channel") into its trigger and action clauses.
+ *
+ * Casual speech drops the comma, so `splitClauses` sees ONE clause and the
+ * planner used to decline a request the user had stated completely. The split
+ * is deterministic and closed-class: try each send-class verb occurrence, left
+ * to right, and accept the FIRST split where BOTH halves name at least one
+ * registered provider (the guard that keeps "when a message arrives in slack
+ * post it to teams" from splitting at "message" — its left half names no
+ * provider, so the scan moves on to "post"). No valid split → null, and the
+ * planner declines exactly as before (fail closed, safe clarification stands).
+ */
+function splitRunOnTemporalClause(clause: string): [string, string] | null {
+  if (!TEMPORAL_CLAUSE_RE.test(clause)) return null;
+  const words = clause.split(/\s+/);
+  for (let i = 1; i < words.length; i += 1) {
+    const w = words[i]!.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!SEND_CLASS_VERBS.has(w)) continue;
+    const left = words.slice(0, i).join(" ");
+    const right = words.slice(i).join(" ");
+    const byProvider = namedProvidersByClause([left, right]);
+    const clauseIdxs = new Set(byProvider.values());
+    if (byProvider.size >= 2 && clauseIdxs.has(0) && clauseIdxs.has(1)) {
+      return [left, right];
+    }
+  }
+  return null;
+}
+
 /** The registered, metadata-bearing providers the text names, with the first clause naming each. */
 function namedProvidersByClause(clauses: readonly string[]): Map<string, number> {
   const withMeta = new Set(listProvidersWithMetadata());
@@ -204,8 +235,14 @@ export function inferNamedProviderChainPlan(goalText: string | undefined): Workf
   const goal = (goalText ?? "").trim();
   if (goal.length === 0) return null;
 
-  const clauses = splitClauses(goal);
-  if (clauses.length < 2) return null;
+  let clauses = splitClauses(goal);
+  if (clauses.length < 2) {
+    // Comma-less run-on speech: recover the trigger/action boundary before a
+    // send-class verb when both halves name a provider (see helper above).
+    const runOn = clauses.length === 1 ? splitRunOnTemporalClause(clauses[0]!) : null;
+    if (!runOn) return null;
+    clauses = runOn;
+  }
   const byProvider = namedProvidersByClause(clauses);
   if (byProvider.size < 2) return null;
 

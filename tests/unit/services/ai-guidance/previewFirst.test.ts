@@ -11,6 +11,7 @@
 import {
   classifyPreviewFirst,
   buildPreviewFirstRepairGoal,
+  quotedSpansAreShortNames,
   MIN_REPAIR_BUDGET_MS,
 } from "@/services/ai-guidance/previewFirst/classifyPreviewFirst";
 
@@ -152,5 +153,50 @@ describe("budget constant", () => {
     // A real Hermes turn takes seconds; anything under ~15s would burn the remainder into a 504.
     expect(MIN_REPAIR_BUDGET_MS).toBeGreaterThanOrEqual(10_000);
     expect(MIN_REPAIR_BUDGET_MS).toBeLessThan(30_000);
+  });
+});
+
+/**
+ * REACT-AGENT-RUNTIME-REPRO-1 — quoted-span classification for the registry-first gate: short
+ * resource NAMES stay deterministic-eligible; sentence-like quoted CONTENT and unbalanced quotes
+ * keep the model path (fail closed).
+ */
+describe("quotedSpansAreShortNames", () => {
+  it("no quotes at all → eligible", () => {
+    expect(quotedSpansAreShortNames("when a stripe payment succeeds notify slack")).toBe(true);
+  });
+
+  it('a short quoted resource name ("test" channel) → eligible', () => {
+    expect(
+      quotedSpansAreShortNames(
+        'when i get a stripe payment from marcus send me a slack message to "test" channel',
+      ),
+    ).toBe(true);
+  });
+
+  it("curly quotes around a short name → eligible", () => {
+    expect(quotedSpansAreShortNames("post to the “billing alerts” channel")).toBe(true);
+  });
+
+  it("a sentence-like quoted message body → NOT eligible (model must capture it)", () => {
+    expect(
+      quotedSpansAreShortNames(
+        'send a slack message saying "Please review the newest payment before end of day today."',
+      ),
+    ).toBe(false);
+  });
+
+  it("a long quoted span (> 4 words) → NOT eligible", () => {
+    expect(
+      quotedSpansAreShortNames('send "the weekly revenue summary for the leadership team" to slack'),
+    ).toBe(false);
+  });
+
+  it("unbalanced quotes → NOT eligible (fail closed)", () => {
+    expect(quotedSpansAreShortNames('send a message to "test channel')).toBe(false);
+  });
+
+  it("an empty quoted span → NOT eligible", () => {
+    expect(quotedSpansAreShortNames('send a message to "" channel')).toBe(false);
   });
 });

@@ -61,7 +61,10 @@ import {
   selectRelevantProvidersWithMode,
   type CatalogSelectionMode,
 } from "@/services/ai-guidance/promptFieldSchemas";
-import { classifyPreviewFirst } from "@/services/ai-guidance/previewFirst/classifyPreviewFirst";
+import {
+  classifyPreviewFirst,
+  quotedSpansAreShortNames,
+} from "@/services/ai-guidance/previewFirst/classifyPreviewFirst";
 import { inferNamedProviderChainPlan } from "@/services/ai-guidance/fallback/inferNamedProviderChainPlan";
 import {
   findProviderAmbiguity,
@@ -470,8 +473,12 @@ export async function POST(
   // Hermes-availability check AND the credit gate (same short-circuit contract as the template
   // match: no model call, no AI credit). Applies ONLY when every conservative gate holds:
   //   - a NEW-workflow first turn (no draft, no conversation context the local planner would miss),
-  //   - no sensitive literals or quoted content in the goal (a model call captures those into
-  //     config; the local skeleton cannot, so it must not eat them),
+  //   - no sensitive literals in the goal, and no quoted CONTENT (a model call captures those into
+  //     config; the local skeleton cannot, so it must not eat them). Quoted short NAMES are fine
+  //     (REACT-AGENT-RUNTIME-REPRO-1): `to "test" channel` names a resource the user will pick in
+  //     setup — it carries no config the skeleton would drop, so it must not force the model path.
+  //     `quotedSpansAreShortNames` draws that line deterministically (≤ 4 words, ≤ 32 chars, no
+  //     sentence punctuation; unbalanced quotes fail closed to the model path).
   //   - preview-first classification says the user explicitly named their apps,
   //   - the registry planner resolves EVERY named app to exactly one capability (any ambiguity
   //     declines — the model path continues below).
@@ -482,7 +489,7 @@ export async function POST(
     isNewWorkflowRequest &&
     !(boundedRecentTurns && boundedRecentTurns.length > 0) &&
     literalBindings.length === 0 &&
-    !/["“”]/.test(goalText)
+    quotedSpansAreShortNames(goalText)
   ) {
     const classification = classifyPreviewFirst({ goalText, editing: false });
     if (classification.kind === "preview_expected") {

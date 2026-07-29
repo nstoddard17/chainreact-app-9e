@@ -1623,3 +1623,59 @@ describe("workflow-guidance route — ambiguous Stripe payment trigger (REACT-AG
     expect(mockCharge).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * REACT-AGENT-RUNTIME-REPRO-1 — the EXACT text from the real localhost failure. Two runtime causes
+ * were proven in a live browser repro: (1) the registry-first gate skipped ANY goal containing a
+ * quote character, so `"test"` diverted the turn onto the model path (which failed as
+ * GUIDANCE_TIMEOUT / PREVIEW_PLAN_MISSING); (2) the planner needed punctuation to find two
+ * clauses, so the comma-less phrasing declined even without quotes. Short quoted NAMES now stay on
+ * the deterministic path and run-on temporal speech splits before the send-class verb.
+ */
+describe("workflow-guidance route — exact runtime repro text (REACT-AGENT-RUNTIME-REPRO-1)", () => {
+  const EXACT_RUNTIME_TEXT =
+    'when i get a stripe payment from marcus send me a slack message to "test" channel';
+
+  it("the exact text returns the deterministic preview: no Hermes, no precheck, no charge", async () => {
+    const res = await call(ACCOUNT, { goalText: EXACT_RUNTIME_TEXT });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.source).toBe("registry_planner");
+    expect(
+      body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+    ).toEqual(["stripe:event_received", "slack:send_channel_message"]);
+
+    // Stripe event + Slack channel + message stay SETUP fields; the quoted
+    // name and the person name never enter the plan as values.
+    const byType = Object.fromEntries(
+      body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
+    );
+    expect(byType.event_received).toEqual(["enabledEvents"]);
+    expect(byType.send_channel_message).toEqual(["channel", "text"]);
+    expect(JSON.stringify(body.workflowPlan)).not.toMatch(/marcus/i);
+
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCharge).not.toHaveBeenCalled();
+    expect(body).not.toHaveProperty("code");
+  });
+
+  it("quoted CONTENT (a dictated message body) still takes the model path so it can be captured into config", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Here you go.",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    await call(ACCOUNT, {
+      goalText:
+        'when i get a stripe payment from marcus send a slack channel message saying "Please review the newest payment before end of day today."',
+    });
+    // The long quoted sentence is config-bearing content — the registry-first
+    // path must NOT eat it; the model gets the turn (and the credit gates run).
+    expect(mockRunner).toHaveBeenCalled();
+    expect(mockGate).toHaveBeenCalled();
+  });
+});

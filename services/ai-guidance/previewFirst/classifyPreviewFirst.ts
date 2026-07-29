@@ -124,6 +124,42 @@ function hasProviderAlternation(goalText: string, providers: readonly MentionedP
   return false;
 }
 
+/**
+ * REACT-AGENT-RUNTIME-REPRO-1 — quoted-span classification for the route's
+ * registry-first gate.
+ *
+ * The registry-first skeleton was skipped for ANY goal containing a quote
+ * character, on the theory that quoted content is config the model should
+ * capture. At runtime that diverted `… send me a slack message to "test"
+ * channel` — where the quotes mark a RESOURCE NAME, not content — onto the
+ * model path, which failed the turn (clarification → PREVIEW_PLAN_MISSING, or
+ * a gateway timeout).
+ *
+ * This distinguishes the two quote uses deterministically: every quoted span
+ * must look like a short NAME (≤ 32 chars, ≤ 4 words, single line, no sentence
+ * punctuation) for the skeleton to remain eligible. Longer or sentence-like
+ * quoted content (a message body the user dictated) keeps the model path so it
+ * can be captured into config — the skeleton cannot do that. Unbalanced quotes
+ * fail closed (model path).
+ */
+export function quotedSpansAreShortNames(goalText: string): boolean {
+  // Normalize curly quotes, then split — odd indexes are the quoted spans.
+  const parts = goalText.replace(/[“”]/g, '"').split('"');
+  if (parts.length % 2 === 0) return false; // unbalanced — fail closed
+  const spans: string[] = [];
+  for (let i = 1; i < parts.length; i += 2) spans.push(parts[i]!);
+  if (spans.length === 0) return true; // no quotes at all
+  return spans.every((raw) => {
+    const span = raw.trim();
+    return (
+      span.length > 0 &&
+      span.length <= 32 &&
+      span.split(/\s+/).length <= 4 &&
+      !/[\n\r.!?]/.test(span)
+    );
+  });
+}
+
 export interface ClassifyPreviewFirstInput {
   /** The user's goal text for THIS turn (raw or tokenized — provider names survive tokenization). */
   readonly goalText: string;
