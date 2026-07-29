@@ -422,3 +422,78 @@ describe("consumeState — PKCE round-trip (Slice 2a plumbing)", () => {
     expect(result.pkce).toBeNull();
   });
 });
+
+describe("returnContext (REACT-AGENT-GUIDED-BUILD-1 — popup return context)", () => {
+  it("round-trips a valid builder_popup return context through the JWT", async () => {
+    const { token } = await createState({
+      userId: "u",
+      accountId: "acct-u",
+      provider: "slack",
+      requestedScopes: [],
+      returnContext: { surface: "builder_popup", nonce: "attempt-nonce-1234" },
+    });
+    const verified = verifyState(token);
+    expect(verified.returnContext).toEqual({
+      surface: "builder_popup",
+      nonce: "attempt-nonce-1234",
+    });
+  });
+
+  it("is absent when not supplied (normal flows unchanged)", async () => {
+    const { token } = await createState({
+      userId: "u",
+      accountId: "acct-u",
+      provider: "slack",
+      requestedScopes: [],
+    });
+    expect(verifyState(token).returnContext).toBeUndefined();
+  });
+
+  it("is JWT-only — never persisted on the oauth_states row", async () => {
+    await createState({
+      userId: "u",
+      accountId: "acct-u",
+      provider: "slack",
+      requestedScopes: [],
+      returnContext: { surface: "builder_popup", nonce: "attempt-nonce-1234" },
+    });
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const row = mockCreate.mock.calls[0]![0] as Record<string, unknown>;
+    expect(row).not.toHaveProperty("returnContext");
+    expect(JSON.stringify(row)).not.toContain("builder_popup");
+  });
+
+  it("rejects a re-signed payload with a non-allow-listed surface (defense-in-depth)", async () => {
+    const payload = {
+      userId: "u",
+      accountId: "acct-u",
+      provider: "slack",
+      nonce: "x",
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
+      requestedScopes: [],
+      returnContext: { surface: "https://evil.example", nonce: "attempt-nonce-1234" },
+    };
+    const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const sig = createHmac("sha256", Buffer.from(TEST_KEY, "base64"))
+      .update(data)
+      .digest("base64url");
+    expect(() => verifyState(`${data}.${sig}`)).toThrow(/returnContext/);
+  });
+
+  it("rejects a re-signed payload with a malformed nonce", async () => {
+    const payload = {
+      userId: "u",
+      accountId: "acct-u",
+      provider: "slack",
+      nonce: "x",
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
+      requestedScopes: [],
+      returnContext: { surface: "builder_popup", nonce: "<script>bad" },
+    };
+    const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const sig = createHmac("sha256", Buffer.from(TEST_KEY, "base64"))
+      .update(data)
+      .digest("base64url");
+    expect(() => verifyState(`${data}.${sig}`)).toThrow(/returnContext/);
+  });
+});

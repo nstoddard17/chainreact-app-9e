@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import {
+  buildOAuthPopupCompletePath,
+  type OAuthReturnContext,
+} from "@/core/integrations/oauthPopupBridge";
+import {
   handleCallback,
   ReconnectIdentityMismatchError,
   StateAccountAccessError,
 } from "@/services/oauth/dispatcher";
+import { verifyState } from "@/services/oauth/state";
 import { redactedOAuthErrorCode } from "../_shared";
 
 /**
@@ -29,6 +34,42 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
+/**
+ * REACT-AGENT-GUIDED-BUILD-1 — PEEK the signed state for a popup return context
+ * without consuming it (consumption + replay protection stay owned by the
+ * dispatcher's `consumeState`). Signature-verified, so a fabricated `state`
+ * can't steer the redirect; any invalid/expired/absent token simply means "not
+ * a popup flow" and the classic /apps redirect is used. Never throws.
+ */
+function peekReturnContext(state: string | null): OAuthReturnContext | null {
+  if (!state) return null;
+  try {
+    return verifyState(state).returnContext ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Redirect target for a popup flow: the FIXED internal completion page. */
+function popupCompleteRedirect(
+  base: string,
+  provider: string,
+  ctx: OAuthReturnContext,
+  outcome: { status: "connected" } | { status: "error"; errorCode: string },
+): NextResponse {
+  return NextResponse.redirect(
+    new URL(
+      buildOAuthPopupCompletePath({
+        provider,
+        status: outcome.status,
+        nonce: ctx.nonce,
+        ...(outcome.status === "error" ? { errorCode: outcome.errorCode } : {}),
+      }),
+      base,
+    ),
+  );
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ provider: string }> },
@@ -40,7 +81,22 @@ export async function GET(
   const providerError = url.searchParams.get("error");
   const base = appUrl();
 
+  // REACT-AGENT-GUIDED-BUILD-1 — a flow launched from the builder's guided
+  // Connect popup carries an allow-listed return context inside the SIGNED
+  // state. Peek (verify-only, no consume) once; every branch below then picks
+  // the popup completion page or the classic /apps redirect. A missing/invalid
+  // state peeks to null → classic behavior, byte-identical for full-page flows.
+  const popupCtx = peekReturnContext(state);
+
   if (providerError) {
+    if (popupCtx) {
+      // Provider-supplied error tag (e.g. "access_denied"): clamped; the bridge
+      // page re-validates against its safe-code regex before rendering/posting.
+      return popupCompleteRedirect(base, provider, popupCtx, {
+        status: "error",
+        errorCode: providerError.slice(0, 64),
+      });
+    }
     return NextResponse.redirect(
       new URL(
         `/apps?integration_error=${encodeURIComponent(providerError)}`,
@@ -49,6 +105,12 @@ export async function GET(
     );
   }
   if (!code || !state) {
+    if (popupCtx) {
+      return popupCompleteRedirect(base, provider, popupCtx, {
+        status: "error",
+        errorCode: "missing_code_or_state",
+      });
+    }
     return NextResponse.redirect(
       new URL("/apps?integration_error=missing_code_or_state", base),
     );
@@ -70,6 +132,11 @@ export async function GET(
       state,
       callbackParams,
     });
+    if (popupCtx) {
+      return popupCompleteRedirect(base, integration.provider, popupCtx, {
+        status: "connected",
+      });
+    }
     return NextResponse.redirect(
       new URL(
         `/apps?integration=connected&provider=${encodeURIComponent(integration.provider)}`,
@@ -81,6 +148,12 @@ export async function GET(
     // non-leaking code (never the provider-returned identity or a raw error);
     // the Apps banner renders the friendly "different account" copy.
     if (err instanceof ReconnectIdentityMismatchError) {
+      if (popupCtx) {
+        return popupCompleteRedirect(base, provider, popupCtx, {
+          status: "error",
+          errorCode: "reconnect_account_mismatch",
+        });
+      }
       return NextResponse.redirect(
         new URL("/apps?integration_error=reconnect_account_mismatch", base),
       );
@@ -89,6 +162,12 @@ export async function GET(
     // between connect and callback. Stable, non-leaking code (never the account
     // or user id); the Apps banner renders friendly copy. Nothing was written.
     if (err instanceof StateAccountAccessError) {
+      if (popupCtx) {
+        return popupCompleteRedirect(base, provider, popupCtx, {
+          status: "error",
+          errorCode: "account_access_revoked",
+        });
+      }
       return NextResponse.redirect(
         new URL("/apps?integration_error=account_access_revoked", base),
       );
@@ -101,6 +180,12 @@ export async function GET(
       { event: "oauth.callback_failed", provider },
       "callback_failed",
     );
+    if (popupCtx) {
+      return popupCompleteRedirect(base, provider, popupCtx, {
+        status: "error",
+        errorCode: code,
+      });
+    }
     return NextResponse.redirect(
       new URL(`/apps?integration_error=${encodeURIComponent(code)}`, base),
     );

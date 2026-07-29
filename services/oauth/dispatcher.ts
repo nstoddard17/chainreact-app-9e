@@ -12,6 +12,7 @@ import {
   TokenIngestVerificationError,
 } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
+import type { OAuthReturnContext } from "@/core/integrations/oauthPopupBridge";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
 import { asanaOAuth } from "@/integrations/asana/oauth";
 import { discordOAuth } from "@/integrations/discord/oauth";
@@ -232,6 +233,16 @@ export interface ConnectInput {
     accountId: string;
     expectedProviderAccountId: string;
   };
+  /**
+   * Allow-listed popup return context (REACT-AGENT-GUIDED-BUILD-1). Set ONLY by
+   * the connect route after shape-validating against the fixed allow-list
+   * (`isValidOAuthReturnContext`) — never a URL, never client-steerable beyond
+   * the fixed `builder_popup` surface. Bound into the signed state JWT so the
+   * callback can redirect the POPUP to the fixed internal completion page (and
+   * the opener can match the completion message to its attempt nonce). Normal
+   * full-page connects omit it and are byte-identical to before.
+   */
+  returnContext?: OAuthReturnContext;
 }
 
 /**
@@ -387,6 +398,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
       ...(input.reconnect !== undefined
         ? { reconnect: { integrationId: input.reconnect.integrationId } }
         : {}),
+      ...(input.returnContext !== undefined ? { returnContext: input.returnContext } : {}),
     });
     return { redirectUrl: credentialAuth.buildAuthUrl(state) };
   }
@@ -426,6 +438,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
       ...(input.reconnect !== undefined
         ? { reconnect: { integrationId: input.reconnect.integrationId } }
         : {}),
+      ...(input.returnContext !== undefined ? { returnContext: input.returnContext } : {}),
     });
     const redirectUrl = ingestAuth.buildAuthUrl(state, requestedScopes);
     return { redirectUrl };
@@ -497,6 +510,7 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
     ...(input.reconnect !== undefined
       ? { reconnect: { integrationId: input.reconnect.integrationId } }
       : {}),
+    ...(input.returnContext !== undefined ? { returnContext: input.returnContext } : {}),
   });
   // Slice 4.APPS-RECONNECT — steer the provider sign-in to the intended account
   // on reconnect. Only Google/Microsoft `buildAuthUrl` honor this; every other

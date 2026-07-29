@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { TokenIngestVerificationError } from "@/contracts/integration";
+import { buildOAuthPopupCompletePath } from "@/core/integrations/oauthPopupBridge";
 import { handleTokenIngest } from "@/services/oauth/dispatcher";
-import { InvalidStateError } from "@/services/oauth/state";
+import { InvalidStateError, verifyState } from "@/services/oauth/state";
 import { createClient } from "@/utils/supabase/server";
 import { redactedOAuthErrorCode } from "../_shared";
 
@@ -89,6 +90,17 @@ export async function POST(
     return NextResponse.json({ error: "token required" }, { status: 400 });
   }
 
+  // REACT-AGENT-GUIDED-BUILD-1 — peek (verify-only) the signed state for a popup
+  // return context BEFORE the dispatcher consumes it. Success then redirects the
+  // POPUP to the fixed internal completion page instead of /apps, so the builder
+  // opener gets the completion postMessage. Invalid/absent → classic behavior.
+  let popupNonce: string | null = null;
+  try {
+    popupNonce = verifyState(parsed.state).returnContext?.nonce ?? null;
+  } catch {
+    popupNonce = null;
+  }
+
   try {
     await handleTokenIngest({
       userId: user.id,
@@ -96,7 +108,9 @@ export async function POST(
       state: parsed.state,
       token: parsed.token,
     });
-    const redirect = `/apps?integration=connected&provider=${encodeURIComponent(provider)}`;
+    const redirect = popupNonce
+      ? buildOAuthPopupCompletePath({ provider, status: "connected", nonce: popupNonce })
+      : `/apps?integration=connected&provider=${encodeURIComponent(provider)}`;
     return NextResponse.json({ redirect });
   } catch (err) {
     if (err instanceof InvalidStateError) {

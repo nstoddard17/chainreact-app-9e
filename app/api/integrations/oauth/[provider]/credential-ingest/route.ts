@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { CredentialVerificationError } from "@/contracts/integration";
+import { buildOAuthPopupCompletePath } from "@/core/integrations/oauthPopupBridge";
 import { handleCredentialIngest } from "@/services/oauth/dispatcher";
-import { InvalidStateError } from "@/services/oauth/state";
+import { InvalidStateError, verifyState } from "@/services/oauth/state";
 import { createClient } from "@/utils/supabase/server";
 import { redactedOAuthErrorCode } from "../_shared";
 
@@ -77,6 +78,16 @@ export async function POST(
     }
   }
 
+  // REACT-AGENT-GUIDED-BUILD-1 — peek (verify-only) for a popup return context
+  // before the dispatcher consumes the state; success then sends the POPUP to
+  // the fixed internal completion page. Invalid/absent → classic /apps redirect.
+  let popupNonce: string | null = null;
+  try {
+    popupNonce = verifyState(state).returnContext?.nonce ?? null;
+  } catch {
+    popupNonce = null;
+  }
+
   try {
     await handleCredentialIngest({
       userId: user.id,
@@ -84,7 +95,9 @@ export async function POST(
       state,
       credentials: Object.fromEntries(entries) as Record<string, string>,
     });
-    const redirect = `/apps?integration=connected&provider=${encodeURIComponent(provider)}`;
+    const redirect = popupNonce
+      ? buildOAuthPopupCompletePath({ provider, status: "connected", nonce: popupNonce })
+      : `/apps?integration=connected&provider=${encodeURIComponent(provider)}`;
     return NextResponse.json({ redirect });
   } catch (err) {
     if (err instanceof InvalidStateError) {

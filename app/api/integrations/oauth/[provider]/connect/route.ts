@@ -6,6 +6,10 @@ import { resolveReconnectTarget } from "@/services/integrations/reconnect";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
+import {
+  isValidOAuthReturnContext,
+  type OAuthReturnContext,
+} from "@/core/integrations/oauthPopupBridge";
 import { redactedOAuthErrorCode } from "../_shared";
 
 /**
@@ -81,6 +85,22 @@ export async function POST(
       }
     }
     providerHint = candidate as ProviderHint;
+  }
+
+  // Optional popup return context (REACT-AGENT-GUIDED-BUILD-1). Allow-listed
+  // shape only — a fixed surface discriminator plus a bounded URL-safe attempt
+  // nonce. NEVER a URL: the callback maps the surface to a fixed internal
+  // completion page, so this cannot express an open redirect. Invalid shapes are
+  // a typed 400 (not silently dropped) so a misintegrated client fails loudly.
+  let returnContext: OAuthReturnContext | undefined;
+  if (parsed?.return !== undefined) {
+    if (!isValidOAuthReturnContext(parsed.return)) {
+      return NextResponse.json(
+        { error: "return must be { surface: 'builder_popup', nonce } with a URL-safe nonce" },
+        { status: 400 },
+      );
+    }
+    returnContext = parsed.return;
   }
 
   // Optional reconnect intent (Slice 4.APPS-RECONNECT). The client supplies only
@@ -184,6 +204,7 @@ export async function POST(
       provider,
       ...(providerHint !== undefined ? { providerHint } : {}),
       ...(reconnectBundle !== undefined ? { reconnect: reconnectBundle } : {}),
+      ...(returnContext !== undefined ? { returnContext } : {}),
     });
     return NextResponse.json({ redirectUrl });
   } catch (err) {

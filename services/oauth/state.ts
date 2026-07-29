@@ -1,5 +1,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { PkceInputs, ProviderHint } from "@/contracts/integration";
+import {
+  isValidOAuthReturnContext,
+  type OAuthReturnContext,
+} from "@/core/integrations/oauthPopupBridge";
 import * as oauthStatesRepo from "@/repositories/oauthStates";
 
 /**
@@ -83,6 +87,17 @@ export interface OAuthStatePayload {
   reconnect?: {
     integrationId: string;
   };
+  /**
+   * Allow-listed popup return context (REACT-AGENT-GUIDED-BUILD-1). Present ONLY
+   * when the connect flow was launched from the builder's guided Connect stage
+   * in a popup. Carries the fixed surface discriminator plus a client-generated
+   * attempt nonce (NOT a secret) so the callback can redirect the popup to the
+   * fixed internal completion page and the opener can match the completion
+   * message to the attempt it launched. NEVER a URL — the redirect target is
+   * hardcoded server-side, so this cannot become an open-redirect vector.
+   * JWT-only — not persisted on the `oauth_states` DB row (no migration).
+   */
+  returnContext?: OAuthReturnContext;
 }
 
 export class InvalidStateError extends Error {
@@ -137,6 +152,13 @@ export interface CreateStateInput {
   reconnect?: {
     integrationId: string;
   };
+  /**
+   * Allow-listed popup return context (REACT-AGENT-GUIDED-BUILD-1 — see
+   * OAuthStatePayload.returnContext). Baked into the signed JWT, NOT written to
+   * the DB row. Set only after the connect route shape-validated it against the
+   * allow-list. Normal flows omit it.
+   */
+  returnContext?: OAuthReturnContext;
 }
 
 /**
@@ -175,6 +197,9 @@ export async function createState(
       : {}),
     ...(input.reconnect !== undefined
       ? { reconnect: { integrationId: input.reconnect.integrationId } }
+      : {}),
+    ...(input.returnContext !== undefined
+      ? { returnContext: { surface: input.returnContext.surface, nonce: input.returnContext.nonce } }
       : {}),
   };
 
@@ -254,6 +279,16 @@ export function verifyState(token: string): OAuthStatePayload {
       (payload.reconnect as { integrationId: string }).integrationId.length === 0)
   ) {
     throw new InvalidStateError("malformed reconnect");
+  }
+  // REACT-AGENT-GUIDED-BUILD-1 — popup return context, optional. When present it
+  // must match the allow-list exactly (fixed surface + bounded URL-safe nonce).
+  // A tampered value would otherwise flow into the callback's redirect decision.
+  // (Tampering also fails the signature check upstream; defense-in-depth.)
+  if (
+    payload.returnContext !== undefined &&
+    !isValidOAuthReturnContext(payload.returnContext)
+  ) {
+    throw new InvalidStateError("malformed returnContext");
   }
   return payload;
 }
