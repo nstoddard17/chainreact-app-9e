@@ -557,6 +557,16 @@ the UI (`"2×1"` → `{w:2,h:1}`) and stops being persisted state.
 
 ## 15. Existing-layout migration strategy
 
+> **Superseded in part by the owner decision on ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1.**
+> The chokepoint, laziness and idempotence below all stand. The *placement rule*
+> does not: the owner ruled that the empty cells sparse auto-flow produced were
+> side effects, never authored placement, so migration must **not** reproduce
+> them. `migrateLegacyOrderedLayout` therefore uses **first-fit**
+> (`findFirstAvailableRect` per widget, in legacy array order) rather than
+> replaying CSS §8.5. The two differ only on boards that had accidental holes;
+> the shipped default board migrates identically under either rule. Implemented
+> and tested in `features/analytics/layout/legacyMigration.ts`.
+
 **Deterministic, lazy, idempotent — one chokepoint, no backfill migration.**
 
 `services/analytics/dashboards.ts → toDashboard()` is already the single point
