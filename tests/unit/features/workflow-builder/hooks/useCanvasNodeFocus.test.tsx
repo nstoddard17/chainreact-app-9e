@@ -7,7 +7,7 @@
  * `setCenter` call without standing up a full canvas. Navigation only — the
  * hook never mutates graph/config state.
  */
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 
 const mockSetCenter = jest.fn();
 const mockGetNode = jest.fn();
@@ -33,13 +33,24 @@ beforeEach(() => {
   currentZoom = 1;
 });
 
+/**
+ * BUILDER-CANVAS-ZOOM-FOCUS-1 — the pan is deferred two animation frames so React Flow's resize
+ * observer can report the canvas width the config panel just changed. Tests must let those frames
+ * run before asserting; jsdom drives rAF off a timer, so a short real wait covers both.
+ */
+async function flushFocusFrames(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+}
+
 describe("useCanvasNodeFocus", () => {
-  it("does not pan on mount (seq 0, no target)", () => {
+  it("does not pan on mount (seq 0, no target)", async () => {
     renderHook(() => useCanvasNodeFocus());
     expect(mockSetCenter).not.toHaveBeenCalled();
   });
 
-  it("pans to the node center when a reveal advances the focus sequence", () => {
+  it("pans to the node center when a reveal advances the focus sequence", async () => {
     mockGetNode.mockReturnValue({
       id: "slack1",
       position: { x: 100, y: 200 },
@@ -49,6 +60,7 @@ describe("useCanvasNodeFocus", () => {
 
     useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
     rerender();
+    await flushFocusFrames();
 
     expect(mockGetNode).toHaveBeenCalledWith("slack1");
     // Centered on node center: x + w/2, y + h/2.
@@ -63,24 +75,27 @@ describe("useCanvasNodeFocus", () => {
     expect(opts.duration).toBeGreaterThan(0);
   });
 
-  it("re-pans when the SAME node is revealed again (seq advances)", () => {
+  it("re-pans when the SAME node is revealed again (seq advances)", async () => {
     mockGetNode.mockReturnValue({ id: "slack1", position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } });
     const { rerender } = renderHook(() => useCanvasNodeFocus());
 
     useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
     rerender();
+    await flushFocusFrames();
     useConfigSlice.getState().revealNode({ nodeId: "slack1", initialValues: {}, fieldKey: "text" });
     rerender();
+    await flushFocusFrames();
 
     expect(mockSetCenter).toHaveBeenCalledTimes(2);
   });
 
-  it("no-ops safely when the target node is not on the canvas (stale)", () => {
+  it("no-ops safely when the target node is not on the canvas (stale)", async () => {
     mockGetNode.mockReturnValue(undefined);
     const { rerender } = renderHook(() => useCanvasNodeFocus());
 
     useConfigSlice.getState().revealNode({ nodeId: "ghost", initialValues: {}, fieldKey: "text" });
     rerender();
+    await flushFocusFrames();
 
     expect(mockGetNode).toHaveBeenCalledWith("ghost");
     expect(mockSetCenter).not.toHaveBeenCalled();
@@ -88,7 +103,7 @@ describe("useCanvasNodeFocus", () => {
 });
 
 describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTED-NODE-1 / -TUNE-1)", () => {
-  it("opening a node's config zooms IN (gentle) with a small left bias", () => {
+  it("opening a node's config zooms IN (gentle) and centers the node exactly", async () => {
     currentZoom = 1; // normal zoomed-out canvas
     mockGetNode.mockReturnValue({
       id: "n1",
@@ -99,12 +114,15 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
 
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
     rerender();
+    await flushFocusFrames();
 
     expect(mockSetCenter).toHaveBeenCalledTimes(1);
     const [cx, cy, opts] = mockSetCenter.mock.calls[0]!;
-    // Node center is 100 + 140 = 240. Config-open keeps a small left bias → cx slightly > 240.
-    expect(cx).toBeGreaterThan(240);
-    expect(cx).toBeLessThan(240 + 100); // gentle nudge, not the old 220px shove
+    // BUILDER-CANVAS-ZOOM-FOCUS-1 — the node's TRUE center, with no left bias. `setCenter` works
+    // against React Flow's own container, and both rails are non-overlapping flex columns, so
+    // centering there is already centering in the visible canvas for any combination of open
+    // rails. The old 60px nudge just put the node off-centre.
+    expect(cx).toBe(100 + 140);
     expect(cy).toBe(200 + 60);
     // TUNE-1 — zooms IN to the config floor (1.4): clearly STRONGER than the old flat 1.2,
     // and still gentler than the close 1.75 reveal so context around the node remains.
@@ -113,7 +131,7 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
     expect(opts.duration).toBeGreaterThan(0);
   });
 
-  it("does NOT zoom out when the canvas is already zoomed in above the config floor", () => {
+  it("does NOT zoom out when the canvas is already zoomed in above the config floor", async () => {
     currentZoom = 1.6; // user already zoomed past the 1.4 config floor
     mockGetNode.mockReturnValue({
       id: "n1",
@@ -124,6 +142,7 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
 
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
     rerender();
+    await flushFocusFrames();
 
     const [, , opts] = mockSetCenter.mock.calls[0]!;
     // Preserve the current (higher) zoom — opening config must NOT zoom away from a node
@@ -131,7 +150,7 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
     expect(opts.zoom).toBe(1.6);
   });
 
-  it("zooms IN to the config floor from a zoomed-out canvas", () => {
+  it("zooms IN to the config floor from a zoomed-out canvas", async () => {
     currentZoom = 0.7; // zoomed out below the floor
     mockGetNode.mockReturnValue({
       id: "n1",
@@ -142,12 +161,13 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
 
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
     rerender();
+    await flushFocusFrames();
 
     const [, , opts] = mockSetCenter.mock.calls[0]!;
     expect(opts.zoom).toBe(1.4); // raised up to the floor (zoom-in), never below it
   });
 
-  it("reveal forces its closer zoom and is unaffected by the config floor / current zoom", () => {
+  it("reveal forces its closer zoom and is unaffected by the config floor / current zoom", async () => {
     currentZoom = 1.6;
     mockGetNode.mockReturnValue({
       id: "n1",
@@ -158,6 +178,7 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
 
     useConfigSlice.getState().revealNode({ nodeId: "n1", initialValues: {}, fieldKey: "text" });
     rerender();
+    await flushFocusFrames();
 
     const [cx, , opts] = mockSetCenter.mock.calls[0]!;
     // Reveal stays CLOSER than config-open and centered (no left bias).
@@ -165,26 +186,30 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
     expect(cx).toBe(0 + 140); // dead-centered on the node
   });
 
-  it("re-opening the SAME already-active node does NOT re-pan (no repeated zoom loop)", () => {
+  it("re-opening the SAME already-active node does NOT re-pan (no repeated zoom loop)", async () => {
     mockGetNode.mockReturnValue({ id: "n1", position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } });
     const { rerender } = renderHook(() => useCanvasNodeFocus());
 
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
     rerender();
+    await flushFocusFrames();
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
     rerender();
+    await flushFocusFrames();
 
     expect(mockSetCenter).toHaveBeenCalledTimes(1);
   });
 
-  it("opening a DIFFERENT node pans again toward the new node", () => {
+  it("opening a DIFFERENT node pans again toward the new node", async () => {
     mockGetNode.mockReturnValue({ id: "any", position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } });
     const { rerender } = renderHook(() => useCanvasNodeFocus());
 
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
     rerender();
+    await flushFocusFrames();
     useConfigSlice.getState().openNode({ nodeId: "n2", initialValues: {} });
     rerender();
+    await flushFocusFrames();
 
     expect(mockSetCenter).toHaveBeenCalledTimes(2);
   });

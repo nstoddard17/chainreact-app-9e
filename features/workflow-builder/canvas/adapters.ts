@@ -73,6 +73,13 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    */
   customName?: string;
   /**
+   * BUILDER-CANVAS-ZOOM-FOCUS-1 — true for the ONE node whose configuration panel is currently
+   * open. Distinct from React Flow's `selected`: a node can be selected by a canvas click or a
+   * marquee without its config being open, and the pulse must mark the node you are editing, not
+   * merely the one you last touched. Presentation only — the card renders a slow glow from it.
+   */
+  configOpen?: boolean;
+  /**
    * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — true when this node has NO outgoing
    * edge (a chain/branch end). Tail nodes render an "add next step" `+` so users
    * can append at the end (or extend a specific branch) without the top-right CTA.

@@ -35,11 +35,6 @@ const REVEAL_DURATION_MS = 450;
 // than the close 1.75 reveal, so context around the node is preserved.
 const CONFIG_MIN_ZOOM = 1.4;
 const CONFIG_DURATION_MS = 300;
-// Small left bias so the node sits just left of the canvas-region center. The right config
-// drawer is a NON-overlapping flex column (it does not cover the canvas), so the previous 220px
-// "clear the panel" offset over-corrected and read as the node being pushed away. A gentle nudge
-// is enough. Screen px, scaled by zoom so the on-screen shift stays stable.
-const CONFIG_LEFT_OFFSET_SCREEN_PX = 60;
 
 const DEFAULT_NODE_WIDTH = 280;
 const DEFAULT_NODE_HEIGHT = 120;
@@ -62,22 +57,42 @@ export function useCanvasNodeFocus(): void {
     const node = getNode(canvasFocusNodeId);
     if (!node) return; // stale target / node not on canvas → no-op.
 
+    /**
+     * BUILDER-CANVAS-ZOOM-FOCUS-1 — center in the VISIBLE canvas, and wait for it to exist.
+     *
+     * `setCenter` centers within React Flow's own container, and both rails (the React Agent rail
+     * and the config drawer) are non-overlapping flex columns — so that container IS the visible
+     * canvas and the centering is automatically correct for any combination of open rails. Nothing
+     * needs to know the rails' widths.
+     *
+     * Two things were breaking that. First, a deliberate 60px left bias, which by definition put
+     * the node off-center. Second — and this is what made it look wrong when the config panel
+     * opened — the focus signal and the panel mount in the SAME commit, so `setCenter` ran against
+     * the container's PRE-shrink width and centered on a canvas region that no longer existed by
+     * the time the animation played. Deferring past layout lets React Flow's resize observer take
+     * the new width first; two frames because the first lands after the DOM mutation and the
+     * second after the observer has reported.
+     */
     const width = node.measured?.width ?? DEFAULT_NODE_WIDTH;
     const height = node.measured?.height ?? DEFAULT_NODE_HEIGHT;
     const isReveal = canvasFocusMode === "reveal";
     const duration = isReveal ? REVEAL_DURATION_MS : CONFIG_DURATION_MS;
-    // Reveal forces its close inspect zoom. Config-open zooms IN to at least the config
-    // floor but never below the CURRENT zoom — so opening config on an already-zoomed-in
-    // node pans toward it without zooming away.
-    const zoom = isReveal
-      ? REVEAL_ZOOM
-      : Math.max(getViewport().zoom, CONFIG_MIN_ZOOM);
-    // Reveal stays centered; config-open applies a gentle left bias (the config drawer is a
-    // separate column, not an overlay) so the node sits just left of the canvas center.
-    const offsetX = isReveal ? 0 : CONFIG_LEFT_OFFSET_SCREEN_PX / zoom;
-    setCenter(node.position.x + width / 2 + offsetX, node.position.y + height / 2, {
-      zoom,
-      duration,
+    const targetX = node.position.x + width / 2;
+    const targetY = node.position.y + height / 2;
+
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        // Read the zoom HERE, after layout: reveal forces its close inspect zoom, config-open
+        // zooms IN to at least the config floor but never below the CURRENT zoom, so opening
+        // config on an already-zoomed-in node pans toward it without zooming away.
+        const zoom = isReveal ? REVEAL_ZOOM : Math.max(getViewport().zoom, CONFIG_MIN_ZOOM);
+        setCenter(targetX, targetY, { zoom, duration });
+      });
     });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
   }, [canvasFocusSeq, canvasFocusNodeId, canvasFocusMode, getNode, getViewport, setCenter]);
 }

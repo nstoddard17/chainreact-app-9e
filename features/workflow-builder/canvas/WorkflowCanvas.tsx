@@ -11,6 +11,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useStore,
   type Connection,
   type Edge as FlowEdge,
   type Node as FlowNode,
@@ -290,8 +291,13 @@ function WorkflowCanvasInner({
       branchHandleLabels,
     });
     if (!activeNodeId) return base;
+    // BUILDER-CANVAS-ZOOM-FOCUS-1 — `configOpen` marks the node whose config panel is open so the
+    // card can pulse. Kept separate from `selected`, which React Flow also sets for a plain canvas
+    // click; the pulse should follow what you are EDITING, not what you last clicked.
     return base.map((n) =>
-      n.id === activeNodeId ? { ...n, selected: true } : n,
+      n.id === activeNodeId
+        ? { ...n, selected: true, data: { ...n.data, configOpen: true } }
+        : n,
     );
   }, [previewDiff, pendingNodes, providerLabels, providerIcons, requiredFieldsByType, summaryFieldsByType, resourceLabels, tailNodeIds, branchHandleLabels, activeNodeId]);
 
@@ -500,18 +506,7 @@ function WorkflowCanvasInner({
               </ControlButton>
             ) : null}
           </Controls>
-          <MiniMap
-            data-testid="workflow-canvas-minimap"
-            pannable
-            zoomable
-            style={{
-              background: "var(--builder-panel)",
-              border: "1px solid var(--builder-border)",
-              borderRadius: 6,
-            }}
-            maskColor="rgba(0,0,0,0.06)"
-            nodeColor={() => "var(--builder-muted-2)"}
-          />
+          <ZoomAwareMiniMap />
         </ReactFlow>
         {/* HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — while an AI preview overlay is active, hide the
             empty-state card so the holographic proposed nodes read clearly (the card returns on
@@ -539,6 +534,50 @@ function WorkflowCanvasInner({
       ) : null}
     </div>
     </BuilderNodeActionsProvider>
+  );
+}
+
+/**
+ * BUILDER-CANVAS-ZOOM-FOCUS-1 — the minimap, hidden while the canvas is zoomed in.
+ *
+ * The minimap earns its space when you are zoomed OUT and need to know where you are in a large
+ * workflow. Zoomed IN — which is exactly what opening a node's config does — you are working on one
+ * node, and the minimap becomes a bright rectangle sitting over the corner of the canvas you are
+ * trying to look at. It hides above the threshold and comes straight back when you zoom out.
+ *
+ * The threshold sits above any zoom `fitView` can produce (React Flow caps fitView at 1.0) and
+ * below the config-open floor of 1.4, so a normal fitted canvas always shows it and a
+ * config-open / reveal zoom always hides it.
+ */
+export const MINIMAP_HIDE_ZOOM = 1.2;
+
+/**
+ * Whether the minimap shows at a given zoom. A pure predicate of the CURRENT zoom with no memory,
+ * which is what makes the minimap reappear the moment the user zooms back out — a latched "hidden
+ * once we zoomed in" flag would be a worse bug than the overlap it fixed.
+ */
+export function shouldShowMiniMap(zoom: number): boolean {
+  return zoom < MINIMAP_HIDE_ZOOM;
+}
+
+function ZoomAwareMiniMap() {
+  // Subscribe to the live viewport scale rather than reading it once — this must react to wheel
+  // zoom and the zoom buttons, not only to a programmatic setCenter.
+  const zoom = useStore((s) => s.transform[2]);
+  if (!shouldShowMiniMap(zoom)) return null;
+  return (
+    <MiniMap
+      data-testid="workflow-canvas-minimap"
+      pannable
+      zoomable
+      style={{
+        background: "var(--builder-panel)",
+        border: "1px solid var(--builder-border)",
+        borderRadius: 6,
+      }}
+      maskColor="rgba(0,0,0,0.06)"
+      nodeColor={() => "var(--builder-muted-2)"}
+    />
   );
 }
 

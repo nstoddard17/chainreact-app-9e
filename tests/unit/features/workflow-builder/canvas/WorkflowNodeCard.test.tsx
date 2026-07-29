@@ -497,3 +497,38 @@ describe("WorkflowNodeCard — at-a-glance summary line (CONFIG-UX-NODE-SUMMARY-
     expect(screen.getByTestId("node-summary-line")).toBeInTheDocument();
   });
 });
+
+/**
+ * BUILDER-CANVAS-ZOOM-FOCUS-1 — the node whose config panel is open pulses slowly, so with the
+ * canvas zoomed in and a panel open there is never any doubt which step you are editing.
+ */
+describe("WorkflowNodeCard — config-open pulse", () => {
+  const base: WorkflowNodeData = {
+    kind: "action",
+    provider: "slack",
+    type: "send_channel_message",
+    displayName: "Send Channel Message",
+  };
+
+  it("marks and animates the node whose config panel is open", () => {
+    renderCard({ data: { ...base, configOpen: true }, selected: true });
+    const view = screen.getByTestId("workflow-node-view");
+    expect(view).toHaveAttribute("data-config-open", "true");
+    expect(view.querySelector(".builder-node-editing")).not.toBeNull();
+  });
+
+  it("does NOT pulse a node that is merely selected", () => {
+    // The distinction that matters: a canvas click or marquee selects a node without opening its
+    // config. Pulsing on `selected` would mark the node you last touched, not the one you're
+    // editing — and could pulse several at once.
+    renderCard({ data: base, selected: true });
+    const view = screen.getByTestId("workflow-node-view");
+    expect(view).not.toHaveAttribute("data-config-open");
+    expect(view.querySelector(".builder-node-editing")).toBeNull();
+  });
+
+  it("does not pulse an ordinary unselected node", () => {
+    renderCard({ data: base, selected: false });
+    expect(screen.getByTestId("workflow-node-view").querySelector(".builder-node-editing")).toBeNull();
+  });
+});

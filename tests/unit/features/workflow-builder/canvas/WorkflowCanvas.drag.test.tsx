@@ -28,6 +28,11 @@ jest.mock("@xyflow/react", () => {
     // The real provider's zustand store isn't mounted under the mocked ReactFlow, so
     // stub the one hook the canvas reads outside <ReactFlow> (useCanvasNodeFocus).
     useReactFlow: () => ({ setCenter: () => {}, getNode: () => undefined }),
+    // BUILDER-CANVAS-ZOOM-FOCUS-1 — the minimap wrapper reads the live viewport scale from React
+    // Flow's store. These suites stub ReactFlowProvider to a Fragment, so there is no real store;
+    // stand in with a settled zoom of 1 (a normal fitted canvas).
+    useStore: (selector: (s: { transform: [number, number, number] }) => unknown) =>
+      selector({ transform: [0, 0, 1] }),
     Background: () => null,
     MiniMap: () => null,
     Controls: ({ children }: { children: ReactNode }) =>

@@ -137,6 +137,7 @@ export function WorkflowNodeCard({
       data-testid="workflow-node-view"
       data-kind={data.kind}
       data-selected={selected ? "true" : undefined}
+      {...(data.configOpen ? { "data-config-open": "true" } : {})}
       data-status={status}
       {...(diffStatus ? { "data-diff-status": diffStatus } : {})}
       className="relative w-[280px]"
@@ -152,7 +153,11 @@ export function WorkflowNodeCard({
       ) : null}
 
       <div
-        className={`relative overflow-hidden rounded-[6px] transition-colors${isRemoved ? " opacity-60" : ""}`}
+        // BUILDER-CANVAS-ZOOM-FOCUS-1 — `builder-node-editing` is a slow accent glow marking the
+        // node whose config panel is open. It animates the SHADOW only (never size or position) so
+        // it can never nudge the card, shift the connection handles, or fight the focus zoom; it is
+        // also disabled under prefers-reduced-motion, where the static selected ring still reads.
+        className={`relative overflow-hidden rounded-[6px] transition-colors${isRemoved ? " opacity-60" : ""}${data.configOpen ? " builder-node-editing" : ""}`}
         style={{
           background: "var(--builder-panel)",
           border: diff

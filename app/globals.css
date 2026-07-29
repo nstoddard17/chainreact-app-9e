@@ -1300,6 +1300,19 @@
   .crv2-thinking-dots > span { animation: crv2-thinking-dot 1.2s ease-in-out infinite; }
   .crv2-thinking-dots > span:nth-child(2) { animation-delay: 0.15s; }
   .crv2-thinking-dots > span:nth-child(3) { animation-delay: 0.3s; }
+
+  /* BUILDER-CANVAS-ZOOM-FOCUS-1 — slow accent pulse on the node whose config panel is open.
+     Animates box-shadow ONLY: a transform/scale pulse would nudge the card, drag its connection
+     handles with it, and fight the focus zoom that just centred it. ~2.4s so it reads as a calm
+     "this is the one you're editing" marker rather than an alert. Inside the reduced-motion guard
+     — without it the static selected ring already identifies the node. */
+  @keyframes builder-node-editing-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--builder-accent-soft), var(--builder-shadow-md); }
+    50%      { box-shadow: 0 0 0 5px var(--builder-accent-soft), var(--builder-shadow-md); }
+  }
+  .builder-node-editing {
+    animation: builder-node-editing-pulse 2.4s ease-in-out infinite;
+  }
 }
 
 /* ── Custom Insight series palette (ANALYTICS-CONNECTED-DATA-CD-3A) ──────────
