@@ -59,3 +59,33 @@ describe("EmptyCanvasState", () => {
     ).toBeInTheDocument();
   });
 });
+
+/**
+ * BUILDER-EMPTY-STATE-TEMPLATES-1 / BUILDER-CANVAS-CHROME-TRIM-1 — the
+ * "Import from template" entry is WIRED when the builder provides the
+ * callback (disabled honestly on the local-only builder), and the old
+ * "Describe to AI" placeholder is gone (the React Agent rail is that entry).
+ */
+describe("EmptyCanvasState — templates entry + trimmed placeholders", () => {
+  it("fires onImportTemplate when wired (signed-in builder)", async () => {
+    const user = userEvent.setup();
+    const onImportTemplate = jest.fn();
+    render(<EmptyCanvasState onAddTrigger={jest.fn()} onImportTemplate={onImportTemplate} />);
+    const button = screen.getByTestId("empty-canvas-import-template");
+    expect(button).toBeEnabled();
+    await user.click(button);
+    expect(onImportTemplate).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the template button disabled with an honest note when not wired (local-only)", () => {
+    render(<EmptyCanvasState onAddTrigger={jest.fn()} />);
+    const button = screen.getByTestId("empty-canvas-import-template");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", expect.stringMatching(/sign in/i));
+  });
+
+  it("no longer renders a 'Describe to AI' button", () => {
+    render(<EmptyCanvasState onAddTrigger={jest.fn()} onImportTemplate={jest.fn()} />);
+    expect(screen.queryByText(/describe to ai/i)).toBeNull();
+  });
+});

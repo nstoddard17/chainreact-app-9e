@@ -130,6 +130,12 @@ interface Props {
    */
   addActionBlockedReason?: "no-trigger" | "multiple-tails";
   /**
+   * BUILDER-EMPTY-STATE-TEMPLATES-1 — opens the in-builder templates modal
+   * from the empty-state card. Absent (local-only) -> the card's button
+   * renders disabled.
+   */
+  onImportTemplate?: () => void;
+  /**
    * BUILDER-READINESS — required-field metadata per `provider:type`. Threaded
    * into the node adapter so a node missing a required field renders the
    * "Needs setup" chip instead of "Ready". Optional (no map → prior behavior).
@@ -188,6 +194,7 @@ function WorkflowCanvasInner({
   onArrange,
   onAppendAfterNode,
   addActionBlockedReason,
+  onImportTemplate,
   requiredFieldsByType,
   summaryFieldsByType,
   resourceLabels,
@@ -501,7 +508,7 @@ function WorkflowCanvasInner({
         {/* HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — while an AI preview overlay is active, hide the
             empty-state card so the holographic proposed nodes read clearly (the card returns on
             Discard if the graph is still empty). Normal empty draft mode is unaffected. */}
-        {isEmpty && !previewActive && !previewDiffActive ? <EmptyCanvasState onAddTrigger={onAddTrigger} /> : null}
+        {isEmpty && !previewActive && !previewDiffActive ? <EmptyCanvasState onAddTrigger={onAddTrigger} {...(onImportTemplate ? { onImportTemplate } : {})} /> : null}
         {showRecoveryBanner ? (
           <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
         ) : null}

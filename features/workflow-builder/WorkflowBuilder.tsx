@@ -23,6 +23,7 @@ import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields
 import { useResourceLabelCache } from "./state/resourceLabelCache";
 import { PreviewReviewPanel } from "./panels/PreviewReviewPanel";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
+import { BuilderTemplatesModal } from "./panels/BuilderTemplatesModal";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -1127,6 +1128,13 @@ export function WorkflowBuilder({
   // in the right drawer. Set from the Agent changes timeline; cleared on drawer close.
   const [viewDiffItem, setViewDiffItem] = useState<AgentChangeHistoryItem | null>(null);
 
+  // BUILDER-EMPTY-STATE-TEMPLATES-1 — the empty-canvas "Import from template"
+  // entry point. Opens the SAME self-contained BuilderTemplatesModal the
+  // header's Templates button uses (create-new / replace-current, with its own
+  // confirmations); this is a second mount point, not a second implementation.
+  // Never wired on the logged-out local-only builder.
+  const [emptyStateTemplatesOpen, setEmptyStateTemplatesOpen] = useState(false);
+
   // AGENT-CHANGE-HISTORY-1 (test-fix) — verify a just-applied failed-run repair against the next run,
   // recording tested / test_failed. Mounted here (stable) because the repair UI unmounts mid-verify.
   useRepairTestVerification(workflow.id, { enabled: !localOnly });
@@ -1442,6 +1450,7 @@ export function WorkflowBuilder({
           providerLabels={providerLabels}
           providerIcons={providerIcons}
           onAddTrigger={openTriggerPicker}
+          {...(localOnly ? {} : { onImportTemplate: () => setEmptyStateTemplatesOpen(true) })}
           onEdgePlusClick={memoizedEdgePlusClick}
           onAddAction={openActionPicker}
           canAddAction={canAddAction}
@@ -1518,6 +1527,16 @@ export function WorkflowBuilder({
             This stays a one-line acknowledgement that cannot cover the canvas or a config field. */}
         {applyNotice ? (
           <BuilderApplyNotice notice={applyNotice} onDismiss={dismissApplyNotice} />
+        ) : null}
+        {/* BUILDER-EMPTY-STATE-TEMPLATES-1 — empty-state "Import from template"
+            opens the same in-builder templates modal as the header button. */}
+        {!localOnly && emptyStateTemplatesOpen ? (
+          <BuilderTemplatesModal
+            workflowId={workflow.id}
+            isDirty={draftIsDirty}
+            workflowState={workflow.state}
+            onClose={() => setEmptyStateTemplatesOpen(false)}
+          />
         ) : null}
       </div>
     </BuilderShell>

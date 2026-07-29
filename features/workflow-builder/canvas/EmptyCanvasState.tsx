@@ -7,6 +7,13 @@ interface Props {
    * in trigger mode.
    */
   onAddTrigger?: () => void;
+  /**
+   * BUILDER-EMPTY-STATE-TEMPLATES-1 — opens the in-builder templates modal
+   * (the same create-new / replace-current flow as the header's Templates
+   * button). Absent (logged-out local-only builder) → the button renders
+   * disabled with an honest note, never a dead click.
+   */
+  onImportTemplate?: () => void;
 }
 
 /**
@@ -16,19 +23,16 @@ interface Props {
  * Adopts the Anthropic ChainV2 empty card aesthetic — diagonal-rule
  * frame strip across the top, mono uppercase tag ("EMPTY · NO TRIGGER
  * · NO ACTIONS"), large title, subtitle with the ⌘K hint, and an
- * action row with the primary "Choose a trigger" CTA plus a disabled
- * "Import from template" placeholder. (The "Describe to AI" placeholder
- * was removed — the React Agent rail IS that entry point.)
- *
- * The placeholder buttons render as disabled — V2 doesn't have those
- * flows wired inside the builder shell yet (AI plan-from-blank uses
- * the left rail; templates live on a separate page). They exist so
- * the visual layout reads correctly without faking interactions.
+ * action row with the primary "Choose a trigger" CTA plus "Import from
+ * template", which opens the in-builder templates modal when the builder
+ * provides the callback (disabled with an honest note on the logged-out
+ * local-only builder). The old "Describe to AI" placeholder was removed —
+ * the React Agent rail IS that entry point.
  *
  * "Recent triggers" list is deferred — V2 doesn't surface per-workspace
  * recency yet (see slice doc §Deferred).
  */
-export function EmptyCanvasState({ onAddTrigger }: Props) {
+export function EmptyCanvasState({ onAddTrigger, onImportTemplate }: Props) {
   return (
     <div
       data-testid="empty-canvas-state"
@@ -90,8 +94,14 @@ export function EmptyCanvasState({ onAddTrigger }: Props) {
             </button>
             <button
               type="button"
-              disabled
-              title="Templates live on the workflows index — direct in-builder import is coming soon"
+              data-testid="empty-canvas-import-template"
+              disabled={!onImportTemplate}
+              {...(onImportTemplate ? { onClick: onImportTemplate } : {})}
+              title={
+                onImportTemplate
+                  ? "Browse templates and start from one"
+                  : "Sign in to browse templates"
+              }
               className="inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
               style={{
                 background: "var(--builder-panel)",
