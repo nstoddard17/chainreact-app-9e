@@ -270,7 +270,12 @@ describe("duplicate widget (dashboard flow)", () => {
     await waitFor(() => expect(mockedApi.updateDashboard).toHaveBeenCalledTimes(1));
     const saved = mockedApi.updateDashboard.mock.calls[0]![1].widgets as AnalyticsWidget[];
     expect(saved).toHaveLength(3);
-    expect(saved[1]!.title).toBe("Runs copy");
+    // S4: the copy is PLACED (first-fit) rather than spliced in beside its
+    // source, so its index in the saved array is no longer meaningful — its
+    // presence and its own rectangle are.
+    const copy = saved.find((w) => w.title === "Runs copy");
+    expect(copy).toBeDefined();
+    expect(copy!.layout).toBeDefined();
     expect(saved[1]!.id).not.toBe("w-stat");
   });
 

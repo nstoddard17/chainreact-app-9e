@@ -138,6 +138,21 @@ export function duplicateWidgetAt(
   return { widgets: next, newId };
 }
 
+/**
+ * RETAINED AS HISTORICAL REFERENCE ONLY
+ * (ANALYTICS-EXPLICIT-LAYOUT-S4-EDITOR-INTEGRATION-1).
+ *
+ * `DragSlot`, `computeDragPreview` and `hitTestSlot` are the ordered-array drag
+ * model that S4 replaced. No production code calls them: the editor now derives
+ * a candidate RECTANGLE from the pointer and resolves it through the layout
+ * engine, so destinations are places rather than other widgets' boxes.
+ *
+ * They are kept because the audit's diagnostic suite uses them as the executable
+ * record of WHY the old model could not work — a widget-indexed destination list
+ * cannot address an empty cell. Deleting them would delete that evidence. Do not
+ * call them from new code.
+ */
+
 /** One grid slot's geometry, captured at drag start (grid-relative, px). */
 export interface DragSlot {
   readonly left: number;

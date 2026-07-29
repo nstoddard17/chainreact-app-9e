@@ -2,30 +2,28 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 /**
- * The explicit-layout rollout guard
- * (ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1, widened in S3).
+ * The explicit-layout writer guard
+ * (S2 → widened in S3 → narrowed to ownership in S4).
  *
- * Persisting `layout` is a ONE-WAY DOOR: once production rows carry the field,
- * rolling back to a build whose parser rejects it is no longer safe. The plan is
- * expand-then-write — ship a release that can READ the field, verify it live,
- * and only then ship a release that writes it.
+ * S2 banned writing outright, because persisting `layout` is a ONE-WAY DOOR:
+ * once production rows carry the field, rolling back below the compatibility
+ * release is unsafe. That release is now live, and S4 deliberately introduces a
+ * controlled writer — so a blanket ban would either be deleted (losing all
+ * protection) or lie.
  *
- * S3 built the explicit renderer, so the guard now distinguishes THREE states
- * rather than two. Reading coordinates inside the prepared renderer seam is
- * allowed; putting that renderer on the shipping page is not; writing is still
- * not:
+ * It is replaced with OWNERSHIP guards. The question is no longer "does anything
+ * write?" but "does anything OTHER THAN the one place that is allowed to decide
+ * write?" Concretely:
  *
- *   ALLOWED NOW   — `features/analytics/grid/` reads x/y and renders from them.
- *   BLOCKED (S4)  — the shipping Analytics page importing that renderer.
- *                   Rendering and dragging must switch together, or edit mode
- *                   spends a release half-converted.
- *   BLOCKED (S4+) — any code asking the serializer to persist explicit layout,
- *                   until the compatibility reader is live and verified.
+ *   - Only the save orchestration may name `persist-explicit-layout`.
+ *   - No read path may reach the serializer at all.
+ *   - Routes must not decide persistence intent — the client sends widgets, the
+ *     server validates them.
+ *   - No component may hand-build persisted widget JSON; placement is written by
+ *     the serializer, which validates the whole board first.
  *
- * Each boundary has to be crossed by a deliberate edit to the allow-lists here,
- * not by something that arrives with a drag or resize change. When a stage is
- * intentionally reached, MOVE the path into the right allow-list — do not delete
- * the test.
+ * When a new call site is genuinely required, add it to the allow-list here on
+ * purpose — do not widen the pattern and do not delete the test.
  */
 
 const REPO_ROOT = process.cwd();
@@ -51,75 +49,114 @@ function walk(root: string): string[] {
   return files;
 }
 
-/** The serializer's own definition and its barrel are not call sites. */
-const INTENT_ALLOWED = [
-  join("core", "analytics", "layout", "serializeDashboardWidgets.ts"),
-  join("core", "analytics", "layout", "index.ts"),
+const read = (file: string) => readFileSync(join(REPO_ROOT, file), "utf8");
+
+const SHIPPING_ROOTS = [
+  "app",
+  "components",
+  "features",
+  "lib",
+  "services",
+  "stores",
+  "core",
+  "contracts",
 ];
 
-const SHIPPING_ROOTS = ["app", "components", "features", "lib", "services", "stores", "core", "contracts"];
-/** Where a widget is turned into pixels. */
-const RENDER_ROOTS = ["features", "components", "stores"];
+/** The serializer itself, its barrel, and the ONE module that decides intent. */
+const INTENT_OWNERS = [
+  join("core", "analytics", "layout", "serializeDashboardWidgets.ts"),
+  join("core", "analytics", "layout", "index.ts"),
+  join("features", "analytics", "grid", "layoutEditState.ts"),
+];
 
-/** The prepared, not-yet-activated explicit renderer seam (S3). */
-const RENDERER_SEAM = join("features", "analytics", "grid") + sep;
-/** The engine, which has always been allowed to read coordinates. */
-const ENGINE = join("core", "analytics", "layout") + sep;
+/** Modules that only ever READ a dashboard. */
+const READ_PATHS = [
+  join("core", "analytics", "layout", "normalizeDashboardWidgets.ts"),
+  join("core", "analytics", "layout", "legacyMigration.ts"),
+  join("services", "analytics", "dashboards.ts"),
+];
 
-describe("writing explicit layout is still blocked", () => {
-  it("nothing outside the serializer asks for `persist-explicit-layout`", () => {
+describe("only the save orchestration decides to write explicit layout", () => {
+  it("nothing else names `persist-explicit-layout`", () => {
     const offenders = SHIPPING_ROOTS.flatMap(walk).filter((file) => {
-      if (INTENT_ALLOWED.some((allowed) => file.endsWith(allowed))) return false;
-      return readFileSync(join(REPO_ROOT, file), "utf8").includes("persist-explicit-layout");
-    });
-    expect(offenders).toEqual([]);
-  });
-});
-
-describe("reading explicit coordinates is confined to the prepared seam", () => {
-  it("only the renderer seam and the engine read a widget's x/y", () => {
-    // The SHIPPING page still derives position from array order and CSS
-    // auto-flow. A stray `widget.layout.x` anywhere else would mean the two
-    // models had quietly started to mix — the failure S2 exists to prevent.
-    const offenders = RENDER_ROOTS.flatMap(walk).filter((file) => {
-      if (file.includes(RENDERER_SEAM) || file.includes(ENGINE)) return false;
-      return /\.layout[!?]?\.[xy]\b/.test(readFileSync(join(REPO_ROOT, file), "utf8"));
-    });
-    expect(offenders).toEqual([]);
-  });
-});
-
-describe("the explicit renderer is built but not yet on the shipping page", () => {
-  /**
-   * Only these may import the seam today. S4 adds the dashboard here in the same
-   * batch that converts the drag session — never before it.
-   */
-  const SEAM_CONSUMERS_ALLOWED = [RENDERER_SEAM];
-
-  it("no shipping module imports the explicit renderer", () => {
-    const offenders = SHIPPING_ROOTS.flatMap(walk).filter((file) => {
-      if (SEAM_CONSUMERS_ALLOWED.some((allowed) => file.includes(allowed))) return false;
-      return /from\s+["'][^"']*features\/analytics\/grid/.test(
-        readFileSync(join(REPO_ROOT, file), "utf8"),
-      );
+      if (INTENT_OWNERS.some((allowed) => file.endsWith(allowed))) return false;
+      return read(file).includes("persist-explicit-layout");
     });
     expect(offenders).toEqual([]);
   });
 
-  it("the shipping dashboard still renders the ordered auto-flow grid", () => {
-    // Positive assertion, so the guard cannot be satisfied by the page simply
-    // rendering nothing at all.
-    const page = readFileSync(
-      join(REPO_ROOT, "features", "analytics", "AnalyticsDashboard.tsx"),
-      "utf8",
+  it("the decision is made by comparing rectangles, not by a layout merely existing", () => {
+    const source = read(join("features", "analytics", "grid", "layoutEditState.ts"));
+    // `saveIntent` must consult dirtiness; a version that always returns the
+    // explicit intent would convert every legacy board on its first save.
+    expect(source).toMatch(/saveIntent[\s\S]{0,400}isLayoutDirty/);
+    expect(source).toContain('"preserve-source"');
+  });
+
+  it("no read path can reach the serializer", () => {
+    const offenders = READ_PATHS.filter((file) =>
+      /serializeDashboardWidgets|persist-explicit-layout/.test(read(file)),
     );
-    expect(page).toContain("grid-cols-1");
-    expect(page).toContain("lg:grid-cols-3");
-    expect(page).not.toContain("AnalyticsExplicitGrid");
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("the write boundary keeps its shape", () => {
+  it("API routes never decide persistence intent", () => {
+    const offenders = walk(join("app", "api")).filter((file) =>
+      /persist-explicit-layout|preserve-source|serializeDashboardWidgets/.test(read(file)),
+    );
+    expect(offenders).toEqual([]);
   });
 
-  it("the seam exists and is ready for S4 to select", () => {
-    const seam = walk(join("features", "analytics", "grid"));
-    expect(seam.length).toBeGreaterThan(0);
+  it("no component or hook hand-builds a persisted `layout` field", () => {
+    // Placement reaches storage through the serializer, which validates the
+    // whole board first. A stray `layout: { x: … }` literal in a component would
+    // bypass that check entirely.
+    const offenders = ["features", "components", "stores"]
+      .flatMap(walk)
+      .filter((file) => !file.includes(join("features", "analytics", "grid") + sep))
+      // The browser-test harness builds fixture boards; it ships nothing, and
+      // is unreachable in a production build.
+      .filter((file) => !file.includes(join("features", "analytics", "testing") + sep))
+      // A TYPE annotation (`layout: { x: number … }`) declares a shape; it does
+      // not construct a value.
+      .filter((file) => /\blayout:\s*\{\s*x:\s*(?!number)/.test(read(file)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the serializer still validates the complete board before emitting it", () => {
+    const source = read(join("core", "analytics", "layout", "serializeDashboardWidgets.ts"));
+    expect(source).toContain("validateLayout");
+    expect(source).toContain("missing-placement");
+  });
+
+  it("the editor sends the serializer's output, never a hand-assembled array", () => {
+    const dashboard = read(join("features", "analytics", "AnalyticsDashboard.tsx"));
+    expect(dashboard).toContain("edit.buildSavePayload");
+    expect(dashboard).toContain("widgets: payload.widgets");
+  });
+});
+
+describe("the shipping page is on the explicit renderer", () => {
+  it("renders through AnalyticsExplicitGrid", () => {
+    const dashboard = read(join("features", "analytics", "AnalyticsDashboard.tsx"));
+    expect(dashboard).toContain("AnalyticsExplicitGrid");
+  });
+
+  it("no longer positions widgets with CSS auto-placement or span classes", () => {
+    const dashboard = read(join("features", "analytics", "AnalyticsDashboard.tsx"));
+    expect(dashboard).not.toContain("lg:grid-cols-3");
+    expect(dashboard).not.toContain("grid-auto-rows");
+    const card = read(join("features", "analytics", "Widget.tsx"));
+    expect(card).not.toContain("col-span-");
+    expect(card).not.toContain("row-span-");
+  });
+
+  it("the ordered drag model is gone from production code", () => {
+    const offenders = SHIPPING_ROOTS.flatMap(walk).filter((file) =>
+      /useWidgetDragSession|useGridReflow/.test(read(file)),
+    );
+    expect(offenders).toEqual([]);
   });
 });

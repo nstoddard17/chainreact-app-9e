@@ -16,16 +16,18 @@ import { AnalyticsIcon } from "@/components/analytics/icons";
  * are slot boxes frozen at drag start, so nothing here does hit-testing.
  */
 
-export const SIZE_GRID_CLASS: Record<AnalyticsWidgetSize, string> = {
-  s: "col-span-1 row-span-1",
-  m: "col-span-2 row-span-1",
-  l: "col-span-2 row-span-2",
-  xl: "col-span-3 row-span-1",
-  w: "col-span-4 row-span-1",
-  tall: "col-span-1 row-span-2",
-};
-
-const SIZE_OPTIONS: { id: AnalyticsWidgetSize; label: string }[] = [
+/**
+ * RETIRED IN S4 (ANALYTICS-EXPLICIT-LAYOUT-S4-EDITOR-INTEGRATION-1).
+ *
+ * The card no longer carries span classes: `AnalyticsExplicitGrid` places every
+ * cell by explicit grid line from the widget's own rectangle, and the card
+ * simply fills the cell it is given. Span-only classes were the last part of the
+ * old model where a widget's size still implied its position.
+ *
+ * Footprints now come from `ANALYTICS_SIZE_FOOTPRINT` in `contracts/analytics.ts`,
+ * which is the single definition.
+ */
+export const SIZE_OPTIONS: { id: AnalyticsWidgetSize; label: string }[] = [
   { id: "s", label: "1×1" },
   { id: "m", label: "2×1" },
   { id: "l", label: "2×2" },
@@ -33,6 +35,14 @@ const SIZE_OPTIONS: { id: AnalyticsWidgetSize; label: string }[] = [
   { id: "w", label: "4×1" },
   { id: "tall", label: "1×2" },
 ];
+
+/**
+ * Why a preset is unavailable. The widget's own column decides how wide it may
+ * become, and the honest answer is an instruction the user can actually carry
+ * out — not a silently missing option, and not a size that gets refused after
+ * they pick it.
+ */
+export const RESIZE_BLOCKED_HINT = "Move this widget left to use this size.";
 
 /** Same labels, keyed — the drop placeholder names the footprint it reserves. */
 const SIZE_LABEL: Record<AnalyticsWidgetSize, string> = SIZE_OPTIONS.reduce(
@@ -51,6 +61,12 @@ export interface WidgetProps {
   isDragSource: boolean;
   rangeLabel?: string;
   onResize: (id: string, size: AnalyticsWidgetSize) => void;
+  /**
+   * Presets that fit at the widget's CURRENT column. Anything else is offered
+   * disabled with an explanation rather than accepted and then refused —
+   * widening a widget must never silently slide it left to make room.
+   */
+  allowedSizes?: ReadonlySet<AnalyticsWidgetSize>;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   onRename: (id: string, title: string) => void;
@@ -71,6 +87,7 @@ export function Widget({
   isDragSource,
   rangeLabel,
   onResize,
+  allowedSizes,
   onDuplicate,
   onRemove,
   onRename,
@@ -99,8 +116,7 @@ export function Widget({
       data-testid={`analytics-widget-${widget.id}`}
       data-widget-id={widget.id}
       className={
-        "relative flex min-h-[190px] min-w-0 flex-col overflow-hidden rounded-xl transition-colors " +
-        SIZE_GRID_CLASS[widget.size] +
+        "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl transition-colors" +
         (isDragSource
           ? " border-2 border-dashed border-primary bg-primary/10"
           : " border border-border bg-card hover:border-foreground/20")
@@ -201,14 +217,26 @@ export function Widget({
                 className="rounded-md border border-border bg-muted px-1.5 py-1 font-mono text-[10.5px] text-foreground/80 outline-none"
                 value={widget.size}
                 onChange={(e) => onResize(widget.id, e.target.value as AnalyticsWidgetSize)}
-                title="Resize"
+                title={
+                  allowedSizes && allowedSizes.size < SIZE_OPTIONS.length
+                    ? `Resize — ${RESIZE_BLOCKED_HINT}`
+                    : "Resize"
+                }
                 aria-label="Resize widget"
               >
-                {SIZE_OPTIONS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
+                {SIZE_OPTIONS.map((s) => {
+                  const fits = !allowedSizes || allowedSizes.has(s.id);
+                  return (
+                    <option
+                      key={s.id}
+                      value={s.id}
+                      disabled={!fits}
+                      title={fits ? undefined : RESIZE_BLOCKED_HINT}
+                    >
+                      {s.label}
+                    </option>
+                  );
+                })}
               </select>
               <button
                 type="button"

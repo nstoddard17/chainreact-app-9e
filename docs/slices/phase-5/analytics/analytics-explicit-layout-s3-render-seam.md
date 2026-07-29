@@ -8,6 +8,12 @@
 **Scope:** an explicit grid renderer and its view-model boundary. **Not wired
 into the shipping page. Writes nothing.**
 
+> **Superseded by S4.** The renderer described here IS now the shipping
+> Analytics grid — see
+> [`analytics-explicit-layout-s4-editor-integration.md`](./analytics-explicit-layout-s4-editor-integration.md).
+> Everything below remains an accurate description of the renderer itself; only
+> the "not yet on the shipping page" status has changed.
+
 ---
 
 ## 1. What S3 built

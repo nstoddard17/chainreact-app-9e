@@ -12,6 +12,7 @@ persistence, responsive behaviour.
 > S2 (contract + normalization) — [`analytics-explicit-layout-s2-contract.md`](./analytics-explicit-layout-s2-contract.md);
 > S2.5 (boundary realign; engine now at `core/analytics/layout/`) — [`analytics-explicit-layout-s2-5-boundary-realign.md`](./analytics-explicit-layout-s2-5-boundary-realign.md).
 > S3 (explicit render seam, not yet on the shipping page) — [`analytics-explicit-layout-s3-render-seam.md`](./analytics-explicit-layout-s3-render-seam.md).
+> S4 (editor integration; local only, not deployable) — [`analytics-explicit-layout-s4-editor-integration.md`](./analytics-explicit-layout-s4-editor-integration.md).
 > The conclusions below are the historical audit and are left as written.
 
 ---

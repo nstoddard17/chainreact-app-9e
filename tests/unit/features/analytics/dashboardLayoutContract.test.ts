@@ -6,7 +6,6 @@ import {
   AnalyticsWidgetsSchema,
   footprintForSize,
 } from "@/contracts/analytics";
-import { SIZE_GRID_CLASS } from "@/features/analytics/Widget";
 
 /**
  * ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1 — the persisted contract.
@@ -121,16 +120,11 @@ describe("dimensions have exactly one source of truth while `size` still exists"
     },
   );
 
-  it("still matches the footprints the app renders today", () => {
-    const fromClasses = Object.fromEntries(
-      Object.entries(SIZE_GRID_CLASS).map(([size, cls]) => [
-        size,
-        {
-          w: Number(/col-span-(\d+)/.exec(cls)?.[1] ?? 1),
-          h: Number(/row-span-(\d+)/.exec(cls)?.[1] ?? 1),
-        },
-      ]),
-    );
-    expect(ANALYTICS_SIZE_FOOTPRINT).toEqual(fromClasses);
-  });
+  it("is the single declaration of what a preset means", () => {
+    // The parallel Tailwind span map was retired in S4; this is now the only
+    // place a preset's footprint is defined.
+    expect(ANALYTICS_SIZE_FOOTPRINT.s).toEqual({ w: 1, h: 1 });
+    expect(ANALYTICS_SIZE_FOOTPRINT.l).toEqual({ w: 2, h: 2 });
+    expect(ANALYTICS_SIZE_FOOTPRINT.w).toEqual({ w: 4, h: 1 });
+});
 });

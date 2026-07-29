@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AnalyticsDashboard as Dashboard,
   AnalyticsOverview,
@@ -36,8 +36,13 @@ import {
   EmptyDashboard,
   downloadDashboardExport,
 } from "./dashboardHelpers";
-import { useGridReflow } from "./useGridReflow";
-import { DragOverlayGhost, useWidgetDragSession } from "./useWidgetDragSession";
+import { AnalyticsExplicitGrid } from "./grid/AnalyticsExplicitGrid";
+import { DragOverlayGhost } from "./grid/DragOverlayGhost";
+import { useExplicitDragSession } from "./grid/useExplicitDragSession";
+import * as edit from "./grid/layoutEditState";
+import type { LayoutEditState } from "./grid/layoutEditState";
+import { SIZE_OPTIONS } from "./Widget";
+import { normalizeDashboardWidgets } from "@/core/analytics/layout";
 import { DashboardConfirmDialog, DashboardNameDialog } from "./DashboardDialogs";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
@@ -122,7 +127,12 @@ export function AnalyticsDashboard({
   );
 
   const [editing, setEditing] = useState(false);
-  const [draftWidgets, setDraftWidgets] = useState<readonly AnalyticsWidget[]>([]);
+  /**
+   * The explicit edit session (S4). Saved vs working, the layout source, and the
+   * rules that decide what a save means all live in `grid/layoutEditState.ts` as
+   * pure functions — this component only holds the value and renders it.
+   */
+  const [session, setSession] = useState<LayoutEditState | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -140,30 +150,46 @@ export function AnalyticsDashboard({
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   const active = dashboards.find((d) => d.id === activeId) ?? dashboards[0] ?? null;
-  const widgets = editing ? draftWidgets : (active?.widgets ?? []);
+
   /**
-   * Pointer drag session (ANALYTICS-WIDGET-DRAG-STABILITY-1): slot geometry is
-   * frozen at drag start, the held card floats as an overlay, the in-flow card
-   * becomes the blue destination placeholder, and the preview is always
-   * start-order + destination slot. The commit is exactly the previewed order;
-   * a cancelled session just clears it — the draft is untouched until drop.
+   * The committed board's EFFECTIVE layout. A dashboard stored before explicit
+   * placement has no coordinates, so they are derived here — deterministically,
+   * from order and size, at the canonical four columns. Deriving is not writing:
+   * the stored widgets are untouched and stay legacy until the user actually
+   * rearranges something.
+   */
+  const committed = useMemo(
+    () => normalizeDashboardWidgets(active?.widgets ?? []),
+    [active?.widgets],
+  );
+
+  const widgets = editing && session ? session.workingWidgets : committed.widgets;
+
+  /**
+   * Explicit drag session (S4). Every preview is `placeWidget` run against the
+   * layout snapshotted at drag start, and the drop commits exactly the layout
+   * that was previewed — no second algorithm, no array splice.
    */
   const handleDragCommit = useCallback(
-    (order: readonly AnalyticsWidget[]) => setDraftWidgets(order),
+    (next: Parameters<typeof edit.commitLayout>[1]) =>
+      setSession((s) => (s ? edit.commitLayout(s, next) : s)),
     [],
   );
-  const { draggingId, previewOrder, overlay, overlayRef, startDrag } = useWidgetDragSession({
-    gridRef,
-    widgets,
-    enabled: editing,
-    onCommit: handleDragCommit,
-  });
-  const orderedWidgets = previewOrder ?? widgets;
-  // FLIP the surrounding cards between preview positions; the drag source is
-  // excluded — its placeholder snaps to the new destination, cards slide.
-  useGridReflow(gridRef, orderedWidgets.map((w) => w.id).join(","), editing, draggingId);
+  const { draggingId, previewLayout, placeholder, overlay, overlayRef, startDrag } =
+    useExplicitDragSession({
+      gridRef,
+      widgets,
+      layout: session?.workingLayout ?? committed.effectiveLayout,
+      enabled: editing && session !== null,
+      onCommit: handleDragCommit,
+    });
+
+  /** What the grid draws: the live preview while dragging, else working/saved. */
+  const renderedLayout =
+    previewLayout ?? (editing && session ? session.workingLayout : committed.effectiveLayout);
+
   const configuringWidget = configuringId
-    ? (editing ? draftWidgets : widgets).find((w) => w.id === configuringId) ?? null
+    ? widgets.find((w) => w.id === configuringId) ?? null
     : null;
 
   // Refetch real data whenever the range changes (initial range is server-fetched).
@@ -198,50 +224,111 @@ export function AnalyticsDashboard({
 
   const startEditing = () => {
     if (!active || !canManage) return;
-    setDraftWidgets(active.widgets.map((w) => ({ ...w })));
+    setSession(
+      edit.beginEdit(active.widgets, committed.effectiveLayout, committed.layoutSource),
+    );
     setEditing(true);
   };
 
+  /** Leave edit mode discarding everything unsaved. */
+  const cancelEditing = useCallback(() => {
+    setSession(null);
+    setEditing(false);
+    setConfiguringId(null);
+    setActionError(null);
+  }, []);
+
+  /**
+   * Persist the session. The INTENT is decided by comparing rectangles, not by
+   * the fact that an effective layout exists in memory: a legacy board that was
+   * only renamed — or dragged and put back — is saved in its legacy shape and
+   * stays rollback-safe. A real rearrangement serializes placement for every
+   * widget, validated as a whole board before it is sent.
+   */
   const doneEditing = useCallback(async () => {
-    if (!active) return;
+    if (!active || !session) return;
+    const payload = edit.buildSavePayload(session);
+    if (!payload.ok) {
+      setActionError("This arrangement can't be saved. Undo your last change and try again.");
+      return;
+    }
     setSaving(true);
     setActionError(null);
     try {
-      const updated = await analyticsApi.updateDashboard(active.id, { widgets: draftWidgets });
+      const updated = await analyticsApi.updateDashboard(active.id, {
+        widgets: payload.widgets,
+      });
       setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
+      setSession(null);
       setEditing(false);
       setConfiguringId(null);
     } catch (err) {
+      // Stay in edit mode with the working layout intact — a failed request must
+      // never look like a successful save, and must never lose the user's work.
       setActionError(err instanceof AnalyticsApiError ? err.message : "Couldn't save your changes.");
     } finally {
       setSaving(false);
     }
-  }, [active, draftWidgets]);
+  }, [active, session]);
 
-  const handleResize = (id: string, size: AnalyticsWidgetSize) =>
-    setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, size } : w)));
+  /** Resize runs through the SAME engine a drag uses; a refusal is shown, not swallowed. */
+  const handleResize = (id: string, size: AnalyticsWidgetSize) => {
+    setActionError(null);
+    setSession((s) => {
+      if (!s) return s;
+      const outcome = edit.applyWidgetSize(s, id, size);
+      if (!outcome.ok) {
+        setActionError(outcome.reason);
+        return s;
+      }
+      return outcome.state;
+    });
+  };
   const handleRemove = (id: string) =>
-    setDraftWidgets((ws) => ws.filter((w) => w.id !== id));
+    setSession((s) => (s ? edit.removeWidget(s, id) : s));
   const handleDuplicate = (id: string) => {
     setActionError(null);
-    setDraftWidgets((ws) => {
-      const outcome = duplicateWidgetAt(ws, id);
+    setSession((s) => {
+      if (!s) return s;
+      const outcome = duplicateWidgetAt(s.workingWidgets, id);
       if ("error" in outcome) {
         setActionError(outcome.error);
-        return ws;
+        return s;
       }
-      return outcome.widgets;
+      const copy = outcome.widgets.find((w) => w.id === outcome.newId);
+      if (!copy) return s;
+      const placed = edit.addWidget(s, copy);
+      if (!placed.ok) {
+        setActionError(placed.reason);
+        return s;
+      }
+      return placed.state;
     });
   };
   const handleRename = (id: string, title: string) =>
-    setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, title } : w)));
+    setSession((s) => (s ? edit.updateWidget(s, id, { title }) : s));
   const handleConfigSave = (id: string, config: AnalyticsWidgetConfig) => {
-    setDraftWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, config } : w)));
+    setSession((s) => (s ? edit.updateWidget(s, id, { config }) : s));
     setConfiguringId(null);
   };
+  /**
+   * A new widget takes the first open rectangle its footprint fits — scanning
+   * top-to-bottom, left-to-right — so it can land in a gap instead of always
+   * being appended. The widget and its placement are added together; a widget
+   * with no rectangle is state the renderer refuses to draw.
+   */
   const handleAdd = (type: AnalyticsWidgetType) => {
     const widget = makeWidget(type);
-    setDraftWidgets((ws) => [...ws, widget]);
+    setActionError(null);
+    setSession((s) => {
+      if (!s) return s;
+      const placed = edit.addWidget(s, widget);
+      if (!placed.ok) {
+        setActionError(placed.reason);
+        return s;
+      }
+      return placed.state;
+    });
     setShowLibrary(false);
     setConfiguringId(widget.id);
   };
@@ -277,7 +364,12 @@ export function AnalyticsDashboard({
       widgets: DEFAULT_OVERVIEW_WIDGETS,
     });
     setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
-    setDraftWidgets(updated.widgets.map((w) => ({ ...w })));
+    const restored = normalizeDashboardWidgets(updated.widgets);
+    setSession((s) =>
+      s
+        ? edit.beginEdit(restored.widgets, restored.effectiveLayout, restored.layoutSource)
+        : s,
+    );
     setShowRestore(false);
   };
 
@@ -339,9 +431,8 @@ export function AnalyticsDashboard({
   const atWidgetCap = widgets.length >= MAX_DASHBOARD_WIDGETS;
   const saveExploration = async (title: string) => {
     if (!savingExploration || !active) return;
-    const insert = (list: readonly AnalyticsWidget[]): AnalyticsWidget[] => {
+    const buildWidget = (list: readonly AnalyticsWidget[]): AnalyticsWidget => {
       const next = list.slice();
-      const idx = next.findIndex((w) => w.id === savingExploration.sourceWidgetId);
       const widgetToAdd: AnalyticsWidget = {
         id: newWidgetId(),
         type: "insight",
@@ -353,14 +444,15 @@ export function AnalyticsDashboard({
         icon: "Sparkle",
         config: { source: "any", insight: savingExploration.config },
       };
-      next.splice(idx >= 0 ? idx + 1 : next.length, 0, widgetToAdd);
-      return next;
+      return widgetToAdd;
     };
-    if (editing) {
-      if (draftWidgets.length >= MAX_DASHBOARD_WIDGETS) {
+    if (editing && session) {
+      if (session.workingWidgets.length >= MAX_DASHBOARD_WIDGETS) {
         throw new Error(`A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.`);
       }
-      setDraftWidgets((ws) => insert(ws));
+      const placed = edit.addWidget(session, buildWidget(session.workingWidgets));
+      if (!placed.ok) throw new Error(placed.reason);
+      setSession(placed.state);
       setSavingExploration(null);
       return;
     }
@@ -368,7 +460,7 @@ export function AnalyticsDashboard({
       throw new Error(`A dashboard can hold up to ${MAX_DASHBOARD_WIDGETS} widgets.`);
     }
     const updated = await analyticsApi.updateDashboard(active.id, {
-      widgets: insert(active.widgets),
+      widgets: [...active.widgets, buildWidget(active.widgets)],
     });
     setDashboards((ds) => ds.map((d) => (d.id === updated.id ? updated : d)));
     setSavingExploration(null);
@@ -433,6 +525,18 @@ export function AnalyticsDashboard({
           >
             <AnalyticsIcon name="Code" size={11} /> Export
           </button>
+          {canManage && editing && (
+            <button
+              type="button"
+              data-testid="analytics-cancel-editing"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[12.5px] text-foreground/80 hover:border-foreground/25 hover:text-foreground disabled:opacity-60"
+              onClick={cancelEditing}
+              disabled={saving}
+              title="Discard your unsaved changes"
+            >
+              <AnalyticsIcon name="X" size={11} /> Cancel
+            </button>
+          )}
           {canManage && (
             <button
               type="button"
@@ -569,58 +673,65 @@ export function AnalyticsDashboard({
           onEdit={startEditing}
         />
       ) : (
-        <div
-          ref={gridRef}
-          data-testid="analytics-widget-grid"
-          // `relative` is load-bearing, not cosmetic: it makes this element the
-          // offsetParent of the cards, so their offsetLeft/offsetTop ARE
-          // grid-local and can be compared with grid-local pointer coordinates
-          // during a drag (see useWidgetDragSession's coordinate contract).
-          className="relative grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]"
-        >
-          {orderedWidgets.map((w) => (
-            <Widget
-              key={w.id}
-              widget={w}
-              isEditing={editing}
-              isDragSource={draggingId === w.id}
-              {...(rangeLabel && w.type !== "insight" ? { rangeLabel } : {})}
-              onResize={handleResize}
-              onDuplicate={handleDuplicate}
-              onRemove={handleRemove}
-              onRename={handleRename}
-              onConfigure={(id) => setConfiguringId(id)}
-              onDragHandleDown={startDrag}
-              {...(w.type === "insight" && insightResults[w.id]
-                ? { onExportCsv: exportWidgetCsv }
-                : {})}
-            >
-              {w.type === "insight" ? (
-                <InsightWidgetBody
-                  widget={w}
-                  catalog={insightCatalog}
-                  connectedProviders={connectedProviders}
-                  canManage={canManage}
-                  reloadKey={reloadKey}
-                  onResult={handleInsightResult}
-                  {...(canManage ? { onSaveExploration: setSavingExploration } : {})}
-                  saveDisabledReason={
-                    atWidgetCap
-                      ? `This dashboard is full (${MAX_DASHBOARD_WIDGETS} widgets) — remove one to save a new insight.`
-                      : null
-                  }
-                />
-              ) : widgetSourceKind(w.config) === "connected_app" ? (
-                <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
-              ) : (
-                <WidgetBody overview={loadingData ? null : overview} widget={w} />
-              )}
-            </Widget>
-          ))}
+        <div ref={gridRef}>
+          <AnalyticsExplicitGrid
+            widgets={widgets}
+            layout={renderedLayout}
+            {...(editing && placeholder
+              ? { placeholder: { ...placeholder, ...(draggingId ? { widgetId: draggingId } : {}) } }
+              : {})}
+            renderWidget={(w: AnalyticsWidget) => (
+              <Widget
+                widget={w}
+                isEditing={editing}
+                isDragSource={draggingId === w.id}
+                {...(rangeLabel && w.type !== "insight" ? { rangeLabel } : {})}
+                onResize={handleResize}
+                {...(editing && session
+                  ? {
+                      allowedSizes: edit.allowedSizesAt(
+                        session.workingLayout,
+                        w.id,
+                        SIZE_OPTIONS.map((o) => o.id),
+                      ),
+                    }
+                  : {})}
+                onDuplicate={handleDuplicate}
+                onRemove={handleRemove}
+                onRename={handleRename}
+                onConfigure={(id) => setConfiguringId(id)}
+                onDragHandleDown={startDrag}
+                {...(w.type === "insight" && insightResults[w.id]
+                  ? { onExportCsv: exportWidgetCsv }
+                  : {})}
+              >
+                {w.type === "insight" ? (
+                  <InsightWidgetBody
+                    widget={w}
+                    catalog={insightCatalog}
+                    connectedProviders={connectedProviders}
+                    canManage={canManage}
+                    reloadKey={reloadKey}
+                    onResult={handleInsightResult}
+                    {...(canManage ? { onSaveExploration: setSavingExploration } : {})}
+                    saveDisabledReason={
+                      atWidgetCap
+                        ? `This dashboard is full (${MAX_DASHBOARD_WIDGETS} widgets) — remove one to save a new insight.`
+                        : null
+                    }
+                  />
+                ) : widgetSourceKind(w.config) === "connected_app" ? (
+                  <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
+                ) : (
+                  <WidgetBody overview={loadingData ? null : overview} widget={w} />
+                )}
+              </Widget>
+            )}
+          />
           {editing && (
             <button
               type="button"
-              className="col-span-1 flex min-h-[190px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background/40 p-6 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+              className="mt-3.5 flex min-h-[190px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background/40 p-6 text-sm text-muted-foreground hover:border-primary hover:text-primary sm:w-1/2 lg:w-1/4"
               onClick={() => setShowLibrary(true)}
             >
               <AnalyticsIcon name="Plus" size={18} />

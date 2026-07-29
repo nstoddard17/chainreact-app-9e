@@ -40,19 +40,37 @@ const OVERVIEW: AnalyticsOverview = {
   truncated: false,
 };
 
-const widget = (id: string, title: string): AnalyticsWidget => ({
+const widget = (
+  id: string,
+  title: string,
+  size: AnalyticsWidget["size"],
+  layout: { x: number; y: number; w: number; h: number },
+): AnalyticsWidget => ({
   id,
   type: "stat",
-  size: "s",
+  size,
   title,
   config: { source: "any", metric: "runs" },
+  layout,
 });
 
+/**
+ * A board with EXPLICIT placement, mixed footprints and a deliberate hole
+ * (ANALYTICS-EXPLICIT-LAYOUT-S4-EDITOR-INTEGRATION-1):
+ *
+ *   row 0:  alpha(1x1) | bravo(1x1) |    ·    | delta(1x1)
+ *   row 1:  charlie(2x1)            | echo(2x2)
+ *   row 2:            ·             | echo
+ *
+ * Column 2 of row 0 is empty ON PURPOSE — it is the cell the old editor could
+ * never target, and the one these browser tests drop a widget into.
+ */
 const WIDGETS: AnalyticsWidget[] = [
-  widget("w-alpha", "Alpha"),
-  widget("w-bravo", "Bravo"),
-  widget("w-charlie", "Charlie"),
-  widget("w-delta", "Delta"),
+  widget("w-alpha", "Alpha", "s", { x: 0, y: 0, w: 1, h: 1 }),
+  widget("w-bravo", "Bravo", "s", { x: 1, y: 0, w: 1, h: 1 }),
+  widget("w-delta", "Delta", "s", { x: 3, y: 0, w: 1, h: 1 }),
+  widget("w-charlie", "Charlie", "m", { x: 0, y: 1, w: 2, h: 1 }),
+  widget("w-echo", "Echo", "l", { x: 2, y: 1, w: 2, h: 2 }),
 ];
 
 const DASHBOARD: Dashboard = {

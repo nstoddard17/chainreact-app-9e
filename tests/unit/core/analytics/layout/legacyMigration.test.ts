@@ -8,7 +8,6 @@ import {
   type LayoutResult,
   type LegacyOrderedWidget,
 } from "@/core/analytics/layout";
-import { SIZE_GRID_CLASS } from "@/features/analytics/Widget";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 import type { AnalyticsWidgetSize } from "@/contracts/analytics";
 
@@ -39,21 +38,20 @@ const SHIPPED_DEFAULT: LegacyOrderedWidget[] = DEFAULT_OVERVIEW_WIDGETS.map((w) 
   size: w.size,
 }));
 
-describe("the size-preset map matches the footprints the app actually renders", () => {
-  it("agrees with the shipped Tailwind span classes, preset for preset", () => {
-    // Until a later stage retires SIZE_GRID_CLASS, both exist. This is the
-    // guard that stops them drifting: the engine's footprints are read back out
-    // of the classes the browser is given today.
-    const fromClasses = Object.fromEntries(
-      Object.entries(SIZE_GRID_CLASS).map(([size, cls]) => [
-        size,
-        {
-          w: Number(/col-span-(\d+)/.exec(cls)?.[1] ?? 1),
-          h: Number(/row-span-(\d+)/.exec(cls)?.[1] ?? 1),
-        },
-      ]),
-    );
-    expect(ANALYTICS_SIZE_FOOTPRINT).toEqual(fromClasses);
+describe("the size-preset map is the single definition of a footprint", () => {
+  it("pins each preset's columns x rows", () => {
+    // S4 retired the Tailwind span classes that used to carry this meaning in
+    // parallel; `ANALYTICS_SIZE_FOOTPRINT` in contracts/ is now the only place a
+    // preset's footprint is declared. These are the values the app has always
+    // rendered.
+    expect(ANALYTICS_SIZE_FOOTPRINT).toEqual({
+      s: { w: 1, h: 1 },
+      m: { w: 2, h: 1 },
+      l: { w: 2, h: 2 },
+      xl: { w: 3, h: 1 },
+      w: { w: 4, h: 1 },
+      tall: { w: 1, h: 2 },
+    });
   });
 
   it("keeps every preset inside the canonical four columns", () => {

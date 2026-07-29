@@ -25,17 +25,17 @@ import {
   hitTestSlot,
   type DragSlot,
 } from "@/features/analytics/dashboardHelpers";
-import { SIZE_GRID_CLASS } from "@/features/analytics/Widget";
+import { ANALYTICS_SIZE_FOOTPRINT } from "@/contracts/analytics";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 import type { AnalyticsWidget, AnalyticsWidgetSize } from "@/contracts/analytics";
 
 // ── The shipped size → footprint map, read from the shipped Tailwind classes ──
 
 function spanOf(size: AnalyticsWidgetSize): { w: number; h: number } {
-  const cls = SIZE_GRID_CLASS[size];
-  const col = /col-span-(\d+)/.exec(cls);
-  const row = /row-span-(\d+)/.exec(cls);
-  return { w: Number(col?.[1] ?? 1), h: Number(row?.[1] ?? 1) };
+  // Read from the shipped footprint map. Until S4 these values lived in
+  // Tailwind span classes on the card; the numbers are unchanged, and this
+  // diagnostic still describes the OLD auto-flow model it was written to expose.
+  return ANALYTICS_SIZE_FOOTPRINT[size];
 }
 
 // ── CSS Grid auto-placement, sparse `grid-auto-flow: row` (spec §8.5) ────────
