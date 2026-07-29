@@ -47,3 +47,18 @@ export {
   migrateLegacyOrderedLayout,
   type LegacyOrderedWidget,
 } from "./legacyMigration";
+
+export {
+  normalizeDashboardWidgets,
+  type AnalyticsLayoutProblem,
+  type AnalyticsLayoutProblemCode,
+  type AnalyticsLayoutSource,
+  type NormalizedDashboardWidgets,
+} from "./normalizeDashboardWidgets";
+
+export {
+  serializeDashboardWidgets,
+  type LayoutPersistenceIntent,
+  type SerializeFailureReason,
+  type SerializeResult,
+} from "./serializeDashboardWidgets";

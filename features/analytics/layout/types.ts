@@ -19,8 +19,12 @@
  * this width; narrower viewports are render-time projections that never write
  * back (a later stage owns that projection). Locked by the owner decision on
  * ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1.
+ *
+ * DECLARED IN `contracts/analytics.ts` and re-exported here (S2): the persisted
+ * shape's validity depends on it, so the contract owns the number and the
+ * engine consumes it. Re-exported so every existing engine import is unchanged.
  */
-export const ANALYTICS_CANONICAL_COLUMNS = 4;
+export { ANALYTICS_CANONICAL_COLUMNS } from "@/contracts/analytics";
 
 /** A rectangle of grid cells. `x`/`y` are 0-based; `w`/`h` are counts, never 0. */
 export interface GridRect {

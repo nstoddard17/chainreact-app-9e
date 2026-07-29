@@ -6,6 +6,12 @@
 **Scope:** `features/analytics/` edit mode — placement, collision, resize, add,
 persistence, responsive behaviour.
 
+> **Accepted.** Implementation follows the staged plan in §17. Stage outcomes and
+> the owner decisions that supersede specific proposals here:
+> S1 (pure engine) — commit `0343e7065`;
+> S2 (contract + normalization) — [`analytics-explicit-layout-s2-contract.md`](./analytics-explicit-layout-s2-contract.md).
+> The conclusions below are the historical audit and are left as written.
+
 ---
 
 ## 1. Plain-language result

@@ -44,6 +44,68 @@ export const AnalyticsWidgetSizeSchema = z.enum(["s", "m", "l", "xl", "w", "tall
 export type AnalyticsWidgetSize = z.infer<typeof AnalyticsWidgetSizeSchema>;
 
 /**
+ * The canonical persisted grid width (ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1).
+ *
+ * ONE layout is authored and stored at this width, whatever device authored it.
+ * Narrower viewports are render-time projections that never write back. It lives
+ * in `contracts/` — not in the layout engine — because the persisted shape's
+ * validity depends on it: `x + w` may not exceed it. The engine re-exports this
+ * constant rather than declaring its own.
+ */
+export const ANALYTICS_CANONICAL_COLUMNS = 4;
+
+/** Columns × rows a size preset reserves on the canonical grid. */
+export interface AnalyticsWidgetFootprint {
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * What each stored size preset MEANS as grid cells — the single definition in
+ * the codebase. Migration, validation, rendering, drag, resize and add-widget
+ * all read footprints from here; nothing re-derives them. The values are the
+ * ones the shipped `SIZE_GRID_CLASS` Tailwind spans have always produced, and a
+ * test asserts the two agree preset for preset until the class map is retired.
+ */
+export const ANALYTICS_SIZE_FOOTPRINT: Readonly<
+  Record<AnalyticsWidgetSize, AnalyticsWidgetFootprint>
+> = {
+  s: { w: 1, h: 1 },
+  m: { w: 2, h: 1 },
+  l: { w: 2, h: 2 },
+  xl: { w: 3, h: 1 },
+  w: { w: 4, h: 1 },
+  tall: { w: 1, h: 2 },
+};
+
+/** The footprint a size preset reserves, as columns × rows. */
+export function footprintForSize(size: AnalyticsWidgetSize): AnalyticsWidgetFootprint {
+  return ANALYTICS_SIZE_FOOTPRINT[size];
+}
+
+/**
+ * Explicit placement on the canonical grid. OPTIONAL on a widget: boards
+ * authored before explicit placement carry only an array order plus a `size`
+ * preset, and are never rewritten merely because they were read.
+ *
+ * `x`/`y` are the widget's own coordinates. `w`/`h` are validated against
+ * `size` on the widget itself (see `AnalyticsWidgetSchema`) so dimensions can
+ * never have two competing sources of truth while both fields exist.
+ */
+export const AnalyticsWidgetLayoutSchema = z
+  .object({
+    x: z.number().int().min(0),
+    y: z.number().int().min(0),
+    w: z.number().int().min(1).max(ANALYTICS_CANONICAL_COLUMNS),
+    h: z.number().int().min(1),
+  })
+  .strict()
+  .refine((r) => r.x + r.w <= ANALYTICS_CANONICAL_COLUMNS, {
+    message: `A widget may not extend past column ${ANALYTICS_CANONICAL_COLUMNS}.`,
+  });
+export type AnalyticsWidgetLayout = z.infer<typeof AnalyticsWidgetLayoutSchema>;
+
+/**
  * The metric a data-bound widget renders. Only metrics the aggregation service
  * actually backs are listed (no-fake-UI): each maps to a real slice of
  * `AnalyticsOverview`. `note` widgets carry no metric.
@@ -252,8 +314,33 @@ export const AnalyticsWidgetSchema = z
     /** Icon key from the shared analytics icon set (optional). */
     icon: z.string().max(40).optional(),
     config: AnalyticsWidgetConfigSchema.default({ source: "any" }),
+    /**
+     * Explicit placement on the canonical grid
+     * (ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1). ABSENT on every board authored
+     * before explicit placement — those keep deriving position from array order
+     * and `size`, and a read never adds this field.
+     */
+    layout: AnalyticsWidgetLayoutSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((widget, ctx) => {
+    if (!widget.layout) return;
+    // TRANSITIONAL RULE: while `size` is still the UI's preset control, the
+    // stored rectangle's dimensions must MEAN the same thing the preset does.
+    // Two sources of truth for width is precisely how the old system's preview
+    // and commit came to disagree. `x`/`y` are the explicit part; `w`/`h` are
+    // the preset's footprint, restated so the rectangle is self-contained.
+    const expected = footprintForSize(widget.size);
+    if (widget.layout.w !== expected.w || widget.layout.h !== expected.h) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["layout"],
+        message:
+          `Layout size ${widget.layout.w}×${widget.layout.h} does not match the "${widget.size}" ` +
+          `preset (${expected.w}×${expected.h}).`,
+      });
+    }
+  });
 export type AnalyticsWidget = z.infer<typeof AnalyticsWidgetSchema>;
 
 /** A widget board is capped to keep payloads + render bounded. */

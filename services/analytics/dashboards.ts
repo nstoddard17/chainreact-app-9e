@@ -1,10 +1,9 @@
-import {
-  AnalyticsWidgetSchema,
-  AnalyticsWidgetsSchema,
-  type AnalyticsDashboard,
-  type AnalyticsWidget,
-} from "@/contracts/analytics";
+import { type AnalyticsDashboard, type AnalyticsWidget } from "@/contracts/analytics";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
+import {
+  normalizeDashboardWidgets,
+  type NormalizedDashboardWidgets,
+} from "@/features/analytics/layout/normalizeDashboardWidgets";
 import * as repo from "@/repositories/analyticsDashboards";
 import type { AnalyticsDashboardRecord } from "@/repositories/analyticsDashboards";
 
@@ -27,25 +26,43 @@ import type { AnalyticsDashboardRecord } from "@/repositories/analyticsDashboard
  */
 export { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
+/**
+ * The single read chokepoint (ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1).
+ *
+ * Widget validation, the CD-3A defensive degradation, and — since S2 — the
+ * separation of PERSISTED widget data from the EFFECTIVE canonical layout all
+ * happen here and nowhere else. The normalizer is pure and does no I/O; this
+ * function adds only the diagnostic. Notably it performs NO WRITE: a legacy
+ * board that needs derived rectangles to render gets them in memory and its
+ * stored JSON is left exactly as it was.
+ */
+function normalize(record: AnalyticsDashboardRecord): NormalizedDashboardWidgets {
+  const normalized = normalizeDashboardWidgets(record.widgets);
+  if (normalized.layoutProblems.length > 0) {
+    // Codes, widget ids and the dashboard id only — never titles, configs, or
+    // any other stored user content.
+    console.warn("[analytics] dashboard layout normalized with problems", {
+      dashboardId: record.id,
+      layoutSource: normalized.layoutSource,
+      problems: normalized.layoutProblems.map((p) => ({
+        code: p.code,
+        widgetIds: p.widgetIds,
+      })),
+    });
+  }
+  return normalized;
+}
+
 function toDashboard(record: AnalyticsDashboardRecord): AnalyticsDashboard {
-  // Defensive: malformed/legacy widget entries are dropped INDIVIDUALLY
-  // (CD-3A) — one bad blob (e.g. an obsolete insight config shape) costs that
-  // widget, never the whole board. A non-array blob still degrades to empty.
-  const parsed = AnalyticsWidgetsSchema.safeParse(record.widgets);
-  const widgets = parsed.success
-    ? parsed.data
-    : Array.isArray(record.widgets)
-      ? record.widgets
-          .map((w) => AnalyticsWidgetSchema.safeParse(w))
-          .flatMap((r) => (r.success ? [r.data] : []))
-          .slice(0, 48)
-      : [];
+  // The API payload deliberately carries only the persisted widgets — the
+  // effective layout stays server-side until the renderer consumes it in a
+  // later stage, so this release does not broaden the client contract.
   return {
     id: record.id,
     name: record.name,
     position: record.position,
     isDefault: record.isDefault,
-    widgets,
+    widgets: [...normalize(record).widgets],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };

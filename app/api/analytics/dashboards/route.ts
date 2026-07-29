@@ -4,7 +4,12 @@ import {
   listOrSeedDashboards,
   createDashboard,
 } from "@/services/analytics/dashboards";
-import { requireAccount, requireDashboardAuthor, parseBody } from "../_shared";
+import {
+  requireAccount,
+  requireDashboardAuthor,
+  parseBody,
+  rejectInvalidWidgetLayout,
+} from "../_shared";
 
 /**
  * /api/analytics/dashboards (Slice ANALYTICS-1).
@@ -31,6 +36,8 @@ export async function POST(request: Request) {
   if (!authored.ok) return authored.response;
   const body = await parseBody(request, CreateDashboardBodySchema);
   if (!body.ok) return body.response;
+  const invalidLayout = rejectInvalidWidgetLayout(body.data.widgets);
+  if (invalidLayout) return invalidLayout;
   const dashboard = await createDashboard(auth.accountId, auth.userId, {
     name: body.data.name,
     ...(body.data.widgets !== undefined ? { widgets: body.data.widgets } : {}),

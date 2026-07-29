@@ -1,39 +1,21 @@
-import type { AnalyticsWidgetSize } from "@/contracts/analytics";
-
 /**
- * The canonical size-preset → grid-footprint map
- * (ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1).
+ * The canonical size-preset → grid-footprint map, re-exported
+ * (ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1 · moved down in S2).
  *
- * SINGLE SOURCE OF TRUTH. Migration, rendering, drag, resize and add-widget all
- * read the footprint of a preset from here — nowhere else. The audit traced the
- * shipped meanings out of the Tailwind span classes in `features/analytics/
- * Widget.tsx` (`SIZE_GRID_CLASS`); those values are reproduced EXACTLY below,
- * and a test asserts the two agree cell-for-cell so they cannot drift while
- * both exist. A later stage retires the class map in favour of explicit
- * placement derived from these footprints.
+ * SINGLE SOURCE OF TRUTH, now declared in `contracts/analytics.ts` beside the
+ * size enum whose meaning it defines. It moved there because the PERSISTED
+ * shape depends on it: a stored `layout.w/h` is only valid when it matches the
+ * stored `size` preset, and that rule is enforced inside `AnalyticsWidgetSchema`
+ * itself. A contract cannot import a feature, so the map had to live below both.
  *
- * `import type` only — this module stays free of Zod, React and the DOM.
+ * This module remains the engine's import site so every existing consumer is
+ * unchanged, and so there is still exactly one definition. Do not re-declare
+ * these values anywhere — migration, validation, rendering, drag, resize and
+ * add-widget all read them from here or from the contract directly.
  */
 
-export interface WidgetFootprint {
-  /** Columns spanned. */
-  readonly w: number;
-  /** Rows spanned. */
-  readonly h: number;
-}
-
-export const ANALYTICS_SIZE_FOOTPRINT: Readonly<
-  Record<AnalyticsWidgetSize, WidgetFootprint>
-> = {
-  s: { w: 1, h: 1 },
-  m: { w: 2, h: 1 },
-  l: { w: 2, h: 2 },
-  xl: { w: 3, h: 1 },
-  w: { w: 4, h: 1 },
-  tall: { w: 1, h: 2 },
-};
-
-/** The footprint a size preset reserves, as columns × rows. */
-export function footprintForSize(size: AnalyticsWidgetSize): WidgetFootprint {
-  return ANALYTICS_SIZE_FOOTPRINT[size];
-}
+export {
+  ANALYTICS_SIZE_FOOTPRINT,
+  footprintForSize,
+  type AnalyticsWidgetFootprint as WidgetFootprint,
+} from "@/contracts/analytics";

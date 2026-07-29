@@ -5,6 +5,7 @@ import {
   requireAccount,
   authorizeDashboardWrite,
   parseBody,
+  rejectInvalidWidgetLayout,
 } from "../../_shared";
 
 /**
@@ -30,6 +31,10 @@ export async function PATCH(
 
   const body = await parseBody(request, UpdateDashboardBodySchema);
   if (!body.ok) return body.response;
+  // Per-widget shape is Zod's job; whether the widgets fit together as a board
+  // is not something a per-element schema can see (S2).
+  const invalidLayout = rejectInvalidWidgetLayout(body.data.widgets);
+  if (invalidLayout) return invalidLayout;
 
   const dashboard = await updateDashboard(id, {
     ...(body.data.name !== undefined ? { name: body.data.name } : {}),
