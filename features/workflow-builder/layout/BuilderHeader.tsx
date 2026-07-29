@@ -26,7 +26,9 @@ import {
   type SaveStatus,
 } from "./_BuilderHeaderPills";
 import { HeaderRunControls } from "./HeaderRunControls";
+import { BuilderTabStrip } from "./BuilderTabStrip";
 import { BuilderTemplatesModal } from "../panels/BuilderTemplatesModal";
+import type { BuilderTab } from "../canvas/BuilderTabPlaceholder";
 import type { BuilderViewMode } from "../document/documentViewPref";
 
 /** 5.DUAL-BUILDER-1 CS-1 — Visual/Document view toggle wiring (flag-gated). */
@@ -38,12 +40,22 @@ export interface HeaderViewToggle {
 interface Props {
   workflowName: string;
   /**
-   * The workflow's database id — surfaced as a mono code chip in the
-   * header center meta strip (4.BUILDER-DESIGN-PARITY-1). Optional so
-   * existing focused tests (BuilderHeader rendered in isolation) keep
-   * passing unchanged.
+   * The workflow's database id — kept for the templates modal wiring.
+   * (The old center meta strip that displayed it was removed by
+   * BUILDER-HEADER-TABS-CENTER-1; the id remains visible in the URL.)
+   * Optional so existing focused tests keep passing unchanged.
    */
   workflowId?: string;
+  /**
+   * BUILDER-HEADER-TABS-CENTER-1 — the Builder | Runs | Data Map | History |
+   * Settings tablist, rendered in the header's CENTER region (the slot the
+   * deferred ID/runs/success/tasks meta strip used to occupy). Optional so
+   * isolated header tests keep passing (undefined → empty center).
+   */
+  tabs?: {
+    activeTab: BuilderTab;
+    onSelectTab: (tab: BuilderTab) => void;
+  };
   leftRail?: {
     isCollapsed: boolean;
     onToggle: () => void;
@@ -101,21 +113,23 @@ interface Props {
  *
  * Three-region 48px strip mirroring the Anthropic ChainV2 design:
  *
- *   [ left toggle · breadcrumb · name · state · dirty ]  [ center meta ]  [ btngroup · chip · Test · Save · Activate ]
+ *   [ left toggle · breadcrumb · name · state · dirty ]  [ section tabs ]  [ btngroup · chip · Test · Save · Activate ]
  *
  * Behavior is unchanged from prior slices — same isDirty / isSaving
  * Zustand reads, same Cmd/Ctrl+S shortcut, same validation count
  * derivation, same `LifecycleActions` mount path. Only the visual
  * arrangement and chrome moved.
  *
- * Center meta strip surfaces what V2 actually knows (workflow id);
- * runs-per-24h / success-rate / tasks-per-run cells render as `—`
- * placeholders, marked as deferred in the slice doc. They're rendered
- * (rather than skipped) so the layout reads correctly on wide screens.
+ * Center region (BUILDER-HEADER-TABS-CENTER-1): the Builder / Runs /
+ * Data Map / History / Settings tablist. It replaced the old meta strip
+ * (workflow id + deferred runs-per-24h / success / tasks-per-run `—`
+ * placeholders), which showed nothing actionable; the id stays visible
+ * in the URL and the run stats belong to the Runs tab when they land.
  */
 export function BuilderHeader({
   workflowName,
   workflowId,
+  tabs,
   leftRail,
   validation,
   lifecycle,
@@ -197,7 +211,17 @@ export function BuilderHeader({
           onRetrySave={handleSave}
           {...(lifecycle ? { workflowState: lifecycle.state } : {})}
         />
-        <HeaderCenterMeta workflowId={localOnly ? undefined : workflowId} />
+        {/* BUILDER-HEADER-TABS-CENTER-1 — the section tabs live in the header
+            center (replacing the deferred ID/runs/success/tasks meta strip).
+            min-w-0 + overflow lets the pill shrink-scroll on narrow widths
+            instead of shoving the action buttons. */}
+        {tabs ? (
+          <div className="flex min-w-0 items-center justify-center overflow-x-auto">
+            <BuilderTabStrip activeTab={tabs.activeTab} onSelectTab={tabs.onSelectTab} />
+          </div>
+        ) : (
+          <div />
+        )}
         {localOnly ? (
           <HeaderRightLocalOnly />
         ) : (
@@ -314,63 +338,6 @@ function HeaderLeft({
           <StatusPill status={status} saveError={saveError} onRetry={onRetrySave} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function HeaderCenterMeta({ workflowId }: { workflowId?: string }) {
-  if (!workflowId) return <div />;
-  // BUILDER-HEADER-ACTION-BAR-POLISH — secondary, visually quiet run-stats strip.
-  // It is the FIRST thing to collapse on narrow widths (`hidden lg:flex`) so the
-  // primary action buttons never have to wrap; `min-w-0 max-w-*` keeps the (long
-  // uuid) ID truncating inside the strip instead of shoving the layout. The cells
-  // are display-only metadata — no behavior.
-  return (
-    <div
-      data-testid="builder-header-meta-strip"
-      className="hidden min-w-0 max-w-[460px] items-center gap-3 overflow-hidden rounded-md px-2.5 py-1 lg:flex xl:max-w-[560px]"
-      style={{
-        background: "var(--builder-panel-2)",
-        border: "1px solid var(--builder-border)",
-      }}
-    >
-      <MetaPair label="ID" value={workflowId} truncate />
-      <MetaPair label="runs/24h" value="—" deferred />
-      <MetaPair label="success" value="—" deferred />
-      <MetaPair label="tasks/run" value="—" deferred />
-    </div>
-  );
-}
-
-function MetaPair({
-  label,
-  value,
-  deferred,
-  truncate,
-}: {
-  label: string;
-  value: string;
-  deferred?: boolean;
-  /** Cap the value width and ellipsize it (used for the long workflow ID). */
-  truncate?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span
-        className="shrink-0 text-[10px] uppercase tracking-[0.05em]"
-        style={{ color: "var(--builder-muted)" }}
-      >
-        {label}
-      </span>
-      <code
-        className={`builder-mono text-[11.5px] ${truncate ? "min-w-0 max-w-[180px] truncate" : ""}`}
-        style={{
-          color: deferred ? "var(--builder-muted-2)" : "var(--builder-text-2)",
-        }}
-        title={deferred ? "Coming soon — not surfaced in V2 yet" : value}
-      >
-        {value}
-      </code>
     </div>
   );
 }

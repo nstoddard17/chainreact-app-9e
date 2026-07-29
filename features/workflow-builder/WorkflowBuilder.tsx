@@ -12,7 +12,6 @@ import { useInitialBuilderFocus } from "./hooks/useInitialBuilderFocus";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import type { BuilderTab } from "./canvas/BuilderTabPlaceholder";
-import { BuilderTabStrip } from "./layout/BuilderTabStrip";
 import { BuilderTabPanels } from "./layout/BuilderTabPanels";
 import { BuilderViewChooser } from "./panels/BuilderViewChooser";
 import { updateDefaultBuilderView } from "@/lib/api/accounts";
@@ -1177,10 +1176,13 @@ export function WorkflowBuilder({
     <BuilderTeamProvider value={teamContext ?? null}>
     <BuilderShell
       header={
-        <>
         <BuilderHeader
           workflowName={workflowName}
           workflowId={workflow.id}
+          // BUILDER-HEADER-TABS-CENTER-1 — the section tabs render in the
+          // header's CENTER region (replacing the old ID/runs meta strip), so
+          // the header is one 48px row in BOTH Visual and Document modes.
+          tabs={{ activeTab, onSelectTab: setActiveTab }}
           leftRail={{
             isCollapsed: leftRail.isCollapsed,
             onToggle: leftRail.toggle,
@@ -1206,11 +1208,6 @@ export function WorkflowBuilder({
           // ANON-BUILDER-1 — local-only: replace save/run/activate with a sign-up CTA.
           {...(localOnly ? { localOnly: true } : {})}
         />
-        {/* BUILDER-TABS-HEADER-1 — the section tabs sit in the header region,
-            below the 48px action bar, visible in BOTH Visual and Document
-            modes (they were previously canvas-only in CanvasActionBar). */}
-        <BuilderTabStrip activeTab={activeTab} onSelectTab={setActiveTab} />
-        </>
       }
       banner={
         <>
