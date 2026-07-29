@@ -214,6 +214,10 @@ export default defineConfig({
       // Different port from the typical dev server (3000) so a developer
       // can keep a dev server running for manual testing without colliding.
       PORT: String(E2E_PORT),
+      // ANALYTICS-DRAG-RIGHTWARD-CAPTURE-LOSS-1 — unlock the backend-free
+      // analytics drag harness route. E2E-only: the route 404s in production
+      // regardless, and without this flag it 404s in development too.
+      E2E_DRAG_HARNESS: "1",
       // CS-7D — hand the dev server the LOCAL Supabase URL/keys + throwaway local
       // app secrets from .env.test.local. The e2e worktree has no `.env.local`, so
       // this is the only Supabase config the app receives; it can never be the

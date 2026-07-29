@@ -162,6 +162,8 @@ const gutterPoint = (afterIndex: number) => ({
 });
 
 const widgetEl = (id: string) => screen.getByTestId(`analytics-widget-${id}`);
+/** The grid — the stable pointer-capture owner for the whole drag session. */
+const gridOf = () => screen.getByTestId("analytics-widget-grid");
 const handleEl = (id: string) =>
   screen.getByTestId(`analytics-widget-drag-handle-${id}`) as HTMLElement;
 
@@ -177,6 +179,9 @@ function renderedOrder(): string[] {
  * explicitly. Draining ONCE per batch of moves is also how the coalescing gets
  * verified: several moves in a frame must produce a single settled destination.
  */
+/** pointerId → the element that currently holds capture (jsdom has none). */
+const captured = new Map<number, HTMLElement>();
+
 let frames: ((time: number) => void)[] = [];
 function drainFrames() {
   const queued = frames;
@@ -265,9 +270,29 @@ beforeEach(() => {
     return frames.length;
   });
   jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
-  // jsdom implements neither pointer capture method.
-  Element.prototype.setPointerCapture = function setPointerCapture() {};
-  Element.prototype.releasePointerCapture = function releasePointerCapture() {};
+  // jsdom implements no pointer capture, so model it: remember WHICH element
+  // captured which pointer, so tests can assert the owner rather than merely
+  // that a call happened — owning the wrong element is this whole bug class.
+  //
+  // Patch HTMLElement.prototype, not Element.prototype: jest.setup.ts already
+  // installs no-op stubs there, and those shadow anything set further up the
+  // chain. Overriding the wrong level silently records nothing.
+  captured.clear();
+  jest
+    .spyOn(HTMLElement.prototype, "setPointerCapture")
+    .mockImplementation(function (this: HTMLElement, id: number) {
+      captured.set(id, this);
+    });
+  jest
+    .spyOn(HTMLElement.prototype, "releasePointerCapture")
+    .mockImplementation(function (this: HTMLElement, id: number) {
+      if (captured.get(id) === this) captured.delete(id);
+    });
+  jest
+    .spyOn(HTMLElement.prototype, "hasPointerCapture")
+    .mockImplementation(function (this: HTMLElement, id: number) {
+      return captured.get(id) === this;
+    });
   mockedApi.queryInsight.mockResolvedValue({ ok: true, result: kpiResult() });
   mockedApi.updateDashboard.mockImplementation(async (id, patch) => ({
     ...dashboard(),
@@ -409,6 +434,108 @@ describe("stability — a moving layout must not drive the drag", () => {
   });
 });
 
+describe("pointer-capture ownership (ANALYTICS-DRAG-RIGHTWARD-CAPTURE-LOSS-1)", () => {
+  it("captures on the stable grid, never on the grip that will be moved", () => {
+    // Capturing on the grip made the drag directional in Chromium: dragging
+    // RIGHT relocates the dragged card's own node, which moves the capturing
+    // button, and Chromium then drops capture and cancels the drag mid-gesture.
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+
+    expect(captured.get(1)).toBe(gridOf());
+    expect(captured.get(1)).not.toBe(handleEl("w-a"));
+  });
+
+  it("a RIGHTWARD reorder does not end the session", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+    // Still live: overlay present, capture still held by the grid.
+    expect(screen.getByTestId("analytics-drag-overlay")).toBeTruthy();
+    expect(captured.get(1)).toBe(gridOf());
+  });
+
+  it("leftward and rightward run the same path to the same pure preview", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    const rightward = renderedOrder();
+    pointerUp("w-a", slotPoint(2));
+
+    // Both directions are `computeDragPreview(startOrder, dragged, slot)`.
+    expect(rightward).toEqual(
+      computeDragPreview([A, B, C], "w-a", 2)?.map((w) => w.id),
+    );
+    expect(computeDragPreview([A, B, C], "w-c", 0)?.map((w) => w.id)).toEqual([
+      "w-c", "w-a", "w-b",
+    ]);
+  });
+
+  it("a lostpointercapture from a stale former grip is ignored", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    const previewed = renderedOrder();
+
+    // The grip is not the capture owner, so its event is not this session's.
+    firePointer(handleEl("w-a"), "lostPointerCapture", { pointerId: 1 });
+
+    expect(renderedOrder()).toEqual(previewed);
+    expect(screen.getByTestId("analytics-drag-overlay")).toBeTruthy();
+  });
+
+  it("unexpected capture loss from the GRID still cancels safely", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
+
+    act(() => {
+      firePointer(gridOf(), "lostPointerCapture", { pointerId: 1 });
+    });
+
+    expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);
+    expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
+  });
+
+  it("a successful commit is not rolled back by the capture release it causes", () => {
+    // teardown() clears the session and detaches listeners BEFORE releasing
+    // capture, precisely so the resulting lostpointercapture cannot cancel a
+    // drag that has already committed.
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    const previewed = renderedOrder();
+
+    pointerUp("w-a", slotPoint(2));
+    expect(renderedOrder()).toEqual(previewed);
+
+    // The release Chromium would emit next, arriving after cleanup.
+    act(() => {
+      firePointer(gridOf(), "lostPointerCapture", { pointerId: 1 });
+    });
+    expect(renderedOrder()).toEqual(previewed);
+    expect(captured.has(1)).toBe(false);
+  });
+
+  it("a mismatched pointer id cannot cancel the session", () => {
+    renderEditing();
+    pointerDown("w-a", slotPoint(0));
+    pointerMove("w-a", slotPoint(2));
+    const previewed = renderedOrder();
+
+    act(() => {
+      firePointer(gridOf(), "lostPointerCapture", { pointerId: 99 });
+      firePointer(gridOf(), "pointerCancel", { pointerId: 99 });
+    });
+
+    expect(renderedOrder()).toEqual(previewed);
+    expect(screen.getByTestId("analytics-drag-overlay")).toBeTruthy();
+  });
+});
+
 describe("drag session lifecycle", () => {
   it("pointer movement without a pointer-down never changes the layout", () => {
     renderEditing();
@@ -452,9 +579,12 @@ describe("drag session lifecycle", () => {
     expect(screen.queryByTestId("analytics-drag-overlay")).toBeNull();
   });
 
+  // Each exit fires on the element that would really emit it. Pointer events
+  // are dispatched at the CAPTURE OWNER (the grid), which is where a browser
+  // retargets them once capture is held — not at the grip that started the drag.
   it.each([
-    ["pointercancel", (el: HTMLElement) => firePointer(el, "pointerCancel", { pointerId: 1 })],
-    ["lostpointercapture", (el: HTMLElement) => firePointer(el, "lostPointerCapture", { pointerId: 1 })],
+    ["pointercancel", () => firePointer(gridOf(), "pointerCancel", { pointerId: 1 })],
+    ["lostpointercapture", () => firePointer(gridOf(), "lostPointerCapture", { pointerId: 1 })],
     ["Escape", () => fireEvent.keyDown(window, { key: "Escape" })],
     ["window blur", () => fireEvent.blur(window)],
   ])("%s cancels the session and restores the committed layout", (_label, exit) => {
@@ -464,7 +594,7 @@ describe("drag session lifecycle", () => {
     expect(renderedOrder()).toEqual(["w-b", "w-c", "w-a"]);
 
     act(() => {
-      exit(handleEl("w-a"));
+      exit();
     });
 
     expect(renderedOrder()).toEqual(["w-a", "w-b", "w-c"]);

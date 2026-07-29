@@ -37,6 +37,28 @@ import { computeDragPreview, hitTestSlot, type DragSlot } from "./dashboardHelpe
  * sets `position: relative` so it IS the offsetParent, and the slot capture
  * asserts that before trusting offset*.
  *
+ * CAPTURE OWNERSHIP (ANALYTICS-DRAG-RIGHTWARD-CAPTURE-LOSS-1).
+ *
+ * Pointer capture is taken on the GRID, never on the grip that started the
+ * drag. Measured in Chromium, capturing on the grip made the drag directional:
+ *
+ *   dragging LEFT   — reconciliation moves the SIBLING, the dragged card's node
+ *                     stays put, capture survives, the drag works.
+ *   dragging RIGHT  — reconciliation moves the DRAGGED card's own node, which
+ *                     relocates the capturing button with it. Chromium then
+ *                     fires `lostpointercapture`, the session cancels, and the
+ *                     preview snaps back — mid-gesture, with the button still
+ *                     held down.
+ *
+ * The observed rightward sequence was: pointerdown → gotpointercapture(grip) →
+ * order=[bravo,alpha,…] → lostpointercapture(grip) → order=[alpha,bravo,…].
+ * The grip was still `isConnected` throughout: the node was MOVED, not
+ * destroyed, and a move is enough for Chromium to drop capture.
+ *
+ * The grid never reorders, never remounts and keeps its identity for the whole
+ * edit session, so it is a safe owner. `lostpointercapture` remains a real
+ * cancellation signal — it is simply no longer fired by ordinary reordering.
+ *
  * Pointer-driven widget drag session (ANALYTICS-WIDGET-DRAG-STABILITY-1).
  *
  * The previous drag models re-ordered on whichever widget the pointer happened
@@ -58,7 +80,7 @@ import { computeDragPreview, hitTestSlot, type DragSlot } from "./dashboardHelpe
  *   derived, never mutated — so every slot keeps one stable meaning and the
  *   origin stays reachable. State updates only when the slot actually changes;
  *   a still pointer is inert, and gutters keep the current destination.
- * - The session is bounded by pointer capture on the handle plus explicit
+ * - The session is bounded by pointer capture on the GRID plus explicit
  *   exits: pointerup commits exactly the preview; pointercancel,
  *   lostpointercapture, Escape, window blur, unmount, and leaving edit mode
  *   all cancel. Events from any other pointer id are ignored, so ordinary
@@ -79,7 +101,11 @@ interface ActiveSession {
   readonly originSlot: number;
   readonly grabDx: number;
   readonly grabDy: number;
-  readonly handle: HTMLElement;
+  /**
+   * The element holding pointer capture — ALWAYS the grid, never the grip.
+   * See the capture-ownership note above.
+   */
+  readonly captureOwner: HTMLElement;
   readonly removeListeners: () => void;
   /** The only mutable field: the current destination slot. */
   destination: number;
@@ -123,11 +149,17 @@ export function useWidgetDragSession({
       cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     }
+    // ORDER MATTERS: the session is already cleared and the listeners already
+    // detached before capture is released. Releasing capture itself fires
+    // `lostpointercapture`, and that event must never be able to run the
+    // cancellation path over a drag that has just committed successfully.
     s.removeListeners();
     try {
-      s.handle.releasePointerCapture(s.pointerId);
+      if (s.captureOwner.hasPointerCapture?.(s.pointerId)) {
+        s.captureOwner.releasePointerCapture(s.pointerId);
+      }
     } catch {
-      // Capture already released (pointerup) or unsupported — fine either way.
+      // Already released (pointerup) or unsupported — fine either way.
     }
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
@@ -205,10 +237,13 @@ export function useWidgetDragSession({
       const grabDx = e.clientX - cardRect.left;
       const grabDy = e.clientY - cardRect.top;
 
+      // Stop text selection / native drag from the grip, then hand the pointer
+      // to the GRID. The grip's only jobs are identifying the widget and
+      // starting the session; it must not own the pointer, because
+      // reconciliation can move it (see the capture-ownership note above).
       e.preventDefault();
-      const handle = e.currentTarget;
       try {
-        handle.setPointerCapture(e.pointerId);
+        grid.setPointerCapture(e.pointerId);
       } catch {
         // Unsupported environment — the explicit exit listeners still bound it.
       }
@@ -252,23 +287,31 @@ export function useWidgetDragSession({
         if (!s || ev.pointerId !== s.pointerId) return;
         cancelDrag();
       };
-      const onLostCapture = () => cancelDrag();
+      const onLostCapture = (ev: PointerEvent) => {
+        const s = sessionRef.current;
+        if (!s || ev.pointerId !== s.pointerId) return;
+        // `lostpointercapture` BUBBLES, so a stale event from a descendant (the
+        // grip that used to hold capture, say) would otherwise cancel a healthy
+        // drag. Only the owner losing the pointer is a real cancellation.
+        if (ev.target !== s.captureOwner) return;
+        cancelDrag();
+      };
       const onKeyDown = (ev: KeyboardEvent) => {
         if (ev.key === "Escape") cancelDrag();
       };
       const onWindowBlur = () => cancelDrag();
 
-      handle.addEventListener("pointermove", onPointerMove);
-      handle.addEventListener("pointerup", onPointerUp);
-      handle.addEventListener("pointercancel", onPointerCancel);
-      handle.addEventListener("lostpointercapture", onLostCapture);
+      grid.addEventListener("pointermove", onPointerMove);
+      grid.addEventListener("pointerup", onPointerUp);
+      grid.addEventListener("pointercancel", onPointerCancel);
+      grid.addEventListener("lostpointercapture", onLostCapture);
       window.addEventListener("keydown", onKeyDown);
       window.addEventListener("blur", onWindowBlur);
       const removeListeners = () => {
-        handle.removeEventListener("pointermove", onPointerMove);
-        handle.removeEventListener("pointerup", onPointerUp);
-        handle.removeEventListener("pointercancel", onPointerCancel);
-        handle.removeEventListener("lostpointercapture", onLostCapture);
+        grid.removeEventListener("pointermove", onPointerMove);
+        grid.removeEventListener("pointerup", onPointerUp);
+        grid.removeEventListener("pointercancel", onPointerCancel);
+        grid.removeEventListener("lostpointercapture", onLostCapture);
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("blur", onWindowBlur);
       };
@@ -281,7 +324,7 @@ export function useWidgetDragSession({
         originSlot,
         grabDx,
         grabDy,
-        handle,
+        captureOwner: grid,
         removeListeners,
         destination: originSlot,
       };

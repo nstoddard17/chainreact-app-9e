@@ -571,6 +571,7 @@ export function AnalyticsDashboard({
       ) : (
         <div
           ref={gridRef}
+          data-testid="analytics-widget-grid"
           // `relative` is load-bearing, not cosmetic: it makes this element the
           // offsetParent of the cards, so their offsetLeft/offsetTop ARE
           // grid-local and can be compared with grid-local pointer coordinates
