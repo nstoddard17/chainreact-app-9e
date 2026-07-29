@@ -77,6 +77,7 @@ import { useGuidedBuild } from "./hooks/useGuidedBuild";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import { buildCheckReviewContext } from "./validation/buildCheckReviewContext";
+import { activateWorkflow } from "@/lib/api/workflows";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
 import { useDestructivePreview } from "./hooks/useDestructivePreview";
 import {
@@ -983,6 +984,37 @@ export function WorkflowBuilder({
     [pendingNodes, pendingEdges, requiredFieldsByType, providerLabels],
   );
 
+  // REACT-AGENT-GUIDED-BUILD-1 — guided Test: persist a dirty draft first
+  // (run-now executes the SAVED draft), then dispatch the SAME safe test-mode
+  // run the header uses. Dispatch failures land in the run controls' safe
+  // runError, which the guided card renders.
+  const draftIsDirty = useGraphSlice((s) => s.isDirty);
+  const handleGuidedTest = useCallback(async () => {
+    const gs = useGraphSlice.getState();
+    if (gs.isDirty) await gs.save();
+    await builderRunControls.handleTestWorkflow();
+    // builderRunControls captures dispatch errors into runError (safe copy).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builderRunControls.handleTestWorkflow]);
+
+  // REACT-AGENT-GUIDED-BUILD-1 — guided Activate: explicit user action only.
+  // Save-if-dirty → the EXISTING activate route (readiness 422 + destructive
+  // 409 + plan 403 all enforced server-side) → refresh the server-rendered
+  // lifecycle state so workflow.state flips to "active" (guided stage →
+  // complete). CONFIRMATION_REQUIRED is rethrown for the card's shared modal.
+  const handleGuidedActivate = useCallback(
+    async (confirmationText?: string) => {
+      const gs = useGraphSlice.getState();
+      if (gs.isDirty) await gs.save();
+      await activateWorkflow(
+        workflow.id,
+        confirmationText !== undefined ? { confirmationText } : {},
+      );
+      router.refresh();
+    },
+    [workflow.id, router],
+  );
+
   // REACT-AGENT-GUIDED-BUILD-1 — the guided card (stage projection + popup
   // connect + rail footer). Deterministic wiring only; no model call, no
   // AI-credit charge on any guided control.
@@ -999,6 +1031,10 @@ export function WorkflowBuilder({
     onOpenIssues: handleOpenValidation,
     guidedSetupTargets,
     renderNodeSetup: renderCheckSetup,
+    onTest: handleGuidedTest,
+    runError: builderRunControls.runError,
+    draftIsDirty,
+    onActivate: handleGuidedActivate,
   });
 
   /**

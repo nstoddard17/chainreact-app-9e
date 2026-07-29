@@ -12,6 +12,10 @@ import {
 import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
 import { GuidedBuildCard } from "../panels/GuidedBuildCard";
 import { GuidedConfigureSection } from "../panels/GuidedConfigureSection";
+import {
+  GuidedActivateSection,
+  GuidedTestSection,
+} from "../panels/GuidedTestActivateSections";
 import { useGuidedConnect } from "./useGuidedConnect";
 
 /**
@@ -47,9 +51,16 @@ export interface UseGuidedBuildInput {
   readonly renderNodeSetup?: (
     targets: readonly CheckWorkflowSetupTarget[],
   ) => ReactNode;
-  /** Injected stage bodies (Test / Activate slices). */
-  readonly testSection?: ReactNode;
-  readonly activateSection?: ReactNode;
+  /**
+   * Test stage: save-if-dirty then dispatch the safe test run (the builder's
+   * existing run-controls path). `runError` is the run controls' last safe
+   * dispatch error; `draftIsDirty` drives the "saved first" note.
+   */
+  readonly onTest?: () => Promise<void>;
+  readonly runError?: string | null;
+  readonly draftIsDirty?: boolean;
+  /** Activate stage: save-if-dirty → activate → refresh lifecycle state. */
+  readonly onActivate?: (confirmationText?: string) => Promise<void>;
 }
 
 export interface GuidedBuildWiring {
@@ -72,8 +83,10 @@ export function useGuidedBuild(input: UseGuidedBuildInput): GuidedBuildWiring {
     onOpenIssues,
     guidedSetupTargets,
     renderNodeSetup,
-    testSection,
-    activateSection,
+    onTest,
+    runError,
+    draftIsDirty,
+    onActivate,
   } = input;
 
   const snapshot = useMemo(
@@ -100,6 +113,29 @@ export function useGuidedBuild(input: UseGuidedBuildInput): GuidedBuildWiring {
         {...(onOpenIssues ? { onOpenIssues } : {})}
       />
     ) : undefined;
+
+  // Test / Activate stage bodies — thin wrappers over the existing run and
+  // activation paths (see GuidedTestActivateSections).
+  const testSection = onTest ? (
+    <GuidedTestSection
+      onTest={onTest}
+      testStatus={verdict.lastTestStatus ?? "not_tested"}
+      {...(runError !== undefined ? { runError } : {})}
+      {...(draftIsDirty !== undefined ? { isDirty: draftIsDirty } : {})}
+    />
+  ) : undefined;
+
+  const connectedCount = snapshot.connectionProviders.filter(
+    (p) => p.state === "connected",
+  ).length;
+  const activateSection = onActivate ? (
+    <GuidedActivateSection
+      onActivate={onActivate}
+      testPassed={verdict.lastTestStatus === "passed"}
+      warnings={verdict.warnings}
+      connectedCount={connectedCount}
+    />
+  ) : undefined;
 
   const guidedFooter =
     sessionActive && !localOnly && snapshot.stage !== "creating" && snapshot.stage !== "preview_ready" ? (
