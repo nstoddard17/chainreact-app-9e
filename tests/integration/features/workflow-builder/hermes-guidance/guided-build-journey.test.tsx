@@ -1,0 +1,478 @@
+/**
+ * REACT-AGENT-GUIDED-BUILD-1 — the guided Create → Connect → Configure → Test →
+ * Activate journey, driven through the REAL WorkflowBuilder + graph slices +
+ * readiness hooks. Mocked at the external boundaries only: the guidance
+ * helper, the connection-readiness client, the OAuth connect client + popup
+ * window, the options resolver client, and the workflow run/activate clients.
+ *
+ * Covers the required journeys:
+ *   1. Stripe → Slack: apply → BOTH connect cards → popup OAuth completes each
+ *      (origin+nonce-validated postMessage) → Slack config appears → values
+ *      save to the draft → ready to activate → activate from the rail.
+ *      (A Stripe trigger is not in-builder testable, so readiness — by
+ *      design — routes straight to Activate after configure.)
+ *   2. One app already connected → only the missing app asks to connect.
+ *   3. All apps connected → skips Connect, goes straight to Configure.
+ *   4. No configuration required (manual trigger) → straight to Test; test
+ *      passes → Activate.
+ *   5. OAuth canceled (popup closed) → stays in Connect with Try again.
+ *   6. Page reload mid-journey → the guided card resumes at the SAME stage
+ *      (localStorage session flag + stage re-derived from readiness).
+ *  10. Billing: the ENTIRE deterministic journey calls the guidance helper
+ *      exactly once (the initial create) — no AI charge for connect /
+ *      configure / test / activate steps.
+ */
+const mockRouterRefresh = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mockRouterRefresh, push: jest.fn() }),
+}));
+
+jest.mock("@/lib/api/discovery", () => ({
+  __esModule: true,
+  listNativeActions: async () => [],
+  listAiActions: () => Promise.resolve([]),
+  listNativeTriggers: async () => [],
+  listProviderActions: async () => [],
+  listProviderTriggers: async () => [],
+  DiscoveryApiError: class DiscoveryApiError extends Error {
+    code = "UNKNOWN";
+    status = 500;
+  },
+}));
+
+const mockUpdateWorkflow = jest.fn();
+const mockRunNow = jest.fn();
+const mockGetRun = jest.fn();
+const mockActivate = jest.fn();
+jest.mock("@/lib/api/workflows", () => {
+  const actual = jest.requireActual("@/lib/api/workflows");
+  return {
+    ...actual,
+    updateWorkflow: (...a: unknown[]) => mockUpdateWorkflow(...a),
+    runNowWorkflow: (...a: unknown[]) => mockRunNow(...a),
+    getWorkflowRun: (...a: unknown[]) => mockGetRun(...a),
+    activateWorkflow: (...a: unknown[]) => mockActivate(...a),
+  };
+});
+
+const mockRequest = jest.fn();
+jest.mock("@/lib/api/ai/guidance", () => ({
+  requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
+}));
+
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...a: unknown[]) => mockFetchOptionsSource(...a),
+}));
+
+// Connection truth is server-resolved; the client hook calls this typed helper.
+const mockGetConnectionReadiness = jest.fn();
+jest.mock("@/lib/api/workflowConnectionReadiness", () => ({
+  getWorkflowConnectionReadiness: (...a: unknown[]) => mockGetConnectionReadiness(...a),
+}));
+
+const mockStartOAuth = jest.fn();
+jest.mock("@/lib/api/integrations", () => {
+  const actual = jest.requireActual("@/lib/api/integrations");
+  return { ...actual, startOAuth: (...a: unknown[]) => mockStartOAuth(...a) };
+});
+
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { buildOAuthPopupMessage } from "@/core/integrations/oauthPopupBridge";
+import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
+import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
+import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
+import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
+import type { WorkflowDetail } from "@/contracts/workflow";
+
+const triggerProviders = [{ id: "stripe", displayName: "Stripe" }];
+const actionProviders = [{ id: "slack", displayName: "Slack" }];
+
+// ── Fixtures ────────────────────────────────────────────────────────────────
+
+const stripeSlackPlan = {
+  schemaVersion: 1,
+  title: "Payment alert",
+  summary: "When a Stripe payment succeeds, post to Slack.",
+  notApplied: true,
+  steps: [
+    { ref: "s0", role: "trigger", provider: "stripe", type: "payment_succeeded", purpose: "watch" },
+    { ref: "s1", role: "action", provider: "slack", type: "send_channel_message", purpose: "notify" },
+  ],
+};
+const stripeSlackPreview = {
+  version: 1,
+  title: "Payment alert",
+  summary: "When a Stripe payment succeeds, post to Slack.",
+  notice: "Preview only — your workflow has not changed.",
+  notApplied: true,
+  nodes: [
+    { previewId: "p1", role: "trigger", provider: "stripe", type: "payment_succeeded", label: "stripe:payment_succeeded", purpose: "watch", notApplied: true },
+    { previewId: "p2", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "notify", missingInputs: ["channel", "text"], notApplied: true },
+  ],
+  edges: [{ previewId: "pe1", fromPreviewId: "p1", toPreviewId: "p2", notApplied: true }],
+};
+
+const manualSlackPlan = {
+  ...stripeSlackPlan,
+  steps: [
+    { ref: "s0", role: "trigger", provider: "native", type: "manual.run", purpose: "start" },
+    { ref: "s1", role: "action", provider: "slack", type: "send_channel_message", purpose: "notify" },
+  ],
+};
+const manualSlackPreview = {
+  ...stripeSlackPreview,
+  nodes: [
+    { previewId: "p1", role: "trigger", provider: "native", type: "manual.run", label: "native:manual.run", purpose: "start", notApplied: true },
+    { previewId: "p2", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "notify", notApplied: true },
+  ],
+};
+
+const REQUIRED_FIELDS = {
+  "slack:send_channel_message": {
+    displayName: "Send Channel Message",
+    requiredFields: [
+      { name: "channel", label: "Channel" },
+      { name: "text", label: "Message" },
+    ],
+  },
+} as const;
+
+const SETUP_FIELDS = {
+  "slack:send_channel_message": [
+    { name: "channel", label: "Channel", type: "select-async" as const, required: true, optionsSource: "slack:channels" },
+    { name: "text", label: "Message", type: "textarea" as const, required: true },
+  ],
+};
+
+function workflow(): WorkflowDetail {
+  return {
+    id: "wf-guided", name: "Guided", state: "draft", disabledReason: null, disabledContext: null,
+    activeRevisionId: null, draftDefinition: { nodes: [], edges: [] }, deletedAt: null,
+    createdAt: "2026-07-28T00:00:00Z", updatedAt: "2026-07-28T00:00:00Z",
+  };
+}
+
+// Server-truth stand-in: which providers count as connected right now. The
+// readiness mock derives its DTO from this set on EVERY call, exactly like the
+// real brain re-resolving integration rows.
+let connectedProviders: Set<string>;
+
+function connectionEntry(provider: string, name: string, nodeIds: string[]) {
+  const ready = connectedProviders.has(provider);
+  return {
+    provider,
+    name,
+    credentialClass: "account",
+    nodeIds,
+    nodeCount: nodeIds.length,
+    status: ready ? "CONNECTED" : "DISCONNECTED",
+    ready,
+    providerEnabled: true,
+    refreshable: true,
+    tokenExpired: false,
+    scopesSatisfied: true,
+    missingScopeCount: 0,
+    reconnectNeeded: false,
+    canReconnect: true,
+  };
+}
+
+function installConnectionReadiness(): void {
+  mockGetConnectionReadiness.mockImplementation(
+    async (_workflowId: string, definition: { nodes: Array<{ id: string; provider?: string }> }) => {
+      const byProvider = new Map<string, string[]>();
+      for (const n of definition.nodes) {
+        if (!n.provider || n.provider === "native") continue;
+        byProvider.set(n.provider, [...(byProvider.get(n.provider) ?? []), n.id]);
+      }
+      const providers = [...byProvider.entries()].map(([p, ids]) =>
+        connectionEntry(p, p === "slack" ? "Slack" : "Stripe", ids),
+      );
+      return {
+        workflowId: "wf-guided",
+        access: "OK",
+        allRequiredConnected: providers.every((p) => p.ready),
+        providers,
+      };
+    },
+  );
+}
+
+// Popup stand-in the connect hook opens.
+interface FakePopup { closed: boolean; close: jest.Mock }
+let openedPopups: FakePopup[];
+let openSpy: jest.SpyInstance;
+
+function lastOAuthNonce(): string {
+  const call = mockStartOAuth.mock.calls.at(-1)! as unknown[];
+  return (call[1] as { returnContext: { nonce: string } }).returnContext.nonce;
+}
+
+/** Simulate the popup completing OAuth: server-truth flips, bridge message posts. */
+function completeOAuth(provider: string): void {
+  connectedProviders.add(provider);
+  const msg = buildOAuthPopupMessage({ provider, status: "connected", nonce: lastOAuthNonce() });
+  fireEvent(window, new MessageEvent("message", { data: msg, origin: window.location.origin }));
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  window.localStorage.clear();
+  connectedProviders = new Set();
+  installConnectionReadiness();
+  openedPopups = [];
+  openSpy = jest.spyOn(window, "open").mockImplementation(() => {
+    const popup: FakePopup = { closed: false, close: jest.fn() };
+    popup.close.mockImplementation(() => { popup.closed = true; });
+    openedPopups.push(popup);
+    return popup as unknown as Window;
+  });
+  mockStartOAuth.mockResolvedValue({ redirectUrl: "https://provider.example/authorize?x=1" });
+  mockUpdateWorkflow.mockImplementation(async () => ({
+    ...workflow(),
+    draftDefinition: {
+      nodes: [...useGraphSlice.getState().pendingNodes],
+      edges: [...useGraphSlice.getState().pendingEdges],
+    },
+    updatedAt: new Date().toISOString(),
+  }));
+  mockRunNow.mockResolvedValue({ runId: "run-1", enqueuedAt: "now", isTest: true, triggeredBy: "test" });
+  mockActivate.mockResolvedValue({ id: "wf-guided", state: "active" });
+  mockFetchOptionsSource.mockResolvedValue({
+    ok: true, source: "slack:channels", items: [{ value: "C2", label: "#leads" }], hasMore: false,
+  });
+  mockRequest.mockResolvedValue({
+    ok: true, guidanceText: "Here's the workflow.", source: "hermes-agent",
+    workflowPlan: stripeSlackPlan, previewDraft: stripeSlackPreview,
+  });
+  useGraphSlice.getState().reset();
+  useConfigSlice.getState().reset();
+  useRunSlice.getState().reset();
+});
+
+afterEach(() => {
+  openSpy.mockRestore();
+});
+
+function renderBuilder() {
+  return render(
+    <WorkflowBuilder
+      workflow={workflow()}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+      requiredFieldsByType={REQUIRED_FIELDS}
+      setupFieldsByType={SETUP_FIELDS}
+      providerLabels={{ stripe: "Stripe", slack: "Slack" }}
+      accountId="acct-1"
+      guidanceEnabled
+    />,
+  );
+}
+
+async function createAndApply(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByPlaceholderText(/Example:/i), "post Stripe payments to Slack");
+  await user.click(screen.getByTestId("workflow-guidance-submit"));
+  await user.click(await screen.findByTestId("builder-preview-apply"));
+}
+
+function slackNodeId(): string {
+  const node = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack");
+  expect(node).toBeDefined();
+  return node!.id;
+}
+
+// ── The journeys ────────────────────────────────────────────────────────────
+
+it("journey 1+10 — Stripe → Slack: connect both in popups, configure Slack, activate from the rail; ONE guidance call total", async () => {
+  const user = userEvent.setup();
+  renderBuilder();
+  await createAndApply(user);
+
+  // Connect stage: BOTH apps appear as connection cards inside the rail.
+  const card = await screen.findByTestId("guided-build-card");
+  expect(card).toHaveAttribute("data-stage", "connecting");
+  await screen.findByTestId("guided-connect-stripe");
+  await screen.findByTestId("guided-connect-slack");
+  expect(screen.getByText(/0 of 2 connected/)).toBeInTheDocument();
+
+  // Stripe OAuth in a popup → completion message → card flips from server truth.
+  await user.click(screen.getByTestId("guided-connect-stripe-button"));
+  await waitFor(() => expect(openedPopups).toHaveLength(1));
+  act(() => completeOAuth("stripe"));
+  await screen.findByTestId("guided-connect-stripe-connected");
+  expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "connecting");
+
+  // Slack next. Both connected → Configure begins automatically.
+  await user.click(screen.getByTestId("guided-connect-slack-button"));
+  await waitFor(() => expect(openedPopups).toHaveLength(2));
+  act(() => completeOAuth("slack"));
+  await waitFor(() =>
+    expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "configuring"),
+  );
+
+  // Configure stage: the Slack node's channel picker (real resolver client) +
+  // message field render in the rail; values save into the DRAFT node.
+  const nodeId = slackNodeId();
+  expect(screen.getByTestId("guided-configure-progress")).toHaveTextContent(/set up/i);
+  const channel = await screen.findByTestId(`node-setup-${nodeId}-channel`);
+  await waitFor(() => expect(channel.querySelectorAll("option").length).toBe(2));
+  fireEvent.change(channel, { target: { value: "C2" } });
+  fireEvent.change(screen.getByTestId(`node-setup-${nodeId}-text`), {
+    target: { value: "New payment received" },
+  });
+  await user.click(screen.getByTestId(`node-setup-${nodeId}-update`));
+  await waitFor(() => {
+    const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)!;
+    expect(node.config).toMatchObject({ channel: "C2", text: "New payment received" });
+  });
+
+  // A Stripe-trigger workflow is not in-builder testable → readiness routes
+  // straight to Activate once fields + connections are clean.
+  await waitFor(() =>
+    expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "ready_to_activate"),
+  );
+
+  // Activate — explicit click, real activate client, lifecycle refresh.
+  await user.click(screen.getByTestId("guided-activate-button"));
+  await waitFor(() => expect(mockActivate).toHaveBeenCalledTimes(1));
+  expect(mockActivate).toHaveBeenCalledWith("wf-guided", {});
+  expect(mockRouterRefresh).toHaveBeenCalled();
+
+  // Journey 10 — billing: the whole deterministic journey (connect ×2,
+  // configure, activate) made exactly ONE guidance call: the initial create.
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+});
+
+it("journey 2 — one app already connected: only the missing app asks to connect", async () => {
+  connectedProviders.add("slack");
+  const user = userEvent.setup();
+  renderBuilder();
+  await createAndApply(user);
+
+  await screen.findByTestId("guided-connect-stripe-button");
+  await screen.findByTestId("guided-connect-slack-connected");
+  expect(screen.queryByTestId("guided-connect-slack-button")).toBeNull();
+  expect(screen.getByText(/1 of 2 connected/)).toBeInTheDocument();
+});
+
+it("journey 3 — all apps connected: skips Connect and goes straight to Configure", async () => {
+  connectedProviders.add("stripe").add("slack");
+  const user = userEvent.setup();
+  renderBuilder();
+  await createAndApply(user);
+
+  await waitFor(() =>
+    expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "configuring"),
+  );
+  expect(screen.queryByTestId("guided-connect-section")).toBeNull();
+});
+
+it("journey 4 — no configuration required (manual trigger): straight to Test; a passed test unlocks Activate", async () => {
+  connectedProviders.add("slack");
+  mockRequest.mockResolvedValue({
+    ok: true, guidanceText: "ok", source: "hermes-agent",
+    workflowPlan: manualSlackPlan, previewDraft: manualSlackPreview,
+  });
+  // No required fields for this journey — the apply is complete as-is.
+  const user = userEvent.setup();
+  render(
+    <WorkflowBuilder
+      workflow={workflow()}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+      requiredFieldsByType={{}}
+      setupFieldsByType={SETUP_FIELDS}
+      providerLabels={{ slack: "Slack" }}
+      accountId="acct-1"
+      guidanceEnabled
+    />,
+  );
+  await createAndApply(user);
+
+  await waitFor(() =>
+    expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "ready_to_test"),
+  );
+
+  // Test from the rail: saves the dirty draft first, then the safe test run.
+  await user.click(screen.getByTestId("guided-test-button"));
+  await waitFor(() => expect(mockRunNow).toHaveBeenCalledTimes(1));
+  expect(mockUpdateWorkflow).toHaveBeenCalled(); // draft persisted before the run
+  expect(mockRunNow.mock.calls[0]![2]).toMatchObject({ testMode: true });
+
+  // The run completes successfully (drive one poll tick with server truth).
+  mockGetRun.mockResolvedValue({ status: "succeeded", steps: [] });
+  await act(async () => {
+    await useRunSlice.getState().pollOnce();
+  });
+  await waitFor(() =>
+    expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "ready_to_activate"),
+  );
+  expect(screen.getByTestId("guided-activate-body")).toHaveTextContent("✓ Test passed.");
+
+  await user.click(screen.getByTestId("guided-activate-button"));
+  await waitFor(() => expect(mockActivate).toHaveBeenCalledTimes(1));
+  expect(mockRequest).toHaveBeenCalledTimes(1); // still just the create call
+});
+
+it("journey 5 — OAuth canceled: the popup closes unfinished; Connect stage stays with Try again", async () => {
+  const user = userEvent.setup();
+  renderBuilder();
+  await createAndApply(user);
+
+  await user.click(await screen.findByTestId("guided-connect-stripe-button"));
+  await waitFor(() => expect(openedPopups).toHaveLength(1));
+  // User closes the popup without completing; NO completion message arrives.
+  act(() => { openedPopups[0]!.closed = true; });
+
+  await waitFor(
+    () => expect(screen.getByTestId("guided-connect-stripe-button")).toHaveTextContent("Try again"),
+    { timeout: 4000 },
+  );
+  expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "connecting");
+  // The close fallback re-checked the server (still disconnected — honest).
+  expect(mockGetConnectionReadiness.mock.calls.length).toBeGreaterThanOrEqual(2);
+});
+
+it("journey 6 — reload mid-journey: the guided card resumes at the SAME stage from the session flag + readiness", async () => {
+  const user = userEvent.setup();
+  const first = renderBuilder();
+  await createAndApply(user);
+  await screen.findByTestId("guided-build-card");
+  expect(window.localStorage.getItem("chainreact:builder:guidedBuild:wf-guided")).toBe("1");
+
+  // Simulate a reload: unmount everything, keep localStorage + the saved-ish
+  // draft (the graph slice re-hydrates from the server workflow on mount).
+  const draft = {
+    nodes: [...useGraphSlice.getState().pendingNodes],
+    edges: [...useGraphSlice.getState().pendingEdges],
+  };
+  first.unmount();
+  useGraphSlice.getState().reset();
+  useConfigSlice.getState().reset();
+
+  render(
+    <WorkflowBuilder
+      workflow={{ ...workflow(), draftDefinition: draft }}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+      requiredFieldsByType={REQUIRED_FIELDS}
+      setupFieldsByType={SETUP_FIELDS}
+      providerLabels={{ stripe: "Stripe", slack: "Slack" }}
+      accountId="acct-1"
+      guidanceEnabled
+    />,
+  );
+
+  // No new apply happened, but the restored session + re-derived readiness put
+  // the card straight back into the Connect stage with both cards.
+  const card = await screen.findByTestId("guided-build-card");
+  await waitFor(() => expect(card).toHaveAttribute("data-stage", "connecting"));
+  expect(screen.getByTestId("guided-connect-stripe")).toBeInTheDocument();
+  expect(screen.getByTestId("guided-connect-slack")).toBeInTheDocument();
+  // The conversation transcript itself is in-memory only (pre-existing
+  // limitation) — the guided journey, not the chat, is what resumes.
+  expect(mockRequest).toHaveBeenCalledTimes(1);
+});
