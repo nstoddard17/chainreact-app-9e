@@ -199,3 +199,63 @@ describe("inferNamedProviderChainPlan — ranked object matching (REACT-AGENT-FI
     ]);
   });
 });
+
+/**
+ * REACT-AGENT-AMBIGUOUS-TRIGGER-1 — "build first, configure later" for a broad configurable
+ * trigger. The owner-reported prompt ("When I get a Stripe payment from Marcus, send me a Slack
+ * message to the test channel.") used to return PREVIEW_PLAN_MISSING: pre-ranked matching, the
+ * Slack clause tied send_channel_message against send_direct_message on the generic noun
+ * "message" and the planner declined. Trigger-side, Stripe's ONE registered trigger is the broad
+ * `event_received` — designed to take the exact event as a SETUP choice (`enabledEvents`), so
+ * "payment" ambiguity must never block the preview. These pin the exact prompt + the phrasing
+ * variants, and that the event/channel/message stay setup requirements (no fabricated values).
+ */
+describe("inferNamedProviderChainPlan — ambiguous Stripe payment phrasing (REACT-AGENT-AMBIGUOUS-TRIGGER-1)", () => {
+  const PINNED_PROMPT =
+    "When I get a Stripe payment from Marcus, send me a Slack message to the test channel.";
+
+  it("the exact owner prompt plans stripe:event_received → slack:send_channel_message on the first pass", () => {
+    const plan = inferNamedProviderChainPlan(PINNED_PROMPT);
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.role}:${s.provider}:${s.type}`)).toEqual([
+      "trigger:stripe:event_received",
+      "action:slack:send_channel_message",
+    ]);
+  });
+
+  it("the exact Stripe EVENT stays a setup requirement — never guessed from 'payment'", () => {
+    const plan = inferNamedProviderChainPlan(PINNED_PROMPT)!;
+    const trigger = plan.steps[0]!;
+    expect(trigger.requiredInputs).toEqual(["enabledEvents"]);
+    expect(trigger.config).toBeUndefined();
+    // The Slack channel + message body also remain setup fields with no values.
+    const action = plan.steps[1]!;
+    expect(action.requiredInputs).toEqual(["channel", "text"]);
+    expect(action.config).toBeUndefined();
+    // Nothing from the sentence leaked into the plan as a value ("Marcus", "test").
+    expect(JSON.stringify(plan)).not.toMatch(/Marcus/);
+    expect(validateWorkflowPlan(plan).ok).toBe(true);
+  });
+
+  it.each([
+    "When a Stripe payment succeeds, post a message to the Slack team channel.",
+    "When I receive a payment in Stripe, send a Slack message to the general channel.",
+    "When someone pays us through Stripe, send a Slack channel message.",
+  ])("phrasing variant plans the same shape: %s", (prompt) => {
+    const plan = inferNamedProviderChainPlan(prompt);
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.provider}:${s.type}`)).toEqual([
+      "stripe:event_received",
+      "slack:send_channel_message",
+    ]);
+    expect(plan!.steps[0]!.requiredInputs).toEqual(["enabledEvents"]);
+  });
+
+  it("safe clarification is preserved when no valid configurable capability exists (genuine action tie)", () => {
+    // The action side stays genuinely ambiguous without an object noun — the planner still declines
+    // rather than guessing between channel and direct message.
+    expect(
+      inferNamedProviderChainPlan("When I get a Stripe payment from Marcus, send me a Slack message."),
+    ).toBeNull();
+  });
+});

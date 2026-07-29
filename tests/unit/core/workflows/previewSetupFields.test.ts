@@ -153,3 +153,71 @@ describe("sanitizeSeedConfig", () => {
     expect(sanitizeSeedConfig({ message: "hi" }, undefined)).toEqual({});
   });
 });
+
+/**
+ * REACT-AGENT-AMBIGUOUS-TRIGGER-1 — static multi-select support. A `multiple` select/combobox with
+ * STATIC options (Stripe `event_received.enabledEvents` — the broad configurable trigger's event
+ * choice) renders as a bounded checkbox group in the rail; async or cascading multis stay deferred.
+ */
+describe("multi-select (static options)", () => {
+  const multiField: FieldMeta = {
+    name: "enabledEvents",
+    label: "Event Types",
+    type: "combobox",
+    required: true,
+    multiple: true,
+    options: [
+      { value: "payment_intent.succeeded", label: "payment_intent.succeeded" },
+      { value: "invoice.paid", label: "invoice.paid" },
+    ],
+  } as FieldMeta;
+
+  const triggerMeta = {
+    key: "stripe:event_received",
+    provider: "stripe",
+    type: "event_received",
+    displayName: "Stripe Event Received",
+    description: "x",
+    category: "commerce",
+    activation: "webhook",
+    requiresIntegration: true,
+    fields: [multiField],
+    payloadShape: [],
+  } as unknown as TriggerMeta;
+
+  it("maps a static-options multiple combobox to a multi-select control", () => {
+    const byType = buildPreviewSetupFields([], [triggerMeta]);
+    expect(byType["stripe:event_received"]).toEqual([
+      {
+        name: "enabledEvents",
+        label: "Event Types",
+        type: "multi-select",
+        required: true,
+        options: [
+          { value: "payment_intent.succeeded", label: "payment_intent.succeeded" },
+          { value: "invoice.paid", label: "invoice.paid" },
+        ],
+      },
+    ]);
+  });
+
+  it("an ASYNC multiple (optionsSource) stays deferred", () => {
+    const asyncMulti = {
+      ...triggerMeta,
+      fields: [{ ...multiField, options: undefined, optionsSource: "stripe:events" } as FieldMeta],
+    } as unknown as TriggerMeta;
+    expect(buildPreviewSetupFields([], [asyncMulti])["stripe:event_received"]).toBeUndefined();
+  });
+
+  it("sanitizeSeedConfig keeps only option-matching strings and drops an empty pick", () => {
+    const fields = buildPreviewSetupFields([], [triggerMeta])["stripe:event_received"]!;
+    expect(
+      sanitizeSeedConfig(
+        { enabledEvents: ["payment_intent.succeeded", "not.a.real.event", 42] },
+        fields,
+      ),
+    ).toEqual({ enabledEvents: ["payment_intent.succeeded"] });
+    expect(sanitizeSeedConfig({ enabledEvents: [] }, fields)).toEqual({});
+    expect(sanitizeSeedConfig({ enabledEvents: "invoice.paid" }, fields)).toEqual({});
+  });
+});

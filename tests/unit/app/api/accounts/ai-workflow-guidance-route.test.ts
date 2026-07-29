@@ -1565,3 +1565,61 @@ describe("workflow-guidance route — first-turn Stripe→Slack regression", () 
     expect(body).not.toHaveProperty("code");
   });
 });
+
+/**
+ * REACT-AGENT-AMBIGUOUS-TRIGGER-1 — trigger ambiguity must not block workflow creation when the
+ * provider ships a broad configurable trigger. The owner-reported prompt used to return
+ * PREVIEW_PLAN_MISSING (pre-ranked matching, the Slack clause tied channel-vs-direct message and
+ * the registry planner declined; the model path then asked clarifying questions). At the ROUTE
+ * level: the FIRST submission must return the deterministic registry preview — stripe's broad
+ * `event_received` trigger with the exact event left as a SETUP field — with NO Hermes call and
+ * NO AI-credit precheck or charge.
+ */
+describe("workflow-guidance route — ambiguous Stripe payment trigger (REACT-AGENT-AMBIGUOUS-TRIGGER-1)", () => {
+  const PINNED_PROMPT =
+    "When I get a Stripe payment from Marcus, send me a Slack message to the test channel.";
+
+  it("the exact pinned prompt previews on the FIRST submission — no Hermes, no credit precheck, no charge", async () => {
+    const res = await call(ACCOUNT, { goalText: PINNED_PROMPT });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.source).toBe("registry_planner");
+    expect(
+      body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+    ).toEqual(["stripe:event_received", "slack:send_channel_message"]);
+
+    // The event + channel + message remain SETUP fields on the preview, never guessed values.
+    const byType = Object.fromEntries(
+      body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
+    );
+    expect(byType.event_received).toEqual(["enabledEvents"]);
+    expect(byType.send_channel_message).toEqual(["channel", "text"]);
+    for (const step of body.workflowPlan.steps) expect(step.config ?? undefined).toBeUndefined();
+
+    // Deterministic = free: no model call, no precheck, no ledger write.
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCharge).not.toHaveBeenCalled();
+    // And by construction no PREVIEW_PLAN_MISSING is possible on this path.
+    expect(body).not.toHaveProperty("code");
+  });
+
+  it.each([
+    "When a Stripe payment succeeds, post a message to the Slack team channel.",
+    "When I receive a payment in Stripe, send a Slack message to the general channel.",
+    "When someone pays us through Stripe, send a Slack channel message.",
+  ])("phrasing variant also previews deterministically: %s", async (goalText) => {
+    const res = await call(ACCOUNT, { goalText });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("registry_planner");
+    expect(
+      body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`),
+    ).toEqual(["stripe:event_received", "slack:send_channel_message"]);
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCharge).not.toHaveBeenCalled();
+  });
+});

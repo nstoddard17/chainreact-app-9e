@@ -342,6 +342,45 @@ export function SetupFieldControl({
     );
   }
 
+  // REACT-AGENT-AMBIGUOUS-TRIGGER-1 — bounded checkbox group for a static multi-select (e.g. the
+  // Stripe `enabledEvents` event choice). Value is a string array; toggling emits the new array.
+  if (field.type === "multi-select") {
+    const selected = new Set(
+      Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [],
+    );
+    const toggle = (optionValue: string, checked: boolean) => {
+      const next = new Set(selected);
+      if (checked) next.add(optionValue);
+      else next.delete(optionValue);
+      onChange([...next]);
+    };
+    return (
+      <fieldset className="mt-1.5 text-[11px]" data-testid={testid} aria-label={field.label}>
+        <legend className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
+          {field.label}
+        </legend>
+        <div className="mt-0.5 space-y-0.5">
+          {field.options?.map((o) => (
+            <label
+              key={o.value}
+              className="flex items-center gap-2 text-[11.5px]"
+              style={{ color: "var(--builder-text)" }}
+            >
+              <input
+                type="checkbox"
+                data-testid={`${testid}-${o.value}`}
+                checked={selected.has(o.value)}
+                onChange={(e) => toggle(o.value, e.target.checked)}
+                {...focusProp}
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
   return (
     <label className="mt-1.5 block text-[11px]" style={{ color: "var(--builder-muted)" }}>
       {field.label}

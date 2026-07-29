@@ -12,9 +12,12 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * are NEVER sent to Hermes / a model / a prompt / audit text. This collection is intentionally
  * conservative:
  *
- *   - Supported control types only: `text`, `textarea`, `number`, `boolean`, and `select` ONLY when it
- *     has STATIC `options` (no async resolver). Everything else (combobox, keyvalue, file, cron,
- *     router-routes, string-array, file-array, dynamic select) is deferred.
+ *   - Supported control types only: `text`, `textarea`, `number`, `boolean`, `select` ONLY when it
+ *     has STATIC `options` (no async resolver), and `multi-select` for a `multiple` select/combobox
+ *     with STATIC options (REACT-AGENT-AMBIGUOUS-TRIGGER-1 — a broad configurable trigger like
+ *     Stripe's `event_received` collects its exact event list as a bounded checkbox group).
+ *     Everything else (keyvalue, file, cron, router-routes, string-array, file-array, dynamic
+ *     select, async multi) is deferred.
  *   - `recipient`-class fields ARE allowed when they render as one of the supported LOCAL control types
  *     (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX). A recipient is "where a message/event is sent" — a
  *     deterministic value the user types/picks locally; it is seeded into draft config on Apply and is
@@ -28,8 +31,8 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *     `multiple`). `dependsOn` is carried so the card can gate the field until its parent values exist
  *     in previewConfig.
  *   - EXCLUDED entirely: `secret` / `connection` sensitivity (credential/token/account-identity
- *     material), `multiple` (multi-select, deferred), and a NON-async `dependsOn` cascade. These are
- *     never rendered or seeded pre-apply.
+ *     material), `multiple` WITHOUT static options (an async multi stays deferred), and a NON-async
+ *     `dependsOn` cascade. These are never rendered or seeded pre-apply.
  *
  * `core/` may be imported by both the client (builder) and the server (page metadata build), and
  * imports only `contracts/`. Pure: no state, no fetch, no model call.
@@ -41,6 +44,7 @@ export type PreviewSetupFieldType =
   | "number"
   | "boolean"
   | "select"
+  | "multi-select"
   | "select-async";
 
 export interface PreviewSetupFieldOption {
@@ -55,7 +59,7 @@ export interface PreviewSetupField {
   readonly type: PreviewSetupFieldType;
   readonly required: boolean;
   readonly placeholder?: string;
-  /** Static options — present only for `select`. */
+  /** Static options — present only for `select` / `multi-select`. */
   readonly options?: readonly PreviewSetupFieldOption[];
   /** Async resolver key (e.g. `slack:channels`) — present only for `select-async`. */
   readonly optionsSource?: string;
@@ -75,8 +79,31 @@ function toPreviewSetupField(f: FieldMeta): PreviewSetupField | null {
   // (it's a deterministic, locally-entered "where to send" value, seeded on Apply, never sent to
   // Hermes) — only `secret` / `connection` stay excluded.
   if (f.sensitivity === "secret" || f.sensitivity === "connection") return null;
-  // Multi-select is deferred (single-select only this slice).
-  if (f.multiple === true) return null;
+
+  // REACT-AGENT-AMBIGUOUS-TRIGGER-1 — a `multiple` select/combobox with STATIC options renders as
+  // a bounded checkbox group (`multi-select`): this is how a broad configurable trigger (Stripe's
+  // `event_received` and its `enabledEvents` list) collects the exact event choice during setup
+  // instead of blocking the preview. An async multi (optionsSource) or a cascading multi stays
+  // deferred — there is no safe local control for those yet.
+  if (f.multiple === true) {
+    if (
+      (f.type === "select" || f.type === "combobox") &&
+      f.optionsSource === undefined &&
+      f.dependsOn === undefined &&
+      f.options &&
+      f.options.length > 0
+    ) {
+      return {
+        name: f.name,
+        label: f.label,
+        type: "multi-select",
+        required: f.required,
+        options: f.options.map((o) => ({ value: o.value, label: o.label })),
+        ...(f.placeholder !== undefined ? { placeholder: f.placeholder } : {}),
+      };
+    }
+    return null;
+  }
 
   // Async resolver single-select: a select/combobox with an `optionsSource`. The rail card loads its
   // options through the existing authenticated resolver (`/api/options/[source]`) — never a model call.
@@ -159,6 +186,13 @@ export function sanitizeSeedConfig(
     } else if (f.type === "select") {
       // Keep only a value that matches the static options.
       if (typeof v === "string" && (!f.options || f.options.some((o) => o.value === v))) out[f.name] = v;
+    } else if (f.type === "multi-select") {
+      // Keep only string entries that match the static options; drop an empty result entirely.
+      if (Array.isArray(v)) {
+        const allowed = new Set((f.options ?? []).map((o) => o.value));
+        const picked = v.filter((x): x is string => typeof x === "string" && allowed.has(x));
+        if (picked.length > 0) out[f.name] = picked;
+      }
     } else if (f.type === "select-async") {
       // Async resolver value (e.g. a Slack channel id). Options are loaded at runtime, so we cannot
       // validate against them here — keep any non-empty string. It's still keyed to a known field, so

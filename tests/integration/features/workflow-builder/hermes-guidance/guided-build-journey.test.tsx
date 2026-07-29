@@ -265,7 +265,6 @@ function renderBuilder() {
       actionProviders={actionProviders}
       requiredFieldsByType={REQUIRED_FIELDS}
       setupFieldsByType={SETUP_FIELDS}
-      providerLabels={{ stripe: "Stripe", slack: "Slack" }}
       accountId="acct-1"
       guidanceEnabled
     />,
@@ -385,7 +384,6 @@ it("journey 4 — no configuration required (manual trigger): straight to Test; 
       actionProviders={actionProviders}
       requiredFieldsByType={{}}
       setupFieldsByType={SETUP_FIELDS}
-      providerLabels={{ slack: "Slack" }}
       accountId="acct-1"
       guidanceEnabled
     />,
@@ -460,7 +458,6 @@ it("journey 6 — reload mid-journey: the guided card resumes at the SAME stage 
       actionProviders={actionProviders}
       requiredFieldsByType={REQUIRED_FIELDS}
       setupFieldsByType={SETUP_FIELDS}
-      providerLabels={{ stripe: "Stripe", slack: "Slack" }}
       accountId="acct-1"
       guidanceEnabled
     />,
@@ -475,4 +472,116 @@ it("journey 6 — reload mid-journey: the guided card resumes at the SAME stage 
   // The conversation transcript itself is in-memory only (pre-existing
   // limitation) — the guided journey, not the chat, is what resumes.
   expect(mockRequest).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * REACT-AGENT-AMBIGUOUS-TRIGGER-1 — the deterministic registry preview for an ambiguous
+ * "Stripe payment" phrase (stripe:event_received with the exact event left as a SETUP field)
+ * must ride the SAME guided flow: Apply → Connect (both apps) → Configure, where the EVENT
+ * choice renders as a structured multi-select checkbox group in the rail and saves into the
+ * draft trigger node. Route-level determinism (no Hermes, no credit) is pinned in
+ * ai-workflow-guidance-route.test.ts; this covers the client handoff.
+ */
+describe("ambiguous Stripe payment → guided Connect then Configure (REACT-AGENT-AMBIGUOUS-TRIGGER-1)", () => {
+  const eventReceivedPlan = {
+    ...stripeSlackPlan,
+    steps: [
+      { ref: "s0", role: "trigger", provider: "stripe", type: "event_received", purpose: "Stripe Event Received — the event that starts this workflow.", requiredInputs: ["enabledEvents"] },
+      { ref: "s1", role: "action", provider: "slack", type: "send_channel_message", purpose: "Send Channel Message.", requiredInputs: ["channel", "text"] },
+    ],
+  };
+  const eventReceivedPreview = {
+    ...stripeSlackPreview,
+    nodes: [
+      { previewId: "p1", role: "trigger", provider: "stripe", type: "event_received", label: "stripe:event_received", purpose: "watch", missingInputs: ["enabledEvents"], notApplied: true },
+      { previewId: "p2", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "notify", missingInputs: ["channel", "text"], notApplied: true },
+    ],
+  };
+  const EVENT_REQUIRED_FIELDS = {
+    ...REQUIRED_FIELDS,
+    "stripe:event_received": {
+      displayName: "Stripe Event Received",
+      requiredFields: [{ name: "enabledEvents", label: "Event Types" }],
+    },
+  } as const;
+  const EVENT_SETUP_FIELDS = {
+    ...SETUP_FIELDS,
+    "stripe:event_received": [
+      {
+        name: "enabledEvents",
+        label: "Event Types",
+        type: "multi-select" as const,
+        required: true,
+        options: [
+          { value: "payment_intent.succeeded", label: "payment_intent.succeeded" },
+          { value: "invoice.paid", label: "invoice.paid" },
+        ],
+      },
+    ],
+  };
+
+  it("applies, connects both apps, then asks the EVENT via checkboxes and the channel via the picker", async () => {
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here's the workflow.",
+      source: "registry_planner",
+      workflowPlan: eventReceivedPlan,
+      previewDraft: eventReceivedPreview,
+    });
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={workflow()}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={EVENT_REQUIRED_FIELDS}
+        setupFieldsByType={EVENT_SETUP_FIELDS}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
+    await createAndApply(user);
+
+    // Connect first — both apps, from the deterministic preview's providers.
+    const card = await screen.findByTestId("guided-build-card");
+    expect(card).toHaveAttribute("data-stage", "connecting");
+    await user.click(await screen.findByTestId("guided-connect-stripe-button"));
+    await waitFor(() => expect(openedPopups).toHaveLength(1));
+    act(() => completeOAuth("stripe"));
+    await user.click(await screen.findByTestId("guided-connect-slack-button"));
+    await waitFor(() => expect(openedPopups).toHaveLength(2));
+    act(() => completeOAuth("slack"));
+
+    // Configure — the TRIGGER node comes first: the exact Stripe event is a
+    // structured checkbox group, not a rejection and not raw JSON.
+    await waitFor(() =>
+      expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "configuring"),
+    );
+    const triggerNode = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "stripe")!;
+    await user.click(
+      await screen.findByTestId(`node-setup-${triggerNode.id}-enabledEvents-payment_intent.succeeded`),
+    );
+    await user.click(screen.getByTestId(`node-setup-${triggerNode.id}-update`));
+    await waitFor(() => {
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === triggerNode.id)!;
+      expect(node.config.enabledEvents).toEqual(["payment_intent.succeeded"]);
+    });
+
+    // Auto-advance to the Slack node: channel picker + message.
+    const slackNode = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack")!;
+    const channel = await screen.findByTestId(`node-setup-${slackNode.id}-channel`);
+    await waitFor(() => expect(channel.querySelectorAll("option").length).toBe(2));
+    fireEvent.change(channel, { target: { value: "C2" } });
+    fireEvent.change(screen.getByTestId(`node-setup-${slackNode.id}-text`), {
+      target: { value: "Payment received" },
+    });
+    await user.click(screen.getByTestId(`node-setup-${slackNode.id}-update`));
+
+    // Everything filled + connected → the webhook-trigger flow is ready to activate.
+    await waitFor(() =>
+      expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "ready_to_activate"),
+    );
+    // The whole guided path (connect ×2 + configure ×2) made ONE guidance call.
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
 });
