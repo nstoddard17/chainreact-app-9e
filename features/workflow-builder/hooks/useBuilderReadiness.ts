@@ -2,7 +2,10 @@
 
 import { useMemo } from "react";
 import type { WorkflowDefinition, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
-import type { AgentReadinessVerdict } from "@/core/workflows/agentReadiness";
+import type {
+  AgentConnectionSignal,
+  AgentReadinessVerdict,
+} from "@/core/workflows/agentReadiness";
 import type { RequiredFieldsByType } from "../validation/collectBuilderValidationIssues";
 import { useConnectionReadiness } from "./useConnectionReadiness";
 import { useAgentReadiness } from "./useAgentReadiness";
@@ -23,6 +26,13 @@ export interface UseBuilderReadinessInput {
   readonly proposedDefinition: WorkflowDefinition | null;
   /** Truthy while the post-apply notice is showing (drives the post-apply readiness window). */
   readonly applyNoticeActive: boolean;
+  /**
+   * REACT-AGENT-GUIDED-BUILD-1 — truthy while a guided build session is running.
+   * Extends the readiness evaluation window beyond the apply notice (the guided
+   * card needs the verdict until the user finishes or exits, and after a reload
+   * that restored the session). Same live-draft target as the post-apply window.
+   */
+  readonly guidedSessionActive?: boolean;
   readonly pendingNodes: readonly WorkflowNode[];
   readonly pendingEdges: readonly WorkflowEdge[];
   readonly requiredFieldsByType?: RequiredFieldsByType;
@@ -31,14 +41,27 @@ export interface UseBuilderReadinessInput {
   readonly viewerCanRunEdit?: boolean;
 }
 
+export interface UseBuilderReadinessResult {
+  readonly verdict: AgentReadinessVerdict;
+  /**
+   * The server-resolved connection signal the verdict was computed from —
+   * exposed so the guided Connect stage can list EVERY provider (connected
+   * ones included) rather than just the blockers.
+   */
+  readonly connection: AgentConnectionSignal;
+  /** Imperatively re-resolve connection state for the current graph. */
+  readonly refreshConnections: () => void;
+}
+
 export function useBuilderReadiness(
   input: UseBuilderReadinessInput,
-): AgentReadinessVerdict {
+): UseBuilderReadinessResult {
   const {
     workflowId,
     previewReviewActive,
     proposedDefinition,
     applyNoticeActive,
+    guidedSessionActive,
     pendingNodes,
     pendingEdges,
     requiredFieldsByType,
@@ -47,23 +70,30 @@ export function useBuilderReadiness(
     viewerCanRunEdit,
   } = input;
 
-  // Target: the proposed end-state while previewing, else the live draft for a
-  // short window after an apply (so readiness keeps answering once the rail closes).
+  // Target: the proposed end-state while previewing, else the live draft while
+  // the post-apply notice OR a guided build session keeps the window open.
   const definition = useMemo<WorkflowDefinition | null>(() => {
     if (previewReviewActive && proposedDefinition) return proposedDefinition;
-    if (!previewReviewActive && applyNoticeActive) {
+    if (!previewReviewActive && (applyNoticeActive || guidedSessionActive)) {
       return { nodes: [...pendingNodes], edges: [...pendingEdges] };
     }
     return null;
-  }, [previewReviewActive, proposedDefinition, applyNoticeActive, pendingNodes, pendingEdges]);
+  }, [
+    previewReviewActive,
+    proposedDefinition,
+    applyNoticeActive,
+    guidedSessionActive,
+    pendingNodes,
+    pendingEdges,
+  ]);
 
-  const connection = useConnectionReadiness({
+  const { signal: connection, refresh: refreshConnections } = useConnectionReadiness({
     workflowId,
     definition,
     enabled: !localOnly,
   });
 
-  return useAgentReadiness({
+  const verdict = useAgentReadiness({
     active: definition !== null,
     isEditPreview: previewReviewActive,
     definition,
@@ -74,6 +104,8 @@ export function useBuilderReadiness(
     ...(viewerCanRunEdit !== undefined ? { viewerCanRunEdit } : {}),
     connection,
     // A run only reflects THIS change once it has been applied (preview closed).
-    runReflectsChange: !previewReviewActive && applyNoticeActive,
+    runReflectsChange: !previewReviewActive && (applyNoticeActive || !!guidedSessionActive),
   });
+
+  return { verdict, connection, refreshConnections };
 }

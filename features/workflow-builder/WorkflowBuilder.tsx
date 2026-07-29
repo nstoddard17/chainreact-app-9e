@@ -72,6 +72,8 @@ import { useRepairLoopStore } from "./state/repairLoopStore";
 import { useRunControls } from "./hooks/useRunControls";
 import { useAgentApplyModeAvailability } from "./hooks/useAgentApplyModeAvailability";
 import { useBuilderReadiness } from "./hooks/useBuilderReadiness";
+import { useGuidedBuildSession } from "./hooks/useGuidedBuildSession";
+import { useGuidedBuild } from "./hooks/useGuidedBuild";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
@@ -930,20 +932,55 @@ export function WorkflowBuilder({
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
   });
 
+  // REACT-AGENT-GUIDED-BUILD-1 — the guided build session switch. Starts on a
+  // React Agent apply (new review session while the notice is up), survives
+  // reloads/OAuth popups via a per-workflow localStorage FLAG (just "1" — no
+  // data), ends on the card's Exit / once the finished journey is closed.
+  const guidedSession = useGuidedBuildSession({
+    workflowId: workflow.id,
+    ...(localOnly ? { localOnly } : {}),
+    reviewSessionToken,
+    hasApplyNotice: !!applyNotice,
+    workflowState: workflow.state,
+  });
+
   // REACT-AGENT-READINESS-1 — the readiness verdict ("what is left before this can run?").
   // Evaluates the proposed end-state while previewing, else the live draft just after
   // an apply; folds in the server-resolved connection signal. All logic lives in the hook.
-  const agentReadiness = useBuilderReadiness({
+  // REACT-AGENT-GUIDED-BUILD-1 — the guided session keeps the window open past the
+  // notice, and the connection signal + imperative refresh feed the guided card.
+  const {
+    verdict: agentReadiness,
+    connection: connectionSignal,
+    refreshConnections,
+  } = useBuilderReadiness({
     workflowId: workflow.id,
     previewReviewActive,
     proposedDefinition: previewOverlay?.proposedDefinition ?? null,
     applyNoticeActive: !!applyNotice,
+    guidedSessionActive: guidedSession.active,
     pendingNodes,
     pendingEdges,
     ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
     workflowState: workflow.state,
     ...(localOnly ? { localOnly } : {}),
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
+  });
+
+  // REACT-AGENT-GUIDED-BUILD-1 — the guided card (stage projection + popup
+  // connect + rail footer). Deterministic wiring only; no model call, no
+  // AI-credit charge on any guided control.
+  const { guidedFooter } = useGuidedBuild({
+    sessionActive: guidedSession.active,
+    onExitSession: guidedSession.exit,
+    ...(localOnly ? { localOnly } : {}),
+    previewReviewActive,
+    workflowState: workflow.state,
+    verdict: agentReadiness,
+    connection: connectionSignal,
+    refreshConnections,
+    providerLabels,
+    onOpenIssues: handleOpenValidation,
   });
 
   /**
@@ -1189,6 +1226,7 @@ export function WorkflowBuilder({
             {...(documentComposerSeed ? { composerSeed: documentComposerSeed } : {})}
             onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
             conversation={agentConversation}
+            {...(guidedFooter ? { guidedFooter } : {})}
           />
           )}
         </BuilderLeftAgentRail>
@@ -1342,6 +1380,7 @@ export function WorkflowBuilder({
                   onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
                   conversation={agentConversation}
                   hideComposer
+                  {...(guidedFooter ? { guidedFooter } : {})}
                 />
               ) : null
             }

@@ -241,7 +241,7 @@ export function ConfigModalShell() {
   // hook stays disabled and the mapper renders an honest "unknown"
   // (never "Ready to run") instead of skipping the requirement.
   const connectionCheckEnabled = nodeRequiresConnection && Boolean(workflowId);
-  const connectionSignal = useConnectionReadiness({
+  const { signal: connectionSignal } = useConnectionReadiness({
     workflowId: workflowId ?? "",
     definition: connectionCheckEnabled ? connectionDefinition : null,
     enabled: connectionCheckEnabled,

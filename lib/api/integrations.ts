@@ -26,6 +26,13 @@ export interface StartOAuthOptions {
    * rejects a `providerHint` sent to a provider without `validateProviderHint`.
    */
   providerHint?: Record<string, string>;
+  /**
+   * REACT-AGENT-GUIDED-BUILD-1 — allow-listed popup return context, sent as the
+   * connect route's `return` field. `nonce` is client-generated attempt
+   * randomness (not a secret); the surface is the fixed `builder_popup`
+   * discriminator. The server 400s any other shape.
+   */
+  returnContext?: { surface: "builder_popup"; nonce: string };
 }
 
 export async function startOAuth(
@@ -38,6 +45,7 @@ export async function startOAuth(
   const payload: Record<string, unknown> = {};
   if (opts?.reconnect !== undefined) payload.reconnect = opts.reconnect;
   if (opts?.providerHint !== undefined) payload.providerHint = opts.providerHint;
+  if (opts?.returnContext !== undefined) payload.return = opts.returnContext;
   const body =
     Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined;
   const res = await fetch(

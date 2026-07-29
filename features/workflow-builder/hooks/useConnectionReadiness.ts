@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type {
   WorkflowConnectionReadinessDTO,
@@ -97,15 +97,33 @@ export interface UseConnectionReadinessInput {
   readonly enabled: boolean;
 }
 
+export interface UseConnectionReadinessResult {
+  readonly signal: AgentConnectionSignal;
+  /**
+   * REACT-AGENT-GUIDED-BUILD-1 — imperatively re-resolve the CURRENT graph's
+   * connection state (same provider/node signature). The guided Connect stage
+   * calls this when an OAuth popup completes (postMessage) or closes, so the
+   * card flips to Connected from the server truth without waiting for a graph
+   * change. No-op while disabled or with no provider nodes.
+   */
+  readonly refresh: () => void;
+}
+
 export function useConnectionReadiness(
   input: UseConnectionReadinessInput,
-): AgentConnectionSignal {
+): UseConnectionReadinessResult {
   const { workflowId, definition, enabled } = input;
   const [signal, setSignal] = useState<AgentConnectionSignal>({ state: "disabled" });
   // Track the in-flight signature so a stale response can't overwrite a newer one.
   const latestSignatureRef = useRef<string>("");
+  // Bumped by refresh() — same signature, forced refetch.
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const signature = enabled ? connectionSignature(definition) : "";
+
+  const refresh = useCallback(() => {
+    setRefreshCount((c) => c + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled || !definition) {
@@ -120,9 +138,16 @@ export function useConnectionReadiness(
       return;
     }
 
+    // Stale-while-revalidate on an imperative refresh: keep showing the last
+    // RESOLVED signal for the same graph while re-resolving, so the readiness
+    // verdict doesn't flap through "checking…" on every popup poll. A graph
+    // change or a non-resolved previous state still shows loading honestly.
+    const sameGraph = latestSignatureRef.current === signature;
     latestSignatureRef.current = signature;
     let cancelled = false;
-    setSignal({ state: "loading" });
+    setSignal((prev) =>
+      sameGraph && prev.state === "resolved" ? prev : { state: "loading" },
+    );
 
     getWorkflowConnectionReadiness(workflowId, definition)
       .then((dto) => {
@@ -140,9 +165,10 @@ export function useConnectionReadiness(
     };
     // `definition` is intentionally not a dep: only a connection-relevant change
     // (captured by `signature`) should refetch. The closure reads the current
-    // `definition` at fire time, which matches `signature`.
+    // `definition` at fire time, which matches `signature`. `refreshCount`
+    // forces a same-signature re-resolve (guided Connect stage).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflowId, enabled, signature]);
+  }, [workflowId, enabled, signature, refreshCount]);
 
-  return signal;
+  return { signal, refresh };
 }

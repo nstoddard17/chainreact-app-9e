@@ -149,6 +149,14 @@ export interface BuilderGuidanceRailProps {
    * there); the transcript is identical in both surfaces.
    */
   readonly hideComposer?: boolean;
+  /**
+   * REACT-AGENT-GUIDED-BUILD-1 — the guided build card (Connect → Configure →
+   * Test → Activate), rendered as the transcript footer while a guided session
+   * is active. The PREVIEW setup card wins while a preview is being reviewed
+   * (that stage's surface); the guided card takes the slot afterwards. Owned by
+   * `WorkflowBuilder` via `useGuidedBuild`.
+   */
+  readonly guidedFooter?: ReactNode;
 }
 
 export function BuilderGuidanceRail({
@@ -174,6 +182,7 @@ export function BuilderGuidanceRail({
   onTemplateApplyToCurrent,
   conversation,
   hideComposer,
+  guidedFooter,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -229,7 +238,9 @@ export function BuilderGuidanceRail({
                     />
                   ),
                 }
-              : {})}
+              : guidedFooter
+                ? { transcriptFooter: guidedFooter }
+                : {})}
           />
         </div>
       ) : (
