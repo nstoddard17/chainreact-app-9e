@@ -44,8 +44,8 @@ function walk(root: string): string[] {
 
 /** The serializer's own definition and its barrel are not call sites. */
 const INTENT_ALLOWED = [
-  join("features", "analytics", "layout", "serializeDashboardWidgets.ts"),
-  join("features", "analytics", "layout", "index.ts"),
+  join("core", "analytics", "layout", "serializeDashboardWidgets.ts"),
+  join("core", "analytics", "layout", "index.ts"),
 ];
 
 const SHIPPING_ROOTS = ["app", "components", "features", "lib", "services", "stores", "core", "contracts"];
@@ -65,7 +65,7 @@ describe("no shipping code writes explicit layout yet", () => {
     // The renderer still derives position from array order and CSS auto-flow.
     // A stray `widget.layout.x` outside the engine would mean the two models
     // had quietly started to mix — the exact failure S2 exists to prevent.
-    const layoutModule = join("features", "analytics", "layout") + sep;
+    const layoutModule = join("core", "analytics", "layout") + sep;
     const offenders = RENDER_ROOTS.flatMap(walk).filter((file) => {
       if (file.includes(layoutModule)) return false;
       return /\.layout[!?]?\.[xy]\b/.test(readFileSync(join(REPO_ROOT, file), "utf8"));

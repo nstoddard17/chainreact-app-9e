@@ -5,7 +5,7 @@ import {
   rectsOverlap,
   validateLayout,
   type AnalyticsLayout,
-} from "@/features/analytics/layout";
+} from "@/core/analytics/layout";
 
 /**
  * ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1 — the two guarantees every other engine

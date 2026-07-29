@@ -8,7 +8,7 @@ import {
   type GridRect,
   type LayoutResult,
   type PlacedWidget,
-} from "@/features/analytics/layout";
+} from "@/core/analytics/layout";
 
 /**
  * ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1 — resize.

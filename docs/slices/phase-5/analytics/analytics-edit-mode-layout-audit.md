@@ -9,7 +9,8 @@ persistence, responsive behaviour.
 > **Accepted.** Implementation follows the staged plan in §17. Stage outcomes and
 > the owner decisions that supersede specific proposals here:
 > S1 (pure engine) — commit `0343e7065`;
-> S2 (contract + normalization) — [`analytics-explicit-layout-s2-contract.md`](./analytics-explicit-layout-s2-contract.md).
+> S2 (contract + normalization) — [`analytics-explicit-layout-s2-contract.md`](./analytics-explicit-layout-s2-contract.md);
+> S2.5 (boundary realign; engine now at `core/analytics/layout/`) — [`analytics-explicit-layout-s2-5-boundary-realign.md`](./analytics-explicit-layout-s2-5-boundary-realign.md).
 > The conclusions below are the historical audit and are left as written.
 
 ---
@@ -571,7 +572,7 @@ the UI (`"2×1"` → `{w:2,h:1}`) and stops being persisted state.
 > (`findFirstAvailableRect` per widget, in legacy array order) rather than
 > replaying CSS §8.5. The two differ only on boards that had accidental holes;
 > the shipped default board migrates identically under either rule. Implemented
-> and tested in `features/analytics/layout/legacyMigration.ts`.
+> and tested in `core/analytics/layout/legacyMigration.ts`.
 
 **Deterministic, lazy, idempotent — one chokepoint, no backfill migration.**
 

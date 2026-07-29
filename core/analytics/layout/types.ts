@@ -2,14 +2,19 @@
  * Pure grid-layout types for the Analytics dashboard
  * (ANALYTICS-EXPLICIT-LAYOUT-S1-ENGINE-1).
  *
- * PURITY CONTRACT — every module in `features/analytics/layout/` is
+ * PURITY CONTRACT — every module in `core/analytics/layout/` is
  * platform-neutral. No React, no DOM, no browser globals, no CSS, no API
- * client, no repository, no database. The only imports permitted are other
- * modules in this folder and TYPE-ONLY imports from `contracts/`. That is what
- * lets the engine be exhaustively unit-tested as plain arithmetic, and it is
- * the boundary the audit asked for: pointer code answers "where is the
- * pointer", this engine answers "what layout results", persistence answers
- * "how is it stored".
+ * client, no repository, no database. The only imports permitted are
+ * `contracts/` and sibling modules in this folder. That is what lets the engine
+ * be exhaustively unit-tested as plain arithmetic, and it is the boundary the
+ * audit asked for: pointer code answers "where is the pointer", this engine
+ * answers "what layout results", persistence answers "how is it stored".
+ *
+ * The engine landed under `features/analytics/layout/` in S1 and moved here in
+ * S2.5 (ANALYTICS-EXPLICIT-LAYOUT-S2.5-BOUNDARY-REALIGN-1) so that the server
+ * — services, and routes through them — can consume it without a
+ * server → `features/` import. `@/core/analytics/layout` is now the one public
+ * import path; no compatibility barrel remains under `features/`.
  *
  * See docs/slices/phase-5/analytics/analytics-edit-mode-layout-audit.md.
  */

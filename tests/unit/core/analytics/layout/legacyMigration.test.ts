@@ -7,7 +7,7 @@ import {
   type AnalyticsLayout,
   type LayoutResult,
   type LegacyOrderedWidget,
-} from "@/features/analytics/layout";
+} from "@/core/analytics/layout";
 import { SIZE_GRID_CLASS } from "@/features/analytics/Widget";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 import type { AnalyticsWidgetSize } from "@/contracts/analytics";

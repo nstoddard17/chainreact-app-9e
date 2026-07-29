@@ -232,23 +232,24 @@ the persistence location.
 
 ---
 
-## 11. Open architectural question for the owner
+## 11. Open architectural question for the owner — RESOLVED in S2.5
 
-`services/analytics/dashboards.ts` and `app/api/analytics/_shared.ts` now import
-from `features/analytics/layout/`. **This is the first server → `features/`
-import in the repository** (verified by grep across `services/`, `core/`,
-`repositories/` and `app/api/`). It is not blocked by any lint rule or structure
-test, and the imported modules are pure — no React, no DOM, no `"use client"` —
-so it is safe today.
+As shipped, S2 had `services/analytics/dashboards.ts` and
+`app/api/analytics/_shared.ts` importing from `features/analytics/layout/` — the
+first server → `features/` import in the repository. Safe (the modules are pure)
+but backwards for the layering the project otherwise keeps.
 
-It is still backwards for the layering the project otherwise keeps. The clean
-remedy is mechanical: move `features/analytics/layout/` to
-`core/analytics/layout/`. The engine imports **only** `contracts/`, which is
-exactly what `core/` purity requires, so the move is an import-path rewrite with
-no code change. It was not done here because S1 and S2 both explicitly locked the
-engine's location to `features/analytics/layout/`.
+**Resolved by ANALYTICS-EXPLICIT-LAYOUT-S2.5-BOUNDARY-REALIGN-1**, a
+behaviour-free move: the engine now lives at **`core/analytics/layout/`**, the
+service imports it there, and the route reaches board validation through
+`services/analytics/dashboards.checkDashboardLayout` rather than owning a layout
+rule. Nothing under `features/analytics/layout/` remains — not even a
+compatibility barrel — so `@/core/analytics/layout` is the one public import
+path. See [`analytics-explicit-layout-s2-5-boundary-realign.md`](./analytics-explicit-layout-s2-5-boundary-realign.md).
 
-Recommended as a small standalone commit before S4 adds more call sites.
+Historical note for readers of the file paths above: every S1 and S2 module named
+in this document as `features/analytics/layout/*` is now `core/analytics/layout/*`.
+The behaviour described is unchanged.
 
 ---
 

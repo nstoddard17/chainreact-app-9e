@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { MembershipRole } from "@/contracts/accounts";
-import { ANALYTICS_CANONICAL_COLUMNS, type AnalyticsWidget } from "@/contracts/analytics";
-import { validateLayout } from "@/features/analytics/layout/validateLayout";
+import type { AnalyticsWidget } from "@/contracts/analytics";
 import { createClient } from "@/utils/supabase/server";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
-import { getDashboardAccount } from "@/services/analytics/dashboards";
+import { checkDashboardLayout, getDashboardAccount } from "@/services/analytics/dashboards";
 
 /**
  * Roles allowed to AUTHOR (create / rename / delete / edit-layout) dashboards.
@@ -129,45 +128,25 @@ export async function authorizeDashboardWrite(
 }
 
 /**
- * Board-level layout check for a write (ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1).
+ * HTTP shell for the service's board-level layout check
+ * (ANALYTICS-EXPLICIT-LAYOUT-S2.5-BOUNDARY-REALIGN-1).
  *
- * Zod validates one widget at a time and cannot see the SET: two individually
- * legal rectangles can still sit on top of each other. When a submitted board
- * carries explicit placement, this is the server's last line before it is
- * stored — without it a client could persist an overlapping board that the read
- * path would then have to repair on every load.
- *
- * A board with NO placement (every legacy board, and every board this release's
- * UI produces) passes untouched: nothing here pushes a save toward explicit
- * layout. A partially-placed board is refused rather than stored, because that
- * transitional state is never valid.
+ * The DECISION — whether a set of rectangles is a valid arrangement — belongs to
+ * `services/analytics/dashboards.checkDashboardLayout`, which owns it on top of
+ * the pure engine in `core/analytics/layout/`. The route layer's only job here is
+ * turning that answer into a response, so no layout rule lives above the service.
  *
  * Returns `null` when the board is acceptable, or a 400 to return as-is.
  */
 export function rejectInvalidWidgetLayout(
   widgets: readonly AnalyticsWidget[] | undefined,
 ): NextResponse | null {
-  if (!widgets || widgets.length === 0) return null;
-  const placed = widgets.filter((w) => w.layout);
-  if (placed.length === 0) return null;
-  if (placed.length < widgets.length) {
-    return NextResponse.json(
-      {
-        error:
-          "Every widget must carry a placement, or none may. A partly-placed dashboard cannot be saved.",
-      },
-      { status: 400 },
-    );
-  }
-  const validation = validateLayout(
-    widgets.map((w) => ({ widgetId: w.id, x: w.layout!.x, y: w.layout!.y, w: w.layout!.w, h: w.layout!.h })),
-    ANALYTICS_CANONICAL_COLUMNS,
-  );
-  if (validation.ok) return null;
+  const rejection = checkDashboardLayout(widgets);
+  if (!rejection) return null;
   return NextResponse.json(
     {
-      error: "The dashboard layout is not valid.",
-      issues: validation.problems.map((p) => ({ code: p.code, widgetIds: p.widgetIds })),
+      error: rejection.message,
+      ...(rejection.issues ? { issues: rejection.issues } : {}),
     },
     { status: 400 },
   );

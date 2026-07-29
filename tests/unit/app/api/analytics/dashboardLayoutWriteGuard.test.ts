@@ -9,10 +9,21 @@
  * something a client could simply have been stopped from saving.
  */
 
+// Only the I/O edges are mocked. `checkDashboardLayout` — the service function
+// that actually owns the board rule (S2.5) — runs for real, on the real core
+// engine, so this exercises the whole route → service → engine path.
 jest.mock("@/utils/supabase/server", () => ({ createClient: jest.fn() }));
 jest.mock("@/services/accounts/activeAccount", () => ({ resolveActiveAccount: jest.fn() }));
 jest.mock("@/services/accounts/accountAuthz", () => ({ requireAccountRole: jest.fn() }));
-jest.mock("@/services/analytics/dashboards", () => ({ getDashboardAccount: jest.fn() }));
+jest.mock("@/repositories/analyticsDashboards", () => ({
+  listByAccount: jest.fn(),
+  getByIdServiceRole: jest.fn(),
+  seedDefaultServiceRole: jest.fn(),
+  createServiceRole: jest.fn(),
+  updateServiceRole: jest.fn(),
+  deleteServiceRole: jest.fn(),
+  nextPositionServiceRole: jest.fn(),
+}));
 
 import { rejectInvalidWidgetLayout } from "@/app/api/analytics/_shared";
 import { AnalyticsWidgetSchema, type AnalyticsWidget } from "@/contracts/analytics";
