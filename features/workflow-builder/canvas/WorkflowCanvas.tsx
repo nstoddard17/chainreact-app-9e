@@ -130,12 +130,6 @@ interface Props {
    */
   addActionBlockedReason?: "no-trigger" | "multiple-tails";
   /**
-   * Optional trigger-tag chip text (e.g. "trigger: slack.message"). The
-   * canvas action bar renders it next to the env tag. Omitted when no
-   * trigger is configured.
-   */
-  triggerTagText?: string;
-  /**
    * BUILDER-READINESS — required-field metadata per `provider:type`. Threaded
    * into the node adapter so a node missing a required field renders the
    * "Needs setup" chip instead of "Ready". Optional (no map → prior behavior).
@@ -194,7 +188,6 @@ function WorkflowCanvasInner({
   onArrange,
   onAppendAfterNode,
   addActionBlockedReason,
-  triggerTagText,
   requiredFieldsByType,
   summaryFieldsByType,
   resourceLabels,
@@ -431,14 +424,11 @@ function WorkflowCanvasInner({
   // instead of leaving the user stranded with no "add trigger" affordance.
   const hasTrigger = pendingNodes.some((n) => n.kind === "trigger");
   const showRecoveryBanner = !isEmpty && !hasTrigger;
-  const nodeCountText = `${pendingNodes.length} node${pendingNodes.length === 1 ? "" : "s"} · ${pendingEdges.length} edge${pendingEdges.length === 1 ? "" : "s"}`;
 
   return (
     <BuilderNodeActionsProvider value={nodeActions}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <CanvasActionBar
-        nodeCountText={nodeCountText}
-        triggerTagText={triggerTagText}
         onAddAction={onAddAction}
         canAddAction={canAddAction}
         addActionBlockedReason={addActionBlockedReason}

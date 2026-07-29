@@ -1,8 +1,9 @@
 /**
- * BUILDER-TABS-HEADER-1 — CanvasActionBar is now canvas-only chrome: the
- * env/trigger/node-count tags + the "+ Add action" CTA. The section tab
- * segment (Builder | Runs | Data Map | History | Settings) moved to the
- * header-level BuilderTabStrip (see layout/BuilderTabs.test.tsx).
+ * BUILDER-TABS-HEADER-1 / BUILDER-CANVAS-CHROME-TRIM-1 — CanvasActionBar is
+ * now minimal canvas chrome: just the right-aligned "+ Add action" CTA. The
+ * section tab segment moved to the header-level BuilderTabStrip (see
+ * layout/BuilderTabs.test.tsx), and the env/trigger/node-count tag cluster
+ * was removed (it restated what the header + canvas already show).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -11,32 +12,23 @@ import { CanvasActionBar } from "@/features/workflow-builder/canvas/CanvasAction
 
 describe("CanvasActionBar", () => {
   it("renders no section tabs (they live in the header tab strip now)", () => {
-    render(<CanvasActionBar nodeCountText="2 nodes" />);
+    render(<CanvasActionBar />);
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
   });
 
-  it("renders the env/count tags and an enabled Add action CTA", async () => {
+  it("renders NO env/trigger/count tags — the bar is just the Add action CTA", async () => {
     const user = userEvent.setup();
     const onAddAction = jest.fn();
-    render(
-      <CanvasActionBar
-        nodeCountText="2 nodes · 1 edge"
-        triggerTagText="trigger: slack"
-        onAddAction={onAddAction}
-        canAddAction
-      />,
-    );
-    expect(screen.getByText("env: draft")).toBeInTheDocument();
-    expect(screen.getByText("trigger: slack")).toBeInTheDocument();
-    expect(screen.getByText("2 nodes · 1 edge")).toBeInTheDocument();
+    render(<CanvasActionBar onAddAction={onAddAction} canAddAction />);
+    expect(screen.queryByText(/env: draft/)).toBeNull();
+    expect(screen.queryByText(/trigger:/)).toBeNull();
+    expect(screen.queryByText(/node/)).toBeNull();
     await user.click(screen.getByTestId("canvas-add-action-button"));
     expect(onAddAction).toHaveBeenCalledTimes(1);
   });
 
   it("disables the Add action CTA when canAddAction is false", () => {
-    render(
-      <CanvasActionBar nodeCountText="0 nodes" onAddAction={jest.fn()} canAddAction={false} />,
-    );
+    render(<CanvasActionBar onAddAction={jest.fn()} canAddAction={false} />);
     expect(screen.getByTestId("canvas-add-action-button")).toBeDisabled();
   });
 });

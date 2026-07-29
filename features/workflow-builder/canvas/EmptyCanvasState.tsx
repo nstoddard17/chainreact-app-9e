@@ -16,8 +16,9 @@ interface Props {
  * Adopts the Anthropic ChainV2 empty card aesthetic — diagonal-rule
  * frame strip across the top, mono uppercase tag ("EMPTY · NO TRIGGER
  * · NO ACTIONS"), large title, subtitle with the ⌘K hint, and an
- * action row with the primary "Choose a trigger" CTA plus disabled
- * "Describe to AI" / "Import from template" placeholders.
+ * action row with the primary "Choose a trigger" CTA plus a disabled
+ * "Import from template" placeholder. (The "Describe to AI" placeholder
+ * was removed — the React Agent rail IS that entry point.)
  *
  * The placeholder buttons render as disabled — V2 doesn't have those
  * flows wired inside the builder shell yet (AI plan-from-blank uses
@@ -90,20 +91,6 @@ export function EmptyCanvasState({ onAddTrigger }: Props) {
             <button
               type="button"
               disabled
-              title="Describe in the React Agent rail (coming soon as a direct entry point)"
-              className="inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
-              style={{
-                background: "var(--builder-panel)",
-                color: "var(--builder-text-2)",
-                border: "1px solid var(--builder-border)",
-              }}
-            >
-              <SparkleIcon />
-              Describe to AI
-            </button>
-            <button
-              type="button"
-              disabled
               title="Templates live on the workflows index — direct in-builder import is coming soon"
               className="inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
               style={{
@@ -135,22 +122,6 @@ const BoltIcon = () => (
     aria-hidden
   >
     <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" />
-  </svg>
-);
-const SparkleIcon = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden
-  >
-    <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
-    <path d="M19 14l.7 1.9L21.5 17l-1.9.7L19 19.5l-.7-1.9L16.5 17l1.9-.7z" />
   </svg>
 );
 const CodeIcon = () => (

@@ -1143,12 +1143,6 @@ export function WorkflowBuilder({
     : tailCount > 1
       ? "multiple-tails"
       : undefined;
-  const triggerNode = useGraphSlice((s) =>
-    s.pendingNodes.find((n) => n.kind === "trigger"),
-  );
-  const triggerTagText = triggerNode
-    ? `trigger: ${triggerNode.type || triggerNode.provider}`
-    : undefined;
 
   const memoizedEdgePlusClick = useMemo(
     () => handleEdgePlusClick,
@@ -1454,7 +1448,6 @@ export function WorkflowBuilder({
           addActionBlockedReason={addActionBlockedReason}
           onAppendAfterNode={handleAppendAfter}
           onArrange={handleArrange}
-          triggerTagText={triggerTagText}
           requiredFieldsByType={requiredFieldsByType}
           summaryFieldsByType={summaryFieldsByType}
           resourceLabels={resourceLabels}
