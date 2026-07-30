@@ -81,6 +81,20 @@ export default async function globalTeardown(): Promise<void> {
     }
     if (data.users.length < 200) break;
   }
+  // GOOGLE-REVIEW-TEMPLATE-1 — sweep OFFICIAL templates that violate the platform invariant.
+  // Real official templates are seeded with created_by_user_id NULL and no runtime code path
+  // creates source='official' at all, so an account-less official row WITH an author is always a
+  // test fixture (workflow-templates-rls.test.ts seeds one). Its account_id is NULL, so it
+  // cascades from nothing — and once its author is deleted it is unreachable by the
+  // created_by_user_id sweep below, leaving a badged, zero-step card in the marketplace forever.
+  // This runs BEFORE the straggler early-return so it also cleans up after an aborted run.
+  await admin
+    .from("workflow_templates")
+    .delete()
+    .eq("source", "official")
+    .is("account_id", null)
+    .not("created_by_user_id", "is", null);
+
   if (stragglers.length === 0) return;
 
   const { data: owned } = await admin

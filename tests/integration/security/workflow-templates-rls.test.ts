@@ -125,7 +125,12 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
     {
       const { data, error } = await admin
         .from("workflow_templates")
-        .insert({ account_id: null, created_by_user_id: a.userId, name: "Official Starter", definition: DEF, schema_version: 1, source: "official", visibility: "public", creator_display_name_snapshot: "ChainReact" })
+        // GOOGLE-REVIEW-TEMPLATE-1 — a self-describing fixture name. This row is account-less,
+        // public and source='official', so if a run aborts before afterAll it survives as a
+        // real-looking, zero-step card in the marketplace (that is exactly how an "Official
+        // Starter" card once appeared in a live catalog). globalTeardown now sweeps officials
+        // with a non-null author, and the name says what it is if one is ever seen again.
+        .insert({ account_id: null, created_by_user_id: a.userId, name: "DB TEST FIXTURE - official template (delete me)", definition: DEF, schema_version: 1, source: "official", visibility: "public", creator_display_name_snapshot: "ChainReact" })
         .select("id")
         .single<{ id: string }>();
       if (error || !data) throw new Error(`seed official: ${error?.message ?? "no row"}`);
