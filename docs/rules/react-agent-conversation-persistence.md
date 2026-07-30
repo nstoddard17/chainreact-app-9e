@@ -98,6 +98,53 @@ Routes gate on `loadWorkflowForMember` first, so a non-member gets the standard
 404 with no existence leak. Ownership is always taken from the session and the
 route param, never from the request body. Messages have no UPDATE policy.
 
+## Retention and deletion (REACT-AGENT-CONVERSATION-RETENTION-1)
+
+**A conversation lives exactly as long as its workflow ROW does.** Nothing
+expires a thread by age. There is no TTL column, no retention sweep, and no
+lifecycle-state predicate anywhere in the retention path.
+
+Enforced entirely by the database — no route, cron, or browser cleanup is
+involved, and none may be added:
+
+```
+workflows.id
+  └─ builder_agent_threads.workflow_id   NOT NULL · ON DELETE CASCADE
+       └─ builder_agent_messages.thread_id   NOT NULL · ON DELETE CASCADE
+  └─ builder_agent_messages.workflow_id  NOT NULL · ON DELETE CASCADE   (second path)
+auth.users.id
+  └─ builder_agent_threads.user_id       NOT NULL · ON DELETE CASCADE
+  └─ builder_agent_messages.user_id      NOT NULL · ON DELETE CASCADE
+```
+
+| Event | What happens to the conversation |
+|---|---|
+| Active workflow | Retained indefinitely. |
+| **Soft-delete (trash)** | Retained. Trash is an UPDATE (`state='deleted'`, `deleted_at`, `purge_after`); the row survives, so the conversation survives the entire restore window. |
+| **Restore** | The same thread and messages are available again — they never left. |
+| **Hard delete** (purge cron past `purge_after`) | Thread and every message cascade away. |
+| **Account purge** | `deleteWorkflowsByAccount` removes the workflow rows; the same cascade clears every conversation. The purge never touches these tables directly. |
+| Workflow A deleted | Workflow B's conversation is untouched — the cascade is per-row. |
+| User deleted | Their threads and messages cascade away. |
+
+The **restore window is 7 days** (`WORKFLOW_TRASH_RETENTION_DAYS`), not 30. The
+30-day figure is `DEFAULT_GRACE_PERIOD_DAYS`, the *account*-deletion grace
+period — during which the workflow rows still exist, so conversations are
+likewise retained. Both windows are the workflow row's lifetime, which is the
+only thing this contract depends on.
+
+**Orphan sweep.** `deleteOrphanedThreadsServiceRole` (run from the trash-purge
+cron) removes threads whose workflow row is missing. It is a **drift backstop**:
+with the FK `NOT NULL` + `CASCADE` + validated, an orphan is structurally
+impossible, and a live census found zero. It exists so that a future migration
+weakening the constraint cannot silently leave unreachable transcripts behind.
+A thread whose workflow is merely soft-deleted is **not** an orphan — the
+existence check is state-blind on purpose.
+
+Regression guard: `tests/unit/repositories/builderAgentThreadsRetention.test.ts`
+reads the shipped migrations and fails if any of them drops, nullifies, or
+re-adds these foreign keys without `ON DELETE CASCADE`, or adds `NOT VALID`.
+
 ## Billing
 
 Restoring, reading, and clearing a transcript are deterministic database

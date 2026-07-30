@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type {
   AgentMessageKind,
   AgentMessageRole,
@@ -16,6 +17,13 @@ import type {
  * user-authenticated route. The repository copies `(user_id, workflow_id)` from
  * the thread row onto every message at insert time so the RLS predicate stays
  * cheap (no JOIN through threads).
+ *
+ * RETENTION (REACT-AGENT-CONVERSATION-RETENTION-1): a conversation lives exactly
+ * as long as its workflow ROW does. Nothing here expires a thread by age. A
+ * soft-deleted (trashed) workflow still HAS its row, so its conversation is
+ * retained for the whole restore window and comes back intact on restore; a
+ * hard delete removes the row and the database cascades the thread and every
+ * message away. See `docs/rules/react-agent-conversation-persistence.md`.
  *
  * NEVER persist raw model outputs / proposedPatch / configs / secrets — the
  * sanitizer at `services/ai/builderAgent/sanitizeAgentMessage.ts` is the only
@@ -303,4 +311,85 @@ export async function clearThreadForWorkflow(
     );
   }
   return { deletedCount: data?.length ?? 0 };
+}
+
+// ── orphan sweep (REACT-AGENT-CONVERSATION-RETENTION-1) ────────────────────
+
+export interface OrphanSweepResult {
+  /** Threads scanned this pass (bounded). */
+  readonly scanned: number;
+  readonly threadsDeleted: number;
+}
+
+/** Bounded so this can never turn into an expensive full-table sweep. */
+const ORPHAN_SCAN_LIMIT = 1_000;
+
+/**
+ * Delete threads that reference a workflow which no longer exists.
+ *
+ * **This is a drift backstop, not a routine cleaner.** `workflow_id` is
+ * `NOT NULL REFERENCES public.workflows(id) ON DELETE CASCADE` and the
+ * constraint is VALIDATED, so an orphan is structurally impossible today:
+ * Postgres rejects an insert naming a missing workflow and removes the thread
+ * itself when the workflow row goes. A live census over the whole table found
+ * zero orphans, and the schema-contract test pins the cascade design.
+ *
+ * It exists because that guarantee is only as good as the constraint. If a
+ * future migration ever weakens the FK (drops it, re-adds it `NOT VALID`, makes
+ * the column nullable), rows referencing nothing become reachable — and an
+ * unreachable transcript that survives its workflow forever is exactly the
+ * legacy residue this slice was asked to remove. The sweep is idempotent and,
+ * on a healthy database, does nothing.
+ *
+ * A thread whose workflow is merely SOFT-deleted is NOT an orphan: its row
+ * exists, it is inside the restore window, and its conversation must survive.
+ * The existence check deliberately ignores `state` / `deleted_at`.
+ *
+ * Service-role: runs from the purge cron with no user session.
+ */
+export async function deleteOrphanedThreadsServiceRole(): Promise<OrphanSweepResult> {
+  const supabase = getServiceRoleClient(
+    "react agent retention: sweep orphaned conversation threads",
+  );
+  const threads = await supabase
+    .from("builder_agent_threads")
+    .select("id, workflow_id")
+    .limit(ORPHAN_SCAN_LIMIT);
+  if (threads.error) {
+    throw new Error(
+      `builderAgentThreads.deleteOrphanedThreadsServiceRole scan failed: ${threads.error.message}`,
+    );
+  }
+  const rows = (threads.data ?? []) as { id: string; workflow_id: string }[];
+  if (rows.length === 0) return { scanned: 0, threadsDeleted: 0 };
+
+  const workflowIds = [...new Set(rows.map((r) => r.workflow_id))];
+  const workflows = await supabase
+    .from("workflows")
+    .select("id")
+    .in("id", workflowIds);
+  if (workflows.error) {
+    throw new Error(
+      `builderAgentThreads.deleteOrphanedThreadsServiceRole lookup failed: ${workflows.error.message}`,
+    );
+  }
+  // Present === retained, whatever its lifecycle state. Trashed workflows keep
+  // their conversation; only a MISSING row makes a thread an orphan.
+  const present = new Set((workflows.data ?? []).map((w) => (w as { id: string }).id));
+  const orphanIds = rows.filter((r) => !present.has(r.workflow_id)).map((r) => r.id);
+  if (orphanIds.length === 0) return { scanned: rows.length, threadsDeleted: 0 };
+
+  // Messages go with the thread via thread_id ON DELETE CASCADE — the same
+  // database rule the rest of this lifecycle relies on, not a second delete.
+  const deleted = await supabase
+    .from("builder_agent_threads")
+    .delete()
+    .in("id", orphanIds)
+    .select("id");
+  if (deleted.error) {
+    throw new Error(
+      `builderAgentThreads.deleteOrphanedThreadsServiceRole delete failed: ${deleted.error.message}`,
+    );
+  }
+  return { scanned: rows.length, threadsDeleted: (deleted.data ?? []).length };
 }
