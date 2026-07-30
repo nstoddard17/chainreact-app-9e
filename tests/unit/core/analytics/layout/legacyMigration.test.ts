@@ -65,20 +65,50 @@ describe("the size-preset map is the single definition of a footprint", () => {
 
 describe("the shipped default board migrates to a known canonical layout", () => {
   it("places every default widget at the expected rectangle", () => {
+    // ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1 moved the welcome note to the
+    // FRONT of the default array, which under first-fit is what puts it at the
+    // top-left. The rest keep their relative order and are placed by the engine:
+    //
+    //   row 0:  note     note     runs     success
+    //   row 1:  active   duration outcome  ·
+    //   row 2:  overtime overtime overtime ·
+    //   row 3:  top      top      heatmap  heatmap
+    //   row 4:  apps     apps     heatmap  heatmap
+    //   row 5:  recent   recent   ·        ·
+    //
+    // The four empty cells are a CONSEQUENCE of a 2-wide widget leading: the
+    // 3-wide `ov-overtime` no longer fits beside the stat tiles. They are not
+    // hand-authored, and no widget was resized or reordered to hide them.
     const layout = migrated(migrateLegacyOrderedLayout(SHIPPED_DEFAULT, { columnCount: COLUMNS }));
     expect(layout).toEqual([
-      { widgetId: "ov-runs", x: 0, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-success", x: 1, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-active", x: 2, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-duration", x: 3, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-overtime", x: 0, y: 1, w: 3, h: 1 },
-      { widgetId: "ov-outcome", x: 3, y: 1, w: 1, h: 1 },
-      { widgetId: "ov-top", x: 0, y: 2, w: 2, h: 1 },
-      { widgetId: "ov-heatmap", x: 2, y: 2, w: 2, h: 2 },
-      { widgetId: "ov-apps", x: 0, y: 3, w: 2, h: 1 },
-      { widgetId: "ov-recent", x: 0, y: 4, w: 2, h: 1 },
-      { widgetId: "ov-note", x: 2, y: 4, w: 2, h: 1 },
+      { widgetId: "ov-note", x: 0, y: 0, w: 2, h: 1 },
+      { widgetId: "ov-runs", x: 2, y: 0, w: 1, h: 1 },
+      { widgetId: "ov-success", x: 3, y: 0, w: 1, h: 1 },
+      { widgetId: "ov-active", x: 0, y: 1, w: 1, h: 1 },
+      { widgetId: "ov-duration", x: 1, y: 1, w: 1, h: 1 },
+      { widgetId: "ov-overtime", x: 0, y: 2, w: 3, h: 1 },
+      { widgetId: "ov-outcome", x: 2, y: 1, w: 1, h: 1 },
+      { widgetId: "ov-top", x: 0, y: 3, w: 2, h: 1 },
+      { widgetId: "ov-heatmap", x: 2, y: 3, w: 2, h: 2 },
+      { widgetId: "ov-apps", x: 0, y: 4, w: 2, h: 1 },
+      { widgetId: "ov-recent", x: 0, y: 5, w: 2, h: 1 },
     ]);
+  });
+
+  it("puts the welcome note in the top-left cell, ahead of everything else", () => {
+    const layout = migrated(migrateLegacyOrderedLayout(SHIPPED_DEFAULT, { columnCount: COLUMNS }));
+    const welcome = layout.find((p) => p.widgetId === "ov-note")!;
+    expect({ x: welcome.x, y: welcome.y }).toEqual({ x: 0, y: 0 });
+    // Nothing sits above it or to its left — the strongest form of "top-left".
+    const precede = layout
+      .filter((p) => p.widgetId !== "ov-note")
+      .filter((p) => p.y + p.h <= welcome.y || p.x + p.w <= welcome.x)
+      .map((p) => p.widgetId);
+    expect(precede).toEqual([]);
+    // …and it leads the canonical reading order, which is what every narrower
+    // projection re-packs from.
+    const readingOrder = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
+    expect(readingOrder[0]!.widgetId).toBe("ov-note");
   });
 
   it("gives every widget the footprint its stored size preset means", () => {

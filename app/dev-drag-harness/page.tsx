@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
-import { AnalyticsDragHarness } from "@/features/analytics/testing/AnalyticsDragHarness";
+import {
+  AnalyticsDragHarness,
+  type AnalyticsHarnessBoard,
+} from "@/features/analytics/testing/AnalyticsDragHarness";
 
 /**
  * BACKEND-FREE browser harness for the analytics widget drag
@@ -28,9 +31,10 @@ export default async function E2eDragHarnessPage({
 }: {
   /**
    * `?board=charts` mounts the chart-footprint fixture board
-   * (ANALYTICS-RESPONSIVE-CHART-SURFACES-1) instead of the drag board. Both are
-   * in-memory fixtures behind the same two gates; the parameter selects which
-   * fixture, it does not unlock anything.
+   * (ANALYTICS-RESPONSIVE-CHART-SURFACES-1) and `?board=default` the real
+   * default Overview inventory (ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1),
+   * instead of the drag board. All three are in-memory fixtures behind the same
+   * two gates; the parameter selects which fixture, it does not unlock anything.
    */
   searchParams?: Promise<{ board?: string }>;
 }) {
@@ -38,5 +42,7 @@ export default async function E2eDragHarnessPage({
     notFound();
   }
   const params = (await searchParams) ?? {};
-  return <AnalyticsDragHarness board={params.board === "charts" ? "charts" : "drag"} />;
+  const board: AnalyticsHarnessBoard =
+    params.board === "charts" ? "charts" : params.board === "default" ? "default" : "drag";
+  return <AnalyticsDragHarness board={board} />;
 }

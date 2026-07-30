@@ -143,19 +143,28 @@ describe("finding 1 — sparse auto-flow leaves permanently empty cells", () => 
   it("the SHIPPED default board holes at the 3-column breakpoint", () => {
     const flowed = autoFlow(defaultBoard(), 3);
     const holes = holesIn(flowed, 3).map((h) => `${h.x},${h.y}`);
-    // Two of them sit in the SECOND ROW, directly under the stat tiles — the
-    // most visible place on the page. Recorded exactly so that a future layout
-    // change which removes them fails loudly here instead of silently
-    // invalidating the audit document.
-    expect(holes).toEqual(["1,1", "2,1", "2,4", "2,5", "2,6", "2,7", "2,8"]);
+    // Recorded exactly so that a change to the default board fails loudly here
+    // rather than silently invalidating the audit document — which is what
+    // happened: ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1 moved the welcome
+    // note to the front, so these are no longer the audit's original numbers
+    // (`1,1 · 2,1 · 2,4…2,8`, measured against the note-last order). The FINDING
+    // is unchanged and is what matters: sparse flow abandons cells it never
+    // returns to, and a column-2 run of them is still the result.
+    expect(holes).toEqual(["2,4", "2,5", "2,6", "2,7"]);
   });
 
-  it("the default board happens to pack cleanly at 4 columns — the model is still the same", () => {
-    // 20 column-units into 5 rows of 4. This is luck, not design: it is why the
-    // defect is not visible on a fresh board at a wide viewport, and why it
-    // appears the moment the user resizes or adds anything.
+  it("the default board no longer even packs cleanly at 4 columns", () => {
+    // The audit recorded that the note-last default happened to pack 20
+    // column-units into 5 exact rows, and called that luck rather than design —
+    // it was why the defect stayed invisible on a fresh wide board. Leading with
+    // a 2-wide welcome note spends that luck: the 3-wide `ov-overtime` no longer
+    // fits beside the stat tiles, so even the widest fresh board has holes.
+    //
+    // Under the SHIPPING explicit renderer those cells are DELIBERATE empty
+    // space that a user can drag into, which is the whole point of S3/S4. This
+    // test is about the RETIRED sparse-flow model, where they were untargetable.
     const flowed = autoFlow(defaultBoard(), 4);
-    expect(holesIn(flowed, 4)).toEqual([]);
+    expect(holesIn(flowed, 4).map((h) => `${h.x},${h.y}`)).toEqual(["2,1", "3,1", "2,5", "3,5"]);
   });
 
   it("one resize is enough to open an untargetable hole at 4 columns", () => {

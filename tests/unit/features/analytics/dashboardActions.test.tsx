@@ -338,6 +338,10 @@ describe("restore default layout", () => {
     expect(patch.widgets).toEqual(DEFAULT_OVERVIEW_WIDGETS);
     // Current canonical definitions — never an obsolete stored snapshot.
     expect(patch.widgets).toHaveLength(DEFAULT_OVERVIEW_WIDGETS.length);
+    // …which since ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1 means the welcome
+    // widget leads, and still with no explicit placement written.
+    expect(patch.widgets![0]?.id).toBe("ov-note");
+    expect(patch.widgets!.every((w) => !("layout" in w))).toBe(true);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 

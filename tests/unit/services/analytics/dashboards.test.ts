@@ -11,6 +11,7 @@ jest.mock("@/repositories/analyticsDashboards", () => ({
 }));
 
 import * as repo from "@/repositories/analyticsDashboards";
+import type { AnalyticsWidget } from "@/contracts/analytics";
 import { listOrSeedDashboards, DEFAULT_OVERVIEW_WIDGETS } from "@/services/analytics/dashboards";
 
 const mockRepo = repo as jest.Mocked<typeof repo>;
@@ -50,6 +51,43 @@ describe("listOrSeedDashboards", () => {
     expect(out).toHaveLength(1);
     expect(out[0]?.isDefault).toBe(true);
     expect(out[0]?.widgets.length).toBe(DEFAULT_OVERVIEW_WIDGETS.length);
+  });
+
+  it("seeds the welcome widget FIRST, in legacy form", async () => {
+    // ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1: array position is what puts the
+    // note at the board's top-left, so the seed payload's order is the contract.
+    mockRepo.listByAccount.mockResolvedValueOnce([]);
+    mockRepo.seedDefaultServiceRole.mockResolvedValueOnce(
+      record({ widgets: DEFAULT_OVERVIEW_WIDGETS }),
+    );
+    const out = await listOrSeedDashboards("acct-1", "user-1");
+
+    const seeded = mockRepo.seedDefaultServiceRole.mock.calls[0]![0]!;
+    // The repository takes `widgets` as opaque JSONB (`unknown`), so name the
+    // shape here rather than pretending the boundary is typed.
+    const seededWidgets = seeded.widgets as readonly AnalyticsWidget[];
+    expect(seededWidgets[0]?.id).toBe("ov-note");
+    expect(seeded.name).toBe("Overview");
+    expect(seeded.isDefault).toBe(true);
+    // Seeded WITHOUT explicit placement — the read chokepoint derives it.
+    expect(seededWidgets.every((w) => !("layout" in w))).toBe(true);
+    expect(out[0]?.widgets[0]?.id).toBe("ov-note");
+  });
+
+  it("seeds identical widgets every time, whatever the caller", async () => {
+    const payloads = [];
+    for (const [accountId, userId] of [
+      ["acct-1", "user-1"],
+      ["acct-2", "user-2"],
+    ] as const) {
+      mockRepo.listByAccount.mockResolvedValueOnce([]);
+      mockRepo.seedDefaultServiceRole.mockResolvedValueOnce(
+        record({ accountId, widgets: DEFAULT_OVERVIEW_WIDGETS }),
+      );
+      await listOrSeedDashboards(accountId, userId);
+      payloads.push(mockRepo.seedDefaultServiceRole.mock.calls.at(-1)![0]!.widgets);
+    }
+    expect(payloads[0]).toEqual(payloads[1]);
   });
 
   it("re-lists when it loses the seed race (unique-default conflict → null)", async () => {

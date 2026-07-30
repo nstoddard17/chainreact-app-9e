@@ -56,19 +56,30 @@ describe("a board stored before explicit placement is derived, never converted",
   it("normalizes the shipped default board to the pinned canonical rectangles", () => {
     const result = normalizeDashboardWidgets(DEFAULT_OVERVIEW_WIDGETS);
     expect(result.layoutSource).toBe("legacy-derived");
+    // Welcome-first (ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1): the note leads
+    // the default array, so first-fit gives it the top-left rectangle.
     expect(result.effectiveLayout).toEqual([
-      { widgetId: "ov-runs", x: 0, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-success", x: 1, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-active", x: 2, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-duration", x: 3, y: 0, w: 1, h: 1 },
-      { widgetId: "ov-overtime", x: 0, y: 1, w: 3, h: 1 },
-      { widgetId: "ov-outcome", x: 3, y: 1, w: 1, h: 1 },
-      { widgetId: "ov-top", x: 0, y: 2, w: 2, h: 1 },
-      { widgetId: "ov-heatmap", x: 2, y: 2, w: 2, h: 2 },
-      { widgetId: "ov-apps", x: 0, y: 3, w: 2, h: 1 },
-      { widgetId: "ov-recent", x: 0, y: 4, w: 2, h: 1 },
-      { widgetId: "ov-note", x: 2, y: 4, w: 2, h: 1 },
+      { widgetId: "ov-note", x: 0, y: 0, w: 2, h: 1 },
+      { widgetId: "ov-runs", x: 2, y: 0, w: 1, h: 1 },
+      { widgetId: "ov-success", x: 3, y: 0, w: 1, h: 1 },
+      { widgetId: "ov-active", x: 0, y: 1, w: 1, h: 1 },
+      { widgetId: "ov-duration", x: 1, y: 1, w: 1, h: 1 },
+      { widgetId: "ov-overtime", x: 0, y: 2, w: 3, h: 1 },
+      { widgetId: "ov-outcome", x: 2, y: 1, w: 1, h: 1 },
+      { widgetId: "ov-top", x: 0, y: 3, w: 2, h: 1 },
+      { widgetId: "ov-heatmap", x: 2, y: 3, w: 2, h: 2 },
+      { widgetId: "ov-apps", x: 0, y: 4, w: 2, h: 1 },
+      { widgetId: "ov-recent", x: 0, y: 5, w: 2, h: 1 },
     ]);
+  });
+
+  it("derives the default board WITHOUT writing placement into the widgets", () => {
+    // The reordered default is still stored in legacy form; reading it derives
+    // rectangles in memory and must not add `layout` to any widget.
+    const result = normalizeDashboardWidgets(DEFAULT_OVERVIEW_WIDGETS);
+    expect(result.layoutSource).toBe("legacy-derived");
+    expect(result.widgets.every((w) => !("layout" in w))).toBe(true);
+    expect(result.widgets.map((w) => w.id)).toEqual(DEFAULT_OVERVIEW_WIDGETS.map((w) => w.id));
   });
 
   it("produces the same result whatever the viewport reports", () => {

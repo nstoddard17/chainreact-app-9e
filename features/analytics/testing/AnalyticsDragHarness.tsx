@@ -5,6 +5,7 @@ import type {
   AnalyticsOverview,
   AnalyticsWidget,
 } from "@/contracts/analytics";
+import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 import { AnalyticsDashboard } from "../AnalyticsDashboard";
 
 /**
@@ -181,10 +182,41 @@ const CHART_DASHBOARD: Dashboard = {
   updatedAt: "2026-07-01T00:00:00Z",
 };
 
-export type AnalyticsHarnessBoard = "drag" | "charts";
+/**
+ * The REAL default Overview board (ANALYTICS-DEFAULT-OVERVIEW-WELCOME-FIRST-1).
+ *
+ * `DEFAULT_OVERVIEW_WIDGETS` verbatim — the same value the server seeds and the
+ * same LEGACY form (no `layout`), so the browser exercises the actual derivation
+ * a brand-new account gets, not a fixture that merely resembles it. Importing the
+ * constant rather than copying it is the point: a reorder cannot pass here while
+ * failing in production.
+ */
+const DEFAULT_DASHBOARD: Dashboard = {
+  id: "00000000-0000-4000-8000-00000000de4a",
+  name: "Overview",
+  position: 0,
+  isDefault: true,
+  // Spread only to satisfy the mutable contract type — the CONTENT and ORDER are
+  // the shipped constant's, which is what this fixture exists to exercise.
+  widgets: [...DEFAULT_OVERVIEW_WIDGETS],
+  createdAt: "2026-07-01T00:00:00Z",
+  updatedAt: "2026-07-01T00:00:00Z",
+};
+
+export type AnalyticsHarnessBoard = "drag" | "charts" | "default";
+
+const BOARDS: Record<
+  AnalyticsHarnessBoard,
+  { dashboard: Dashboard; overview: AnalyticsOverview; range: "7d" | "30d" }
+> = {
+  drag: { dashboard: DASHBOARD, overview: OVERVIEW, range: "7d" },
+  charts: { dashboard: CHART_DASHBOARD, overview: CHART_OVERVIEW, range: "30d" },
+  // Real data behind the real default inventory, so every widget renders.
+  default: { dashboard: DEFAULT_DASHBOARD, overview: CHART_OVERVIEW, range: "30d" },
+};
 
 export function AnalyticsDragHarness({ board = "drag" }: { board?: AnalyticsHarnessBoard }) {
-  const charts = board === "charts";
+  const { dashboard, overview, range } = BOARDS[board];
   return (
     <div style={{ display: "flex" }}>
       {/* Stand-ins for the app shell's sidebar and header, so the grid sits
@@ -197,9 +229,9 @@ export function AnalyticsDragHarness({ board = "drag" }: { board?: AnalyticsHarn
           canManage
           connectedProviders={{}}
           insightCatalog={{ sources: [] }}
-          initialDashboards={[charts ? CHART_DASHBOARD : DASHBOARD]}
-          initialOverview={charts ? CHART_OVERVIEW : OVERVIEW}
-          initialRange={charts ? "30d" : "7d"}
+          initialDashboards={[dashboard]}
+          initialOverview={overview}
+          initialRange={range}
         />
       </div>
     </div>
