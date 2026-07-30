@@ -155,8 +155,15 @@ try {
   const stage = await guided.getAttribute("data-stage");
   check(`4. stage after Apply with apps disconnected is Connect (got "${stage}")`, stage === "connecting");
   const connectSection = page.getByTestId("guided-connect-section");
+  // The provider rows appear only once the SERVER-resolved connection signal lands; until then the
+  // card honestly says it is still checking. Wait for that resolution rather than racing it.
+  await page
+    .getByTestId("guided-connect-stripe")
+    .waitFor({ timeout: 60_000 })
+    .catch(() => {});
   const connectText = await connectSection.innerText().catch(() => "");
   check("4. consolidated connection cards are shown", connectText.length > 0);
+  console.log(`  connect section says: ${connectText.split("\n").join(" | ").slice(0, 220)}`);
   for (const provider of ["stripe", "slack"]) {
     const row = page.getByTestId(`guided-connect-${provider}`);
     const present = (await row.count()) > 0;
