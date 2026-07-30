@@ -26,16 +26,19 @@
  */
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import { PREVIEW_LEAD_IN_TAIL } from "@/core/ai/previewLeadInCopy";
 import { inferNamedProviderChainPlan } from "../fallback/inferNamedProviderChainPlan";
 import { classifyPreviewFirst } from "./classifyPreviewFirst";
 
 /**
- * Honest lead-in for a timeout-recovered skeleton: the assistant DID time out, the sketch is
- * ChainReact's own, and nothing was changed. Fixed copy — no model text, no values.
+ * Honest lead-in for a timeout-recovered skeleton: the assistant DID time out and the sketch is
+ * ChainReact's own. Fixed copy — no model text, no values.
+ * REACT-AGENT-PREVIEW-COPY-CLEANUP-1 — the opener stays specific to this path; the guidance that
+ * follows is the SHARED tail, because the journey after Apply is the same one either way.
  */
 export const TIMEOUT_FALLBACK_LEAD_IN =
   "The assistant took too long to respond, so I sketched the workflow directly from the apps you named. " +
-  "Finish the remaining choices in each step's setup below — nothing in your workflow has been changed.";
+  PREVIEW_LEAD_IN_TAIL;
 
 export interface TimeoutFallbackRecovery {
   readonly guidanceText: string;

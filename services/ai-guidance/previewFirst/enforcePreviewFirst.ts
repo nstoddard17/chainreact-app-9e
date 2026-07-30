@@ -36,6 +36,7 @@
  */
 
 import type { AccountType } from "@/contracts/accounts";
+import { PREVIEW_LEAD_IN } from "@/core/ai/previewLeadInCopy";
 import type { GuidanceConversationTurn } from "@/contracts/aiGuidance";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -62,9 +63,10 @@ import {
  * Lead-in shown with a deterministic-fallback skeleton (REACT-AGENT-PLAN-GENERATION-REGRESSION-
  * AUDIT-1). The model's own prose was a questionnaire we are deliberately NOT surfacing, so the
  * fallback plan needs honest, fixed copy of its own. No model text, no values.
+ * REACT-AGENT-PREVIEW-COPY-CLEANUP-1 — the shared preview lead-in: from the user's point of view
+ * this IS the same moment as any other successful sketch, so it must describe the same journey.
  */
-const FALLBACK_PLAN_LEAD_IN =
-  "Here's the workflow you described — I've sketched the trigger and each step from the apps you named. Finish the remaining choices in each step's setup below; nothing in your workflow has been changed yet.";
+const FALLBACK_PLAN_LEAD_IN = PREVIEW_LEAD_IN;
 
 /**
  * Safety margin kept between the repair's deadline and the platform's hard kill. Now the shared

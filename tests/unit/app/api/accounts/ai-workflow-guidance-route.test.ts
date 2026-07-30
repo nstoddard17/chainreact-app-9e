@@ -149,6 +149,34 @@ function strongRecommendation() {
   };
 }
 
+/**
+ * REACT-AGENT-PREVIEW-COPY-CLEANUP-1 — assert the reply never claims a workflow was actually
+ * created, applied, saved or activated.
+ *
+ * Advisory replies are allowed — required, even — to TELL the user to apply, and to reassure them
+ * that nothing has been saved yet. What they must never do is report the deed as done. So this
+ * matches completed-action CLAIMS ("I created", "we've applied", "has been saved") rather than the
+ * verbs themselves, which a bare word ban would have forbidden in both the instruction and the
+ * reassurance.
+ */
+function expectNoCompletedActionClaim(text: string): void {
+  const VERBS = "created|applied|saved|activated";
+  const claims = [
+    new RegExp(String.raw`\b(?:I|we)\s+(?:have\s+|'ve\s+)?(?:${VERBS})\b`, "i"),
+    new RegExp(String.raw`\b(?:has|have|was|were)\s+been\s+(?:${VERBS})\b`, "i"),
+  ];
+  for (const claim of claims) {
+    const match = text.match(claim);
+    if (!match || match.index === undefined) continue;
+    // A negated statement ("nothing has been saved") is the reassurance, not a claim.
+    const lead = text.slice(Math.max(0, match.index - 40), match.index);
+    if (/\b(nothing|not|never|no changes?)\b|n't/i.test(lead)) continue;
+    throw new Error(
+      `response claims a completed action: ${JSON.stringify(match[0])} in ${text.slice(0, 300)}`,
+    );
+  }
+}
+
 describe("workflow-guidance route — auth + membership", () => {
   it("401 unauthenticated; never gates/runs", async () => {
     const { NextResponse } = await import("next/server");
@@ -746,7 +774,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(res.status).toBe(503);
     // The route loaded the workflow read-only; the response claims nothing was created/applied.
     const body = await res.json();
-    expect(JSON.stringify(body)).not.toMatch(/created|applied|saved/i);
+    expectNoCompletedActionClaim(JSON.stringify(body));
   });
 
   it("REACT-LIVE-SKELETON — Mailchimp TAG intent with no Hermes plan → route injects a validated add_tag fallback + preview", async () => {
@@ -1005,7 +1033,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
       expect(body.previewDraft.notApplied).toBe(true);
       // Honest lead-in: says the assistant timed out; claims no creation/application.
       expect(body.guidanceText).toMatch(/took too long/i);
-      expect(`${body.guidanceText} ${body.workflowPlan.summary}`).not.toMatch(/\b(created|applied|saved)\b/i);
+      expectNoCompletedActionClaim(`${body.guidanceText} ${body.workflowPlan.summary}`);
       // The genuine decisions ride as setup inputs, same as a model plan.
       const byType = Object.fromEntries(
         body.previewDraft.nodes.map((n: { type: string; missingInputs?: string[] }) => [n.type, n.missingInputs ?? []]),
@@ -1046,7 +1074,7 @@ describe("workflow-guidance route — capability call + safe response", () => {
       // Advisory only: a plan + non-applied preview; NO proposedDefinition, no mutation claims.
       expect(body.workflowPlan.notApplied).toBe(true);
       expect(body.proposedDefinition ?? null).toBeNull();
-      expect(`${body.guidanceText} ${body.workflowPlan.summary}`).not.toMatch(/\b(created|applied|saved)\b/i);
+      expectNoCompletedActionClaim(`${body.guidanceText} ${body.workflowPlan.summary}`);
     } finally {
       errorSpy.mockRestore();
     }

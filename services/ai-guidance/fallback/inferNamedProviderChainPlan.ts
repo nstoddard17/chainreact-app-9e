@@ -23,6 +23,7 @@
  */
 
 import { WORKFLOW_PLAN_SCHEMA_VERSION, type WorkflowPlan, type WorkflowPlanStep } from "@/contracts/guidanceSession";
+import { INFERRED_PLAN_SUMMARY } from "@/core/ai/previewLeadInCopy";
 import { listProviders } from "@/integrations/_registry";
 import {
   listActionMetasForProvider,
@@ -300,8 +301,9 @@ export function inferNamedProviderChainPlan(goalText: string | undefined): Workf
   const plan: WorkflowPlan = {
     schemaVersion: WORKFLOW_PLAN_SCHEMA_VERSION,
     title: steps.map((s) => s.provider).join(" → "),
-    summary:
-      "The workflow you described, sketched from the apps you named. Every remaining choice is collected in each step's setup — nothing has been filled in for you.",
+    // REACT-AGENT-PREVIEW-COPY-CLEANUP-1 — shared copy; it must not point at a
+    // per-step setup surface that the pre-apply preview no longer shows.
+    summary: INFERRED_PLAN_SUMMARY,
     steps,
     notApplied: true,
   };

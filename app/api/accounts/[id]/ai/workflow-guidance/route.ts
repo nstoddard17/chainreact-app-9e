@@ -14,6 +14,7 @@ import {
   type AiCreditPrecheckOutcome,
 } from "@/services/billing/aiCreditGate";
 import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai-guidance/gateway/gatewayConfig";
+import { PREVIEW_LEAD_IN } from "@/core/ai/previewLeadInCopy";
 import { enforcePreviewFirst } from "@/services/ai-guidance/previewFirst/enforcePreviewFirst";
 import { recoverGuidanceTimeoutWithFallback } from "@/services/ai-guidance/previewFirst/recoverTimeoutFallback";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
@@ -336,11 +337,11 @@ function guidanceCancelledResponse(): NextResponse {
 
 /**
  * REACT-AGENT-LATENCY-AND-PROMPT-SIZE-1 — the honest lead-in for a registry-first skeleton: no
- * model was consulted, the sketch comes from the apps the user named, mappings fill in via the
- * existing enrichment after resources are chosen. Fixed copy — no model text, no values.
+ * model was consulted and the sketch comes from the apps the user named.
+ * REACT-AGENT-PREVIEW-COPY-CLEANUP-1 — it now describes the ACTUAL journey (apply, then connect,
+ * then configure) instead of pointing at setup controls the pre-apply card no longer renders.
  */
-const REGISTRY_PLAN_LEAD_IN =
-  "Here's the workflow you described — I sketched it from the apps you named. Finish the choices in each step's setup below; field mappings fill in as you pick resources. Nothing in your workflow has been changed.";
+const REGISTRY_PLAN_LEAD_IN = PREVIEW_LEAD_IN;
 
 /** The safe result-path enum for the latency line. */
 type GuidanceResultPath =
