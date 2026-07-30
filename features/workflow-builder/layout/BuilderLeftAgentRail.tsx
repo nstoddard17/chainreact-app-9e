@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import type { SurfacePresentation } from "./builderLayoutPolicy";
+import { useBuilderOverlaySurface } from "./useBuilderOverlaySurface";
 
 interface Props {
   /**
@@ -29,6 +31,23 @@ interface Props {
    * runtime/provider name (Hermes) is internal and deliberately NOT shown in this user-facing status.
    */
   connected?: boolean;
+  /**
+   * BUILDER-RESPONSIVE-LAYOUT-1 — how the rail is presented at the current
+   * width. `panel` (the default, and everything ≥ 900px) is the in-flow column
+   * this rail has always been. `overlay` is a full-height sheet floating over
+   * the canvas, used below 900px where a 320px column and a usable canvas
+   * cannot both exist.
+   *
+   * Defaults to `panel` so every existing caller and isolated test keeps the
+   * pre-slice layout without passing anything.
+   */
+  presentation?: SurfacePresentation;
+  /**
+   * Expanded in-flow width in pixels (`panel` only). 320 on wide screens; the
+   * medium tier passes a tighter value so the canvas keeps priority. Ignored in
+   * `overlay` presentation, where the sheet sizes itself against the viewport.
+   */
+  panelWidth?: number;
   /**
    * Rail payload — the `BuilderGuidanceRail` in production. Kept as a slot so
    * the wrapper itself stays free of AI-service logic and tests can
@@ -64,35 +83,86 @@ interface Props {
  *
  * Scope guardrail: workflow-builder-scoped only. MUST NOT mount the
  * general app-level assistant. (See port plan §0 / §4 / §10.)
+ *
+ * BUILDER-RESPONSIVE-LAYOUT-1 — the rail gained a `presentation` mode, and the
+ * important part is what did NOT change: there is still exactly ONE `<aside>`
+ * and the payload container is still at the SAME child index in every state.
+ * Presentation switches className and position only, so React reconciles the
+ * subtree rather than remounting it — which is what guarantees that going from
+ * a desktop column to a phone sheet (or back) preserves the transcript, the
+ * composer draft, and every bit of React Agent state. Nothing about the
+ * conversation is duplicated per layout.
+ *
+ * The `md:` breakpoint prefixes are gone. They were the bug: below 768px the
+ * collapsed rail was `hidden` with no spine and the expanded rail was `w-full`,
+ * stacked above the canvas by the old `flex-col` workspace row. Width is now
+ * decided by the resolved layout mode (one hook, one policy) instead of by
+ * utility classes in this file guessing at it.
  */
 export function BuilderLeftAgentRail({
   isCollapsed,
   onToggle,
   connected = false,
+  presentation = "panel",
+  panelWidth = 320,
   children,
 }: Props) {
   const [hasEverExpanded, setHasEverExpanded] = useState(!isCollapsed);
   if (!isCollapsed && !hasEverExpanded) setHasEverExpanded(true);
 
+  const isOverlay = presentation === "overlay";
+  const isOpenOverlay = isOverlay && !isCollapsed;
+  const railRef = useRef<HTMLElement | null>(null);
+
+  // Focus in / trap / restore, plus Escape-to-close — but only while this rail
+  // is genuinely an open sheet. In panel presentation the hook is inert, so a
+  // desktop rail never traps focus or swallows Escape.
+  useBuilderOverlaySurface({
+    active: isOpenOverlay,
+    containerRef: railRef,
+    onEscape: isOpenOverlay ? onToggle : undefined,
+  });
+
   return (
     <aside
+      ref={railRef}
       data-testid="builder-left-agent-rail"
       data-collapsed={isCollapsed ? "true" : "false"}
-      role="complementary"
+      data-presentation={presentation}
+      /*
+        An open sheet sits over the canvas behind a scrim, so it IS a modal
+        dialog and should be announced as one. An in-flow column is not — it is
+        a complementary region beside the canvas, as it always was.
+      */
+      {...(isOpenOverlay
+        ? { role: "dialog" as const, "aria-modal": true as const }
+        : { role: "complementary" as const })}
       aria-label={isCollapsed ? "React Agent (collapsed)" : "React Agent"}
       className={
-        isCollapsed
-          ? "hidden shrink-0 md:flex md:flex-col"
-          : "flex w-full shrink-0 flex-col md:w-[320px]"
+        isOverlay
+          ? /*
+              Sheet: absolutely positioned inside the workspace row (NOT the
+              viewport), so the builder header stays visible and usable above
+              it. Capped against the viewport so a 390px phone still shows a
+              sliver of canvas — the user can always see what the sheet is
+              covering. Collapsed, it stays mounted but `display:none`, which is
+              what preserves the conversation with zero canvas cost.
+            */
+            `absolute inset-y-0 left-0 z-40 w-[min(20rem,88vw)] flex-col ${
+              isCollapsed ? "hidden" : "flex"
+            }`
+          : "flex shrink-0 flex-col"
       }
+      {...(isOverlay && isCollapsed ? { hidden: true, "aria-hidden": true as const } : {})}
       style={{
-        ...(isCollapsed ? { width: 40 } : {}),
+        ...(isOverlay ? {} : { width: isCollapsed ? 40 : panelWidth }),
         background: "var(--builder-panel)",
         borderRight: "1px solid var(--builder-border)",
         minHeight: 0,
+        ...(isOpenOverlay ? { boxShadow: "var(--builder-shadow-lg, 0 10px 40px rgba(0,0,0,0.45))" } : {}),
       }}
     >
-      {isCollapsed ? (
+      {isCollapsed && !isOverlay ? (
         /*
           The ENTIRE spine is the expand affordance — a tiny icon-only target
           (the old 12px sparkle with no background) was easy to miss and the
@@ -177,15 +247,35 @@ export function BuilderLeftAgentRail({
               </div>
             </div>
           </div>
+          {/*
+            One control, two honest labels. As a column it collapses to the
+            spine; as a sheet there is no spine to collapse to, so it closes.
+            Naming it "Collapse" in sheet mode would describe something the UI
+            can't do — the same honesty rule the option-recovery contract
+            applies to error copy.
+          */}
           <button
             type="button"
             onClick={onToggle}
-            aria-label="Collapse React Agent"
+            aria-label={isOverlay ? "Close React Agent" : "Collapse React Agent"}
+            title={isOverlay ? "Close (Esc)" : "Hide assistant"}
             data-testid="builder-left-agent-rail-collapse"
-            className="rounded p-1"
-            style={{ color: "var(--builder-muted)" }}
+            className={
+              isOverlay
+                ? "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border text-[15px] leading-none"
+                : "rounded p-1"
+            }
+            style={
+              isOverlay
+                ? {
+                    color: "var(--builder-text)",
+                    background: "var(--builder-panel-2)",
+                    borderColor: "var(--builder-border)",
+                  }
+                : { color: "var(--builder-muted)" }
+            }
           >
-            <ChevronLeftIcon />
+            {isOverlay ? "×" : <ChevronLeftIcon />}
           </button>
         </header>
       )}
@@ -215,7 +305,7 @@ export function BuilderLeftAgentRail({
       >
         {hasEverExpanded ? children : null}
       </div>
-      {isCollapsed ? (
+      {isCollapsed && !isOverlay ? (
         <style>{`
           .builder-rail-spine { transition: background 0.12s ease; }
           .builder-rail-spine:hover { background: var(--builder-panel-2); }

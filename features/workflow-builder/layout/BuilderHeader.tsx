@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkflowState } from "@/contracts/workflow";
 import { HeaderRightLocalOnly } from "../panels/AnonymousLocalChrome";
 import { useGraphSlice } from "../state/graphSlice";
-import { undoWithConfigSync, redoWithConfigSync } from "../state/historyNav";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
-import { LifecycleActions } from "../panels/LifecycleActions";
 import {
   collectBuilderValidationIssues,
   countBuilderValidationIssues,
@@ -17,16 +15,11 @@ import {
   BuilderIconButton,
   ChevronLeftIcon,
   LayersIcon,
-  RedoIcon,
-  UndoIcon,
 } from "./_BuilderHeaderIcons";
-import {
-  HeaderValidationPill,
-  StatusPill,
-  type SaveStatus,
-} from "./_BuilderHeaderPills";
-import { HeaderRunControls } from "./HeaderRunControls";
+import { StatusPill, type SaveStatus } from "./_BuilderHeaderPills";
 import { BuilderTabStrip } from "./BuilderTabStrip";
+import { BuilderHeaderActions } from "./_BuilderHeaderActions";
+import type { HeaderDensity } from "./builderLayoutPolicy";
 import { BuilderTemplatesModal } from "../panels/BuilderTemplatesModal";
 import type { BuilderTab } from "../canvas/BuilderTabPlaceholder";
 import type { BuilderViewMode } from "../document/documentViewPref";
@@ -104,6 +97,21 @@ interface Props {
    * saves, hydrates, or mutates the graph.
    */
   viewToggle?: HeaderViewToggle;
+  /**
+   * BUILDER-RESPONSIVE-LAYOUT-1 — how much the header can afford to show.
+   * Resolved once by `useBuilderLayout` and passed down; this component never
+   * measures anything itself.
+   *
+   *   `full`    ≥ 1280 — every control inline. Identical to the pre-slice
+   *                      header, which is why it is the default.
+   *   `compact` 900–1279 — undo/redo, the Visual/Document toggle and Templates
+   *                      move into the overflow menu; Test/Run, Save, the issue
+   *                      count and the lifecycle action stay inline.
+   *   `minimal` < 900  — as compact, plus Test/Run moves to overflow, the
+   *                      section tabs get their own second row, and the identity
+   *                      block sheds its breadcrumb line and status text.
+   */
+  density?: HeaderDensity;
 }
 
 /**
@@ -138,6 +146,7 @@ export function BuilderHeader({
   localOnly,
   focusPulse = null,
   viewToggle,
+  density = "full",
 }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
@@ -190,58 +199,121 @@ export function BuilderHeader({
   useBuilderShortcuts({ onSave: localOnly ? noop : handleSave });
 
   const status = deriveStatus({ isDirty, isSaving, saveError, savedAt });
+  const isMinimal = density === "minimal";
+
+  const identity = (
+    <HeaderLeft
+      workflowName={workflowName}
+      leftRail={leftRail}
+      status={status}
+      saveError={saveError}
+      onRetrySave={handleSave}
+      density={density}
+      {...(lifecycle ? { workflowState: lifecycle.state } : {})}
+    />
+  );
+  /* BUILDER-HEADER-TABS-CENTER-1 — the section tabs live in the header
+     center (replacing the deferred ID/runs/success/tasks meta strip).
+     min-w-0 + overflow lets the pill shrink-scroll on narrow widths
+     instead of shoving the action buttons. */
+  const tabStrip = tabs ? (
+    <BuilderTabStrip activeTab={tabs.activeTab} onSelectTab={tabs.onSelectTab} />
+  ) : null;
+  const actions = localOnly ? (
+    <HeaderRightLocalOnly />
+  ) : (
+    <BuilderHeaderActions
+      isDirty={isDirty}
+      isSaving={isSaving}
+      onSave={handleSave}
+      canUndo={canUndo}
+      canRedo={canRedo}
+      workflowId={workflowId}
+      onOpenTemplates={() => setTemplatesOpen(true)}
+      validation={validation}
+      validationCounts={validationCounts}
+      lifecycle={lifecycle}
+      runEditBlocked={runEditBlocked}
+      focusPulse={focusPulse}
+      viewToggle={viewToggle}
+      density={density}
+    />
+  );
 
   return (
     <>
-      <header
-        aria-label="Workflow builder header"
-        data-testid="builder-header"
-        className="grid h-12 shrink-0 items-center gap-3 px-2"
-        style={{
-          gridTemplateColumns: "1fr auto 1fr",
-          background: "var(--builder-panel)",
-          borderBottom: "1px solid var(--builder-border)",
-        }}
-      >
-        <HeaderLeft
-          workflowName={workflowName}
-          leftRail={leftRail}
-          status={status}
-          saveError={saveError}
-          onRetrySave={handleSave}
-          {...(lifecycle ? { workflowState: lifecycle.state } : {})}
-        />
-        {/* BUILDER-HEADER-TABS-CENTER-1 — the section tabs live in the header
-            center (replacing the deferred ID/runs/success/tasks meta strip).
-            min-w-0 + overflow lets the pill shrink-scroll on narrow widths
-            instead of shoving the action buttons. */}
-        {tabs ? (
-          <div className="flex min-w-0 items-center justify-center overflow-x-auto">
-            <BuilderTabStrip activeTab={tabs.activeTab} onSelectTab={tabs.onSelectTab} />
+      {isMinimal ? (
+        /*
+          Phone-width header: TWO deliberate rows. The alternative — one row
+          holding identity, five section tabs and the action cluster — is what
+          produced the clipped toolbar this slice fixes. A second 34px row is a
+          conscious trade of a little height for controls that are actually
+          readable and hittable, and it is the only place the header is allowed
+          to grow taller.
+        */
+        <header
+          aria-label="Workflow builder header"
+          data-testid="builder-header"
+          data-density={density}
+          className="flex shrink-0 flex-col"
+          style={{
+            background: "var(--builder-panel)",
+            borderBottom: "1px solid var(--builder-border)",
+          }}
+        >
+          <div
+            className="grid h-12 items-center gap-2 px-2"
+            style={{ gridTemplateColumns: "minmax(0,1fr) auto" }}
+          >
+            {identity}
+            {actions}
           </div>
-        ) : (
-          <div />
-        )}
-        {localOnly ? (
-          <HeaderRightLocalOnly />
-        ) : (
-          <HeaderRight
-            isDirty={isDirty}
-            isSaving={isSaving}
-            onSave={handleSave}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            workflowId={workflowId}
-            onOpenTemplates={() => setTemplatesOpen(true)}
-            validation={validation}
-            validationCounts={validationCounts}
-            lifecycle={lifecycle}
-            runEditBlocked={runEditBlocked}
-            focusPulse={focusPulse}
-            viewToggle={viewToggle}
-          />
-        )}
-      </header>
+          {tabStrip ? (
+            <div
+              data-testid="builder-header-tab-row"
+              className="flex h-[34px] items-center overflow-x-auto px-2"
+              style={{ borderTop: "1px solid var(--builder-border)" }}
+            >
+              {tabStrip}
+            </div>
+          ) : null}
+        </header>
+      ) : (
+        <header
+          aria-label="Workflow builder header"
+          data-testid="builder-header"
+          data-density={density}
+          className="grid h-12 shrink-0 items-center gap-3 px-2"
+          style={{
+            /*
+              `1fr auto 1fr` at full width is unchanged — it is what centres the
+              tab strip on a desktop. At `compact` the side tracks become
+              `minmax(0, …)` so they can actually shrink: a bare `1fr` track has
+              `min-width: auto`, which is why the action cluster used to force
+              the header wider than the viewport and get its right edge clipped
+              instead of yielding space. The action track stays `auto` — buttons
+              must not shrink to unreadable; the identity and the (scrollable)
+              tab strip absorb the loss instead.
+            */
+            gridTemplateColumns:
+              density === "full"
+                ? "1fr auto 1fr"
+                : "minmax(0,1fr) minmax(0,auto) auto",
+            background: "var(--builder-panel)",
+            borderBottom: "1px solid var(--builder-border)",
+          }}
+        >
+          {identity}
+          {tabStrip ? (
+            <div className="flex min-w-0 items-center justify-center overflow-x-auto">
+              {tabStrip}
+            </div>
+          ) : (
+            <div />
+          )}
+          {actions}
+        </header>
+      )}
       {!localOnly && templatesOpen && workflowId ? (
         <BuilderTemplatesModal
           workflowId={workflowId}
@@ -261,12 +333,15 @@ function HeaderLeft({
   saveError,
   onRetrySave,
   workflowState,
+  density = "full",
 }: {
   workflowName: string;
   leftRail?: { isCollapsed: boolean; onToggle: () => void };
   status: SaveStatus;
   saveError: string | null;
   onRetrySave?: () => void;
+  /** BUILDER-RESPONSIVE-LAYOUT-1 — see the `density` prop on `BuilderHeader`. */
+  density?: HeaderDensity;
   /**
    * DOC-STEP-CONTROLS-1 — the REAL lifecycle state (draft / active / paused /
    * …). The breadcrumb used to hard-code "draft", which read as a wrong status
@@ -312,271 +387,60 @@ function HeaderLeft({
         </BuilderIconButton>
       ) : null}
       <div className="ml-1 flex min-w-0 flex-col gap-0.5">
-        <div
-          className="builder-mono flex items-center gap-1.5 text-[10.5px]"
-          style={{ color: "var(--builder-muted)" }}
-        >
-          <span>workflow</span>
-          <span style={{ color: "var(--builder-muted-2)" }}>/</span>
-          <span
-            data-testid="builder-header-workflow-state"
-            data-workflow-state={workflowState ?? "draft"}
-            title={`This workflow is ${workflowStateLabel(workflowState).toLowerCase()}`}
+        {/*
+          BUILDER-RESPONSIVE-LAYOUT-1 — the "workflow / draft /" breadcrumb line
+          is dropped at phone width. It is pure orientation text, and the state
+          it carries is still available: the lifecycle button on the right names
+          the current state's transition, and the state chip lives in Settings.
+          Keeping the workflow NAME readable matters more at 390px.
+          `data-testid="builder-header-workflow-state"` therefore only exists at
+          `full`/`compact` — tests reading it should assert at those densities.
+        */}
+        {density === "minimal" ? null : (
+          <div
+            className="builder-mono flex items-center gap-1.5 text-[10.5px]"
+            style={{ color: "var(--builder-muted)" }}
           >
-            {workflowStateLabel(workflowState).toLowerCase()}
-          </span>
-          <span style={{ color: "var(--builder-muted-2)" }}>/</span>
-        </div>
+            <span>workflow</span>
+            <span style={{ color: "var(--builder-muted-2)" }}>/</span>
+            <span
+              data-testid="builder-header-workflow-state"
+              data-workflow-state={workflowState ?? "draft"}
+              title={`This workflow is ${workflowStateLabel(workflowState).toLowerCase()}`}
+            >
+              {workflowStateLabel(workflowState).toLowerCase()}
+            </span>
+            <span style={{ color: "var(--builder-muted-2)" }}>/</span>
+          </div>
+        )}
         <div className="flex min-w-0 items-center gap-2">
           <h2
-            className="max-w-[340px] truncate text-[13px] font-semibold"
+            /*
+              `max-w-[340px]` capped the name on a wide screen; it did nothing to
+              help a narrow one, because the cap is a MAXIMUM and the problem at
+              900px is the MINIMUM — an unshrinkable name pushing the toolbar out
+              of the header. `min-w-0` is what lets `truncate` actually engage.
+            */
+            className="min-w-0 max-w-[340px] truncate text-[13px] font-semibold"
             title={workflowName}
             style={{ color: "var(--builder-text)" }}
           >
             {workflowName}
           </h2>
-          <StatusPill status={status} saveError={saveError} onRetry={onRetrySave} />
+          <StatusPill
+            status={status}
+            saveError={saveError}
+            onRetry={onRetrySave}
+            compact={density === "minimal"}
+          />
         </div>
       </div>
-    </div>
-  );
-}
-
-function HeaderRight({
-  isDirty,
-  isSaving,
-  onSave,
-  canUndo,
-  canRedo,
-  workflowId,
-  onOpenTemplates,
-  validation,
-  validationCounts,
-  lifecycle,
-  runEditBlocked,
-  focusPulse = null,
-  viewToggle,
-}: {
-  isDirty: boolean;
-  isSaving: boolean;
-  onSave: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  workflowId?: string;
-  onOpenTemplates: () => void;
-  validation?: { onOpen: () => void };
-  validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
-  lifecycle?: {
-    workflowId: string;
-    state: WorkflowState;
-    /** V2-READY-41G — active workflow has draft changes not yet published live. */
-    unpublishedChanges?: boolean;
-  };
-  runEditBlocked?: boolean;
-  /** 5.ONBOARD-1 Batch 3 — transient deep-link attention ring (visual only). */
-  focusPulse?: "test" | "activate" | null;
-  /** 5.DUAL-BUILDER-1 CS-1 — flag-gated Visual/Document toggle (absent → not rendered). */
-  viewToggle?: HeaderViewToggle;
-}) {
-  // BUILDER-READINESS — any validation error (missing required field, no
-  // trigger, unconfigured node, invalid router routes) blocks Run Manually +
-  // go-live transitions.
-  const blockingIssueCount = validationCounts?.errorCount ?? 0;
-  // BUILDER-HEADER-ACTION-BAR-POLISH — one baseline-aligned action row with three
-  // intentional groups separated by hairline dividers: [utility: undo/redo/history]
-  // | [workspace: Templates · Issues] | [run: Test · Run · Save] | [lifecycle:
-  // Activate]. Every primary control is h-8 / rounded-md so nothing sits at a
-  // different vertical position; secondary status text (the blocked-go-live hint,
-  // run-blocked copy) is lifted out of the button row by its own component so it can
-  // never push a button off the shared baseline. Behavior is unchanged — same
-  // handlers, same testids, same validation derivation.
-  return (
-    <div className="flex items-center justify-end gap-2">
-      {/* BUILDER-TOPBAR-UNDO-REDO — utility cluster: undo/redo of LOCAL draft edits only. The redundant
-          run-history button was removed (the canvas "Runs" tab is the single run-history surface). Each
-          button is enabled only when there's something to revert/redo; clicking restores a draft graph
-          snapshot (no save/activate/run/route) and keeps an open config panel in sync. Collapses below
-          xl so the essential actions have room. */}
-      <div
-        className="hidden items-center gap-0.5 rounded-md p-0.5 xl:flex"
-        style={{
-          background: "var(--builder-panel-2)",
-          border: "1px solid var(--builder-border)",
-        }}
-      >
-        <BuilderIconButton
-          ariaLabel="Undo"
-          title="Undo"
-          onClick={undoWithConfigSync}
-          disabled={!canUndo}
-          testId="builder-header-undo"
-          size="sm"
-        >
-          <UndoIcon />
-        </BuilderIconButton>
-        <BuilderIconButton
-          ariaLabel="Redo"
-          title="Redo"
-          onClick={redoWithConfigSync}
-          disabled={!canRedo}
-          testId="builder-header-redo"
-          size="sm"
-        >
-          <RedoIcon />
-        </BuilderIconButton>
-      </div>
-      <HeaderDivider className="hidden xl:inline-block" />
-      {/* 5.DUAL-BUILDER-1 CS-1 — Visual/Document segmented toggle (flag-gated by
-          presence). Pure view switch: same graphSlice draft renders either way;
-          nothing is saved, hydrated, reset, or cloned. */}
-      {viewToggle ? (
-        <div
-          data-testid="builder-view-toggle"
-          role="group"
-          aria-label="Builder view"
-          className="flex items-center gap-0.5 rounded-md p-0.5"
-          style={{
-            background: "var(--builder-panel-2)",
-            border: "1px solid var(--builder-border)",
-          }}
-        >
-          {(["visual", "document"] as const).map((view) => {
-            const active = viewToggle.view === view;
-            return (
-              <button
-                key={view}
-                type="button"
-                data-testid={`builder-view-toggle-${view}`}
-                aria-pressed={active}
-                onClick={() => {
-                  if (!active) viewToggle.onChange(view);
-                }}
-                className="inline-flex h-7 items-center rounded px-2.5 text-[12px] font-medium"
-                style={
-                  active
-                    ? {
-                        background: "var(--builder-panel)",
-                        color: "var(--builder-text)",
-                        border: "1px solid var(--builder-border)",
-                      }
-                    : { color: "var(--builder-muted)" }
-                }
-              >
-                {view === "visual" ? "Visual" : "Document"}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      {/* In-builder template entry point — opens the create-new / replace-current modal. */}
-      {workflowId ? (
-        <button
-          type="button"
-          onClick={onOpenTemplates}
-          data-testid="builder-header-templates-button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium"
-          style={{
-            background: "var(--builder-panel-2)",
-            color: "var(--builder-text-2)",
-            border: "1px solid var(--builder-border)",
-          }}
-          title="Browse templates"
-        >
-          Templates
-        </button>
-      ) : null}
-      {validation && validationCounts ? (
-        <HeaderValidationPill
-          counts={validationCounts}
-          onOpen={validation.onOpen}
-        />
-      ) : null}
-      <HeaderDivider />
-      {/* 5.ONBOARD-1 Batch 3 — the ?focus=test deep link rings the EXISTING run
-          controls for a moment (visual only; nothing is clicked or run). */}
-      <FocusPulseWrap active={focusPulse === "test"} name="test">
-        <HeaderRunControls
-          blockingIssueCount={blockingIssueCount}
-          runEditBlocked={runEditBlocked}
-        />
-      </FocusPulseWrap>
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={!isDirty || isSaving}
-        data-testid="builder-header-save-button"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium disabled:opacity-50"
-        style={{
-          background: "var(--builder-text)",
-          color: "var(--builder-panel)",
-          border: "1px solid var(--builder-text)",
-        }}
-        title="Save (⌘S)"
-      >
-        {isSaving ? "Saving…" : "Save"}
-      </button>
-      {lifecycle ? (
-        <>
-          <HeaderDivider />
-          {/* 5.ONBOARD-1 Batch 3 — ?focus=activate rings the EXISTING lifecycle
-              cluster; a blocked activation still explains itself via the
-              validation pill/drawer as always. */}
-          <FocusPulseWrap active={focusPulse === "activate"} name="activate">
-            <LifecycleActions
-              workflowId={lifecycle.workflowId}
-              state={lifecycle.state}
-              blockingIssueCount={blockingIssueCount}
-              unpublishedChanges={lifecycle.unpublishedChanges}
-            />
-          </FocusPulseWrap>
-        </>
-      ) : null}
     </div>
   );
 }
 
 /** ANON-BUILDER-1 — ⌘S handler when there's nothing to save (local-only mode). */
 function noop() {}
-
-/** 5.ONBOARD-1 Batch 3 — transient attention ring around an existing control
- * cluster for the onboarding `?focus=` deep link. Visual only. */
-function FocusPulseWrap({
-  active,
-  name,
-  children,
-}: {
-  active: boolean;
-  name: "test" | "activate";
-  children: ReactNode;
-}) {
-  return (
-    <span
-      className="inline-flex items-center rounded-md transition-shadow"
-      {...(active ? { "data-testid": `builder-header-focus-pulse-${name}` } : {})}
-      style={
-        active
-          ? {
-              boxShadow:
-                "0 0 0 2px var(--builder-accent), 0 0 0 6px var(--builder-accent-soft)",
-            }
-          : undefined
-      }
-    >
-      {children}
-    </span>
-  );
-}
-
-/** Hairline vertical separator between header action groups (purely decorative). */
-function HeaderDivider({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={`inline-block h-5 w-px shrink-0 ${className ?? ""}`}
-      style={{ background: "var(--builder-border)" }}
-    />
-  );
-}
 
 
 

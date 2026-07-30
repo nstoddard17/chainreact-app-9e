@@ -25,9 +25,20 @@ export type SaveStatus = "saved" | "saving" | "unsaved" | "error" | "idle";
 export function HeaderValidationPill({
   counts,
   onOpen,
+  compact = false,
 }: {
   counts: { errorCount: number; warningCount: number; totalCount: number };
   onOpen: () => void;
+  /**
+   * BUILDER-RESPONSIVE-LAYOUT-1 — phone-width variant. The issue COUNT must stay
+   * visible at every size (it is the entry point to everything blocking a
+   * go-live), so the pill drops the word "issues" rather than the number, and
+   * keeps the full phrase in `aria-label` + `title` so nothing is lost to
+   * assistive tech or to a hover. `data-state` / `data-error-count` /
+   * `data-warning-count` are unchanged, so the validation-count contract the
+   * header tests assert on holds in both variants.
+   */
+  compact?: boolean;
 }) {
   const { errorCount, warningCount, totalCount } = counts;
   const state: "ready" | "warning" | "error" =
@@ -63,24 +74,29 @@ export function HeaderValidationPill({
     <button
       type="button"
       onClick={onOpen}
-      aria-label="Open validation summary"
+      aria-label={
+        compact ? `Open validation summary — ${label}` : "Open validation summary"
+      }
       data-testid="builder-header-validation-pill"
       data-state={state}
       data-error-count={errorCount}
       data-warning-count={warningCount}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium"
+      data-compact={compact ? "true" : undefined}
+      className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md text-[12px] font-medium ${
+        compact ? "px-2" : "px-2.5"
+      }`}
       style={{
         border: "1px solid",
         ...style,
       }}
-      title="Open validation summary"
+      title={compact ? `${label} — open validation summary` : "Open validation summary"}
     >
       <span
         aria-hidden
         className="inline-block h-1.5 w-1.5 rounded-full"
         style={{ background: "currentColor" }}
       />
-      {label}
+      {compact ? (state === "ready" ? "OK" : String(totalCount)) : label}
     </button>
   );
 }
@@ -89,9 +105,19 @@ export function StatusPill({
   status,
   saveError,
   onRetry,
+  compact = false,
 }: {
   status: SaveStatus;
   saveError: string | null;
+  /**
+   * BUILDER-RESPONSIVE-LAYOUT-1 — phone-width variant: the coloured dot alone,
+   * with the label moved into `aria-label`/`title`. "Unsaved changes" is ~118px
+   * of unshrinkable text sitting next to a workflow name that also needs room;
+   * at 390px one of them has to give, and the dot keeps the SIGNAL while the
+   * name keeps the space. The error variant is deliberately NOT compacted — a
+   * save failure and its Retry are the one thing that must stay legible.
+   */
+  compact?: boolean;
   /**
    * BUILDER-SAVE-STATUS-UX-AUDIT-1 — retry the save from the error pill itself.
    * The save status renders by the workflow title (left), but the Save button is
@@ -162,7 +188,11 @@ export function StatusPill({
     <span
       data-testid="builder-header-status-pill"
       data-status={status}
-      className="builder-mono inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+      data-compact={compact ? "true" : undefined}
+      {...(compact ? { role: "status", "aria-label": cfg.label, title: cfg.label } : {})}
+      className={`builder-mono inline-flex shrink-0 items-center gap-1.5 rounded-full font-medium ${
+        compact ? "h-4 w-4 justify-center p-0" : "px-2 py-0.5 text-[11px]"
+      }`}
       style={{
         border: `1px solid ${cfg.border}`,
         background: cfg.bg,
@@ -174,7 +204,7 @@ export function StatusPill({
         className="inline-block h-1.5 w-1.5 rounded-full"
         style={{ background: cfg.dot }}
       />
-      {cfg.label}
+      {compact ? null : cfg.label}
     </span>
   );
 }

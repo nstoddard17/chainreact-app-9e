@@ -3,6 +3,7 @@
 import type { AgentChangeHistoryItem } from "@/contracts/agentChangeHistory";
 import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import { BuilderRightDrawer } from "../layout/BuilderRightDrawer";
+import type { SurfacePresentation } from "../layout/builderLayoutPolicy";
 import { PreviewReviewPanel } from "./PreviewReviewPanel";
 
 /**
@@ -16,12 +17,19 @@ import { PreviewReviewPanel } from "./PreviewReviewPanel";
 export function AgentChangeDiffDrawer({
   item,
   onClose,
+  presentation = "panel",
 }: {
   readonly item: AgentChangeHistoryItem;
   readonly onClose: () => void;
+  /** BUILDER-RESPONSIVE-LAYOUT-1 — passed straight through to the drawer shell. */
+  readonly presentation?: SurfacePresentation;
 }) {
   return (
-    <BuilderRightDrawer title="Change details" onClose={onClose}>
+    <BuilderRightDrawer
+      title="Change details"
+      onClose={onClose}
+      presentation={presentation}
+    >
       <PreviewReviewPanel
         hideActions
         {...(item.summary ? { summary: item.summary } : {})}

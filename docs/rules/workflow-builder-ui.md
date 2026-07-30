@@ -73,6 +73,50 @@ Every component is presentational by default. Components read state through hook
 
 The visual layout is fixed: three-pane (library / canvas / config), bottom execution strip, modal-based field editing. Components decompose internally without changing this layout.
 
+### Responsive presentation (BUILDER-RESPONSIVE-LAYOUT-1)
+
+The three-pane layout is the **wide-desktop** arrangement, not the only one. The
+panes are the same components at every width; what changes is how a secondary
+surface is *presented*.
+
+**One source of viewport truth.** `features/workflow-builder/layout/builderLayoutPolicy.ts`
+holds the breakpoints and the presentation decisions (pure, no React).
+`layout/useBuilderLayout.ts` is the **only** module allowed to ask the browser
+about width, via `matchMedia` — never `window.innerWidth`, never a `resize`
+listener. `WorkflowBuilder` calls it once and threads the result down as
+presentation props. `tests/structure/builder-responsive-single-viewport-source.test.ts`
+enforces this.
+
+| tier | width | agent rail | node config | header |
+| --- | --- | --- | --- | --- |
+| `wide` | ≥ 1280 | in-flow column (320px) | in-flow column (380px) | everything inline |
+| `medium` | 900–1279 | in-flow column (272px) | **overlay sheet** | secondary → overflow menu |
+| `narrow` | < 900 | **overlay sheet** | **overlay sheet** | + Test/Run → overflow, tabs on row 2 |
+
+Rules for adding or changing a builder surface:
+
+- **Add a `presentation` prop; don't add breakpoint utility classes.** `md:` /
+  `xl:` prefixes inside a panel component are how the pre-slice builder ended up
+  with a header that clipped its own Save button and a rail that stacked above
+  the canvas on a phone. Presentation is decided once, centrally.
+- **One instance, className switching only.** A surface must render the same
+  element tree in every presentation, with its payload container at the same
+  child index. That is what preserves the agent transcript, the composer draft,
+  and pending config edits across a toggle or a resize. Never mount a second
+  copy per layout, and never duplicate React Agent or config state.
+- **Overlay behaviour is shared.** Focus-in, Tab containment, focus restore, and
+  Escape come from `layout/useBuilderOverlaySurface.ts`. Don't reimplement them.
+- **A resize decides nothing but presentation.** No save, activate, refit, graph
+  mutation, or node repositioning may be triggered by a viewport change. The
+  "one surface at a time" rule at `narrow` is enforced by wrapping the *open*
+  actions, not by an effect watching the mode.
+- **Phones are `narrow`, not a fourth tier.** No global CSS transform, no zoom
+  trick, no second builder implementation.
+- **Media queries use `min-width` only.** Browsers round fractional media-query
+  lengths, so `(max-width: 1279.99px)` matches at exactly 1280px; exclusive
+  bands silently mis-resolve every boundary. Check overlapping `min-width`
+  queries widest-first instead.
+
 ## Single source of truth
 
 - Builder state: `features/workflow-builder/state/` (slices: graph, selection, config, execution).

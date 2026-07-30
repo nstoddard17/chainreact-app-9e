@@ -1,10 +1,27 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import type { SurfacePresentation } from "./builderLayoutPolicy";
+import { useBuilderOverlaySurface } from "./useBuilderOverlaySurface";
 
 interface Props {
   title: string;
   onClose: () => void;
+  /**
+   * BUILDER-RESPONSIVE-LAYOUT-1 — how the configuration surface is presented at
+   * the current width. `panel` (the default, and the wide desktop layout) is the
+   * in-flow 380px column it has always been. `overlay` is a full-height sheet
+   * over the canvas, used below 1280px.
+   *
+   * Config goes to a sheet one tier EARLIER than the agent rail on purpose. A
+   * 320px rail plus a 380px config column at 1024px leaves the canvas about
+   * 320px — narrower than one node card, which is precisely the "undersized
+   * canvas" failure this slice exists to fix. As a sheet it costs the canvas
+   * nothing.
+   *
+   * Defaults to `panel` so existing callers and isolated tests are unchanged.
+   */
+  presentation?: SurfacePresentation;
   children: ReactNode;
 }
 
@@ -18,11 +35,34 @@ interface Props {
  * the drawer now sits edge-to-edge against the canvas with a single
  * vertical 1px divider — the design's "right dock" look.
  *
- * Width: 380px md+ (matches design's 380px), full-width below md.
+ * Width: 380px as an in-flow column; a viewport-capped sheet as an overlay.
  * Mode-specific payload (NodeInspectorPanel / RunResultsPanel /
  * ValidationSummary) is passed in as children.
+ *
+ * BUILDER-RESPONSIVE-LAYOUT-1 — there is still ONE `<section>` and ONE payload
+ * container; `presentation` switches className and positioning only. That
+ * matters for unsaved work: the in-progress field edits live in `configSlice`
+ * (`pending*`), and the surface itself never remounts across a presentation
+ * change, so resizing the window while half-way through configuring a Slack
+ * message cannot drop the draft. The previous `w-full below md` behaviour is
+ * gone — below 768px this used to become a full-width block stacked BELOW the
+ * canvas in the old column workspace row, i.e. off-screen.
  */
-export function BuilderRightDrawer({ title, onClose, children }: Props) {
+export function BuilderRightDrawer({
+  title,
+  onClose,
+  presentation = "panel",
+  children,
+}: Props) {
+  const isOverlay = presentation === "overlay";
+  const drawerRef = useRef<HTMLElement | null>(null);
+
+  // Focus in / trap / restore for sheet presentation. Escape is deliberately
+  // NOT delegated here: the document-level binding below already covers BOTH
+  // presentations and predates this slice, and two Escape handlers calling the
+  // same `onClose` is a bug waiting to happen.
+  useBuilderOverlaySurface({ active: isOverlay, containerRef: drawerRef });
+
   // Esc closes the drawer. Bind on document so the listener fires even
   // when focus is inside a nested form field.
   useEffect(() => {
@@ -38,14 +78,35 @@ export function BuilderRightDrawer({ title, onClose, children }: Props) {
 
   return (
     <section
+      ref={drawerRef}
       data-testid="builder-right-drawer"
-      role="region"
+      data-presentation={presentation}
+      /*
+        A sheet over a scrimmed canvas is a modal dialog and is announced as
+        one; an in-flow column beside the canvas stays the region it always was.
+      */
+      {...(isOverlay
+        ? { role: "dialog" as const, "aria-modal": true as const }
+        : { role: "region" as const })}
       aria-label={`Workflow builder drawer: ${title}`}
-      className="flex w-full shrink-0 flex-col md:w-[380px]"
+      className={
+        isOverlay
+          ? /*
+              Positioned inside the workspace row (not the viewport) so the
+              builder header stays visible above it, and capped against the
+              viewport so some canvas is always still showing behind the scrim —
+              the user can see what the sheet is covering.
+            */
+            "absolute inset-y-0 right-0 z-40 flex w-[min(24rem,92vw)] flex-col"
+          : "flex w-[380px] shrink-0 flex-col"
+      }
       style={{
         background: "var(--builder-panel)",
         borderLeft: "1px solid var(--builder-border)",
         minHeight: 0,
+        ...(isOverlay
+          ? { boxShadow: "var(--builder-shadow-lg, 0 10px 40px rgba(0,0,0,0.45))" }
+          : {}),
       }}
     >
       {/* BUILDER-VALIDATION-PANEL-CLOSE-UX — `relative z-30` establishes a stacking

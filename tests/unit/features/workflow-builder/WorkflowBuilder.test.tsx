@@ -1581,7 +1581,7 @@ describe("WorkflowBuilder", () => {
       ).toHaveLength(1);
     });
 
-    it("canvas container drops the fixed 560px height and uses a flexible min-h floor instead", () => {
+    it("canvas container carries no fixed or minimum height — it takes exactly the workspace it is given", () => {
       render(
         <WorkflowBuilder
           workflow={baseWorkflow}
@@ -1590,12 +1590,22 @@ describe("WorkflowBuilder", () => {
         />,
       );
       const canvas = screen.getByTestId("workflow-canvas");
-      // Pre-parity: `style="height: 560px"`. Post-parity: no fixed
-      // height in inline style; the Tailwind class chain provides
-      // `h-full min-h-[560px] flex-1` so the canvas grows into the
-      // workspace.
+      // History of this assertion:
+      //   pre-parity      `style="height: 560px"` — a hard fixed height.
+      //   BUILDER-V1-SHELL-PARITY-1 dropped the inline height for
+      //                   `min-h-[560px] flex-1`.
+      //   BUILDER-RESPONSIVE-LAYOUT-1 dropped the 560px MINIMUM too. It was
+      //                   still a hard floor inside a parent that clips, so on
+      //                   any viewport with less workspace than that — a 900×700
+      //                   window with the header, tab row and a banner, or a
+      //                   phone in landscape — the canvas overflowed its parent
+      //                   and React Flow's bottom-left zoom/fit/Arrange cluster
+      //                   was clipped off-screen with no way to scroll to it.
+      // The contract now: no fixed height, no minimum height, and `flex-1` so
+      // the canvas is exactly as tall as the workspace actually is.
       expect(canvas.style.height).toBe("");
-      expect(canvas.className).toMatch(/min-h-\[560px\]/);
+      expect(canvas.className).not.toMatch(/min-h-\[\d/);
+      expect(canvas.className).toMatch(/min-h-0/);
       expect(canvas.className).toMatch(/flex-1/);
     });
   });

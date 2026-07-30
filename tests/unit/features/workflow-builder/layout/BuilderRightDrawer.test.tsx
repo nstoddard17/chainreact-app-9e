@@ -10,7 +10,8 @@
  *     it) does NOT close the drawer.
  *   - Listener is cleaned up on unmount.
  */
-import { render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderRightDrawer } from "@/features/workflow-builder/layout/BuilderRightDrawer";
 
@@ -138,5 +139,157 @@ describe("BuilderRightDrawer", () => {
     expect(
       screen.getByRole("heading", { name: /workflow ai/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("BuilderRightDrawer — responsive presentation (BUILDER-RESPONSIVE-LAYOUT-1)", () => {
+  /** Stands in for a half-filled config form: state that must not be lost. */
+  function Field() {
+    const [value, setValue] = useState("");
+    return (
+      <input
+        data-testid="field"
+        aria-label="Message text"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+    );
+  }
+
+  it("defaults to the pre-slice 380px in-flow column", () => {
+    render(
+      <BuilderRightDrawer title="Node configuration" onClose={() => {}}>
+        <span />
+      </BuilderRightDrawer>,
+    );
+    const drawer = screen.getByTestId("builder-right-drawer");
+    expect(drawer).toHaveAttribute("data-presentation", "panel");
+    expect(drawer.className).toMatch(/w-\[380px\]/);
+    expect(drawer).toHaveAttribute("role", "region");
+    expect(drawer).not.toHaveAttribute("aria-modal");
+  });
+
+  it("as an overlay it is a modal dialog that takes no width from the canvas", () => {
+    render(
+      <BuilderRightDrawer
+        title="Node configuration"
+        onClose={() => {}}
+        presentation="overlay"
+      >
+        <span />
+      </BuilderRightDrawer>,
+    );
+    const drawer = screen.getByTestId("builder-right-drawer");
+    expect(drawer).toHaveAttribute("data-presentation", "overlay");
+    expect(drawer).toHaveAttribute("role", "dialog");
+    expect(drawer).toHaveAttribute("aria-modal", "true");
+    // The in-flow column width is gone — that is what returns the pixels to the
+    // canvas rather than merely hiding the problem.
+    expect(drawer.className).not.toMatch(/w-\[380px\]/);
+    expect(drawer.className).toMatch(/absolute/);
+  });
+
+  it("keeps a visible close control in both presentations", () => {
+    const { rerender } = render(
+      <BuilderRightDrawer title="x" onClose={() => {}}>
+        <span />
+      </BuilderRightDrawer>,
+    );
+    expect(screen.getByRole("button", { name: /close drawer/i })).toBeVisible();
+    rerender(
+      <BuilderRightDrawer title="x" onClose={() => {}} presentation="overlay">
+        <span />
+      </BuilderRightDrawer>,
+    );
+    expect(screen.getByRole("button", { name: /close drawer/i })).toBeVisible();
+  });
+
+  it("Esc still closes in BOTH presentations, and fires exactly once (no double handler)", async () => {
+    const user = userEvent.setup();
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <BuilderRightDrawer title="x" onClose={onClose} presentation="overlay">
+        <span />
+      </BuilderRightDrawer>,
+    );
+    await user.keyboard("{Escape}");
+    // The overlay hook must NOT add a second Escape binding on top of the
+    // drawer's own document-level one.
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    onClose.mockClear();
+    rerender(
+      <BuilderRightDrawer title="x" onClose={onClose}>
+        <span />
+      </BuilderRightDrawer>,
+    );
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps unsaved field text through a column → sheet → column round trip", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <BuilderRightDrawer title="Node configuration" onClose={() => {}}>
+        <Field />
+      </BuilderRightDrawer>,
+    );
+    await user.type(screen.getByTestId("field"), "half-typed message");
+
+    rerender(
+      <BuilderRightDrawer
+        title="Node configuration"
+        onClose={() => {}}
+        presentation="overlay"
+      >
+        <Field />
+      </BuilderRightDrawer>,
+    );
+    // A remount here would silently discard what the user was typing.
+    expect(screen.getByTestId("field")).toHaveValue("half-typed message");
+
+    rerender(
+      <BuilderRightDrawer title="Node configuration" onClose={() => {}}>
+        <Field />
+      </BuilderRightDrawer>,
+    );
+    expect(screen.getByTestId("field")).toHaveValue("half-typed message");
+  });
+
+  it("scrolls long forms inside itself in both presentations", () => {
+    const { rerender } = render(
+      <BuilderRightDrawer title="x" onClose={() => {}}>
+        <span data-testid="payload" />
+      </BuilderRightDrawer>,
+    );
+    const scrollRegion = () => screen.getByTestId("payload").parentElement!;
+    expect(scrollRegion().className).toMatch(/overflow-y-auto/);
+    rerender(
+      <BuilderRightDrawer title="x" onClose={() => {}} presentation="overlay">
+        <span data-testid="payload" />
+      </BuilderRightDrawer>,
+    );
+    expect(scrollRegion().className).toMatch(/overflow-y-auto/);
+  });
+
+  it("moves focus in on open and traps Tab while it is a sheet", async () => {
+    const user = userEvent.setup();
+    const outside = document.createElement("button");
+    outside.textContent = "canvas";
+    document.body.appendChild(outside);
+    outside.focus();
+
+    render(
+      <BuilderRightDrawer title="x" onClose={() => {}} presentation="overlay">
+        <Field />
+      </BuilderRightDrawer>,
+    );
+    const drawer = screen.getByTestId("builder-right-drawer");
+    await waitFor(() => expect(drawer.contains(document.activeElement)).toBe(true));
+    for (let i = 0; i < 5; i += 1) {
+      await user.tab();
+      expect(outside).not.toHaveFocus();
+    }
+    outside.remove();
   });
 });

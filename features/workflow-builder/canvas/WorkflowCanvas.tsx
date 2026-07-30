@@ -45,6 +45,7 @@ import {
   type WorkflowNodeData,
 } from "./adapters";
 import type { PreviewDiffGraph } from "../utils/buildPreviewDiffGraph";
+import type { BuilderLayoutMode } from "../layout/builderLayoutPolicy";
 import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { ConnectionHintBanner } from "./ConnectionHintBanner";
@@ -166,6 +167,12 @@ interface Props {
    * in the preview control bar (`WorkflowBuilder`). Visual only; no draft mutation while it's shown.
    */
   previewDiff?: PreviewDiffGraph | null;
+  /**
+   * BUILDER-RESPONSIVE-LAYOUT-1 — the resolved layout tier, passed down rather than measured here
+   * so the canvas stays presentational and the builder keeps ONE viewport subscription. Only the
+   * minimap's footprint depends on it today. Defaults to `wide`, i.e. the pre-slice behaviour.
+   */
+  layoutMode?: BuilderLayoutMode;
 }
 
 const NODE_TYPES = {
@@ -200,6 +207,7 @@ function WorkflowCanvasInner({
   resourceLabels,
   previewToken,
   previewDiff,
+  layoutMode = "wide",
 }: Props) {
   const previewDiffActive = previewDiff != null;
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
@@ -444,7 +452,18 @@ function WorkflowCanvasInner({
         aria-label="Workflow canvas"
         data-testid="workflow-canvas"
         data-preview-diff={previewDiffActive ? "true" : undefined}
-        className="relative min-h-[560px] flex-1 overflow-hidden"
+        /*
+          BUILDER-RESPONSIVE-LAYOUT-1 — the `min-h-[560px]` floor is gone.
+          It was a hard MINIMUM inside a parent that clips (`overflow-hidden`),
+          so on any viewport with less than ~560px of workspace left — a 900×700
+          window once the header, tab row and a banner are accounted for, or a
+          phone in landscape — the canvas grew past its parent and React Flow's
+          bottom-left zoom/fit/Arrange cluster was clipped clean off the screen
+          with no way to scroll to it. `min-h-0 flex-1` lets the canvas be
+          exactly as tall as the workspace actually is; React Flow's own
+          ResizeObserver picks up the new height and keeps the controls in view.
+        */
+        className="relative min-h-0 flex-1 overflow-hidden"
         style={{ width: "100%", background: "var(--builder-bg)" }}
       >
         <div
@@ -503,7 +522,7 @@ function WorkflowCanvasInner({
               </ControlButton>
             ) : null}
           </Controls>
-          <ZoomAwareMiniMap />
+          <ZoomAwareMiniMap mode={layoutMode} />
         </ReactFlow>
         {/* HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — while an AI preview overlay is active, hide the
             empty-state card so the holographic proposed nodes read clearly (the card returns on
@@ -549,19 +568,30 @@ function WorkflowCanvasInner({
 export const MINIMAP_HIDE_ZOOM = 1.2;
 
 /**
- * Whether the minimap shows at a given zoom. A pure predicate of the CURRENT zoom with no memory,
- * which is what makes the minimap reappear the moment the user zooms back out — a latched "hidden
- * once we zoomed in" flag would be a worse bug than the overlap it fixed.
+ * Whether the minimap shows, given the current zoom and the current layout tier. A pure predicate
+ * of CURRENT state with no memory, which is what makes the minimap reappear the moment the user
+ * zooms back out — a latched "hidden once we zoomed in" flag would be a worse bug than the overlap
+ * it fixed.
+ *
+ * BUILDER-RESPONSIVE-LAYOUT-1 — the minimap is also hidden outright at the narrow tier. It is a
+ * fixed-size overlay in the canvas's bottom-right corner, so on a 390px-wide canvas it covered a
+ * large share of the very surface it is supposed to help you navigate, while telling you almost
+ * nothing at that scale. Pan and pinch-zoom remain the navigation on a phone; the minimap returns
+ * as soon as there is a canvas big enough for it to be worth its footprint.
  */
-export function shouldShowMiniMap(zoom: number): boolean {
+export function shouldShowMiniMap(
+  zoom: number,
+  mode: BuilderLayoutMode = "wide",
+): boolean {
+  if (mode === "narrow") return false;
   return zoom < MINIMAP_HIDE_ZOOM;
 }
 
-function ZoomAwareMiniMap() {
+function ZoomAwareMiniMap({ mode }: { mode: BuilderLayoutMode }) {
   // Subscribe to the live viewport scale rather than reading it once — this must react to wheel
   // zoom and the zoom buttons, not only to a programmatic setCenter.
   const zoom = useStore((s) => s.transform[2]);
-  if (!shouldShowMiniMap(zoom)) return null;
+  if (!shouldShowMiniMap(zoom, mode)) return null;
   return (
     <MiniMap
       data-testid="workflow-canvas-minimap"

@@ -32,6 +32,7 @@ import { BuilderHeader } from "./layout/BuilderHeader";
 import { BuilderLeftAgentRail } from "./layout/BuilderLeftAgentRail";
 import { BuilderRightDrawer } from "./layout/BuilderRightDrawer";
 import { BuilderShell } from "./layout/BuilderShell";
+import { useBuilderLayout } from "./layout/useBuilderLayout";
 import { ActiveAccountMismatchBanner } from "./layout/ActiveAccountMismatchBanner";
 import { WorkflowDisabledBanner } from "./layout/WorkflowDisabledBanner";
 import {
@@ -63,7 +64,7 @@ import { useRunSlice } from "./state/runSlice";
 import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
 import { useBuilderHistoryShortcuts } from "./hooks/useBuilderHistoryShortcuts";
 import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
-import { useRightDrawer } from "./hooks/useRightDrawer";
+import { useRightDrawer, type RightDrawerMode } from "./hooks/useRightDrawer";
 import { useAgentRailWiring } from "./hooks/useAgentRailWiring";
 import { useBuilderPreview } from "./hooks/useBuilderPreview";
 import { useRepairTestVerification } from "./hooks/useRepairTestVerification";
@@ -541,7 +542,12 @@ export function WorkflowBuilder({
 
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
   // state machine.
-  const { mode, openDrawer, closeDrawer } = useRightDrawer();
+  const { mode, openDrawer: openDrawerRaw, closeDrawer } = useRightDrawer();
+
+  // BUILDER-RESPONSIVE-LAYOUT-1 — the resolved width class for the whole
+  // builder. ONE subscription, read here and threaded down as presentation
+  // props; no component below this line measures the viewport.
+  const layout = useBuilderLayout();
 
   // Slice 4.BUILDER-LEFT-AGENT-1: left React Agent rail collapse state
   // (persisted to localStorage via useLeftAgentRail). The header
@@ -552,6 +558,39 @@ export function WorkflowBuilder({
   // is the one visible AI entry. The persisted Visual preference is never
   // touched by Document-mode toggling and is restored on switch back.
   const leftRail = useLeftAgentRail(documentViewActive ? "document" : "visual");
+
+  /*
+    BUILDER-RESPONSIVE-LAYOUT-1 — "one secondary surface at a time" on narrow
+    screens.
+
+    Below 900px both the agent rail and the config surface are sheets over the
+    canvas. Two stacked sheets would leave no canvas visible at all, so opening
+    either one closes the other — but ONLY at that width. At ≥900px the rail is
+    still an in-flow column beside a config sheet and both stay open, because
+    throwing away the transcript a user is working from is a worse outcome than
+    a slightly smaller canvas when there is room for both.
+
+    This is deliberately implemented by wrapping the two ACTIONS, not by an
+    effect watching the layout mode. A resize must never be able to close a
+    surface on its own: rotating a phone should not discard the config sheet the
+    user is filling in. Only an explicit open decides anything, and it reads the
+    CURRENT mode through refs so the callbacks stay referentially stable for the
+    effect dependency lists below.
+  */
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const railRef = useRef(leftRail);
+  railRef.current = leftRail;
+
+  const openDrawer = useCallback(
+    (next: RightDrawerMode) => {
+      if (layoutRef.current.oneSurfaceAtATime && !railRef.current.isCollapsed) {
+        railRef.current.collapse();
+      }
+      openDrawerRaw(next);
+    },
+    [openDrawerRaw],
+  );
 
   // Transition refs — drawer mode changes are user-event-driven, so we
   // only re-open the drawer when the relevant signal *transitions* from
@@ -599,6 +638,31 @@ export function WorkflowBuilder({
     if (mode === "inspector") closeNode();
     closeDrawer();
   }, [mode, closeNode, closeDrawer]);
+
+  /*
+    BUILDER-RESPONSIVE-LAYOUT-1 — the other half of the exclusion rule: opening
+    the rail on a narrow screen closes the config sheet.
+
+    It routes through `handleDrawerClose`, i.e. the SAME path as the drawer's own
+    × and Esc, which clears `activeNodeId`. That is deliberate and it does NOT
+    lose work: in-progress field edits live in `configSlice.drafts`, keyed by node
+    id, and neither `closeNode` nor `openNode` discards an existing draft. So
+    re-opening the step restores exactly what was typed. Using the raw
+    `closeDrawer` instead would leave `activeNodeId` set with the sheet shut, and
+    because the inspector only re-opens on a node-id TRANSITION, tapping the same
+    node again would then do nothing — a dead end.
+  */
+  const drawerCloseRef = useRef(handleDrawerClose);
+  drawerCloseRef.current = handleDrawerClose;
+  const drawerVisibleRef = useRef(false);
+
+  const handleLeftRailToggle = useCallback(() => {
+    const wasCollapsed = railRef.current.isCollapsed;
+    railRef.current.toggle();
+    if (wasCollapsed && layoutRef.current.oneSurfaceAtATime && drawerVisibleRef.current) {
+      drawerCloseRef.current();
+    }
+  }, []);
 
   // Slice 4.BUILDER-VALIDATION-1 — header pill opens the right
   // drawer in validation mode (replacing whichever surface was
@@ -1329,6 +1393,38 @@ export function WorkflowBuilder({
     (mode === "inspector" && activeNodeId !== null) ||
     mode === "results" ||
     mode === "validation";
+  drawerVisibleRef.current = drawerVisible;
+
+  /*
+    BUILDER-RESPONSIVE-LAYOUT-1 — which surfaces are CURRENTLY sheets over the
+    canvas, and therefore need the shell's scrim.
+
+    The config sheet wins precedence when both are somehow open: it paints later
+    in the DOM at the same z-index, so it is what the user is actually looking
+    at, and dismissing the thing on top is what a click on the dimmer means.
+  */
+  const configSheetOpen =
+    layout.config === "overlay" &&
+    (viewDiffItem !== null || previewReviewActive || drawerVisible);
+  const railSheetOpen =
+    layout.rail === "overlay" && !documentViewActive && !leftRail.isCollapsed;
+  const activeSheet = configSheetOpen ? "config" : railSheetOpen ? "rail" : null;
+  const handleScrimDismiss = useCallback(() => {
+    if (configSheetOpen) {
+      if (viewDiffItem !== null) {
+        setViewDiffItem(null);
+        return;
+      }
+      if (previewReviewActive) {
+        handleDiscardPreview();
+        return;
+      }
+      handleDrawerClose();
+      return;
+    }
+    railRef.current.collapse();
+  }, [configSheetOpen, viewDiffItem, previewReviewActive, handleDiscardPreview, handleDrawerClose]);
+
   const drawerTitle =
     mode === "results"
       ? "Run results"
@@ -1349,8 +1445,13 @@ export function WorkflowBuilder({
           tabs={{ activeTab, onSelectTab: setActiveTab }}
           leftRail={{
             isCollapsed: leftRail.isCollapsed,
-            onToggle: leftRail.toggle,
+            // BUILDER-RESPONSIVE-LAYOUT-1 — the exclusion-aware toggle. On a
+            // narrow screen this header button is the ONLY way back to a closed
+            // rail sheet (there is no spine to click), so it must be the same
+            // coordinated action the rail's own × uses.
+            onToggle: handleLeftRailToggle,
           }}
+          density={layout.header}
           validation={{ onOpen: handleOpenValidation }}
           lifecycle={{
             workflowId: workflow.id,
@@ -1392,10 +1493,19 @@ export function WorkflowBuilder({
       // merely collapsed): no spine, no gutter, no duplicate entry point. The
       // conversation itself is unaffected — it lives in `agentConversation`
       // here, so switching back to Visual re-renders the same transcript.
+      overlay={
+        activeSheet
+          ? { active: true, onDismiss: handleScrimDismiss, label: activeSheet }
+          : undefined
+      }
       leftRail={documentViewActive ? undefined : (
         <BuilderLeftAgentRail
           isCollapsed={leftRail.isCollapsed}
-          onToggle={leftRail.toggle}
+          onToggle={handleLeftRailToggle}
+          // BUILDER-RESPONSIVE-LAYOUT-1 — in-flow column ≥ 900px (narrower at the
+          // medium tier so the canvas keeps priority), sheet below it.
+          presentation={layout.rail}
+          panelWidth={layout.railWidth}
           // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — drive the header status from the SAME availability
           // rule the rail body uses, so the header can't claim "connected · Hermes" while the body shows
           // the "unavailable" note. Local-only (logged-out) is never "connected".
@@ -1449,14 +1559,22 @@ export function WorkflowBuilder({
           // AGENT-CHANGE-HISTORY-1 (View diff) — read-only render of a PAST change's stored, redacted
           // diff. Highest drawer precedence (user-initiated from the Agent changes timeline); closing
           // (× / Esc) returns to whatever drawer was underneath.
-          <AgentChangeDiffDrawer item={viewDiffItem} onClose={() => setViewDiffItem(null)} />
+          <AgentChangeDiffDrawer
+            item={viewDiffItem}
+            onClose={() => setViewDiffItem(null)}
+            presentation={layout.config}
+          />
         ) : previewReviewActive ? (
           // HERMES-AGENT-CONFIG-DIFF-REVIEW — while an EDIT preview is active the right drawer takes over
           // with the value-level "Review changes" rail (precedence over inspector/results/validation). The
           // canvas keeps the structural diff; this rail owns the field-level detail. Closing the drawer
           // (× / Esc) discards the preview — same as the canvas "Discard preview". The locked useRightDrawer
           // union is untouched (this is a local branch, not a 4th mode).
-          <BuilderRightDrawer title="Review changes" onClose={handleDiscardPreview}>
+          <BuilderRightDrawer
+            title="Review changes"
+            onClose={handleDiscardPreview}
+            presentation={layout.config}
+          >
             <PreviewReviewPanel
               {...(previewOverlay?.preview.summary ? { summary: previewOverlay.preview.summary } : {})}
               configDiff={configDiff}
@@ -1472,6 +1590,7 @@ export function WorkflowBuilder({
           <BuilderRightDrawer
             title={drawerTitle}
             onClose={handleDrawerClose}
+            presentation={layout.config}
           >
             {mode === "inspector" ? (
               localOnly ? <LocalConfigNote /> : <NodeInspectorPanel />
@@ -1624,6 +1743,10 @@ export function WorkflowBuilder({
           // value per show) so the canvas fits the viewport once + hides the empty-state card.
           previewToken={previewOverlay ? previewShowCount : null}
           previewDiff={previewDiffGraph}
+          // BUILDER-RESPONSIVE-LAYOUT-1 — the canvas measures nothing itself; it
+          // is told the tier so the minimap can stand down on a phone-sized
+          // canvas instead of covering the workflow it is meant to help navigate.
+          layoutMode={layout.mode}
         />
         )}
         {/* BUILDER-VIEW-DEFAULT-1 — one-time view chooser for a just-created
