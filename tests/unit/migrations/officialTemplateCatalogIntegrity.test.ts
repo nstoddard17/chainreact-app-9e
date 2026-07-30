@@ -121,11 +121,11 @@ function stringLeaves(value: unknown): string[] {
 
 describe("official catalog — effective reconstruction (sanity)", () => {
   it("parsed seeds, retirements, and prewires", () => {
-    expect(seeded.length).toBeGreaterThanOrEqual(103); // 5 + 45 + 25 + 15 + 12 + 1 (Google Review)
+    expect(seeded.length).toBeGreaterThanOrEqual(105); // 5 + 45 + 25 + 15 + 12 + 3 (Google reviewer)
     expect(retired.size).toBe(75); // batches 1–3 (all ≤4-node demos)
     expect(prewired.size).toBeGreaterThanOrEqual(15); // batch 4
-    // deliberate floor: 15 kept batch-4 + 12 batch-5 + 1 Google Review = 28 effective templates.
-    expect(catalog.length).toBeGreaterThanOrEqual(28);
+    // deliberate floor: 15 kept batch-4 + 12 batch-5 + 3 Google reviewer = 30 effective templates.
+    expect(catalog.length).toBeGreaterThanOrEqual(30);
   });
 
   it("retired ids never reappear in a later seed batch or prewire target", () => {

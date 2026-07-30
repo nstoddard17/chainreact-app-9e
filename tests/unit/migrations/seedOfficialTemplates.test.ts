@@ -126,9 +126,17 @@ const KNOWN_NODES = new Set([
   "asana/task_completed",
   "native/if_then_condition",
   "hubspot/get_deals",
-  // GOOGLE-REVIEW-TEMPLATE-1 — the Google OAuth reviewer template reuses nodes already listed
-  // above (gmail/new_email, google-drive/upload_file, google-sheets/append_row,
-  // google-calendar/create_event, gmail/send_email); no new provider:type is introduced.
+  // GOOGLE-REVIEW-TEMPLATE-1 / GOOGLE-REVIEW-CERTIFICATION-2 — the three Google OAuth reviewer
+  // templates. Most nodes were already listed above (gmail/new_email, google-drive/upload_file,
+  // google-sheets/append_row, google-calendar/create_event, gmail/send_email, gmail/create_draft_reply,
+  // google-docs/create_document, google-docs/share_document, google-analytics/run_report,
+  // native/manual.run); these are the additions that demonstrate the remaining Google scopes.
+  "gmail/add_label",                              // gmail.modify
+  "google-docs/update_document",                  // documents (write)
+  "google-docs/get_document",                     // documents (read)
+  "google-analytics/get_realtime_data",           // analytics.readonly
+  "google-analytics/find_conversion",             // analytics.readonly
+  "google-analytics/create_conversion_event",     // analytics.edit
 ]);
 
 /**
@@ -169,12 +177,12 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
     }
   });
 
-  it("seeds the full official catalog (≥103 templates across all batches) with unique ids", () => {
-    // 5 (batch 1) + 45 (batch 2) + 25 (batch 3) + 15 (batch 4) + 12 (batch 5) + 1 (the
-    // GOOGLE-REVIEW-TEMPLATE-1 reviewer template). Batches 1–3 are RETIRED by 20260720000000
+  it("seeds the full official catalog (≥105 templates across all batches) with unique ids", () => {
+    // 5 (batch 1) + 45 (batch 2) + 25 (batch 3) + 15 (batch 4) + 12 (batch 5) + 3 (the Google
+    // OAuth reviewer templates). Batches 1–3 are RETIRED by 20260720000000
     // (≤4-node demos) but their applied seed files remain part of the corpus this static guard
     // validates; the effective catalog is asserted in officialTemplateCatalogIntegrity.test.ts.
-    expect(definitions.length).toBeGreaterThanOrEqual(103);
+    expect(definitions.length).toBeGreaterThanOrEqual(105);
     // every row is official / public with a safe attribution + no account/author id.
     const officials = code.match(/'official'/g) ?? [];
     expect(officials.length).toBe(definitions.length);
