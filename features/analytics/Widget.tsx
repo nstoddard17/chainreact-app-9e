@@ -135,7 +135,11 @@ export function Widget({
       )}
       <div
         className={
-          "flex items-center justify-between border-b border-border px-3.5 py-2.5" + hidden
+          // `shrink-0`: the header keeps its content height and the BODY absorbs
+          // the squeeze, so a short footprint never crushes the title row or
+          // lets it eat into the chart area
+          // (ANALYTICS-RESPONSIVE-CHART-SURFACES-1).
+          "flex shrink-0 items-center justify-between border-b border-border px-3.5 py-2.5" + hidden
         }
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -260,7 +264,18 @@ export function Widget({
           )}
         </div>
       </div>
-      <div className={"min-h-0 flex-1 overflow-hidden p-4" + hidden}>{children}</div>
+      {/* The chart body. `flex-1` gives it every pixel the header and card do
+          not use, `min-h-0`/`min-w-0` defeat the flex content minimum so it can
+          actually shrink, and `relative` makes it the offset parent a
+          `ResponsiveChartSurface` fills. `overflow-hidden` is the last-resort
+          boundary, not the mechanism — the charts are measured to fit and the
+          browser suite asserts they do. */}
+      <div
+        data-testid={`analytics-widget-body-${widget.id}`}
+        className={"relative min-h-0 min-w-0 flex-1 overflow-hidden p-4" + hidden}
+      >
+        {children}
+      </div>
     </div>
   );
 }

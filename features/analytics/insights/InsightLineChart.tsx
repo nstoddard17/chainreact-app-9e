@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ConnectedValueMeta } from "@/contracts/connectedAnalytics";
+import { useChartSize } from "@/components/analytics/ResponsiveChartSurface";
 import type { InsightDrill } from "./insightRefine";
 import { formatInsightTick, formatInsightValue } from "./formatInsightValue";
 
@@ -24,7 +25,11 @@ import { formatInsightTick, formatInsightValue } from "./formatInsightValue";
  *   - Hover + keyboard (arrow keys) move a crosshair; values are announced
  *     via a polite live region and mirrored by the accessible table the
  *     parent renders — nothing is hover-only.
- *   - Geometry uses the measured container width — no SVG stretch.
+ *   - Geometry uses the measured container BOX — no SVG stretch. Width and
+ *     height both come from the shared `useChartSize`
+ *     (ANALYTICS-RESPONSIVE-CHART-SURFACES-1); this file used to carry its own
+ *     width-only copy of that hook, which is why a tall insight widget kept
+ *     drawing a 190px-high chart in a 320px body.
  */
 
 export interface InsightChartSeries {
@@ -46,22 +51,6 @@ export function insightSeriesColor(index: number): string {
 }
 
 const COMPARE_COLOR = "hsl(var(--muted-foreground))";
-
-function useMeasuredWidth(fallback: number): [RefObject<HTMLDivElement | null>, number] {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(fallback);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w && w > 40) setWidth(w);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width];
-}
 
 /** Split a value list into drawable segments at null gaps. */
 function segments(values: readonly (number | null)[]): { start: number; points: number[] }[] {
@@ -112,15 +101,17 @@ export function InsightLineChart({
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [compareHidden, setCompareHidden] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [wrapRef, width] = useMeasuredWidth(600);
+  const [plotRef, plotSize] = useChartSize({ fallbackWidth: 600, fallbackHeight: height });
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const visible = series.filter((s) => !hidden.has(s.id));
   const showCompare = compareValues != null && !compareHidden;
 
   const pad = { l: 44, r: 10, t: 10, b: 20 };
-  const W = Math.max(width, 160);
-  const H = height;
+  const W = Math.max(plotSize.width, 160);
+  // The measured plot region wins; `height` is only the pre-measurement
+  // fallback. The floor keeps the axis bands from exceeding the box.
+  const H = Math.max(90, plotSize.height);
   const innerW = W - pad.l - pad.r;
   const innerH = H - pad.t - pad.b;
   const n = buckets.length;
@@ -177,9 +168,10 @@ export function InsightLineChart({
   const labelStep = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(innerW / 70))));
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-1" ref={wrapRef}>
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-1">
       <div
-        className="relative min-h-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        ref={plotRef}
+        className="relative min-h-0 min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         role="group"
         aria-label={ariaLabel}
         tabIndex={0}
@@ -213,11 +205,15 @@ export function InsightLineChart({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
-          width="100%"
+          width={W}
           height={H}
           role="img"
           aria-hidden
-          className={drillAt(active) ? "cursor-pointer" : undefined}
+          // Absolutely filling the measured region is what makes the chart
+          // unable to influence the box that sized it — no ResizeObserver loop.
+          className={
+            "absolute inset-0" + (drillAt(active) ? " cursor-pointer" : "")
+          }
           onMouseMove={(e) => setActiveIndex(nearestIndex(e.clientX))}
           onMouseLeave={() => setActiveIndex(null)}
           onClick={(e) => {

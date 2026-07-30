@@ -76,17 +76,20 @@ function StatBody({ overview, widget }: { overview: AnalyticsOverview; widget: A
     foot = slice ? slice.name : "in selected range";
   }
 
+  // The sparkline takes the SLACK, not a fixed band: the readout and the footer
+  // are `shrink-0`, so a 1×1 body squeezes the chart rather than pushing the
+  // footer out of the card (ANALYTICS-RESPONSIVE-CHART-SURFACES-1).
   return (
-    <div className="flex h-full flex-col gap-2.5">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
       {display !== null ? (
-        <div className="text-3xl font-bold leading-none tracking-tight text-foreground">{display}</div>
+        <div className="shrink-0 truncate text-3xl font-bold leading-none tracking-tight text-foreground">
+          {display}
+        </div>
       ) : (
         <MetricNumber value={value} previous={previous} suffix={suffix} />
       )}
-      <div className="-mt-1">
-        <Sparkline data={dailyTotals(overview)} width={150} height={42} color={CHART_COLORS.primary} />
-      </div>
-      <div className="mt-auto truncate text-[11.5px] text-muted-foreground">{foot}</div>
+      <Sparkline data={dailyTotals(overview)} color={CHART_COLORS.primary} ariaLabel="Daily runs" />
+      <div className="shrink-0 truncate text-[11.5px] text-muted-foreground">{foot}</div>
     </div>
   );
 }
@@ -101,7 +104,7 @@ function LineBody({ overview }: { overview: AnalyticsOverview }) {
         { name: "Successful runs", data: overview.runsOverTime.map((p) => p.succeeded), color: CHART_COLORS.success },
         { name: "Failed runs", data: overview.runsOverTime.map((p) => p.failed), color: CHART_COLORS.danger },
       ]}
-      height={220}
+      ariaLabel="Runs over time"
     />
   );
 }
@@ -136,34 +139,43 @@ function BarBody({ overview, widget }: { overview: AnalyticsOverview; widget: An
 function HeatmapBody({ overview }: { overview: AnalyticsOverview }) {
   if (overview.heatmap.total === 0) return <EmptyBody label="No activity in the last 16 weeks." />;
   return (
-    <div>
-      <Heatmap cells={overview.heatmap.cells} weeks={overview.heatmap.weeks} maxCell={overview.heatmap.maxCell} />
-      <div className="mt-2.5 text-[11.5px] text-muted-foreground">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <Heatmap cells={overview.heatmap.cells} maxCell={overview.heatmap.maxCell} />
+      </div>
+      <div className="shrink-0 truncate pt-1.5 text-[11.5px] text-muted-foreground">
         {formatNumber(overview.heatmap.total)} runs in the last {overview.heatmap.weeks} weeks
       </div>
     </div>
   );
 }
 
+/**
+ * A list widget, not a chart: the header stays put and the rows scroll when the
+ * footprint cannot hold them. Charts must never do this — a clipped line is a
+ * bug — but truncating a ranked list to whatever fits would hide records.
+ */
 function TableBody({ overview }: { overview: AnalyticsOverview }) {
   if (overview.workflows.length === 0) return <EmptyBody label="No runs in this range yet." />;
   const cols = ["Automation", "Runs", "Success"];
   return (
-    <div className="flex flex-col text-xs">
-      <div className="mb-1 grid grid-cols-[1fr_auto_auto] gap-3 border-b border-border pb-2 text-[11px] font-semibold text-muted-foreground">
+    <div className="flex h-full min-h-0 min-w-0 flex-col text-xs">
+      <div className="mb-1 grid shrink-0 grid-cols-[1fr_auto_auto] gap-3 border-b border-border pb-2 text-[11px] font-semibold text-muted-foreground">
         {cols.map((c) => (
           <div key={c} className={c === "Automation" ? "" : "text-right"}>
             {c}
           </div>
         ))}
       </div>
-      {overview.workflows.slice(0, 6).map((w) => (
-        <div key={w.workflowId} className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-dashed border-border py-1.5 last:border-0">
-          <div className="truncate text-foreground">{w.name}</div>
-          <div className="text-right font-mono text-foreground">{formatNumber(w.runs)}</div>
-          <div className="text-right font-mono text-foreground">{Math.round(w.successRate * 100)}%</div>
-        </div>
-      ))}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {overview.workflows.slice(0, 6).map((w) => (
+          <div key={w.workflowId} className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-dashed border-border py-1.5 last:border-0">
+            <div className="truncate text-foreground">{w.name}</div>
+            <div className="text-right font-mono text-foreground">{formatNumber(w.runs)}</div>
+            <div className="text-right font-mono text-foreground">{Math.round(w.successRate * 100)}%</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -171,9 +183,9 @@ function TableBody({ overview }: { overview: AnalyticsOverview }) {
 function ActivityBody({ overview }: { overview: AnalyticsOverview }) {
   if (overview.recentRuns.length === 0) return <EmptyBody label="No recent runs yet." />;
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto">
       {overview.recentRuns.map((r) => (
-        <div key={r.id} className="grid grid-cols-[12px_1fr_auto] items-center gap-2.5 border-b border-dashed border-border py-2 last:border-0">
+        <div key={r.id} className="grid shrink-0 grid-cols-[12px_1fr_auto] items-center gap-2.5 border-b border-dashed border-border py-2 last:border-0">
           <span
             className="h-2 w-2 rounded-full"
             style={{ background: r.status === "succeeded" ? CHART_COLORS.success : CHART_COLORS.danger }}

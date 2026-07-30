@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { ConnectedAnalyticsResult, ConnectedRefine } from "@/contracts/connectedAnalytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
+import { useChartSize } from "@/components/analytics/ResponsiveChartSurface";
+import { donutCenterTypography, donutLayout, donutRadii } from "@/core/analytics/chartSizing";
 import { formatInsightValue } from "./formatInsightValue";
 import { insightSeriesColor } from "./InsightLineChart";
 
@@ -45,6 +47,11 @@ export function InsightDonutChart({
   onExplore?: (refine: ConnectedRefine) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  // The ring is sized from the box it is actually given
+  // (ANALYTICS-RESPONSIVE-CHART-SURFACES-1) rather than the fixed 132px square
+  // it used to be, so it grows in a tall widget and gets out of the legend's way
+  // in a narrow one. `flex-wrap` on the row already stacks the legend below.
+  const [plotRef, plotSize] = useChartSize({ fallbackWidth: 420, fallbackHeight: 190 });
   const rows = (result.rows ?? []).filter((r) => r.value !== null && r.value > 0);
   const allRows = result.rows ?? [];
 
@@ -63,8 +70,18 @@ export function InsightDonutChart({
   const denominatorComplete =
     result.completeness.state === "complete" && !trimmed && total > 0;
 
-  const R = 70;
-  const stroke = 22;
+  const layout = donutLayout({
+    width: plotSize.width,
+    height: plotSize.height,
+    sliceCount: slices.length,
+  });
+  const { outerRadius: R, innerRadius, strokeWidth: stroke } = donutRadii({
+    width: layout.diameter,
+    height: layout.diameter,
+  });
+  const mid = layout.diameter / 2;
+  const centerText = formatInsightValue(total, result.valueMeta);
+  const centerType = donutCenterTypography(innerRadius, centerText.length);
   const C = Math.PI * 2 * R;
   let offset = 0;
 
@@ -82,7 +99,17 @@ export function InsightDonutChart({
       )}
 
       <div
-        className="flex min-h-0 flex-1 flex-wrap items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        ref={plotRef}
+        className={
+          // Side-by-side when both fit, stacked when they don't — a decision
+          // taken from the measured box rather than left to `flex-wrap`, so the
+          // ring's diameter and the layout always agree.
+          "flex min-h-0 min-w-0 flex-1 gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/60 " +
+          (layout.orientation === "side"
+            ? "flex-row items-center"
+            : "flex-col items-center")
+        }
+        data-donut-orientation={layout.orientation}
         role="group"
         aria-label={ariaLabel}
         tabIndex={0}
@@ -113,56 +140,82 @@ export function InsightDonutChart({
         }}
         data-testid="insight-donut"
       >
-        <svg
-          viewBox="-100 -100 200 200"
-          width="132"
-          height="132"
-          className="flex-shrink-0"
-          role="img"
-          aria-label={ariaLabel}
-        >
-          <circle cx="0" cy="0" r={R} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
-          {slices.map((s, i) => {
-            const len = total > 0 ? ((s.value ?? 0) / total) * C : 0;
-            const el = (
-              <circle
-                key={s.id}
-                cx="0"
-                cy="0"
-                r={R}
-                fill="none"
-                stroke={insightSeriesColor(i)}
-                strokeWidth={activeId === s.id ? stroke + 4 : stroke}
-                strokeDasharray={`${len} ${C}`}
-                strokeDashoffset={-offset}
-                transform="rotate(-90)"
-                strokeLinecap="butt"
-                data-testid={`insight-donut-slice-${s.id}`}
-              />
-            );
-            offset += len;
-            return el;
-          })}
-          <text
-            x="0"
-            y="-2"
-            textAnchor="middle"
-            fontSize="20"
-            fontWeight="700"
-            fill="hsl(var(--foreground))"
+        {layout.diameter > 0 && R > 0 && (
+          <svg
+            viewBox={`0 0 ${layout.diameter} ${layout.diameter}`}
+            width={layout.diameter}
+            height={layout.diameter}
+            className="flex-shrink-0"
+            data-donut-diameter={layout.diameter}
+            role="img"
+            aria-label={ariaLabel}
           >
-            {formatInsightValue(total, result.valueMeta)}
-          </text>
-          <text x="0" y="16" textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))">
-            {denominatorComplete ? "total" : "shown"}
-          </text>
-        </svg>
+            <circle
+              cx={mid}
+              cy={mid}
+              r={R}
+              fill="none"
+              stroke="hsl(var(--muted))"
+              strokeWidth={stroke}
+            />
+            {slices.map((s, i) => {
+              const len = total > 0 ? ((s.value ?? 0) / total) * C : 0;
+              const el = (
+                <circle
+                  key={s.id}
+                  cx={mid}
+                  cy={mid}
+                  r={R}
+                  fill="none"
+                  stroke={insightSeriesColor(i)}
+                  // The active slice thickens INWARD only: growing the stroke
+                  // outward would push the ring past the box on hover.
+                  strokeWidth={activeId === s.id ? stroke + 4 : stroke}
+                  strokeDasharray={`${len} ${C}`}
+                  strokeDashoffset={-offset}
+                  transform={`rotate(-90 ${mid} ${mid})`}
+                  strokeLinecap="butt"
+                  data-testid={`insight-donut-slice-${s.id}`}
+                />
+              );
+              offset += len;
+              return el;
+            })}
+            <text
+              x={mid}
+              y={mid + (centerType.showLabel ? 0 : centerType.valueFontSize * 0.35)}
+              textAnchor="middle"
+              fontSize={centerType.valueFontSize}
+              fontWeight="700"
+              fill="hsl(var(--foreground))"
+            >
+              {centerText}
+            </text>
+            {centerType.showLabel && (
+              <text
+                x={mid}
+                y={mid + centerType.valueFontSize * 0.85}
+                textAnchor="middle"
+                fontSize={centerType.labelFontSize}
+                fill="hsl(var(--muted-foreground))"
+              >
+                {denominatorComplete ? "total" : "shown"}
+              </text>
+            )}
+          </svg>
+        )}
 
         {/* Text legend — labels + values are readable without hover or color.
             A slice with a server refinement renders its label as an explicit
             Explore button (CD-5B); every other slice is a plain readable row —
             never a fake click target and never in the tab order for nothing. */}
-        <ul className="flex min-w-[150px] flex-1 flex-col gap-1" aria-label="Slices">
+        <ul
+          className={
+            "flex min-w-0 flex-col gap-1 " +
+            (layout.orientation === "side" ? "flex-1" : "w-full shrink-0")
+          }
+          aria-label="Slices"
+        >
           {slices.map((s, i) => (
             <li
               key={s.id}

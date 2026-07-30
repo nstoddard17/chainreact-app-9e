@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useState } from "react";
 import type { ConnectedValueMeta } from "@/contracts/connectedAnalytics";
+import { useChartSize } from "@/components/analytics/ResponsiveChartSurface";
 import { formatInsightValue } from "./formatInsightValue";
 import { insightSeriesColor } from "./InsightLineChart";
 import { InsightBarLegend } from "./InsightBarLegend";
@@ -49,22 +50,6 @@ const MIN_BAR_PX = 3;
 const COMPARE_FILL =
   "repeating-linear-gradient(135deg, hsl(var(--muted-foreground)) 0 3px, transparent 3px 6px)";
 const COMPARE_LABEL = "Previous period";
-
-function useMeasuredWidth(fallback: number): [RefObject<HTMLDivElement | null>, number] {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(fallback);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w && w > 40) setWidth(w);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width];
-}
 
 /**
  * Pick an orientation. Horizontal wins when names need the room — long
@@ -118,7 +103,9 @@ export function InsightBarChart({
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [compareHidden, setCompareHidden] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [wrapRef, width] = useMeasuredWidth(560);
+  // The one shared measurement seam (ANALYTICS-RESPONSIVE-CHART-SURFACES-1);
+  // this file used to carry its own private width-only copy of it.
+  const [wrapRef, { width }] = useChartSize({ fallbackWidth: 560, fallbackHeight: 190 });
 
   const visibleSeriesIdx = series.map((_, i) => i).filter((i) => !hidden.has(series[i]!.id));
   const horizontal = preferHorizontal(

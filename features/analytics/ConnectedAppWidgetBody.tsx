@@ -245,7 +245,7 @@ function SeriesLine({ result, name }: { result: NormalizedAnalyticsResult; name:
     <LineChart
       labels={pts.map((p) => p.label)}
       series={[{ name, data: pts.map((p) => p.value), color: CHART_COLORS.primary }]}
-      height={200}
+      ariaLabel={name}
     />
   );
 }

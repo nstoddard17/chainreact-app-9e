@@ -23,9 +23,20 @@ import { AnalyticsDragHarness } from "@/features/analytics/testing/AnalyticsDrag
  * (stat widgets render from the `initialOverview` prop), so it cannot leak
  * anything: there is nothing here but fixture text.
  */
-export default function E2eDragHarnessPage() {
+export default async function E2eDragHarnessPage({
+  searchParams,
+}: {
+  /**
+   * `?board=charts` mounts the chart-footprint fixture board
+   * (ANALYTICS-RESPONSIVE-CHART-SURFACES-1) instead of the drag board. Both are
+   * in-memory fixtures behind the same two gates; the parameter selects which
+   * fixture, it does not unlock anything.
+   */
+  searchParams?: Promise<{ board?: string }>;
+}) {
   if (process.env.NODE_ENV === "production" || process.env.E2E_DRAG_HARNESS !== "1") {
     notFound();
   }
-  return <AnalyticsDragHarness />;
+  const params = (await searchParams) ?? {};
+  return <AnalyticsDragHarness board={params.board === "charts" ? "charts" : "drag"} />;
 }

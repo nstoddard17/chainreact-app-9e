@@ -7,6 +7,8 @@
 [S2](./analytics-explicit-layout-s2-contract.md) · [S2.5](./analytics-explicit-layout-s2-5-boundary-realign.md) ·
 [S3](./analytics-explicit-layout-s3-render-seam.md) ·
 [S4](./analytics-explicit-layout-s4-editor-integration.md) `ea1ca6d72`
+**Followed by:** [responsive chart surfaces](./analytics-responsive-chart-surfaces-1.md) — S5 sized the CONTAINERS correctly; the charts inside them still carried fixed
+desktop dimensions, which that slice fixes. No layout or persistence rule changed.
 
 ---
 
