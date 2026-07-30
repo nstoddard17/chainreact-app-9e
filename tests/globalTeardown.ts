@@ -95,6 +95,26 @@ export default async function globalTeardown(): Promise<void> {
     .is("account_id", null)
     .not("created_by_user_id", "is", null);
 
+  // …and the same row AFTER its author was deleted (created_by_user_id is ON DELETE SET NULL, so
+  // the sweep above stops seeing it). No real official template has an empty node list — the
+  // catalog guards enforce a five-node floor — so an account-less official with no nodes is
+  // always a leaked fixture. This is the shape that reached the live marketplace as a badged,
+  // zero-step "Official Starter" card.
+  const { data: emptyOfficials } = await admin
+    .from("workflow_templates")
+    .select("id, definition")
+    .eq("source", "official")
+    .is("account_id", null);
+  const emptyIds = (emptyOfficials ?? [])
+    .filter((row) => {
+      const def = (row as { definition?: { nodes?: unknown[] } }).definition;
+      return !Array.isArray(def?.nodes) || def.nodes.length === 0;
+    })
+    .map((row) => (row as { id: string }).id);
+  if (emptyIds.length > 0) {
+    await admin.from("workflow_templates").delete().in("id", emptyIds);
+  }
+
   if (stragglers.length === 0) return;
 
   const { data: owned } = await admin

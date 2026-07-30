@@ -1,20 +1,21 @@
 /**
  * @jest-environment node
  *
- * GOOGLE-REVIEW-TEMPLATE-1 — dedicated guard for the "Google Review Test" official template
- * (the reviewer-facing workflow shipped for Google OAuth verification) and for the migration
- * that removes the stray, empty "Official Starter" marketplace card it replaces.
+ * GOOGLE-REVIEW-TEMPLATE-1 + GOOGLE-REVIEW-CERTIFICATION-2 — dedicated guard for the three
+ * official templates shipped for Google OAuth verification, and for the migration that removes
+ * the stray zero-step "Official Starter" marketplace card they replace.
  *
  * The generic catalog guards (seedOfficialTemplates / officialTemplateCatalogIntegrity /
  * official-template-node-registration) already prove schema validity, node registration,
  * contract-backed references, and the no-leak rules across the whole catalog. This file pins the
  * things a Google reviewer actually depends on and that a future edit could silently regress:
  *
- *   1. the template exists exactly ONCE, with the required marketplace presentation;
- *   2. the graph is the intended 1 trigger + 4 actions, wired linearly, in reviewer order;
+ *   1. each template exists exactly ONCE, with the required marketplace presentation;
+ *   2. the graphs are the intended shapes, wired linearly, in reviewer order;
  *   3. each step carries its reviewer-facing display name;
- *   4. the Google scope families the verification request covers are each demonstrated by a
- *      real, registered node;
+ *   4. EVERY Google scope the shared OAuth consent screen requests is demonstrated by a real,
+ *      registered node — and analytics.edit is demonstrated by the action that actually carries
+ *      that scope (create_conversion_event), never by the Measurement-Protocol send_event;
  *   5. the variable mappings survive a /use copy through WorkflowDefinitionSchema verbatim;
  *   6. every account-specific Google resource stays BLANK and surfaces as Setup Needed;
  *   7. no zero-step official template is seeded anywhere in the catalog;
@@ -25,7 +26,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import { TemplateDefinitionSchema } from "@/contracts/workflowTemplate";
-import { getActionMeta, getTriggerMeta, listAllActionMetas, listAllTriggerMetas } from "@/services/discovery/_registry";
+import {
+  getActionMeta,
+  getTriggerMeta,
+  listAllActionMetas,
+  listAllTriggerMetas,
+} from "@/services/discovery/_registry";
 import { deriveTemplateCardMeta } from "@/core/workflows/templateCardMeta";
 import { buildRequiredFieldsByType, missingRequiredFields } from "@/core/workflows/requiredFields";
 import { parseReferences } from "@/core/workflows/variables/variableReferences";
@@ -38,9 +44,16 @@ const readStripped = (f: string) =>
 const SEED_FILES = files.filter((f) => /_seed_official_templates.*\.sql$/.test(f));
 const seedCode = SEED_FILES.map(readStripped).join("\n");
 
-const CLEANUP_FILE = "20260730000001_remove_stray_test_official_templates.sql";
-const TEMPLATE_ID = "c0ffee00-0000-4000-8000-000000000067";
-const TEMPLATE_NAME = "Google Review Test";
+const CLEANUP_FILE = "20260810000001_remove_stray_test_official_templates.sql";
+const MAIN = "Google Review Test";
+const DOCS = "Google Docs Review Test";
+const ANALYTICS = "Google Analytics Review Test";
+
+const IDS: Readonly<Record<string, string>> = {
+  [MAIN]: "c0ffee00-0000-4000-8000-000000000067",
+  [DOCS]: "c0ffee00-0000-4000-8000-000000000068",
+  [ANALYTICS]: "c0ffee00-0000-4000-8000-000000000069",
+};
 
 interface Node {
   id: string;
@@ -70,184 +83,308 @@ const seeded: Row[] = [...seedCode.matchAll(rowRe)].map((m) => ({
   def: JSON.parse(m[4]!) as Def,
 }));
 
-const matches = seeded.filter((r) => r.name === TEMPLATE_NAME);
-const row = matches[0];
+const rowFor = (name: string): Row => {
+  const found = seeded.filter((r) => r.name === name);
+  if (found.length !== 1) throw new Error(`expected exactly 1 "${name}", found ${found.length}`);
+  return found[0]!;
+};
+const main = rowFor(MAIN);
+const docs = rowFor(DOCS);
+const analytics = rowFor(ANALYTICS);
+const reviewTemplates = [main, docs, analytics];
 
-describe("Google Review Test template — marketplace presentation", () => {
-  it("is seeded exactly once, under the stable id, replacing rather than duplicating a card", () => {
-    expect(matches).toHaveLength(1);
-    expect(row!.id).toBe(TEMPLATE_ID);
-    // no other seeded template shares the id or the name.
-    expect(seeded.filter((r) => r.id === TEMPLATE_ID)).toHaveLength(1);
+const requiredByType = buildRequiredFieldsByType(listAllActionMetas(), listAllTriggerMetas());
+const missingFor = (row: Row, nodeId: string): string[] => {
+  const node = WorkflowDefinitionSchema.parse(row.def).nodes.find((n) => n.id === nodeId)!;
+  return missingRequiredFields(node, requiredByType)
+    .map((f) => f.name)
+    .sort();
+};
+
+const stringLeaves = (v: unknown): string[] =>
+  typeof v === "string"
+    ? [v]
+    : Array.isArray(v)
+      ? v.flatMap(stringLeaves)
+      : v && typeof v === "object"
+        ? Object.values(v).flatMap(stringLeaves)
+        : [];
+
+describe("Google reviewer templates — marketplace presentation", () => {
+  it.each(reviewTemplates.map((r) => [r.name] as const))(
+    "%s is seeded exactly once under its stable id",
+    (name) => {
+      const row = rowFor(name);
+      expect(row.id).toBe(IDS[name]);
+      expect(seeded.filter((r) => r.id === row.id)).toHaveLength(1);
+    },
+  );
+
+  it.each(reviewTemplates.map((r) => [r.name] as const))(
+    "%s explains purpose, per-step behaviour, and what the reviewer must select",
+    (name) => {
+      const d = rowFor(name).description;
+      expect(d).toContain("Provided for Google OAuth verification");
+      expect(d).toMatch(/Requires one connection/);
+      for (const step of ["Step 1", "Step 2", "Step 3", "Step 4", "Step 5"]) {
+        expect(d).toContain(step);
+      }
+      // states what is read vs. what is created/changed/sent, in reviewer-visible language.
+      expect(d).toMatch(/READS/);
+      expect(d).toMatch(/CREATES|CHANGES|SENDS/);
+      expect(d).toMatch(/you select/i);
+      expect(d).toMatch(/Nothing runs until you finish setup/);
+      expect(d).not.toMatch(/lorem ipsum|starter workflow|Official Starter/i);
+      expect(name).not.toMatch(/starter/i);
+    },
+  );
+
+  it("the main template asserts ChainReact only uses explicitly mapped Google data", () => {
+    expect(main.description).toMatch(
+      /ChainReact never reads Google data that a step is not wired to/,
+    );
   });
 
-  it("carries the reviewer-facing short + detailed description with no placeholder copy", () => {
-    const d = row!.description;
-    expect(d).toContain("provided for Google OAuth verification");
-    expect(d).toContain("Google Drive");
-    expect(d).toContain("Google Sheets");
-    expect(d).toContain("Google Calendar");
-    expect(d).toContain("Gmail");
-    // the reviewer sees a purpose per step, not generic starter copy.
-    for (const step of ["Step 1", "Step 2", "Step 3", "Step 4", "Step 5"]) {
-      expect(d).toContain(step);
+  it("derives accurate, expression-free browse cards", () => {
+    const cardOf = (row: Row) => deriveTemplateCardMeta(TemplateDefinitionSchema.parse(row.def));
+
+    const m = cardOf(main);
+    expect(m.triggerKind).toBe("app");
+    expect(m.nodeCount).toBe(7);
+    expect(m.stepCount).toBe(6); // action steps; never 0
+    expect(m.providers).toEqual(["gmail", "google-drive", "google-sheets", "google-calendar"]);
+    expect(m.category).toBe("files-docs");
+
+    const d = cardOf(docs);
+    expect(d.triggerKind).toBe("manual");
+    expect(d.nodeCount).toBe(5);
+    expect(d.stepCount).toBe(4);
+    expect(d.providers).toEqual(["google-docs"]);
+
+    const a = cardOf(analytics);
+    expect(a.triggerKind).toBe("manual");
+    expect(a.nodeCount).toBe(5);
+    expect(a.stepCount).toBe(4);
+    expect(a.providers).toEqual(["google-analytics"]);
+
+    for (const row of reviewTemplates) {
+      expect(JSON.stringify(cardOf(row))).not.toContain("{{");
     }
-    expect(d).not.toMatch(/lorem ipsum|starter workflow|Official Starter/i);
-    expect(row!.name).not.toMatch(/starter/i);
-  });
-
-  it("derives an app-triggered card that lists exactly the Google apps it needs", () => {
-    const card = deriveTemplateCardMeta(TemplateDefinitionSchema.parse(row!.def));
-    expect(card.triggerKind).toBe("app");
-    expect(card.nodeCount).toBe(5);
-    // the card counts ACTION steps (the trigger is shown separately) — never 0.
-    expect(card.stepCount).toBe(4);
-    // Pinned so a change to the display heuristic cannot silently move the reviewer's card.
-    expect(card.category).toBe("files-docs");
-    expect(card.providers).toEqual([
-      "gmail",
-      "google-drive",
-      "google-sheets",
-      "google-calendar",
-    ]);
-    // browse metadata never carries a raw expression or config value.
-    expect(JSON.stringify(card)).not.toContain("{{");
   });
 });
 
-describe("Google Review Test template — workflow shape", () => {
-  it("is one Gmail trigger followed by four Google actions, wired in reviewer order", () => {
-    const ordered = row!.def.nodes.map((n) => `${n.provider}:${n.type}`);
-    expect(ordered).toEqual([
+describe("Google reviewer templates — workflow shape", () => {
+  it("the main template is one Gmail trigger followed by six Google actions in reviewer order", () => {
+    expect(main.def.nodes.map((n) => `${n.provider}:${n.type}`)).toEqual([
       "gmail:new_email",
       "google-drive:upload_file",
       "google-sheets:append_row",
       "google-calendar:create_event",
+      "gmail:add_label",
+      "gmail:create_draft_reply",
       "gmail:send_email",
     ]);
-    expect(row!.def.nodes.filter((n) => n.kind === "trigger")).toHaveLength(1);
-    expect(row!.def.nodes.filter((n) => n.kind === "action")).toHaveLength(4);
-    expect(row!.def.edges.map((e) => `${e.from}->${e.to}`)).toEqual([
+    expect(main.def.edges.map((e) => `${e.from}->${e.to}`)).toEqual([
       "trigger->a1",
       "a1->a2",
       "a2->a3",
       "a3->a4",
+      "a4->a5",
+      "a5->a6",
     ]);
-    // linear demo: no branch labels.
-    expect(row!.def.edges.every((e) => e.label === undefined)).toBe(true);
   });
 
-  it("labels every step with its reviewer-facing name", () => {
-    expect(row!.def.nodes.map((n) => n.displayName)).toEqual([
+  it("the companion templates are manual, self-contained, and single-provider", () => {
+    expect(docs.def.nodes.map((n) => `${n.provider}:${n.type}`)).toEqual([
+      "native:manual.run",
+      "google-docs:create_document",
+      "google-docs:update_document",
+      "google-docs:get_document",
+      "google-docs:share_document",
+    ]);
+    expect(analytics.def.nodes.map((n) => `${n.provider}:${n.type}`)).toEqual([
+      "native:manual.run",
+      "google-analytics:run_report",
+      "google-analytics:get_realtime_data",
+      "google-analytics:find_conversion",
+      "google-analytics:create_conversion_event",
+    ]);
+    for (const row of [docs, analytics]) {
+      expect(row.def.edges.map((e) => `${e.from}->${e.to}`)).toEqual([
+        "trigger->a1",
+        "a1->a2",
+        "a2->a3",
+        "a3->a4",
+      ]);
+    }
+  });
+
+  it.each(reviewTemplates.map((r) => [r.name] as const))(
+    "%s has exactly one trigger, linear unlabeled edges, and a numbered display name per step",
+    (name) => {
+      const row = rowFor(name);
+      expect(row.def.nodes.filter((n) => n.kind === "trigger")).toHaveLength(1);
+      expect(row.def.edges.every((e) => e.label === undefined)).toBe(true);
+      for (const [i, node] of row.def.nodes.entries()) {
+        expect({ id: node.id, named: Boolean(node.displayName) }).toEqual({
+          id: node.id,
+          named: true,
+        });
+        expect(node.displayName!.startsWith(`${i + 1}. `)).toBe(true);
+        expect(node.displayName!.length).toBeLessThanOrEqual(120);
+      }
+    },
+  );
+
+  it("names the main template steps exactly as the reviewer instructions do", () => {
+    expect(main.def.nodes.map((n) => n.displayName)).toEqual([
       "1. Gmail — Read a new email",
       "2. Google Drive — Save the email information",
       "3. Google Sheets — Log the workflow activity",
       "4. Google Calendar — Create a follow-up event",
-      "5. Gmail — Send a confirmation",
+      "5. Gmail — Apply a review label",
+      "6. Gmail — Prepare a reply draft",
+      "7. Gmail — Send a confirmation",
     ]);
   });
 
   it("filters the trigger to a safe reviewer subject using fields the real trigger supports", () => {
-    const trigger = row!.def.nodes[0]!;
-    const meta = getTriggerMeta("gmail:new_email")!;
-    const fieldNames = new Set(meta.fields.map((f) => f.name));
+    const trigger = main.def.nodes[0]!;
+    const fieldNames = new Set(getTriggerMeta("gmail:new_email")!.fields.map((f) => f.name));
     for (const key of Object.keys(trigger.config)) expect(fieldNames.has(key)).toBe(true);
     expect(trigger.config.subject).toBe("ChainReact Google Review");
     // substring ("contains") match — the meta default is exact, so it must be set explicitly.
     expect(trigger.config.subjectExactMatch).toBe(false);
   });
 
-  it("every node is a registered action/trigger and every config key a real meta field", () => {
-    for (const node of row!.def.nodes) {
-      const key = `${node.provider}:${node.type}`;
-      const meta = node.kind === "trigger" ? getTriggerMeta(key) : getActionMeta(key);
-      expect(meta).toBeDefined();
-      const fieldNames = new Set(meta!.fields.map((f) => f.name));
-      for (const configKey of Object.keys(node.config)) {
-        expect({ key, configKey, known: fieldNames.has(configKey) }).toEqual({
-          key,
-          configKey,
-          known: true,
-        });
+  it.each(reviewTemplates.map((r) => [r.name] as const))(
+    "%s uses only registered nodes and real meta field names",
+    (name) => {
+      for (const node of rowFor(name).def.nodes) {
+        const key = `${node.provider}:${node.type}`;
+        const meta = node.kind === "trigger" ? getTriggerMeta(key) : getActionMeta(key);
+        expect(meta).toBeDefined();
+        const fieldNames = new Set(meta!.fields.map((f) => f.name));
+        for (const configKey of Object.keys(node.config)) {
+          expect({ key, configKey, known: fieldNames.has(configKey) }).toEqual({
+            key,
+            configKey,
+            known: true,
+          });
+        }
       }
-    }
-  });
+    },
+  );
 });
 
-describe("Google Review Test template — Google scope coverage", () => {
-  // One shipped, registered node per Google scope family in the verification request that this
-  // template is responsible for demonstrating. Docs (documents) and Analytics
-  // (analytics.readonly / analytics.edit) are requested by their own providers and are
-  // deliberately NOT demonstrated here — recorded in the slice Owner Report, not faked with a node.
+describe("Google reviewer templates — full OAuth scope coverage", () => {
+  /**
+   * Every scope the SHARED Google consent screen requests (all six providers use
+   * GOOGLE_CLIENT_ID via integrations/_shared/google/oauth.ts), mapped to the node that
+   * demonstrates it. `userinfo.email` is exercised by the connect callback of every non-Gmail
+   * Google provider, so it has no workflow node — it is treated as connect-only below.
+   */
   const COVERAGE: ReadonlyArray<[string, string]> = [
-    ["gmail.readonly (read a message)", "gmail:new_email"],
-    ["drive (create a file)", "google-drive:upload_file"],
-    ["spreadsheets (write a row)", "google-sheets:append_row"],
-    ["calendar.events (create an event)", "google-calendar:create_event"],
-    ["gmail.send (send a message)", "gmail:send_email"],
+    ["gmail.readonly", "gmail:new_email"],
+    ["gmail.send", "gmail:send_email"],
+    ["gmail.modify", "gmail:add_label"],
+    ["gmail.compose", "gmail:create_draft_reply"],
+    ["drive", "google-drive:upload_file"],
+    ["drive", "google-docs:share_document"],
+    ["drive.metadata.readonly", "google-sheets:append_row"],
+    ["spreadsheets", "google-sheets:append_row"],
+    ["documents", "google-docs:create_document"],
+    ["documents", "google-docs:update_document"],
+    ["documents", "google-docs:get_document"],
+    ["calendar.events", "google-calendar:create_event"],
+    ["calendar.readonly", "google-calendar:create_event"],
+    ["analytics.readonly", "google-analytics:run_report"],
+    ["analytics.edit", "google-analytics:create_conversion_event"],
   ];
 
+  const allNodeKeys = new Set(
+    reviewTemplates.flatMap((r) => r.def.nodes.map((n) => `${n.provider}:${n.type}`)),
+  );
+
   it.each(COVERAGE)("demonstrates %s via %s", (_scope, key) => {
-    const present = row!.def.nodes.some((n) => `${n.provider}:${n.type}` === key);
-    expect(present).toBe(true);
+    expect(allNodeKeys.has(key)).toBe(true);
   });
 
-  it("uses no Google Contacts node (no Contacts provider ships in V2)", () => {
-    expect(row!.def.nodes.some((n) => n.provider.includes("contacts"))).toBe(false);
+  it("covers every scope declared by every Google provider manifest", async () => {
+    const manifests = await Promise.all([
+      import("@/integrations/gmail/manifest").then((m) => m.gmailManifest),
+      import("@/integrations/google-drive/manifest").then((m) => m.googleDriveManifest),
+      import("@/integrations/google-sheets/manifest").then((m) => m.googleSheetsManifest),
+      import("@/integrations/google-docs/manifest").then((m) => m.googleDocsManifest),
+      import("@/integrations/google-calendar/manifest").then((m) => m.googleCalendarManifest),
+      import("@/integrations/google-analytics/manifest").then((m) => m.googleAnalyticsManifest),
+    ]);
+    const declared = new Set(manifests.flatMap((m) => [...m.scopes.required, ...m.scopes.optional]));
+    // Scopes exercised by a connect callback rather than a workflow node.
+    const CONNECT_ONLY = new Set(["https://www.googleapis.com/auth/userinfo.email"]);
+    const covered = new Set(
+      COVERAGE.map(([scope]) => `https://www.googleapis.com/auth/${scope}`),
+    );
+    // A new Google scope must arrive WITH a reviewer-visible demonstration, or be removed.
+    expect([...declared].filter((s) => !covered.has(s) && !CONNECT_ONLY.has(s))).toEqual([]);
+  });
+
+  it("never uses send_event as proof of analytics.edit (it authenticates with a measurement id, not OAuth)", () => {
+    expect(allNodeKeys.has("google-analytics:send_event")).toBe(false);
+  });
+
+  it("uses no Google Contacts node (no Contacts scope is requested and no Contacts provider ships)", () => {
+    for (const row of reviewTemplates) {
+      expect(row.def.nodes.some((n) => n.provider.includes("contacts"))).toBe(false);
+    }
   });
 });
 
-describe("Google Review Test template — copy / use fidelity", () => {
-  it("parses the strict template schema AND the workflow schema the /use route re-validates", () => {
-    expect(() => TemplateDefinitionSchema.parse(row!.def)).not.toThrow();
-    expect(() => WorkflowDefinitionSchema.parse(row!.def)).not.toThrow();
-  });
+describe("Google reviewer templates — copy / use fidelity", () => {
+  it.each(reviewTemplates.map((r) => [r.name] as const))(
+    "%s parses the strict template schema AND the workflow schema the /use route re-validates",
+    (name) => {
+      const row = rowFor(name);
+      expect(() => TemplateDefinitionSchema.parse(row.def)).not.toThrow();
+      expect(() => WorkflowDefinitionSchema.parse(row.def)).not.toThrow();
+    },
+  );
 
   it("preserves every variable mapping and display name through the /use copy", () => {
-    // createWorkflowFromTemplate persists exactly WorkflowDefinitionSchema.parse(definition).
-    const copied = WorkflowDefinitionSchema.parse(row!.def);
-    expect(copied.nodes.map((n) => n.displayName)).toEqual(
-      row!.def.nodes.map((n) => n.displayName),
-    );
-    for (const [i, node] of copied.nodes.entries()) {
-      expect(node.config).toEqual(row!.def.nodes[i]!.config);
-    }
-
-    // Every reference resolves to a node in the graph, and to a DECLARED output of that node —
-    // including references nested inside a string-array field (the Sheets row values).
-    const outputsOf = (id: string): Set<string> => {
+    const outputsOf = (copied: { nodes: Node[] }, id: string): Set<string> => {
       const n = copied.nodes.find((x) => x.id === id)!;
       const key = `${n.provider}:${n.type}`;
       return n.kind === "trigger"
         ? new Set((getTriggerMeta(key)?.payloadShape ?? []).map((o) => o.name))
         : new Set((getActionMeta(key)?.outputs ?? []).map((o) => o.name));
     };
-    const leaves = (v: unknown): string[] =>
-      typeof v === "string"
-        ? [v]
-        : Array.isArray(v)
-          ? v.flatMap(leaves)
-          : v && typeof v === "object"
-            ? Object.values(v).flatMap(leaves)
-            : [];
+
     let refCount = 0;
-    for (const node of copied.nodes) {
-      for (const value of Object.values(node.config).flatMap(leaves)) {
-        for (const ref of parseReferences(value)) {
-          refCount += 1;
-          const target = ref.nodeId === "trigger" ? "trigger" : ref.nodeId;
-          expect(copied.nodes.some((n) => n.id === target)).toBe(true);
-          expect(outputsOf(target).has(ref.path.split(/[.[]/)[0]!)).toBe(true);
+    for (const row of reviewTemplates) {
+      // createWorkflowFromTemplate persists exactly WorkflowDefinitionSchema.parse(definition).
+      const copied = WorkflowDefinitionSchema.parse(row.def) as unknown as { nodes: Node[] };
+      expect(copied.nodes.map((n) => n.displayName)).toEqual(
+        row.def.nodes.map((n) => n.displayName),
+      );
+      for (const [i, node] of copied.nodes.entries()) {
+        expect(node.config).toEqual(row.def.nodes[i]!.config);
+      }
+      for (const node of copied.nodes) {
+        for (const value of Object.values(node.config).flatMap(stringLeaves)) {
+          for (const ref of parseReferences(value)) {
+            refCount += 1;
+            expect(copied.nodes.some((n) => n.id === ref.nodeId)).toBe(true);
+            expect(outputsOf(copied, ref.nodeId).has(ref.path.split(/[.[]/)[0]!)).toBe(true);
+          }
         }
       }
     }
     // the mappings actually exist (a silently emptied config would otherwise pass above).
-    expect(refCount).toBeGreaterThanOrEqual(14);
+    expect(refCount).toBeGreaterThanOrEqual(20);
   });
 
   it("logs the Gmail row into Sheets as a typed string-array, not hand-authored JSON", () => {
-    const sheets = row!.def.nodes.find((n) => n.id === "a2")!;
-    expect(sheets.config.values).toEqual([
+    expect(main.def.nodes.find((n) => n.id === "a2")!.config.values).toEqual([
       "{{trigger.from}}",
       "{{trigger.subject}}",
       "{{trigger.receivedAt}}",
@@ -255,31 +392,45 @@ describe("Google Review Test template — copy / use fidelity", () => {
       "{{a1.name}}",
     ]);
   });
+
+  it("targets the Gmail label and draft steps at the triggering message only", () => {
+    expect(main.def.nodes.find((n) => n.id === "a4")!.config.messageId).toBe("{{trigger.id}}");
+    expect(main.def.nodes.find((n) => n.id === "a5")!.config.originalMessageId).toBe(
+      "{{trigger.id}}",
+    );
+  });
+
+  it("chains every Docs step to the document this run created, never a seeded document id", () => {
+    for (const id of ["a2", "a3", "a4"]) {
+      expect(docs.def.nodes.find((n) => n.id === id)!.config.documentId).toBe("{{a1.documentId}}");
+    }
+  });
 });
 
-describe("Google Review Test template — reviewer setup experience", () => {
-  const requiredByType = buildRequiredFieldsByType(listAllActionMetas(), listAllTriggerMetas());
-  const missingFor = (id: string): string[] => {
-    const node = WorkflowDefinitionSchema.parse(row!.def).nodes.find((n) => n.id === id)!;
-    return missingRequiredFields(node, requiredByType).map((f) => f.name);
-  };
-
+describe("Google reviewer templates — reviewer setup experience", () => {
   it("leaves every account-specific Google resource BLANK for the reviewer to select", () => {
-    const byId = new Map(row!.def.nodes.map((n) => [n.id, n]));
-    const mustBeAbsent: ReadonlyArray<[string, string]> = [
-      ["a1", "parentFolderId"], // Drive destination folder
-      ["a2", "spreadsheetId"], // Sheets file
-      ["a2", "range"], // Sheets worksheet / range
-      ["a3", "calendarId"], // Calendar
-      ["a3", "startDateTime"], // no safe template default
-      ["a3", "endDateTime"],
-      ["a4", "to"], // recipient — never prewired, even from a variable
-      ["a4", "cc"],
-      ["a4", "bcc"],
-      ["trigger", "labelIds"], // Gmail label filter
+    const absent: ReadonlyArray<[Row, string, string]> = [
+      [main, "a1", "parentFolderId"], // Drive destination folder
+      [main, "a2", "spreadsheetId"], // Sheets file
+      [main, "a2", "range"], // Sheets worksheet / range
+      [main, "a3", "calendarId"], // Calendar
+      [main, "a3", "startDateTime"], // no safe template default
+      [main, "a3", "endDateTime"],
+      [main, "a4", "labelIds"], // the review label
+      [main, "a6", "to"], // recipient — never prewired, even from a variable
+      [main, "a6", "cc"],
+      [main, "a6", "bcc"],
+      [main, "trigger", "labelIds"], // Gmail label filter
+      [docs, "a1", "folderId"], // Docs destination folder
+      [docs, "a4", "shareWith"], // share recipients
+      [docs, "a4", "sendNotification"], // notification consent
+      [analytics, "a1", "propertyId"], // Analytics property
+      [analytics, "a4", "propertyId"],
     ];
-    for (const [nodeId, field] of mustBeAbsent) {
-      expect({ nodeId, field, value: byId.get(nodeId)!.config[field] }).toEqual({
+    for (const [row, nodeId, field] of absent) {
+      const value = row.def.nodes.find((n) => n.id === nodeId)!.config[field];
+      expect({ template: row.name, nodeId, field, value }).toEqual({
+        template: row.name,
         nodeId,
         field,
         value: undefined,
@@ -287,29 +438,57 @@ describe("Google Review Test template — reviewer setup experience", () => {
     }
   });
 
-  it("surfaces normal Setup Needed states instead of hidden placeholders or fake ids", () => {
-    // Sheets: the file, the range, and the explicit value-input choice.
-    expect(missingFor("a2").sort()).toEqual(["range", "spreadsheetId", "valueInputOption"].sort());
-    // Calendar: the Q11 consent/visibility choices stay the reviewer's.
-    expect(missingFor("a3").sort()).toEqual(
-      ["guestsCanInviteOthers", "guestsCanSeeOtherGuests", "sendNotifications"].sort(),
-    );
-    // Gmail send: the recipient.
-    expect(missingFor("a4")).toEqual(["to"]);
-    // The trigger and the Drive step are fully configured by the template.
-    expect(missingFor("trigger")).toEqual([]);
-    expect(missingFor("a1")).toEqual([]);
+  it("surfaces normal Setup Needed states on the main template", () => {
+    expect(missingFor(main, "trigger")).toEqual([]);
+    expect(missingFor(main, "a1")).toEqual([]);
+    expect(missingFor(main, "a2")).toEqual(["range", "spreadsheetId", "valueInputOption"]);
+    // Calendar now flags the TIMED date-time pair as well as the Q11 guest choices.
+    expect(missingFor(main, "a3")).toEqual([
+      "endDateTime",
+      "guestsCanInviteOthers",
+      "guestsCanSeeOtherGuests",
+      "sendNotifications",
+      "startDateTime",
+    ]);
+    expect(missingFor(main, "a4")).toEqual(["labelIds"]);
+    expect(missingFor(main, "a5")).toEqual([]);
+    expect(missingFor(main, "a6")).toEqual(["to"]);
+  });
+
+  it("surfaces normal Setup Needed states on the companion templates", () => {
+    expect(missingFor(docs, "a1")).toEqual([]);
+    // searchText stays hidden until insertLocation selects a text-anchored mode.
+    expect(missingFor(docs, "a2")).toEqual(["insertLocation"]);
+    expect(missingFor(docs, "a3")).toEqual([]);
+    expect(missingFor(docs, "a4")).toEqual(["sendNotification"]);
+
+    expect(missingFor(analytics, "a1")).toEqual(["dateRange", "metrics", "propertyId"]);
+    expect(missingFor(analytics, "a2")).toEqual(["metrics", "propertyId"]);
+    expect(missingFor(analytics, "a3")).toEqual(["conversionEventName", "propertyId"]);
+    expect(missingFor(analytics, "a4")).toEqual(["propertyId"]);
   });
 
   it("requires no JSON entry and seeds no fake resource id", () => {
-    for (const node of row!.def.nodes) {
-      for (const value of Object.values(node.config)) {
-        const text = JSON.stringify(value);
-        // no hand-authored JSON blobs in a config value.
-        expect(text).not.toMatch(/^"\s*[[{]/);
-        // no uuid / long-hex resource ids, and no email address.
-        expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-        expect(text).not.toMatch(/@/);
+    for (const row of reviewTemplates) {
+      for (const node of row.def.nodes) {
+        for (const value of Object.values(node.config)) {
+          const text = JSON.stringify(value);
+          // No hand-authored JSON blob: a STRING config value must not itself be a JSON object
+          // or array literal. `{{ref}}` expressions start with a brace but are variable
+          // references, not JSON, so they are excluded.
+          for (const leaf of stringLeaves(value)) {
+            const trimmed = leaf.trim();
+            const isExpression = trimmed.startsWith("{{");
+            expect({ leaf, jsonBlob: !isExpression && /^[[{]/.test(trimmed) }).toEqual({
+              leaf,
+              jsonBlob: false,
+            });
+          }
+          expect(text).not.toMatch(
+            /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+          );
+          expect(text).not.toMatch(/@/);
+        }
       }
     }
   });
