@@ -55,6 +55,20 @@ export interface BuilderNodeSetupCardProps {
    * option-recovery copy ("We couldn't load your Typeform forms."). Absent → the slug is humanized.
    */
   readonly providerLabels?: Readonly<Record<string, string>>;
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — the user's own request text, used to shortlist likely options
+   * in a large static catalog (e.g. which Stripe event "payment succeeds" means). Display only:
+   * a suggestion is never preselected, and this is a pure local string match, not a model call.
+   */
+  readonly suggestionQuery?: string;
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — connect a provider through the rail's OAuth popup. When
+   * present, a field blocked by a missing connection offers "Connect <provider>" in place rather
+   * than a link to the Apps page.
+   */
+  readonly onConnectProvider?: (provider: string) => void;
+  /** Provider slug whose connect popup is currently in flight, if any. */
+  readonly connectingProvider?: string | null;
 }
 
 interface ResolvedNode {
@@ -70,6 +84,9 @@ export function BuilderNodeSetupCard({
   onUpdateStep,
   onFieldInteract,
   providerLabels,
+  suggestionQuery,
+  onConnectProvider,
+  connectingProvider,
 }: BuilderNodeSetupCardProps) {
   // Collected values per node, keyed nodeId → fieldName → value. Local + ephemeral until "Update step".
   const [values, setValues] = useState<Record<string, Record<string, unknown>>>({});
@@ -157,6 +174,11 @@ export function BuilderNodeSetupCard({
                     {...(emitFocus ? { onFocus: emitFocus } : {})}
                     {...(openStepEditor ? { onOpenStepEditor: openStepEditor } : {})}
                     openStepEditorTitle={`Open ${target.label} and highlight ${field.label}`}
+                    {...(onConnectProvider
+                      ? { onConnectProvider: () => onConnectProvider(target.provider) }
+                      : {})}
+                    {...(providerLabel ? { connectProviderLabel: providerLabel } : {})}
+                    connecting={connectingProvider === target.provider}
                     testid={`node-setup-${target.nodeId}-${field.name}`}
                   />
                 ) : (
@@ -167,6 +189,7 @@ export function BuilderNodeSetupCard({
                     onChange={handleChange}
                     {...(emitFocus ? { onFocus: emitFocus } : {})}
                     onSubmit={() => handleUpdate({ target, supported, unsupported })}
+                    {...(suggestionQuery ? { suggestionQuery } : {})}
                     testid={`node-setup-${target.nodeId}-${field.name}`}
                   />
                 );

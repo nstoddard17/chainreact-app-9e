@@ -655,7 +655,7 @@ describe("ambiguous Stripe payment → guided Connect then Configure (REACT-AGEN
     ],
   };
 
-  it("applies, connects both apps, then asks the EVENT via checkboxes and the channel via the picker", async () => {
+  it("applies, connects both apps, then asks the EVENT via a searchable selector and the channel via the picker", async () => {
     mockRequest.mockResolvedValue({
       ok: true,
       guidanceText: "Here's the workflow.",
@@ -688,13 +688,17 @@ describe("ambiguous Stripe payment → guided Connect then Configure (REACT-AGEN
     act(() => completeOAuth("slack"));
 
     // Configure — the TRIGGER node comes first: the exact Stripe event is a
-    // structured checkbox group, not a rejection and not raw JSON.
+    // SEARCHABLE selector (REACT-AGENT-PREAPPLY-SETUP-UX-1), not a checkbox wall,
+    // not a rejection and not raw JSON. Nothing is preselected for the user.
     await waitFor(() =>
       expect(screen.getByTestId("guided-build-card")).toHaveAttribute("data-stage", "configuring"),
     );
     const triggerNode = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "stripe")!;
+    const eventField = `node-setup-${triggerNode.id}-enabledEvents`;
+    await screen.findByTestId(`${eventField}-search`);
+    await user.type(screen.getByTestId(`${eventField}-search`), "payment_intent.succeeded");
     await user.click(
-      await screen.findByTestId(`node-setup-${triggerNode.id}-enabledEvents-payment_intent.succeeded`),
+      await screen.findByTestId(`${eventField}-payment_intent.succeeded`),
     );
     await user.click(screen.getByTestId(`node-setup-${triggerNode.id}-update`));
     await waitFor(() => {

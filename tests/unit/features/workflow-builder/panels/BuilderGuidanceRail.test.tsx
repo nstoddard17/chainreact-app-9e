@@ -163,7 +163,7 @@ describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW
     "slack:send_message": [{ name: "text", label: "Message", type: "textarea" as const, required: true }],
   };
 
-  it("renders the setup card in the rail when a preview is shown (with the supported control)", () => {
+  it("renders the compact summary card in the rail when a preview is shown", () => {
     render(
       <BuilderGuidanceRail
         accountId="acct-1"
@@ -171,16 +171,15 @@ describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW
         guidanceEnabled
         previewForSetup={previewForSetup}
         setupFieldsByType={setupFieldsByType}
-        previewConfig={{}}
-        onPreviewConfigChange={() => {}}
         onApplyPreview={() => {}}
       />,
     );
     expect(screen.getByTestId("builder-preview-setup-rail")).toBeInTheDocument();
-    expect(screen.getByTestId("preview-setup-preview-step-2-text")).toBeInTheDocument();
-    // The async `channel` field defers to a compact "choose after Apply" line (no fake dropdown).
+    // REACT-AGENT-PREAPPLY-SETUP-UX-1 — a summary, not a form: the outstanding fields are NAMED,
+    // and neither the text control nor a channel picker renders before Apply.
+    expect(screen.getByTestId("preview-setup-required")).toHaveTextContent("Message");
+    expect(screen.queryByTestId("preview-setup-preview-step-2-text")).not.toBeInTheDocument();
     expect(screen.queryByTestId("preview-setup-preview-step-2-channel")).not.toBeInTheDocument();
-    expect(screen.getByTestId("preview-setup-after-apply")).toHaveTextContent("channel");
     expect(screen.getByTestId("builder-preview-setup-apply")).toBeInTheDocument();
   });
 
@@ -192,8 +191,6 @@ describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW
         guidanceEnabled
         previewForSetup={previewForSetup}
         setupFieldsByType={setupFieldsByType}
-        previewConfig={{}}
-        onPreviewConfigChange={() => {}}
         onApplyPreview={() => {}}
       />,
     );
@@ -213,8 +210,6 @@ describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW
         guidanceEnabled
         previewForSetup={null}
         setupFieldsByType={setupFieldsByType}
-        previewConfig={{}}
-        onPreviewConfigChange={() => {}}
         onApplyPreview={() => {}}
       />,
     );

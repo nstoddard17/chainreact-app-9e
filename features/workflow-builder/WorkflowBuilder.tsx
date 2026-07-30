@@ -72,6 +72,10 @@ import { useRepairLoopStore } from "./state/repairLoopStore";
 import { useRunControls } from "./hooks/useRunControls";
 import { useAgentApplyModeAvailability } from "./hooks/useAgentApplyModeAvailability";
 import { useBuilderReadiness } from "./hooks/useBuilderReadiness";
+import { useConnectionReadiness } from "./hooks/useConnectionReadiness";
+import { useGuidedConnect } from "./hooks/useGuidedConnect";
+import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import { useGuidedBuildSession } from "./hooks/useGuidedBuildSession";
 import { useGuidedBuild } from "./hooks/useGuidedBuild";
 import { useAgentConversationPersistence } from "./hooks/useAgentConversationPersistence";
@@ -887,11 +891,7 @@ export function WorkflowBuilder({
     applyNotice,
     agentSetupIssues,
     reviewSessionToken,
-    previewConfig,
     previewPrefilledConfig,
-    // REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — mapped / ambiguous / missing / waiting / invalid
-    // outcomes for the rail's setup card. Display only; the hook owns the state.
-    previewEnrichment,
     previewDiffGraph,
     configDiff,
     previewRationale,
@@ -902,9 +902,7 @@ export function WorkflowBuilder({
     agentChangesLoading,
     agentChangesError,
     handleShowPreview,
-    handlePreviewConfigChange,
     handleApplyPreview,
-    handleOpenPreviewStepEditor,
     handleApplyAndTest,
     handleKeepAsPreview,
     // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — both are re-exported below wrapped
@@ -1053,6 +1051,36 @@ export function WorkflowBuilder({
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
   });
 
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — connection state for the providers the PREVIEW proposes.
+   *
+   * The pre-apply summary needs to say "Slack connection" is part of the setup ahead, and the live
+   * draft cannot answer that: for a new-workflow sketch the draft is still empty. So the existing
+   * connection brain is asked about a definition synthesised from the preview's own nodes — the
+   * route uses a `draftOverride` only to decide WHICH providers to inspect, never who may inspect
+   * them. Read-only, deterministic, no model call. Skipped entirely when no preview is open.
+   */
+  const previewConnectionDefinition = useMemo<WorkflowDefinition | null>(() => {
+    const nodes = previewOverlay?.preview.nodes ?? [];
+    if (nodes.length === 0) return null;
+    return {
+      nodes: nodes.map((n) => ({
+        id: n.previewId,
+        kind: n.role === "trigger" ? ("trigger" as const) : ("action" as const),
+        provider: n.provider,
+        type: n.type,
+        config: {},
+        position: { x: 0, y: 0 },
+      })),
+      edges: [],
+    };
+  }, [previewOverlay]);
+  const { signal: previewConnection } = useConnectionReadiness({
+    workflowId: workflow.id,
+    definition: previewConnectionDefinition,
+    enabled: !localOnly && !!accountId && previewConnectionDefinition !== null,
+  });
+
   // REACT-AGENT-GUIDED-BUILD-1 — Configure-stage targets: the live draft's
   // nodes with missing required fields, from the SAME validator/grouping the
   // Check-workflow review uses. Recomputed as the user fills fields, so a
@@ -1099,6 +1127,44 @@ export function WorkflowBuilder({
     [workflow.id, router],
   );
 
+  // REACT-AGENT-PREAPPLY-SETUP-UX-1 — ONE OAuth popup controller for the whole guided journey:
+  // the Connect stage's provider cards and any connection-blocked Configure field share it, so a
+  // single popup and a single attempt state back whichever surface the user acts from.
+  const guidedConnect = useGuidedConnect({ onRefreshConnections: refreshConnections });
+
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — the Configure stage's node setup card.
+   *
+   * Same card the Check-workflow review renders, plus the two things only the guided journey knows:
+   *   - the user's own request text, so a large static catalog (which Stripe event?) can offer a
+   *     short list of likely matches instead of a wall of checkboxes. Display only — a suggestion
+   *     is never preselected, and the match is a local string comparison, not a model call.
+   *   - the rail's connect controller, so a field blocked by a missing connection offers "Connect
+   *     <provider>" in place rather than sending the user off to the Apps page mid-journey.
+   */
+  const lastUserRequest = useMemo(() => {
+    for (let i = agentConversation.messages.length - 1; i >= 0; i -= 1) {
+      const m = agentConversation.messages[i]!;
+      if (m.role === "user" && m.text.trim().length > 0) return m.text;
+    }
+    return undefined;
+  }, [agentConversation.messages]);
+
+  const renderGuidedNodeSetup = useCallback(
+    (targets: readonly CheckWorkflowSetupTarget[]) =>
+      renderCheckSetup(targets, {
+        ...(lastUserRequest ? { suggestionQuery: lastUserRequest } : {}),
+        onConnectProvider: guidedConnect.connect,
+        connectingProvider:
+          guidedConnect.attempt &&
+          (guidedConnect.attempt.status === "launching" ||
+            guidedConnect.attempt.status === "waiting")
+            ? guidedConnect.attempt.provider
+            : null,
+      }),
+    [renderCheckSetup, lastUserRequest, guidedConnect],
+  );
+
   // REACT-AGENT-GUIDED-BUILD-1 — the guided card (stage projection + popup
   // connect + rail footer). Deterministic wiring only; no model call, no
   // AI-credit charge on any guided control.
@@ -1110,11 +1176,11 @@ export function WorkflowBuilder({
     workflowState: workflow.state,
     verdict: agentReadiness,
     connection: connectionSignal,
-    refreshConnections,
+    connect: guidedConnect,
     providerLabels,
     onOpenIssues: handleOpenValidation,
     guidedSetupTargets,
-    renderNodeSetup: renderCheckSetup,
+    renderNodeSetup: renderGuidedNodeSetup,
     onTest: handleGuidedTest,
     runError: builderRunControls.runError,
     draftIsDirty,
@@ -1359,15 +1425,12 @@ export function WorkflowBuilder({
             previewForSetup={previewOverlay?.preview ?? null}
             {...(setupFieldsByType ? { setupFieldsByType } : {})}
             {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
-            previewConfig={previewConfig}
             previewPrefilledConfig={previewPrefilledConfig}
-            previewEnrichment={previewEnrichment}
-            onPreviewConfigChange={handlePreviewConfigChange}
+            previewConnection={previewConnection}
             onApplyPreview={handleApplyPreview}
             // REACT-AGENT-RESOLVER-RECOVERY-1 — name providers in option-recovery copy, and give
             // every unresolved preview field a working path into its real step editor.
             providerLabels={providerLabels}
-            onOpenPreviewStepEditor={handleOpenPreviewStepEditor}
             getCheckReviewContext={getCheckReviewContext}
             getCurrentGraphShape={getCurrentGraphShape}
             getCurrentDraft={getCurrentDraft}
@@ -1516,14 +1579,11 @@ export function WorkflowBuilder({
                   previewForSetup={previewOverlay?.preview ?? null}
                   {...(setupFieldsByType ? { setupFieldsByType } : {})}
                   {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
-                  previewConfig={previewConfig}
                   previewPrefilledConfig={previewPrefilledConfig}
-                  previewEnrichment={previewEnrichment}
-                  onPreviewConfigChange={handlePreviewConfigChange}
+                  previewConnection={previewConnection}
                   onApplyPreview={handleApplyPreview}
                   providerLabels={providerLabels}
-                  onOpenPreviewStepEditor={handleOpenPreviewStepEditor}
-                  getCheckReviewContext={getCheckReviewContext}
+                        getCheckReviewContext={getCheckReviewContext}
                   getCurrentGraphShape={getCurrentGraphShape}
                   getCurrentDraft={getCurrentDraft}
                   renderCheckSetup={renderCheckSetup}

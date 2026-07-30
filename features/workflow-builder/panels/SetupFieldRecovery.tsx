@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { OptionsRecoveryDescriptor } from "@/core/workflows/options/optionsRecovery";
 import { reconnectHrefForProvider } from "@/core/workflows/options/optionsRecovery";
 
@@ -13,8 +14,11 @@ import { reconnectHrefForProvider } from "@/core/workflows/options/optionsRecove
  *
  *   - **Try again** — re-issues the SAME request through the existing hook (`useOptionsSource`
  *     → `GET /api/options/[source]`). Shown only when retrying can plausibly succeed.
- *   - **Reconnect <provider>** — a deep link to the account-scoped Apps page. A link, never an
- *     inline OAuth navigation, so the unsaved draft survives.
+ *   - **Connect <provider>** — REACT-AGENT-PREAPPLY-SETUP-UX-1: when the caller can run the rail's
+ *     own OAuth popup (`onConnectProvider`), that is the PRIMARY recovery and the user never leaves
+ *     the rail. Sending someone to the Apps page for an ordinary missing connection abandons the
+ *     guided journey mid-step, so the Apps deep link is kept only as an Advanced fallback — and
+ *     stays primary when no popup handler was supplied (e.g. outside the rail).
  *   - **Open step editor** — supplied by the caller (it owns node selection); the button only
  *     renders when a working handler was passed, so the copy can never promise a path that
  *     doesn't exist.
@@ -55,6 +59,17 @@ export interface SetupFieldRecoveryProps {
   readonly onEnterManualMode?: (() => void) | undefined;
   /** Why manual entry is unavailable, when it is. Shown instead of the manual action. */
   readonly manualUnavailableReason?: string;
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — connect this field's provider through the rail's existing
+   * OAuth popup, returning to the rail automatically. When supplied AND the descriptor is a
+   * connection problem, this becomes the primary action and the Apps deep link moves under
+   * Advanced. Absent → unchanged behaviour (the Apps link stays the reconnect path).
+   */
+  readonly onConnectProvider?: (() => void) | undefined;
+  /** Display name for the connect action ("Connect Slack"). */
+  readonly connectProviderLabel?: string;
+  /** True while a connect popup for this provider is in flight. */
+  readonly connecting?: boolean;
 }
 
 export function SetupFieldRecovery({
@@ -66,8 +81,17 @@ export function SetupFieldRecovery({
   openStepEditorTitle,
   onEnterManualMode,
   manualUnavailableReason,
+  onConnectProvider,
+  connectProviderLabel,
+  connecting,
 }: SetupFieldRecoveryProps) {
   const showManual = descriptor.canEnterManually && onEnterManualMode !== undefined;
+  // An in-rail connect is only meaningful when the problem IS the connection.
+  const canConnectInRail = descriptor.canReconnect && onConnectProvider !== undefined;
+  // Advanced holds the escape hatches: leaving for the Apps page, and typing a raw
+  // provider ID. Both are legitimate; neither is what an ordinary user reaches for first.
+  const hasAdvanced = canConnectInRail || showManual;
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   return (
     <div
       data-testid={`${testid}-error`}
@@ -83,6 +107,21 @@ export function SetupFieldRecovery({
         </div>
       ) : null}
 
+      {/* Primary recovery for a connection problem: connect right here, in the rail. */}
+      {canConnectInRail && (
+        <button
+          type="button"
+          data-testid={`${testid}-connect`}
+          onClick={onConnectProvider}
+          disabled={connecting === true}
+          className="mt-1 rounded-md px-2.5 py-1 text-[11.5px] font-semibold text-white disabled:opacity-60"
+          style={{ background: "var(--builder-accent)", border: "1px solid var(--builder-accent)" }}
+          title={`Connect ${connectProviderLabel ?? "this app"} in a popup window — you'll come right back here`}
+        >
+          {connecting === true ? "Waiting…" : `Connect ${connectProviderLabel ?? "app"}`}
+        </button>
+      )}
+
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         {descriptor.canRetry && (
           <button
@@ -95,7 +134,8 @@ export function SetupFieldRecovery({
             Try again
           </button>
         )}
-        {descriptor.canReconnect && (
+        {/* No popup handler (outside the rail) → the Apps link remains the primary path. */}
+        {descriptor.canReconnect && !canConnectInRail && (
           <a
             data-testid={`${testid}-reconnect`}
             href={reconnectHrefForProvider(descriptor.reconnectProvider)}
@@ -117,18 +157,52 @@ export function SetupFieldRecovery({
             {openStepEditorLabel ?? "Open step editor"}
           </button>
         )}
-        {showManual && (
+      </div>
+
+      {/* Advanced: the Apps page and hand-typed provider IDs. Present but never
+          the first thing offered — see the note on `hasAdvanced` above. */}
+      {hasAdvanced ? (
+        <div className="mt-1">
           <button
             type="button"
-            data-testid={`${testid}-manual-toggle`}
-            onClick={onEnterManualMode}
+            data-testid={`${testid}-advanced-toggle`}
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
             className="underline"
-            style={actionStyle}
+            style={{ color: "var(--builder-muted)" }}
           >
-            Enter ID manually
+            {advancedOpen ? "Hide advanced" : "Advanced"}
           </button>
-        )}
-      </div>
+          {advancedOpen ? (
+            <div
+              data-testid={`${testid}-advanced`}
+              className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"
+            >
+              {canConnectInRail && (
+                <a
+                  data-testid={`${testid}-reconnect`}
+                  href={reconnectHrefForProvider(descriptor.reconnectProvider)}
+                  className="underline"
+                  style={actionStyle}
+                >
+                  Reconnect in Apps
+                </a>
+              )}
+              {showManual && (
+                <button
+                  type="button"
+                  data-testid={`${testid}-manual-toggle`}
+                  onClick={onEnterManualMode}
+                  className="underline"
+                  style={actionStyle}
+                >
+                  Enter ID manually
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {!showManual && manualUnavailableReason ? (
         <div

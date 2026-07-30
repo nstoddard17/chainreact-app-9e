@@ -7,8 +7,15 @@ import {
   validateManualOptionId,
   type OptionsRecoveryErrorCode,
 } from "@/core/workflows/options/optionsRecovery";
+import {
+  filterOptions,
+  suggestOptionMatches,
+} from "@/core/workflows/options/optionSuggestions";
 import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
 import { SetupFieldRecovery } from "./SetupFieldRecovery";
+
+/** How many filtered rows the searchable multi-select shows at once. */
+const MULTI_SELECT_VISIBLE_LIMIT = 12;
 
 /**
  * Shared guided-setup field controls (BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP).
@@ -75,6 +82,9 @@ export function SetupAsyncSelectControl({
   onOpenStepEditor,
   openStepEditorLabel,
   openStepEditorTitle,
+  onConnectProvider,
+  connectProviderLabel,
+  connecting,
   testid,
 }: {
   field: PreviewSetupField;
@@ -93,6 +103,14 @@ export function SetupAsyncSelectControl({
   onOpenStepEditor?: () => void;
   openStepEditorLabel?: string;
   openStepEditorTitle?: string;
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — connect this field's provider through the rail's OAuth popup.
+   * Supplied inside the React rail so a missing connection is fixed in place instead of sending the
+   * user to the Apps page mid-journey.
+   */
+  onConnectProvider?: () => void;
+  connectProviderLabel?: string;
+  connecting?: boolean;
   testid: string;
 }) {
   const strValue = typeof value === "string" ? value : "";
@@ -255,6 +273,9 @@ export function SetupAsyncSelectControl({
           testid={testid}
           onRetry={refetch}
           onOpenStepEditor={onOpenStepEditor}
+          {...(onConnectProvider ? { onConnectProvider } : {})}
+          {...(connectProviderLabel ? { connectProviderLabel } : {})}
+          {...(connecting !== undefined ? { connecting } : {})}
           {...(openStepEditorLabel ? { openStepEditorLabel } : {})}
           {...(openStepEditorTitle ? { openStepEditorTitle } : {})}
           {...(descriptor.canEnterManually
@@ -305,6 +326,141 @@ export function SetupAsyncSelectControl({
   );
 }
 
+/**
+ * REACT-AGENT-PREAPPLY-SETUP-UX-1 — searchable multi-select for a large static
+ * catalog.
+ *
+ * Stripe exposes dozens of events. Rendering them all as checkboxes made the
+ * rail an unreadable wall and pushed every other control off-screen. Choosing
+ * one for the user is worse: the trigger event decides what the workflow
+ * responds to, so a wrong guess is a silently wrong workflow.
+ *
+ * So: nothing is preselected, a shortlist of likely matches is offered when the
+ * user's own wording supports it, and everything else is reachable by typing.
+ * The full list is never dumped — it is capped and scrolls within itself, with
+ * an honest count of what the filter is hiding. Multi-select is preserved:
+ * triggers that legitimately watch several events still can.
+ */
+export function SetupMultiSelectControl({
+  field,
+  value,
+  onChange,
+  onFocus,
+  suggestionQuery,
+  testid,
+}: {
+  field: PreviewSetupField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  onFocus?: () => void;
+  /** The user's own request text, for the deterministic shortlist. */
+  suggestionQuery?: string;
+  testid: string;
+}) {
+  const [search, setSearch] = useState("");
+  const options = field.options ?? [];
+  const selected = new Set(
+    Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [],
+  );
+
+  const toggle = (optionValue: string, checked: boolean) => {
+    const next = new Set(selected);
+    if (checked) next.add(optionValue);
+    else next.delete(optionValue);
+    onChange([...next]);
+  };
+
+  const suggestedValues = suggestionQuery
+    ? suggestOptionMatches({ query: suggestionQuery, options })
+    : [];
+  const suggested = suggestedValues
+    .map((v) => options.find((o) => o.value === v))
+    .filter((o): o is NonNullable<typeof o> => o !== undefined)
+    // A suggestion the user already accepted is just a selection now.
+    .filter((o) => !selected.has(o.value));
+
+  const searching = search.trim().length > 0;
+  const filtered = filterOptions(options, search);
+  // Unsearched, the list stays short: what's already chosen, plus the shortlist.
+  // Everything else is one keystroke away rather than 60 rows away.
+  const visible = searching
+    ? filtered.slice(0, MULTI_SELECT_VISIBLE_LIMIT)
+    : options.filter((o) => selected.has(o.value));
+  const hiddenCount = searching
+    ? Math.max(0, filtered.length - visible.length)
+    : Math.max(0, options.length - visible.length - suggested.length);
+
+  const row = (o: { value: string; label: string }, group: string) => (
+    <label
+      key={`${group}:${o.value}`}
+      className="flex items-center gap-2 text-[11.5px]"
+      style={{ color: "var(--builder-text)" }}
+    >
+      <input
+        type="checkbox"
+        data-testid={`${testid}-${o.value}`}
+        checked={selected.has(o.value)}
+        onChange={(e) => toggle(o.value, e.target.checked)}
+        {...(onFocus ? { onFocus } : {})}
+      />
+      {o.label}
+    </label>
+  );
+
+  return (
+    <fieldset className="mt-1.5 text-[11px]" data-testid={testid} aria-label={field.label}>
+      <legend className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
+        {field.label}
+        {selected.size > 0 ? (
+          <span data-testid={`${testid}-selected-count`}>{` — ${selected.size} selected`}</span>
+        ) : null}
+      </legend>
+
+      <input
+        type="search"
+        data-testid={`${testid}-search`}
+        aria-label={`Search ${field.label}`}
+        value={search}
+        placeholder={`Search ${options.length} options…`}
+        onChange={(e) => setSearch(e.target.value)}
+        {...(onFocus ? { onFocus } : {})}
+        className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
+        style={inputStyle}
+      />
+
+      {!searching && suggested.length > 0 ? (
+        <div className="mt-1" data-testid={`${testid}-suggested`}>
+          <div className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            Suggested from your request — confirm the one you want:
+          </div>
+          <div className="mt-0.5 space-y-0.5">{suggested.map((o) => row(o, "suggested"))}</div>
+        </div>
+      ) : null}
+
+      {visible.length > 0 ? (
+        <div
+          className="mt-1 max-h-40 space-y-0.5 overflow-y-auto"
+          data-testid={`${testid}-options`}
+        >
+          {visible.map((o) => row(o, "list"))}
+        </div>
+      ) : null}
+
+      {searching && filtered.length === 0 ? (
+        <div className="mt-1 text-[10.5px]" data-testid={`${testid}-no-matches`} style={{ color: "var(--builder-muted)" }}>
+          No options match “{search.trim()}”.
+        </div>
+      ) : hiddenCount > 0 ? (
+        <div className="mt-1 text-[10.5px]" data-testid={`${testid}-hidden-count`} style={{ color: "var(--builder-muted)" }}>
+          {searching
+            ? `${hiddenCount} more match — keep typing to narrow it down.`
+            : `Type to search ${hiddenCount} more.`}
+        </div>
+      ) : null}
+    </fieldset>
+  );
+}
+
 /** One guided-setup control for a supported non-async field. Native primitives; value flows via onChange. */
 export function SetupFieldControl({
   field,
@@ -312,6 +468,7 @@ export function SetupFieldControl({
   onChange,
   onFocus,
   onSubmit,
+  suggestionQuery,
   testid,
 }: {
   field: PreviewSetupField;
@@ -321,6 +478,8 @@ export function SetupFieldControl({
   onFocus?: () => void;
   /** Optional: Enter submits the setup action (text/number/textarea only; Shift+Enter = newline). */
   onSubmit?: () => void;
+  /** Optional: the user's own request text, used for the multi-select shortlist. */
+  suggestionQuery?: string;
   testid: string;
 }) {
   const strValue = typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
@@ -342,42 +501,18 @@ export function SetupFieldControl({
     );
   }
 
-  // REACT-AGENT-AMBIGUOUS-TRIGGER-1 — bounded checkbox group for a static multi-select (e.g. the
-  // Stripe `enabledEvents` event choice). Value is a string array; toggling emits the new array.
+  // REACT-AGENT-AMBIGUOUS-TRIGGER-1 / REACT-AGENT-PREAPPLY-SETUP-UX-1 — searchable
+  // multi-select for a large static catalog (e.g. Stripe `enabledEvents`).
   if (field.type === "multi-select") {
-    const selected = new Set(
-      Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [],
-    );
-    const toggle = (optionValue: string, checked: boolean) => {
-      const next = new Set(selected);
-      if (checked) next.add(optionValue);
-      else next.delete(optionValue);
-      onChange([...next]);
-    };
     return (
-      <fieldset className="mt-1.5 text-[11px]" data-testid={testid} aria-label={field.label}>
-        <legend className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
-          {field.label}
-        </legend>
-        <div className="mt-0.5 space-y-0.5">
-          {field.options?.map((o) => (
-            <label
-              key={o.value}
-              className="flex items-center gap-2 text-[11.5px]"
-              style={{ color: "var(--builder-text)" }}
-            >
-              <input
-                type="checkbox"
-                data-testid={`${testid}-${o.value}`}
-                checked={selected.has(o.value)}
-                onChange={(e) => toggle(o.value, e.target.checked)}
-                {...focusProp}
-              />
-              {o.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <SetupMultiSelectControl
+        field={field}
+        value={value}
+        onChange={onChange}
+        {...(onFocus ? { onFocus } : {})}
+        {...(suggestionQuery ? { suggestionQuery } : {})}
+        testid={testid}
+      />
     );
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { AgentConnectionSignal } from "@/core/workflows/agentReadiness";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
@@ -16,10 +17,7 @@ import {
 } from "@/features/workflows/WorkflowGuidancePanel";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
 import type { GuidanceConversation } from "@/features/workflows/useGuidanceConversation";
-import {
-  BuilderPreviewSetupCard,
-  type BuilderPreviewSetupCardProps,
-} from "./BuilderPreviewSetupCard";
+import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
 
 /**
  * Builder left-rail AI assistant — Hermes Agent workflow guidance
@@ -83,18 +81,8 @@ export interface BuilderGuidanceRailProps {
    * card title-cases the type key itself (the shared `getNodeDisplayName` fallback).
    */
   readonly nodeDisplayNames?: Readonly<Record<string, string>>;
-  /** Ephemeral guided-setup values (previewId → field → value). Owned by `WorkflowBuilder`. */
-  readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** REACT-CONFIG-COVERAGE-1 — user-request plan-config values (previewId → field → value) for display. */
   readonly previewPrefilledConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
-  /** Record one ephemeral setup value. Preview-only — never mutates the real draft before Apply. */
-  readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
-  /**
-   * REACT-AGENT-PREVIEW-PROVENANCE-CLOSEOUT-1 — the preview-enrichment outcome from
-   * `useBuilderPreview`, forwarded verbatim so the setup card can show which fields were mapped
-   * automatically and which still need the user. Absent → the card renders as before.
-   */
-  readonly previewEnrichment?: BuilderPreviewSetupCardProps["enrichment"];
   /** The existing explicit "Apply preview" action — seeds previewConfig into the new draft nodes. */
   readonly onApplyPreview?: () => void;
   /**
@@ -103,11 +91,12 @@ export interface BuilderGuidanceRailProps {
    */
   readonly providerLabels?: Readonly<Record<string, string>>;
   /**
-   * REACT-AGENT-RESOLVER-RECOVERY-1 — the setup card's escape hatch for a preview field whose
-   * options cannot load: apply this preview to the local draft (seeding everything already entered)
-   * and open the resulting node's config panel focused on that field. Absent → not offered.
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — the pre-apply "open the step editor" escape hatch is GONE.
+   * A preview node does not exist yet, so the only way to open its editor was to apply the preview
+   * first — which made an escape hatch out of the very action it was meant to defer. Applying is
+   * now the plain primary button, and the step editor returns as a secondary action during
+   * Configure, where the node is real. See `renderCheckSetup`.
    */
-  readonly onOpenPreviewStepEditor?: (previewId: string, fieldName: string) => void;
   /**
    * BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — getter for the current DETERMINISTIC validation snapshot
    * (the builder computes it from the same validator that drives the header pill / validation drawer).
@@ -168,6 +157,12 @@ export interface BuilderGuidanceRailProps {
    * verbatim so the rail stays presentation.
    */
   readonly reconcileRestoredPreview?: WorkflowGuidancePanelProps["reconcileRestoredPreview"];
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — server-resolved connection state for the providers the
+   * PREVIEW uses, so the pre-apply summary can name a connection that will be needed. It never
+   * renders a connect control here: connecting belongs to the Connect stage, after Apply.
+   */
+  readonly previewConnection?: AgentConnectionSignal;
 }
 
 export function BuilderGuidanceRail({
@@ -179,13 +174,9 @@ export function BuilderGuidanceRail({
   previewForSetup,
   setupFieldsByType,
   nodeDisplayNames,
-  previewConfig,
   previewPrefilledConfig,
-  onPreviewConfigChange,
-  previewEnrichment,
   onApplyPreview,
   providerLabels,
-  onOpenPreviewStepEditor,
   getCheckReviewContext,
   getCurrentGraphShape,
   renderCheckSetup,
@@ -195,6 +186,7 @@ export function BuilderGuidanceRail({
   hideComposer,
   guidedFooter,
   reconcileRestoredPreview,
+  previewConnection,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -218,7 +210,11 @@ export function BuilderGuidanceRail({
               The builder workflowId + the canvas-preview hook are the only builder-specific wiring.
               HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — the guided-setup card is passed as the transcript
               FOOTER so it renders INSIDE the scrollable chat (after the latest response), and the panel's
-              composer stays pinned at the bottom. It is NOT a sibling below the composer. */}
+              composer stays pinned at the bottom. It is NOT a sibling below the composer.
+              REACT-AGENT-PREAPPLY-SETUP-UX-1 — that footer card is now a SUMMARY, so it takes only
+              the preview, labels and the connection signal. previewConfig / enrichment / the
+              step-editor handler are deliberately no longer passed: it renders no controls, no
+              resolver state and no recovery actions before Apply. */}
           <WorkflowGuidancePanel
             accountId={accountId!}
             workflowId={workflowId}
@@ -233,21 +229,17 @@ export function BuilderGuidanceRail({
             {...(hideComposer ? { hideComposer } : {})}
             {...(reconcileRestoredPreview ? { reconcileRestoredPreview } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
-            {...(previewForSetup && onPreviewConfigChange && onApplyPreview
+            {...(previewForSetup && onApplyPreview
               ? {
                   transcriptFooter: (
                     <BuilderPreviewSetupCard
                       preview={previewForSetup}
                       {...(setupFieldsByType ? { setupFieldsByType } : {})}
                       {...(nodeDisplayNames ? { nodeDisplayNames } : {})}
-                      {...(previewConfig ? { previewConfig } : {})}
                       {...(previewPrefilledConfig ? { prefilledConfig: previewPrefilledConfig } : {})}
-                      {...(previewEnrichment ? { enrichment: previewEnrichment } : {})}
-                      onPreviewConfigChange={onPreviewConfigChange}
+                      {...(previewConnection ? { connection: previewConnection } : {})}
                       onApply={onApplyPreview}
-                      workflowId={workflowId}
                       {...(providerLabels ? { providerLabels } : {})}
-                      {...(onOpenPreviewStepEditor ? { onOpenStepEditor: onOpenPreviewStepEditor } : {})}
                     />
                   ),
                 }

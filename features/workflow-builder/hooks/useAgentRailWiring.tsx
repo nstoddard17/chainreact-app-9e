@@ -49,7 +49,23 @@ export interface AgentRailWiring {
    * own data; the SERVER redacts secrets before the model.
    */
   readonly getCurrentDraft: () => WorkflowDefinition;
-  readonly renderCheckSetup: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
+  /**
+   * Render the existing-node setup card for these targets.
+   *
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — `options` carries what only the guided
+   * Configure stage knows: the user's own request text (to shortlist likely
+   * choices in a large catalog) and the rail's connect controller (so a field
+   * blocked by a missing connection is fixed in the rail, not on the Apps page).
+   * Omitted by the Check-workflow review, which has neither.
+   */
+  readonly renderCheckSetup: (
+    targets: readonly CheckWorkflowSetupTarget[],
+    options?: {
+      readonly suggestionQuery?: string;
+      readonly onConnectProvider?: (provider: string) => void;
+      readonly connectingProvider?: string | null;
+    },
+  ) => ReactNode;
 }
 
 export function useAgentRailWiring({
@@ -104,7 +120,14 @@ export function useAgentRailWiring({
   }, []);
 
   const renderCheckSetup = useCallback(
-    (targets: readonly CheckWorkflowSetupTarget[]) => (
+    (
+      targets: readonly CheckWorkflowSetupTarget[],
+      options?: {
+        readonly suggestionQuery?: string;
+        readonly onConnectProvider?: (provider: string) => void;
+        readonly connectingProvider?: string | null;
+      },
+    ) => (
       <BuilderNodeSetupCard
         nodes={targets}
         {...(setupFieldsByType ? { setupFieldsByType } : {})}
@@ -113,6 +136,11 @@ export function useAgentRailWiring({
         onFieldInteract={handleSetupFieldReveal}
         // REACT-AGENT-RESOLVER-RECOVERY-1 — name the provider in option-recovery copy.
         providerLabels={providerLabels}
+        {...(options?.suggestionQuery ? { suggestionQuery: options.suggestionQuery } : {})}
+        {...(options?.onConnectProvider ? { onConnectProvider: options.onConnectProvider } : {})}
+        {...(options?.connectingProvider !== undefined
+          ? { connectingProvider: options.connectingProvider }
+          : {})}
       />
     ),
     [setupFieldsByType, workflowId, handleUpdateStepSetup, handleSetupFieldReveal, providerLabels],

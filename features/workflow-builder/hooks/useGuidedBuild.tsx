@@ -10,13 +10,13 @@ import {
   type GuidedBuildSnapshot,
 } from "@/core/workflows/guidedBuildStage";
 import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
+import type { GuidedConnectController } from "./useGuidedConnect";
 import { GuidedBuildCard } from "../panels/GuidedBuildCard";
 import { GuidedConfigureSection } from "../panels/GuidedConfigureSection";
 import {
   GuidedActivateSection,
   GuidedTestSection,
 } from "../panels/GuidedTestActivateSections";
-import { useGuidedConnect } from "./useGuidedConnect";
 
 /**
  * REACT-AGENT-GUIDED-BUILD-1 — builder wiring for the guided build card
@@ -38,7 +38,13 @@ export interface UseGuidedBuildInput {
   readonly workflowState: string;
   readonly verdict: AgentReadinessVerdict;
   readonly connection: AgentConnectionSignal;
-  readonly refreshConnections: () => void;
+  /**
+   * REACT-AGENT-PREAPPLY-SETUP-UX-1 — the OAuth popup controller, now owned by the BUILDER rather
+   * than created here. The Configure stage's setup fields offer their own in-place "Connect
+   * <provider>" for a connection-blocked option list, and two controllers would mean two competing
+   * popups and two attempt states for one user action.
+   */
+  readonly connect: GuidedConnectController;
   readonly providerLabels?: Readonly<Record<string, string>>;
   /** Open the issues rail (detailed secondary surface). */
   readonly onOpenIssues?: () => void;
@@ -78,7 +84,7 @@ export function useGuidedBuild(input: UseGuidedBuildInput): GuidedBuildWiring {
     workflowState,
     verdict,
     connection,
-    refreshConnections,
+    connect,
     providerLabels,
     onOpenIssues,
     guidedSetupTargets,
@@ -100,8 +106,6 @@ export function useGuidedBuild(input: UseGuidedBuildInput): GuidedBuildWiring {
       }),
     [previewReviewActive, sessionActive, localOnly, workflowState, verdict, connection],
   );
-
-  const connect = useGuidedConnect({ onRefreshConnections: refreshConnections });
 
   // Configure-stage body: the existing node setup card, one node at a time.
   const configureSection =
