@@ -1,6 +1,10 @@
 # Explicit layout S4 — editor integration (ANALYTICS-EXPLICIT-LAYOUT-S4-EDITOR-INTEGRATION-1)
 
 **Status:** implemented locally. **NOT deployable — see §11.**
+
+> **§11's blocker is closed by S5** — responsive projection is implemented in
+> [`analytics-explicit-layout-s5-responsive-projection.md`](./analytics-explicit-layout-s5-responsive-projection.md).
+> Everything else below stands as the historical S4 result.
 **Date:** 2026-07-29
 **Production baseline:** compatibility reader live at `a675a14000a03c7c988e930401366228f53b40a2`
 **Preceded by:** [audit](./analytics-edit-mode-layout-audit.md) · S1 `0343e7065` ·

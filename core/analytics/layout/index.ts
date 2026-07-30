@@ -35,6 +35,13 @@ export {
 } from "./geometry";
 
 export { validateLayout } from "./validateLayout";
+export {
+  ANALYTICS_CANONICAL_MIN_WIDTH_PX,
+  ANALYTICS_MIN_CELL_WIDTH_PX,
+  columnsForContainerWidth,
+  projectLayoutToColumns,
+  type AnalyticsColumnCount,
+} from "./project";
 export { findFirstAvailableRect } from "./findFirstAvailableRect";
 export { placeWidget } from "./placeWidget";
 export { resizeWidget, resizeWidgetToFootprint } from "./resizeWidget";

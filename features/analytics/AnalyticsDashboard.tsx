@@ -42,7 +42,11 @@ import { useExplicitDragSession } from "./grid/useExplicitDragSession";
 import * as edit from "./grid/layoutEditState";
 import type { LayoutEditState } from "./grid/layoutEditState";
 import { SIZE_OPTIONS } from "./Widget";
-import { normalizeDashboardWidgets } from "@/core/analytics/layout";
+import {
+  ANALYTICS_CANONICAL_MIN_WIDTH_PX,
+  normalizeDashboardWidgets,
+} from "@/core/analytics/layout";
+import { useProjectedLayout, useResponsiveGrid } from "./grid/useResponsiveGrid";
 import { DashboardConfirmDialog, DashboardNameDialog } from "./DashboardDialogs";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 
@@ -58,6 +62,14 @@ import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
  * Every value rendered comes from real account-scoped aggregates; there are no
  * fake controls (Share / scheduled refresh / filters are deferred, documented).
  */
+
+/**
+ * Shown when the grid container cannot display all four canonical columns. The
+ * dashboard is fine — only REARRANGING it needs the full width, because the
+ * coordinates being edited are canonical ones and a narrow projection is not
+ * something you can drag in and convert back.
+ */
+const NARROW_EDIT_HINT = "Use a wider window to rearrange this dashboard.";
 
 interface Props {
   accountName: string;
@@ -187,6 +199,15 @@ export function AnalyticsDashboard({
   /** What the grid draws: the live preview while dragging, else working/saved. */
   const renderedLayout =
     previewLayout ?? (editing && session ? session.workingLayout : committed.effectiveLayout);
+
+  /**
+   * Responsive projection (S5). The container decides how many columns can be
+   * shown; an open edit session pins it to canonical so the board cannot move
+   * under the pointer. The projection is derived on render and never persisted.
+   */
+  const responsive = useResponsiveGrid({ containerRef: gridRef, editing });
+  const projectedLayout = useProjectedLayout(renderedLayout, responsive.renderColumnCount);
+  const canEditLayout = responsive.layoutEditingAvailable;
 
   const configuringWidget = configuringId
     ? widgets.find((w) => w.id === configuringId) ?? null
@@ -548,7 +569,8 @@ export function AnalyticsDashboard({
                 " hover:brightness-105 disabled:opacity-60"
               }
               onClick={() => (editing ? void doneEditing() : startEditing())}
-              disabled={saving || !active}
+              disabled={saving || !active || (!editing && !canEditLayout)}
+              {...(!editing && !canEditLayout ? { title: NARROW_EDIT_HINT } : {})}
             >
               {editing ? (
                 <>
@@ -673,10 +695,40 @@ export function AnalyticsDashboard({
           onEdit={startEditing}
         />
       ) : (
-        <div ref={gridRef}>
+        <div
+          ref={gridRef}
+          data-testid="analytics-grid-surface"
+          className={responsive.isCanonicalEditLocked ? "overflow-x-auto" : ""}
+        >
+          {!editing && !canEditLayout && (
+            <p
+              data-testid="analytics-narrow-edit-notice"
+              className="mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+            >
+              {NARROW_EDIT_HINT}
+            </p>
+          )}
+          {responsive.isCanonicalEditLocked && (
+            <p
+              data-testid="analytics-canonical-lock-notice"
+              className="mb-3 rounded-lg border border-primary/40 bg-primary/[0.06] px-3 py-2 text-xs text-foreground/80"
+            >
+              Your full four-column layout stays on screen while you edit — scroll sideways to
+              reach the rest of it.
+            </p>
+          )}
+          <div
+            style={
+              responsive.isCanonicalEditLocked
+                ? { minWidth: ANALYTICS_CANONICAL_MIN_WIDTH_PX }
+                : undefined
+            }
+          >
           <AnalyticsExplicitGrid
             widgets={widgets}
             layout={renderedLayout}
+            renderColumnCount={responsive.renderColumnCount}
+            {...(projectedLayout ? { renderLayout: projectedLayout } : {})}
             {...(editing && placeholder
               ? { placeholder: { ...placeholder, ...(draggingId ? { widgetId: draggingId } : {}) } }
               : {})}
@@ -728,6 +780,7 @@ export function AnalyticsDashboard({
               </Widget>
             )}
           />
+          </div>
           {editing && (
             <button
               type="button"

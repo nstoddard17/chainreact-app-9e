@@ -235,3 +235,144 @@ test.describe("cancellation", () => {
     await page.mouse.up();
   });
 });
+
+/**
+ * Responsive projection (ANALYTICS-EXPLICIT-LAYOUT-S5-RESPONSIVE-PROJECTION-1).
+ *
+ * One layout is persisted; narrow screens get a derived picture. These cases
+ * prove the browser really repacks, that the canonical rectangles survive the
+ * round trip, and that a resize never turns into a save.
+ */
+
+/**
+ * Resize the window until the GRID CONTAINER is wide enough for `columns`.
+ *
+ * The viewport is not the container — the harness's sidebar spacer and the
+ * page's padding sit between them — so the chrome width is MEASURED once and
+ * the target viewport derived from it, rather than guessed.
+ */
+const MIN_CELL = 220;
+const gridColumns = (page: Page) =>
+  page
+    .getByTestId("analytics-explicit-grid")
+    .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+
+async function useColumns(page: Page, columns: 1 | 2 | 3 | 4) {
+  const probeViewport = 1600;
+  await page.setViewportSize({ width: probeViewport, height: 1200 });
+  const gridWidth = (await box(page.getByTestId("analytics-explicit-grid"))).width;
+  const chrome = probeViewport - gridWidth;
+  // The narrowest container that still shows `columns`, plus a little slack.
+  const wantedGrid = columns * MIN_CELL + (columns - 1) * GAP + 8;
+  await page.setViewportSize({ width: Math.round(wantedGrid + chrome), height: 1200 });
+  await expect.poll(() => gridColumns(page)).toBe(columns);
+}
+
+async function canonicalRect(page: Page, id: string): Promise<string> {
+  const el = cell(page, id);
+  const [x, y, w, h] = await Promise.all([
+    el.getAttribute("data-canonical-x"),
+    el.getAttribute("data-canonical-y"),
+    el.getAttribute("data-canonical-w"),
+    el.getAttribute("data-canonical-h"),
+  ]);
+  return `${x},${y},${w},${h}`;
+}
+
+const ALL_WIDGETS = ["w-alpha", "w-bravo", "w-delta", "w-charlie", "w-echo"];
+
+test.describe("responsive projection", () => {
+  test("four columns keeps the canonical board and its deliberate gap", async ({ page }) => {
+    await useColumns(page, 4);
+    expect(await rect(page, "w-echo")).toBe("2,1,2,2");
+    const alpha = await box(cell(page, "w-alpha"));
+    const occupant = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x as number, y as number);
+        return el?.closest("[data-widget-id]")?.getAttribute("data-widget-id") ?? null;
+      },
+      [alpha.x + 2 * (alpha.width + GAP) + alpha.width / 2, alpha.y + ROW / 2],
+    );
+    expect(occupant).toBeNull();
+    await expect(page.getByRole("button", { name: /Edit dashboard/i })).toBeEnabled();
+  });
+
+  test("three columns repacks, keeps every widget and disables editing", async ({ page }) => {
+    await useColumns(page, 3);
+    for (const id of ALL_WIDGETS) await expect(cell(page, id)).toBeVisible();
+    // The 2-wide Charlie still fits; Echo keeps its two-row height.
+    expect(await rect(page, "w-echo")).toMatch(/,2,2$/);
+    await expect(page.getByRole("button", { name: /Edit dashboard/i })).toBeDisabled();
+    await expect(page.getByTestId("analytics-widget-drag-handle-w-alpha")).toHaveCount(0);
+    await expect(placeholder(page)).toHaveCount(0);
+  });
+
+  test("two columns clamps wide widgets and keeps the 2×2 two rows tall", async ({ page }) => {
+    await useColumns(page, 2);
+    for (const id of ALL_WIDGETS) await expect(cell(page, id)).toBeVisible();
+    const echo = await box(cell(page, "w-echo"));
+    expect(Math.round(echo.height)).toBe(ROW * 2 + GAP);
+    const charlie = await box(cell(page, "w-charlie"));
+    const grid = await box(page.getByTestId("analytics-explicit-grid"));
+    expect(Math.round(charlie.width)).toBe(Math.round(grid.width));
+    await expect(page.getByRole("button", { name: /Edit dashboard/i })).toBeDisabled();
+  });
+
+  test("one column stacks everything full width, in canonical reading order", async ({ page }) => {
+    await useColumns(page, 1);
+    const grid = await box(page.getByTestId("analytics-explicit-grid"));
+    for (const id of ALL_WIDGETS) {
+      const b = await box(cell(page, id));
+      expect(Math.round(b.width)).toBe(Math.round(grid.width));
+    }
+    expect(Math.round((await box(cell(page, "w-echo"))).height)).toBe(ROW * 2 + GAP);
+    const order = await page
+      .locator("[data-testid^='analytics-grid-cell-']")
+      .evaluateAll((els) => els.map((el) => el.getAttribute("data-widget-id")));
+    expect(order).toEqual(["w-alpha", "w-bravo", "w-delta", "w-charlie", "w-echo"]);
+    // No sideways scrolling of the BOARD in ordinary view mode. Scoped to the
+    // grid surface: the harness wraps the page in a fixed-width sidebar
+    // stand-in, so document-level overflow is the fixture's, not the product's.
+    const surfaceOverflow = await page
+      .getByTestId("analytics-grid-surface")
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(surfaceOverflow).toBeLessThanOrEqual(1);
+  });
+
+  test("narrowing and widening restores every canonical rectangle, with no save", async ({
+    page,
+  }) => {
+    const saves: string[] = [];
+    await page.route("**/api/analytics/**", (route) => {
+      if (route.request().method() !== "GET") saves.push(route.request().method());
+      return route.continue();
+    });
+    await useColumns(page, 4);
+    const before = await Promise.all(ALL_WIDGETS.map((id) => rect(page, id)));
+    await useColumns(page, 2);
+    expect(await Promise.all(ALL_WIDGETS.map((id) => canonicalRect(page, id)))).toEqual(before);
+    await useColumns(page, 4);
+    expect(await Promise.all(ALL_WIDGETS.map((id) => rect(page, id)))).toEqual(before);
+    expect(saves).toEqual([]);
+  });
+
+  test("an open edit session stays canonical while the window narrows", async ({ page }) => {
+    await useColumns(page, 4);
+    await enterEdit(page);
+    const before = await Promise.all(ALL_WIDGETS.map((id) => rect(page, id)));
+
+    await page.setViewportSize({ width: 700, height: 1200 });
+    // Still four columns — the board must not move under the pointer.
+    await expect.poll(() => gridColumns(page)).toBe(4);
+    expect(await Promise.all(ALL_WIDGETS.map((id) => rect(page, id)))).toEqual(before);
+    await expect(page.getByTestId("analytics-canonical-lock-notice")).toBeVisible();
+    const overflowX = await page
+      .getByTestId("analytics-grid-surface")
+      .evaluate((el) => getComputedStyle(el).overflowX);
+    expect(overflowX).toBe("auto");
+
+    await page.getByTestId("analytics-cancel-editing").click();
+    // Responsive projection resumes once the session ends.
+    await expect.poll(() => gridColumns(page)).toBeLessThan(4);
+  });
+});

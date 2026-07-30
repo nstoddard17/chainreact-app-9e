@@ -64,10 +64,10 @@ export function gridPlacementStyle(rect: GridRect): {
 }
 
 /** The grid container's own style: a fixed four-column track set. */
-export function gridContainerStyle(): CSSProperties {
+export function gridContainerStyle(columnCount: number = ANALYTICS_CANONICAL_COLUMNS): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: `repeat(${ANALYTICS_CANONICAL_COLUMNS}, minmax(0, 1fr))`,
+    gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
     gridAutoRows: `var(${ANALYTICS_GRID_ROW_HEIGHT_VAR})`,
     gap: `var(${ANALYTICS_GRID_GAP_VAR})`,
     [ANALYTICS_GRID_ROW_HEIGHT_VAR]: `${ANALYTICS_GRID_ROW_HEIGHT_PX}px`,

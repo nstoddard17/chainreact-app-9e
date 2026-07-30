@@ -6,6 +6,7 @@ import type { AnalyticsLayout, GridRect, PlacedWidget } from "@/core/analytics/l
 import { ErrorBanner } from "../dashboardHelpers";
 import { buildAnalyticsGridItems } from "./buildAnalyticsGridItems";
 import { gridContainerStyle, gridPlacementStyle } from "./gridGeometry";
+import type { AnalyticsColumnCount } from "@/core/analytics/layout";
 
 /**
  * The explicit Analytics grid (ANALYTICS-EXPLICIT-LAYOUT-S3-RENDER-SEAM-1).
@@ -49,6 +50,13 @@ export interface AnalyticsExplicitGridProps {
   readonly className?: string;
   /** Overridden only by tests that exercise a non-canonical grid width. */
   readonly columnCount?: number;
+  /**
+   * The RENDERED projection of `layout`, when the grid is narrower than the
+   * canonical four columns. Absent ⇒ canonical rendering.
+   */
+  readonly renderLayout?: AnalyticsLayout;
+  /** How many columns to draw. Defaults to the canonical four. */
+  readonly renderColumnCount?: AnalyticsColumnCount;
 }
 
 export function AnalyticsExplicitGrid({
@@ -58,12 +66,14 @@ export function AnalyticsExplicitGrid({
   placeholder = null,
   className,
   columnCount,
+  renderLayout,
+  renderColumnCount,
 }: AnalyticsExplicitGridProps) {
-  const built = buildAnalyticsGridItems(
-    widgets,
-    layout,
-    columnCount === undefined ? {} : { columnCount },
-  );
+  const built = buildAnalyticsGridItems(widgets, layout, {
+    ...(columnCount === undefined ? {} : { columnCount }),
+    ...(renderLayout === undefined ? {} : { renderLayout }),
+    ...(renderColumnCount === undefined ? {} : { renderColumnCount }),
+  });
 
   if (!built.ok) {
     // A board that does not pair up is not partly drawn: half a dashboard,
@@ -85,25 +95,29 @@ export function AnalyticsExplicitGrid({
       // The drag overlay stays OUTSIDE this element and position: fixed — no
       // transform is applied here, so the overlay's viewport space is intact.
       className={"relative" + (className ? ` ${className}` : "")}
-      style={gridContainerStyle()}
+      style={gridContainerStyle(renderColumnCount)}
     >
-      {built.items.map(({ widget, placement }) => (
+      {built.items.map(({ widget, canonicalPlacement, renderPlacement }) => (
         <div
           key={widget.id}
           data-testid={`analytics-grid-cell-${widget.id}`}
           data-widget-id={widget.id}
-          data-grid-x={placement.x}
-          data-grid-y={placement.y}
-          data-grid-w={placement.w}
-          data-grid-h={placement.h}
+          data-grid-x={renderPlacement.x}
+          data-grid-y={renderPlacement.y}
+          data-grid-w={renderPlacement.w}
+          data-grid-h={renderPlacement.h}
+          data-canonical-x={canonicalPlacement.x}
+          data-canonical-y={canonicalPlacement.y}
+          data-canonical-w={canonicalPlacement.w}
+          data-canonical-h={canonicalPlacement.h}
           // A fixed row track only holds if the cell refuses to grow: `min-h-0`
           // defeats the flex/grid default minimum, `overflow-hidden` bounds the
           // content. Without both, one tall card silently redefines the row
           // height and every cell coordinate below it moves.
           className="min-h-0 min-w-0 overflow-hidden"
-          style={gridPlacementStyle(placement)}
+          style={gridPlacementStyle(renderPlacement)}
         >
-          {renderWidget(widget, placement)}
+          {renderWidget(widget, canonicalPlacement)}
         </div>
       ))}
       {placeholder && (

@@ -43,6 +43,17 @@ function collect(dir: string, predicate: (name: string) => boolean = () => true)
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
 
 /**
+ * The same file with comments removed. These guards judge what the code DOES;
+ * a comment explaining why we deliberately avoid `window.innerWidth` must not
+ * be mistaken for using it.
+ */
+const BLOCK_COMMENT = new RegExp("/\\*[\\s\\S]*?\\*/", "g");
+const LINE_COMMENT = new RegExp("(^|[^:])//[^\\n]*", "gm");
+
+const readCode = (file: string) =>
+  read(file).replace(BLOCK_COMMENT, " ").replace(LINE_COMMENT, "$1 ");
+
+/**
  * Every module specifier a file actually resolves — `from "…"`, `import("…")`
  * and `require("…")`. Deliberately NOT a plain substring search over the source:
  * a comment recording where a module used to live is history, not an import.
@@ -77,6 +88,8 @@ const ALL_SOURCE_ROOTS = [
 ];
 
 const CORE_LAYOUT = join("core", "analytics", "layout");
+/** This file names the symbols it guards; it must not match itself. */
+const SELF = join("tests", "structure", "analytics-layout-boundaries.test.ts");
 
 describe("the Analytics layout engine has one home", () => {
   it("no source file imports the retired feature-owned path", () => {
@@ -147,7 +160,9 @@ describe("core/analytics/layout stays pure", () => {
 
   it("never touches React, Next, the DOM or CSS", () => {
     const banned = /\b(react|next\/|document\.|window\.|getBoundingClientRect|\.css)\b/;
-    const offenders = files.filter((file) => banned.test(read(file)));
+    // `readCode`, not `read`: a comment explaining why the engine deliberately
+    // does NOT consult `window.innerWidth` is documentation, not a DOM access.
+    const offenders = files.filter((file) => banned.test(readCode(file)));
     expect(offenders).toEqual([]);
   });
 });
@@ -173,6 +188,85 @@ describe("Analytics API routes reach layout rules through a service", () => {
     // had climbed back above the service layer.
     const offenders = routeFiles.filter((file) =>
       /\b(validateLayout|rectsOverlap|findFirstAvailableRect|placeWidget)\s*\(/.test(read(file)),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("responsive projection stays a render-time derivation", () => {
+  it("is declared only in core, once", () => {
+    // Plain substring checks: this guard has no business being clever, and
+    // this file names the symbols it guards, so it must not match itself.
+    const DECLARATIONS = [
+      "export function projectLayoutToColumns",
+      "export function columnsForContainerWidth",
+    ];
+    const sites = ALL_SOURCE_ROOTS.flatMap((r) => collect(r))
+      .filter((file) => file !== SELF)
+      .filter((file) => DECLARATIONS.some((d) => read(file).includes(d)));
+    expect([...new Set(sites)]).toEqual([join(CORE_LAYOUT, "project.ts")]);
+  });
+
+  it("declares no per-breakpoint persisted layout field", () => {
+    // One layout is stored. A `mobileLayout` / `layoutsByBreakpoint` anywhere
+    // would mean the viewport had become persisted state.
+    const banned = /(mobileLayout|tabletLayout|desktopLayout|layoutsByBreakpoint|breakpointLayouts)/;
+    const offenders = ALL_SOURCE_ROOTS.flatMap((r) => collect(r))
+      .filter((file) => file !== SELF)
+      .filter((file) => banned.test(read(file)));
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the persisted widget contract free of any breakpoint concept", () => {
+    // Judge the SCHEMA, not the prose: no breakpoint-shaped field may exist.
+    const contract = readCode(join("contracts", "analytics.ts"));
+    expect(contract).not.toMatch(/(breakpoint|mobile|tablet|desktop)[A-Za-z]*\s*:/i);
+    expect(contract).not.toMatch(/columnsFor/);
+  });
+
+  it("never lets the server see a container width or a projection", () => {
+    const offenders = [join("services", "analytics"), join("app", "api", "analytics")]
+      .flatMap((dir) => collect(dir))
+      .filter((file) =>
+        /projectLayoutToColumns|columnsForContainerWidth|containerWidth|ResizeObserver/.test(
+          readCode(file),
+        ),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps projected placement out of the serializer's reach", () => {
+    // The serializer takes `layout` — canonical only. If it ever learned about a
+    // render placement, a projected width could be persisted.
+    const serializer = read(join(CORE_LAYOUT, "serializeDashboardWidgets.ts"));
+    expect(serializer).not.toContain("renderPlacement");
+    expect(serializer).not.toContain("projectLayoutToColumns");
+  });
+
+  it("persists canonical placement only, from the edit state", () => {
+    const editState = read(join("features", "analytics", "grid", "layoutEditState.ts"));
+    expect(editState).not.toContain("renderPlacement");
+    expect(editState).not.toContain("projectLayoutToColumns");
+    expect(editState).toContain("workingLayout");
+  });
+
+  it("edits canonical coordinates only — the drag session knows no projection", () => {
+    const session = read(join("features", "analytics", "grid", "useExplicitDragSession.tsx"));
+    expect(session).not.toContain("projectLayoutToColumns");
+    expect(session).not.toContain("renderColumnCount");
+  });
+
+  it("does not reintroduce auto-flow for DASHBOARD placement", () => {
+    // Scoped to the files that position widgets on the board. A chart body may
+    // legitimately use spans for its own internal grid — that is not dashboard
+    // placement, and banning it would be brittle rather than protective.
+    const placementFiles = [
+      join("features", "analytics", "AnalyticsDashboard.tsx"),
+      join("features", "analytics", "Widget.tsx"),
+      ...collect(join("features", "analytics", "grid")),
+    ];
+    const offenders = placementFiles.filter((file) =>
+      /grid-auto-flow|auto-flow:\s*dense|col-span-\d|row-span-\d/.test(readCode(file)),
     );
     expect(offenders).toEqual([]);
   });

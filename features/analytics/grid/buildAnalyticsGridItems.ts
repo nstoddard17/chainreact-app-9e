@@ -23,7 +23,19 @@ import { validateLayout, type AnalyticsLayout, type PlacedWidget } from "@/core/
 
 export interface AnalyticsGridItem {
   readonly widget: AnalyticsWidget;
-  readonly placement: PlacedWidget;
+  /**
+   * The PERSISTED rectangle, at the canonical four columns. Its `w`/`h` always
+   * match the widget's size preset. Everything that leaves the browser — the
+   * serializer, dirty comparison, pointer editing — uses this and only this.
+   */
+  readonly canonicalPlacement: PlacedWidget;
+  /**
+   * What the grid actually draws. Identical to `canonicalPlacement` at four
+   * columns; on a narrower projection its WIDTH may be clamped (a 4×1 becomes a
+   * 2×1 on a two-column view). Height is never clamped. This must never reach
+   * persistence — a projected width is a picture, not the layout.
+   */
+  readonly renderPlacement: PlacedWidget;
   /** Index in the caller's widget array — the last-resort ordering tie-break. */
   readonly originalIndex: number;
 }
@@ -59,8 +71,8 @@ export type AnalyticsGridItemsResult =
  * the remaining keys exist so an unusual board still has ONE answer.
  */
 function compareReadingOrder(a: AnalyticsGridItem, b: AnalyticsGridItem): number {
-  if (a.placement.y !== b.placement.y) return a.placement.y - b.placement.y;
-  if (a.placement.x !== b.placement.x) return a.placement.x - b.placement.x;
+  if (a.renderPlacement.y !== b.renderPlacement.y) return a.renderPlacement.y - b.renderPlacement.y;
+  if (a.renderPlacement.x !== b.renderPlacement.x) return a.renderPlacement.x - b.renderPlacement.x;
   if (a.originalIndex !== b.originalIndex) return a.originalIndex - b.originalIndex;
   return a.widget.id < b.widget.id ? -1 : 1;
 }
@@ -68,9 +80,20 @@ function compareReadingOrder(a: AnalyticsGridItem, b: AnalyticsGridItem): number
 export function buildAnalyticsGridItems(
   widgets: readonly AnalyticsWidget[],
   layout: AnalyticsLayout,
-  options: { readonly columnCount?: number } = {},
+  options: {
+    readonly columnCount?: number;
+    /**
+     * The rendered projection, when it differs from canonical. Absent ⇒ the
+     * board is being drawn at four columns and the two are the same.
+     */
+    readonly renderLayout?: AnalyticsLayout;
+    readonly renderColumnCount?: number;
+  } = {},
 ): AnalyticsGridItemsResult {
   const columnCount = options.columnCount ?? ANALYTICS_CANONICAL_COLUMNS;
+  const renderLayout = options.renderLayout ?? layout;
+  const renderColumnCount = options.renderColumnCount ?? columnCount;
+  const renderById = new Map(renderLayout.map((p) => [p.widgetId, p]));
   const problems: AnalyticsGridItemsProblem[] = [];
 
   const duplicateWidgetIds = duplicatesIn(widgets.map((w) => w.id));
@@ -117,8 +140,15 @@ export function buildAnalyticsGridItems(
       return;
     }
     const footprint = footprintForSize(widget.size);
+    // Canonical dimensions must match the preset. A PROJECTED width may not —
+    // that is the whole point of a projection — so the check stays on canonical.
     if (placement.w !== footprint.w || placement.h !== footprint.h) mismatched.push(widget.id);
-    items.push({ widget, placement, originalIndex });
+    items.push({
+      widget,
+      canonicalPlacement: placement,
+      renderPlacement: renderById.get(widget.id) ?? placement,
+      originalIndex,
+    });
   });
 
   if (unplaced.length > 0) {
@@ -137,13 +167,15 @@ export function buildAnalyticsGridItems(
   }
 
   const validation = validateLayout(layout, columnCount);
-  if (!validation.ok) {
+  const renderValidation =
+    renderLayout === layout ? validation : validateLayout(renderLayout, renderColumnCount);
+  if (!validation.ok || !renderValidation.ok) {
+    const failed = validation.ok ? renderValidation : validation;
+    const found = failed.ok ? [] : failed.problems;
     problems.push({
       code: "invalid-layout",
-      widgetIds: [...new Set(validation.problems.flatMap((p) => p.widgetIds))],
-      message: `This layout cannot be rendered: ${validation.problems
-        .map((p) => p.code)
-        .join(", ")}.`,
+      widgetIds: [...new Set(found.flatMap((p) => p.widgetIds))],
+      message: `This layout cannot be rendered: ${found.map((p) => p.code).join(", ")}.`,
     });
   }
 

@@ -88,7 +88,11 @@ function dashboard(widgets: AnalyticsWidget[]): Dashboard {
 function stubGeometry() {
   Element.prototype.getBoundingClientRect = function (this: Element) {
     const el = this as HTMLElement;
-    if (el.dataset?.testid === "analytics-explicit-grid" || el.querySelector?.("[data-grid-x]")) {
+    if (
+      el.dataset?.testid === "analytics-explicit-grid" ||
+      el.dataset?.testid === "analytics-grid-surface" ||
+      el.querySelector?.("[data-grid-x]")
+    ) {
       return { left: GRID_LEFT, top: GRID_TOP, width: GRID_WIDTH, height: 800, right: GRID_LEFT + GRID_WIDTH, bottom: 850, x: GRID_LEFT, y: GRID_TOP, toJSON: () => ({}) } as DOMRect;
     }
     const x = Number(el.dataset?.gridX);
@@ -177,7 +181,8 @@ const placeholderRect = () => {
 };
 
 /** Press the grip, move to a cell, and (optionally) release. */
-const gridEl = () => screen.getByTestId("analytics-explicit-grid").parentElement!;
+/** The element that OWNS pointer capture and the drag listeners. */
+const gridEl = () => screen.getByTestId("analytics-grid-surface");
 
 function drag(id: string, to: { x: number; y: number }, release = true) {
   // Press on the widget where it ACTUALLY is, so the grab offset is realistic.
