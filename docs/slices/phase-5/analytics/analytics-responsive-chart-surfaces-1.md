@@ -211,7 +211,7 @@ rewrite, RLS change, new column or `db:push`.
 | `npx eslint` (analytics paths + playwright config) | clean |
 | `npm test -- tests/unit/core/analytics/` | **6 suites, 76 tests** passed |
 | `npm test -- tests/unit/features/analytics/` | **41 suites, 906 tests** passed |
-| `npm run test:analytics:layout` | **63 passed** (43 new chart cases + the 20 S4/S5 cases) |
+| `npm run test:analytics:layout` | **62 passed**, three consecutive runs, ~35s (42 new chart cases + the 20 S4/S5 cases) |
 | `npm run lint:structure` | pre-existing `docs/slices/phase-5` baseline only |
 | `npm run lint:migrations` | clean |
 
@@ -225,7 +225,18 @@ New coverage:
 - `tests/unit/features/analytics/chartResizeIntegration.test.tsx` — 8 tests on the
   shipping dashboard: remeasure on preset change and on projection change, round
   trip, widgets stay mounted, and **no request / no legacy conversion**.
-- `tests/browser/analytics/chartSurfaces.spec.ts` — 43 Chromium cases.
+- `tests/browser/analytics/chartSurfaces.spec.ts` — 42 Chromium cases.
+
+**Suite runtime and stability.** The read-only assertions share one board load, so
+this spec makes **11 navigations, not 43**. That is not only speed: a long-lived
+`next dev` degrades under repeated navigation of a chart-heavy route and starts
+answering 404, which failed whichever spec happened to be running when it turned
+— including the untouched S4/S5 geometry spec. Two changes make the gate
+trustworthy: the shared read-only page, and `outputDir` moved to
+`node_modules/.cache/analytics-playwright` so a failure artefact written into the
+watched project tree cannot trigger the recompile that starts the cascade. The
+full suite now runs in ~35s and passed three consecutive times; before, it took
+1–3 minutes and dropped 2–16 tests to that cascade.
 
 ## 11. Chromium evidence
 
@@ -236,6 +247,9 @@ existing harness route gained a fixture selector:
 npm run test:analytics:layout
 npm run test:analytics:layout -- tests/browser/analytics/chartSurfaces.spec.ts
 ```
+
+Playwright artefacts land in `node_modules/.cache/analytics-playwright`, outside
+the `next dev` watcher and outside git. No screenshots are committed.
 
 `/dev-drag-harness?board=charts` mounts the real `AnalyticsDashboard` with 14
 in-memory chart widgets covering **1×1, 2×1, 3×1, 4×1, 1×2 and 2×2**, with a

@@ -29,6 +29,12 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/browser/analytics",
+  // Artifacts go under `node_modules/.cache`, NOT the default `test-results/`
+  // (ANALYTICS-RESPONSIVE-CHART-SURFACES-1). `next dev` watches the project
+  // tree, so writing a failure artifact into it mid-run triggers a recompile —
+  // and requests during that recompile 404, which turned one real failure into a
+  // cascade of unrelated ones. `node_modules` is outside the watcher.
+  outputDir: "./node_modules/.cache/analytics-playwright",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

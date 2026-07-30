@@ -13,6 +13,14 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
  * only a browser can prove the painted rectangle is inside the body it was given
  * at every footprint, and that a live resize redraws it.
  *
+ * WHY ONE SHARED PAGE FOR THE READ-ONLY BLOCK. Most of these assertions just
+ * measure a board that nothing has touched. Loading the harness once for all of
+ * them takes this spec from 43 navigations to 11: a long-lived `next dev` server
+ * degrades under repeated navigation of a chart-heavy route and starts answering
+ * 404, which was turning a green suite amber for reasons that had nothing to do
+ * with charts. Anything that mutates state — a resize, a projection change, an
+ * edit session — still gets its own page.
+ *
  * The fixture board (canonical four columns):
  *
  *   row 0:  Runs over time (2×1)      | By outcome (2×1)
@@ -27,13 +35,17 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const GAP = 14;
 const MIN_CELL = 220;
+const ROW = 190;
 /** Subpixel slack: layout rounding, not a real overflow. */
 const TOL = 1.5;
+const VIEWPORT = { width: 1600, height: 1400 };
 
 const body = (page: Page, id: string) => page.getByTestId(`analytics-widget-body-${id}`);
 const surface = (page: Page, id: string) =>
   body(page, id).locator('[data-testid$="-surface"]').first();
 const cell = (page: Page, id: string) => page.getByTestId(`analytics-grid-cell-${id}`);
+const chartIn = (page: Page, id: string, chart: string) =>
+  surface(page, id).locator(`[data-testid="${chart}"]`).first();
 
 async function box(locator: Locator) {
   const b = await locator.boundingBox();
@@ -108,13 +120,64 @@ async function waitForCharts(page: Page) {
 }
 
 async function showColumns(page: Page, columns: 1 | 2 | 3 | 4) {
-  const probeViewport = 1600;
-  await page.setViewportSize({ width: probeViewport, height: 1400 });
+  await page.setViewportSize(VIEWPORT);
   const gridWidth = (await box(page.getByTestId("analytics-explicit-grid"))).width;
-  const chrome = probeViewport - gridWidth;
+  const chrome = VIEWPORT.width - gridWidth;
   const wantedGrid = columns * MIN_CELL + (columns - 1) * GAP + 8;
-  await page.setViewportSize({ width: Math.round(wantedGrid + chrome), height: 1400 });
+  await page.setViewportSize({ width: Math.round(wantedGrid + chrome), height: VIEWPORT.height });
   await expect.poll(() => gridColumns(page)).toBe(columns);
+  await waitForCharts(page);
+}
+
+// ── diagnostics ──────────────────────────────────────────────────────────────
+
+/** Console errors and page exceptions, collected per test. */
+let consoleErrors: string[] = [];
+let pageErrors: string[] = [];
+/** Any request that would WRITE the dashboard. Chart resizing must cause none. */
+let writes: string[] = [];
+
+function resetDiagnostics() {
+  consoleErrors = [];
+  pageErrors = [];
+  writes = [];
+}
+
+function watch(page: Page) {
+  page.on("console", (msg) => {
+    if (msg.type() === "error") consoleErrors.push(msg.text());
+  });
+  page.on("pageerror", (err) => pageErrors.push(String(err)));
+  page.on("request", (req) => {
+    if (req.method() !== "GET" && /\/api\/analytics/.test(req.url())) {
+      writes.push(`${req.method()} ${req.url()}`);
+    }
+  });
+}
+
+function assertClean() {
+  // A ResizeObserver loop, an SVG dimension error or a non-finite coordinate all
+  // surface here; none of them are acceptable.
+  expect(pageErrors, "uncaught page exceptions").toEqual([]);
+  expect(
+    consoleErrors.filter((t) => !/favicon|Download the React DevTools/i.test(t)),
+    "console errors",
+  ).toEqual([]);
+}
+
+async function openHarness(page: Page) {
+  await page.setViewportSize(VIEWPORT);
+  // Retry the navigation: a `next dev` server that is recompiling answers 404,
+  // which is a harness-availability problem and not a chart-sizing signal. Once
+  // the board is on screen, every console error counts.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.goto("/dev-drag-harness?board=charts", { waitUntil: "domcontentloaded" });
+    if (await page.getByTestId("analytics-explicit-grid").count()) break;
+    await page.waitForTimeout(1000);
+  }
+  await expect(page.getByTestId("analytics-explicit-grid")).toBeVisible();
+  await expect(cell(page, "c-line-2x1")).toBeVisible();
+  resetDiagnostics();
   await waitForCharts(page);
 }
 
@@ -136,373 +199,336 @@ const CHART_WIDGETS: { id: string; footprint: string; chart: string }[] = [
   { id: "c-stat-1x1", footprint: "1×1", chart: "analytics-sparkline" },
 ];
 
-/** Console errors and page exceptions, collected per test. */
-let consoleErrors: string[] = [];
-let pageErrors: string[] = [];
-/** Any request that would WRITE the dashboard. Chart resizing must cause none. */
-let writes: string[] = [];
+// ═══ Read-only: one board, measured many ways ════════════════════════════════
 
-test.beforeEach(async ({ page }) => {
-  consoleErrors = [];
-  pageErrors = [];
-  writes = [];
-  page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text());
+test.describe("the settled board", () => {
+  test.describe.configure({ mode: "serial" });
+
+  let view: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    const context = await browser.newContext({ viewport: VIEWPORT });
+    view = await context.newPage();
+    watch(view);
+    await openHarness(view);
   });
-  page.on("pageerror", (err) => pageErrors.push(String(err)));
-  page.on("request", (req) => {
-    if (req.method() !== "GET" && /\/api\/analytics/.test(req.url())) {
-      writes.push(`${req.method()} ${req.url()}`);
+
+  test.afterAll(async () => {
+    await view.context().close();
+  });
+
+  // Diagnostics accumulate on a shared page, so each test judges only its own.
+  test.beforeEach(() => resetDiagnostics());
+  test.afterEach(() => assertClean());
+
+  test.describe("every chart fits its widget body", () => {
+    for (const { id, footprint, chart } of CHART_WIDGETS) {
+      test(`${id} (${footprint}) draws inside its body and does not scroll`, async () => {
+        const widgetBody = body(view, id);
+        const chartSurface = surface(view, id);
+        await expect(chartSurface).toBeVisible();
+        const painted = chartIn(view, id, chart);
+        await expect(painted).toBeVisible();
+
+        await assertInside(chartSurface, widgetBody, `${id} surface in body`);
+        await assertInside(painted, chartSurface, `${id} chart in surface`);
+        await assertInside(painted, widgetBody, `${id} chart in body`);
+        await assertNoScroll(chartSurface, `${id} surface`);
+        await assertNoScroll(widgetBody, `${id} body`);
+      });
     }
-  });
-  await page.setViewportSize({ width: 1600, height: 1400 });
-  await page.goto("/dev-drag-harness?board=charts");
-  await expect(page.getByTestId("analytics-explicit-grid")).toBeVisible();
-  await expect(cell(page, "c-line-2x1")).toBeVisible();
-  await waitForCharts(page);
-});
 
-test.afterEach(() => {
-  // A ResizeObserver loop, an SVG dimension error or a non-finite coordinate all
-  // surface here; none of them are acceptable.
-  expect(pageErrors, "uncaught page exceptions").toEqual([]);
-  expect(
-    consoleErrors.filter((t) => !/favicon|Download the React DevTools/i.test(t)),
-    "console errors",
-  ).toEqual([]);
-});
-
-// ── every chart fits its body, at every footprint ────────────────────────────
-
-test.describe("every chart fits its widget body", () => {
-  for (const { id, footprint, chart } of CHART_WIDGETS) {
-    test(`${id} (${footprint}) draws inside its body and does not scroll`, async ({ page }) => {
-      const widgetBody = body(page, id);
-      const chartSurface = surface(page, id);
-      await expect(chartSurface).toBeVisible();
-      const painted = chartSurface.locator(`[data-testid="${chart}"]`).first();
-      await expect(painted).toBeVisible();
-
-      await assertInside(chartSurface, widgetBody, `${id} surface in body`);
-      await assertInside(painted, chartSurface, `${id} chart in surface`);
-      await assertInside(painted, widgetBody, `${id} chart in body`);
-      await assertNoScroll(chartSurface, `${id} surface`);
-      await assertNoScroll(widgetBody, `${id} body`);
+    test("no chart widget's content can grow its grid row", async () => {
+      for (const { id } of CHART_WIDGETS) {
+        const cellBox = await box(cell(view, id));
+        const rows = Number((await cell(view, id).getAttribute("data-grid-h")) ?? "1");
+        expect(Math.round(cellBox.height), `${id} row height`).toBe(rows * ROW + (rows - 1) * GAP);
+      }
     });
-  }
-
-  test("no chart widget's content can grow its grid row", async ({ page }) => {
-    for (const { id } of CHART_WIDGETS) {
-      const cellBox = await box(cell(page, id));
-      const rows = Number((await cell(page, id).getAttribute("data-grid-h")) ?? "1");
-      expect(Math.round(cellBox.height), `${id} row height`).toBe(rows * 190 + (rows - 1) * GAP);
-    }
-  });
-});
-
-// ── Runs over time ───────────────────────────────────────────────────────────
-
-test.describe("Runs over time", () => {
-  /** The stroked data path's own bounding box, in viewport coordinates. */
-  const linePath = (page: Page, id: string) =>
-    surface(page, id).locator('[data-testid="analytics-line-chart"] path[fill="none"]').first();
-
-  test("the SVG fills its body without exceeding it", async ({ page }) => {
-    const svg = surface(page, "c-line-2x1").locator('[data-testid="analytics-line-chart"]');
-    const [s, b] = [await box(svg), await box(surface(page, "c-line-2x1"))];
-    await assertInside(svg, body(page, "c-line-2x1"), "line svg");
-    // It fills the surface rather than merely fitting inside it.
-    expect(s.width).toBeGreaterThan(b.width - 2);
-    expect(s.height).toBeGreaterThan(b.height - 2);
   });
 
-  test("the peak is visible, not clipped by the card", async ({ page }) => {
-    const svg = surface(page, "c-line-2x1").locator('[data-testid="analytics-line-chart"]');
-    const path = linePath(page, "c-line-2x1");
-    const [p, s] = [await box(path), await box(svg)];
-    // The spike's top edge is strictly inside the drawable area.
-    expect(p.y).toBeGreaterThan(s.y);
-    expect(p.y + p.height).toBeLessThan(s.y + s.height);
-    await assertInside(path, body(page, "c-line-2x1"), "line path");
+  test.describe("Runs over time", () => {
+    /** The stroked data path — the visible line, not the gradient fill. */
+    const linePath = (id: string) =>
+      surface(view, id).locator('[data-testid="analytics-line-chart"] path[fill="none"]').first();
+
+    test("the SVG fills its body without exceeding it", async () => {
+      const svg = chartIn(view, "c-line-2x1", "analytics-line-chart");
+      const [s, b] = [await box(svg), await box(surface(view, "c-line-2x1"))];
+      await assertInside(svg, body(view, "c-line-2x1"), "line svg");
+      // It FILLS the surface rather than merely fitting inside it.
+      expect(s.width).toBeGreaterThan(b.width - 2);
+      expect(s.height).toBeGreaterThan(b.height - 2);
+    });
+
+    test("the peak is visible, not clipped by the card", async () => {
+      const svg = chartIn(view, "c-line-2x1", "analytics-line-chart");
+      const [p, s] = [await box(linePath("c-line-2x1")), await box(svg)];
+      // The spike's top edge is strictly inside the drawable area.
+      expect(p.y).toBeGreaterThan(s.y);
+      expect(p.y + p.height).toBeLessThan(s.y + s.height);
+      await assertInside(linePath("c-line-2x1"), body(view, "c-line-2x1"), "line path");
+    });
+
+    test("axis content stays inside the body", async () => {
+      // One snapshot in the page: reading each label over a separate round trip
+      // lets the chart re-render between reads, which measures nothing useful.
+      const report = await body(view, "c-line-2x1").evaluate((bodyEl) => {
+        const bounds = bodyEl.getBoundingClientRect();
+        const labels = Array.from(
+          bodyEl.querySelectorAll('[data-testid="analytics-line-chart"] text'),
+        );
+        return {
+          count: labels.length,
+          outside: labels
+            .map((el) => ({ text: el.textContent, r: el.getBoundingClientRect() }))
+            .filter(
+              ({ r }) =>
+                r.left < bounds.left - 1.5 ||
+                r.right > bounds.right + 1.5 ||
+                r.top < bounds.top - 1.5 ||
+                r.bottom > bounds.bottom + 1.5,
+            )
+            .map(({ text }) => text),
+        };
+      });
+      expect(report.count).toBeGreaterThan(0);
+      expect(report.outside, "axis labels outside the body").toEqual([]);
+    });
+
+    test("the plot expands with a wider widget and contracts with a narrower one", async () => {
+      const wide = await box(linePath("c-line-3x1"));
+      const narrow = await box(linePath("c-line-1x1"));
+      expect(wide.width).toBeGreaterThan(narrow.width * 1.5);
+      await assertInside(linePath("c-line-1x1"), body(view, "c-line-1x1"), "narrow line");
+    });
+
+    test("a tall widget gives the plot more height, still inside the body", async () => {
+      const tall = await box(linePath("c-line-1x2"));
+      const short = await box(linePath("c-line-1x1"));
+      expect(tall.height).toBeGreaterThan(short.height);
+      await assertInside(linePath("c-line-1x2"), body(view, "c-line-1x2"), "tall line");
+    });
   });
 
-  test("axis content stays inside the body", async ({ page }) => {
-    // One snapshot in the page: reading each label over a separate round trip
-    // lets the chart re-render between reads, which measures nothing useful.
-    const report = await body(page, "c-line-2x1").evaluate((bodyEl) => {
-      const bounds = bodyEl.getBoundingClientRect();
-      const labels = Array.from(bodyEl.querySelectorAll('[data-testid="analytics-line-chart"] text'));
-      return {
-        count: labels.length,
-        outside: labels
-          .map((el) => ({ text: el.textContent, r: el.getBoundingClientRect() }))
-          .filter(
-            ({ r }) =>
-              r.left < bounds.left - 1.5 ||
-              r.right > bounds.right + 1.5 ||
-              r.top < bounds.top - 1.5 ||
-              r.bottom > bounds.bottom + 1.5,
-          )
-          .map(({ text }) => text),
+  test.describe("metric sparklines", () => {
+    test("use the width of the card, not a fixed ~140px stamp", async () => {
+      const spark = chartIn(view, "c-stat-1x1", "analytics-sparkline");
+      const [s, b] = [await box(spark), await box(surface(view, "c-stat-1x1"))];
+      expect(s.width).toBeGreaterThan(b.width - 2);
+      // A 1×1 card is already wider than the old fixed sparkline.
+      expect(s.width).toBeGreaterThan(150);
+    });
+
+    test("keep the first and last point inside the SVG", async () => {
+      const spark = chartIn(view, "c-stat-1x1", "analytics-sparkline");
+      await assertInside(spark.locator('path[fill="none"]'), spark, "sparkline path");
+      await assertInside(spark.locator("circle"), spark, "sparkline end dot");
+    });
+  });
+
+  test.describe("By outcome donut", () => {
+    const donut = (id: string) => chartIn(view, id, "analytics-donut");
+
+    test("the ring stays inside the body on every edge, and stays circular", async () => {
+      for (const id of ["c-donut-2x1", "c-donut-1x1", "c-donut-2x2"]) {
+        await assertInside(donut(id), body(view, id), `${id} donut`);
+        const d = await box(donut(id));
+        expect(Math.abs(d.width - d.height), `${id} is circular`).toBeLessThanOrEqual(1);
+      }
+    });
+
+    test("grows the ring in a larger widget", async () => {
+      const large = await box(donut("c-donut-2x2"));
+      const small = await box(donut("c-donut-1x1"));
+      expect(large.width).toBeGreaterThan(small.width);
+    });
+
+    test("keeps the centre value centred and readable as text", async () => {
+      const svg = donut("c-donut-2x2");
+      const text = svg.locator("text").first();
+      const [t, s] = [await box(text), await box(svg)];
+      const centreDrift = Math.abs(t.x + t.width / 2 - (s.x + s.width / 2));
+      expect(centreDrift, "centre readout is centred").toBeLessThanOrEqual(2);
+      await assertInside(text, svg, "donut centre readout");
+      // The legend carries the same numbers as text.
+      await expect(body(view, "c-donut-2x2").getByText("Succeeded")).toBeVisible();
+      await expect(body(view, "c-donut-2x2").getByText("Failed")).toBeVisible();
+    });
+
+    test("legend rows stay inside the body", async () => {
+      for (const id of ["c-donut-2x1", "c-donut-2x2", "c-donut-1x1"]) {
+        const rows = surface(view, id).locator("li");
+        const count = await rows.count();
+        expect(count).toBeGreaterThan(0);
+        for (let i = 0; i < count; i += 1) {
+          await assertInside(rows.nth(i), body(view, id), `${id} legend row ${i}`);
+        }
+      }
+    });
+  });
+
+  test.describe("horizontal bar widgets", () => {
+    test("label, bar and value all stay inside the body", async () => {
+      for (const id of ["c-bar-2x1", "c-bar-4x1", "c-bar-1x1"]) {
+        const rows = surface(view, id).locator('[data-testid="analytics-bar-row"]');
+        const count = await rows.count();
+        expect(count, `${id} rows`).toBeGreaterThan(0);
+        for (let i = 0; i < count; i += 1) {
+          await assertInside(rows.nth(i), body(view, id), `${id} row ${i}`);
+          const cells = rows.nth(i).locator(":scope > *");
+          for (let c = 0; c < (await cells.count()); c += 1) {
+            await assertInside(cells.nth(c), body(view, id), `${id} row ${i} cell ${c}`);
+          }
+        }
+      }
+    });
+
+    test("the bar track widens with the card", async () => {
+      const trackWidth = async (id: string) => {
+        const fill = surface(view, id).locator('[data-testid="analytics-bar-fill"]').first();
+        return (await box(fill.locator("xpath=.."))).width;
       };
+      expect(await trackWidth("c-bar-4x1")).toBeGreaterThan(await trackWidth("c-bar-1x1"));
     });
-    expect(report.count).toBeGreaterThan(0);
-    expect(report.outside, "axis labels outside the body").toEqual([]);
+
+    test("a long automation name truncates instead of scrolling the row", async () => {
+      await assertNoScroll(surface(view, "c-bar-1x1"), "narrow bar surface");
+      const label = surface(view, "c-bar-2x1")
+        .locator('[data-testid="analytics-bar-row"] > *')
+        .first();
+      const overflows = await label.evaluate((el) => el.scrollWidth > el.clientWidth);
+      // Truncated, but the full text is still reachable.
+      if (overflows) expect(await label.getAttribute("title")).toBeTruthy();
+    });
   });
 
-  test("the plot expands with a wider widget and contracts with a narrower one", async ({
-    page,
-  }) => {
-    const wide = await box(linePath(page, "c-line-3x1"));
-    const narrow = await box(linePath(page, "c-line-1x1"));
-    expect(wide.width).toBeGreaterThan(narrow.width * 1.5);
-    await assertInside(linePath(page, "c-line-1x1"), body(page, "c-line-1x1"), "narrow line");
-  });
+  test.describe("activity heatmap", () => {
+    const heat = (id: string) => chartIn(view, id, "analytics-heatmap");
+    const cellSize = async (id: string) => Number(await heat(id).getAttribute("data-heatmap-cell"));
 
-  test("a tall widget gives the plot more height, still inside the body", async ({ page }) => {
-    const tall = await box(linePath(page, "c-line-1x2"));
-    const short = await box(linePath(page, "c-line-1x1"));
-    expect(tall.height).toBeGreaterThan(short.height);
-    await assertInside(linePath(page, "c-line-1x2"), body(page, "c-line-1x2"), "tall line");
+    test("a larger widget produces larger cells", async () => {
+      expect(await cellSize("c-heat-2x2")).toBeGreaterThan(await cellSize("c-heat-3x1"));
+    });
+
+    test("no longer sits at the old fixed tiny cell inside a large widget", async () => {
+      expect(await cellSize("c-heat-2x2")).toBeGreaterThan(14);
+      const [h, b] = [await box(heat("c-heat-2x2")), await box(surface(view, "c-heat-2x2"))];
+      // It genuinely uses the widget, rather than sitting in a corner of it.
+      expect(h.width * h.height).toBeGreaterThan(b.width * b.height * 0.3);
+    });
+
+    test("the whole matrix is inside the body, with square cells", async () => {
+      for (const id of ["c-heat-3x1", "c-heat-2x2"]) {
+        await assertInside(heat(id), body(view, id), `${id} matrix`);
+        await assertNoScroll(surface(view, id), `${id} surface`);
+        const rects = heat(id).locator("rect");
+        expect(await rects.count()).toBe(16 * 7);
+        for (const i of [0, 1, 50, 111]) {
+          const r = await box(rects.nth(i));
+          expect(Math.abs(r.width - r.height), `${id} cell ${i} square`).toBeLessThanOrEqual(1);
+          await assertInside(rects.nth(i), heat(id), `${id} cell ${i}`);
+        }
+      }
+    });
+
+    test("the legend and summary stay visible", async () => {
+      await expect(body(view, "c-heat-2x2").getByText("Less")).toBeVisible();
+      await expect(body(view, "c-heat-2x2").getByText("More")).toBeVisible();
+      await expect(body(view, "c-heat-2x2").getByText(/runs in the last 16 weeks/)).toBeVisible();
+    });
   });
 });
 
-// ── Sparklines ───────────────────────────────────────────────────────────────
+// ═══ Mutating: each test gets its own board ══════════════════════════════════
 
-test.describe("metric sparklines", () => {
-  test("use the width of the card, not a fixed ~140px stamp", async ({ page }) => {
-    const spark = surface(page, "c-stat-1x1").locator('[data-testid="analytics-sparkline"]');
-    const [s, b] = [await box(spark), await box(surface(page, "c-stat-1x1"))];
-    expect(s.width).toBeGreaterThan(b.width - 2);
-    // A 1×1 card is already wider than the old fixed sparkline.
-    expect(s.width).toBeGreaterThan(150);
+test.describe("resizing redraws the charts", () => {
+  test.beforeEach(async ({ page }) => {
+    resetDiagnostics();
+    watch(page);
+    await openHarness(page);
   });
 
-  test("keep the first and last point inside the SVG", async ({ page }) => {
-    const spark = surface(page, "c-stat-1x1").locator('[data-testid="analytics-sparkline"]');
-    const path = spark.locator('path[fill="none"]');
-    const dot = spark.locator("circle");
-    await assertInside(path, spark, "sparkline path");
-    await assertInside(dot, spark, "sparkline end dot");
-  });
+  test.afterEach(() => assertClean());
 
-  test("leave no old-width artefact after the card is resized", async ({ page }) => {
-    const spark = surface(page, "c-stat-1x1").locator('[data-testid="analytics-sparkline"]');
+  test("a narrowed card leaves no old-width sparkline artefact", async ({ page }) => {
+    const spark = chartIn(page, "c-stat-1x1", "analytics-sparkline");
     const before = (await box(spark)).width;
     await showColumns(page, 1);
-    await expect.poll(async () => Math.round((await box(spark)).width)).not.toBe(Math.round(before));
     const after = await box(spark);
     expect(after.width).toBeLessThan(before);
     await assertInside(spark, body(page, "c-stat-1x1"), "sparkline after narrowing");
   });
-});
 
-// ── Donut ────────────────────────────────────────────────────────────────────
-
-test.describe("By outcome donut", () => {
-  const donut = (page: Page, id: string) =>
-    surface(page, id).locator('[data-testid="analytics-donut"]');
-
-  test("the ring stays inside the body on every edge", async ({ page }) => {
-    for (const id of ["c-donut-2x1", "c-donut-1x1", "c-donut-2x2"]) {
-      await assertInside(donut(page, id), body(page, id), `${id} donut`);
-      const d = await box(donut(page, id));
-      // Square within a pixel: the ring is a circle, not an ellipse.
-      expect(Math.abs(d.width - d.height)).toBeLessThanOrEqual(1);
-    }
-  });
-
-  test("grows the ring in a larger widget", async ({ page }) => {
-    const large = await box(donut(page, "c-donut-2x2"));
-    const small = await box(donut(page, "c-donut-1x1"));
-    expect(large.width).toBeGreaterThan(small.width);
-  });
-
-  test("switches the legend beside → beneath across the compact threshold", async ({ page }) => {
-    const layout = surface(page, "c-donut-2x1").locator('[data-testid="analytics-donut-layout"]');
-    await expect(layout).toHaveAttribute("data-donut-orientation", "side");
+  test("the donut legend switches beside → beneath across the compact threshold", async ({
+    page,
+  }) => {
+    const layout = () =>
+      surface(page, "c-donut-2x1").locator('[data-testid="analytics-donut-layout"]');
+    await expect(layout()).toHaveAttribute("data-donut-orientation", "side");
     await showColumns(page, 1);
-    await expect
-      .poll(() =>
-        surface(page, "c-donut-2x1")
-          .locator('[data-testid="analytics-donut-layout"]')
-          .getAttribute("data-donut-orientation"),
-      )
-      .toBe("stacked");
-    await assertInside(donut(page, "c-donut-2x1"), body(page, "c-donut-2x1"), "stacked donut");
+    await expect(layout()).toHaveAttribute("data-donut-orientation", "stacked");
+    await assertInside(
+      chartIn(page, "c-donut-2x1", "analytics-donut"),
+      body(page, "c-donut-2x1"),
+      "stacked donut",
+    );
     await assertNoScroll(surface(page, "c-donut-2x1"), "stacked donut surface");
   });
 
-  test("keeps the centre value centred and readable as text", async ({ page }) => {
-    const svg = donut(page, "c-donut-2x2");
-    const text = svg.locator("text").first();
-    const [t, s] = [await box(text), await box(svg)];
-    const centreDrift = Math.abs(t.x + t.width / 2 - (s.x + s.width / 2));
-    expect(centreDrift, "centre readout is centred").toBeLessThanOrEqual(2);
-    await assertInside(text, svg, "donut centre readout");
-    // The legend carries the same numbers as text.
-    await expect(body(page, "c-donut-2x2").getByText("Succeeded")).toBeVisible();
-    await expect(body(page, "c-donut-2x2").getByText("Failed")).toBeVisible();
-  });
-
-  test("legend rows stay inside the body", async ({ page }) => {
-    for (const id of ["c-donut-2x1", "c-donut-2x2", "c-donut-1x1"]) {
-      const rows = surface(page, id).locator("li");
-      const count = await rows.count();
-      expect(count).toBeGreaterThan(0);
-      for (let i = 0; i < count; i += 1) {
-        await assertInside(rows.nth(i), body(page, id), `${id} legend row ${i}`);
-      }
-    }
-  });
-});
-
-// ── Horizontal bars ──────────────────────────────────────────────────────────
-
-test.describe("horizontal bar widgets", () => {
-  test("label, bar and value all stay inside the body", async ({ page }) => {
-    for (const id of ["c-bar-2x1", "c-bar-4x1", "c-bar-1x1"]) {
-      const rows = surface(page, id).locator('[data-testid="analytics-bar-row"]');
-      const count = await rows.count();
-      expect(count, `${id} rows`).toBeGreaterThan(0);
-      for (let i = 0; i < count; i += 1) {
-        await assertInside(rows.nth(i), body(page, id), `${id} row ${i}`);
-        const cells = rows.nth(i).locator(":scope > *");
-        for (let c = 0; c < (await cells.count()); c += 1) {
-          await assertInside(cells.nth(c), body(page, id), `${id} row ${i} cell ${c}`);
-        }
-      }
-    }
-  });
-
-  test("the bar track widens with the card", async ({ page }) => {
-    const trackWidth = async (id: string) => {
-      const fill = surface(page, id)
-        .locator('[data-testid="analytics-bar-fill"]')
-        .first();
-      return (await box(fill.locator("xpath=.."))).width;
-    };
-    expect(await trackWidth("c-bar-4x1")).toBeGreaterThan(await trackWidth("c-bar-1x1"));
-  });
-
-  test("a long automation name truncates instead of scrolling the row", async ({ page }) => {
-    await assertNoScroll(surface(page, "c-bar-1x1"), "narrow bar surface");
-    const label = surface(page, "c-bar-2x1")
-      .locator('[data-testid="analytics-bar-row"] > *')
-      .first();
-    const overflows = await label.evaluate((el) => el.scrollWidth > el.clientWidth);
-    // Truncated, but the full text is still reachable.
-    if (overflows) expect(await label.getAttribute("title")).toBeTruthy();
-  });
-});
-
-// ── Heatmap ──────────────────────────────────────────────────────────────────
-
-test.describe("activity heatmap", () => {
-  const heat = (page: Page, id: string) =>
-    surface(page, id).locator('[data-testid="analytics-heatmap"]');
-  const cellSize = async (page: Page, id: string) =>
-    Number(await heat(page, id).getAttribute("data-heatmap-cell"));
-
-  test("a larger widget produces larger cells", async ({ page }) => {
-    const big = await cellSize(page, "c-heat-2x2");
-    const wideShort = await cellSize(page, "c-heat-3x1");
-    expect(big).toBeGreaterThan(wideShort);
-  });
-
-  test("no longer sits at the old fixed tiny cell inside a large widget", async ({ page }) => {
-    expect(await cellSize(page, "c-heat-2x2")).toBeGreaterThan(14);
-    const [h, b] = [await box(heat(page, "c-heat-2x2")), await box(surface(page, "c-heat-2x2"))];
-    // It genuinely uses the widget, rather than sitting in a corner of it.
-    expect(h.width * h.height).toBeGreaterThan(b.width * b.height * 0.3);
-  });
-
-  test("the whole matrix is inside the body, with square cells", async ({ page }) => {
-    for (const id of ["c-heat-3x1", "c-heat-2x2"]) {
-      await assertInside(heat(page, id), body(page, id), `${id} matrix`);
-      await assertNoScroll(surface(page, id), `${id} surface`);
-      const rects = heat(page, id).locator("rect");
-      expect(await rects.count()).toBe(16 * 7);
-      for (const i of [0, 1, 50, 111]) {
-        const r = await box(rects.nth(i));
-        expect(Math.abs(r.width - r.height), `${id} cell ${i} square`).toBeLessThanOrEqual(1);
-        await assertInside(rects.nth(i), heat(page, id), `${id} cell ${i}`);
-      }
-    }
-  });
-
-  test("the legend and summary stay visible", async ({ page }) => {
-    await expect(body(page, "c-heat-2x2").getByText("Less")).toBeVisible();
-    await expect(body(page, "c-heat-2x2").getByText("More")).toBeVisible();
-    await expect(body(page, "c-heat-2x2").getByText(/runs in the last 16 weeks/)).toBeVisible();
-  });
-
-  test("cells shrink again when the widget gets smaller", async ({ page }) => {
-    const before = await cellSize(page, "c-heat-2x2");
+  test("heatmap cells shrink again when the widget gets smaller", async ({ page }) => {
+    const heat = () => chartIn(page, "c-heat-2x2", "analytics-heatmap");
+    const before = Number(await heat().getAttribute("data-heatmap-cell"));
     await showColumns(page, 1);
-    await expect.poll(() => cellSize(page, "c-heat-2x2")).toBeLessThan(before);
-    await assertInside(heat(page, "c-heat-2x2"), body(page, "c-heat-2x2"), "narrow matrix");
+    expect(Number(await heat().getAttribute("data-heatmap-cell"))).toBeLessThan(before);
+    await assertInside(heat(), body(page, "c-heat-2x2"), "narrow matrix");
   });
-});
 
-// ── Live edit resize ─────────────────────────────────────────────────────────
-
-test.describe("edit-mode widget resize", () => {
-  const resizeTo = async (page: Page, id: string, label: string) => {
-    await cell(page, id).locator("select").selectOption({ label });
-  };
-
-  test("a preset change redraws the chart to the new body, with no reload", async ({ page }) => {
-    const svg = surface(page, "c-line-1x1").locator('[data-testid="analytics-line-chart"]');
+  test("an edit-mode preset change redraws the chart to the new body, no reload", async ({
+    page,
+  }) => {
+    const svg = chartIn(page, "c-line-1x1", "analytics-line-chart");
     const before = await box(svg);
-    const beforeCell = await box(cell(page, "c-line-1x1"));
+    expect(before.height).toBeLessThan(ROW);
 
     await page.getByRole("button", { name: /Edit dashboard/i }).click();
-    await resizeTo(page, "c-line-1x1", "1×2");
+    await cell(page, "c-line-1x1").locator("select").selectOption({ label: "1×2" });
 
     // The footprint really changed…
-    await expect.poll(async () => Math.round((await box(cell(page, "c-line-1x1"))).height)).toBe(
-      2 * 190 + GAP,
-    );
+    await expect
+      .poll(async () => Math.round((await box(cell(page, "c-line-1x1"))).height))
+      .toBe(2 * ROW + GAP);
     // …and the chart went with it, in the same page.
-    await expect.poll(async () => Math.round((await box(svg)).height)).toBeGreaterThan(
-      Math.round(before.height),
-    );
+    await expect
+      .poll(async () => Math.round((await box(svg)).height))
+      .toBeGreaterThan(Math.round(before.height));
     await assertInside(svg, body(page, "c-line-1x1"), "line after growing");
     await assertNoScroll(surface(page, "c-line-1x1"), "line surface after growing");
-    expect(beforeCell.height).toBeLessThan(2 * 190);
   });
 
   test("shrinking a widget contracts the chart, leaving no stale SVG", async ({ page }) => {
     await page.getByRole("button", { name: /Edit dashboard/i }).click();
-    const svg = surface(page, "c-heat-2x2").locator('[data-testid="analytics-heatmap"]');
-    const before = Number(await svg.getAttribute("data-heatmap-cell"));
-    await resizeTo(page, "c-heat-2x2", "2×1");
+    const heat = () => chartIn(page, "c-heat-2x2", "analytics-heatmap");
+    const before = Number(await heat().getAttribute("data-heatmap-cell"));
+    await cell(page, "c-heat-2x2").locator("select").selectOption({ label: "2×1" });
     await expect
-      .poll(async () =>
-        Number(
-          await surface(page, "c-heat-2x2")
-            .locator('[data-testid="analytics-heatmap"]')
-            .getAttribute("data-heatmap-cell"),
-        ),
-      )
+      .poll(async () => Number(await heat().getAttribute("data-heatmap-cell")))
       .toBeLessThan(before);
-    await assertInside(
-      surface(page, "c-heat-2x2").locator('[data-testid="analytics-heatmap"]'),
-      body(page, "c-heat-2x2"),
-      "heatmap after shrinking",
-    );
+    await assertInside(heat(), body(page, "c-heat-2x2"), "heatmap after shrinking");
   });
 });
 
-// ── Responsive round trip ────────────────────────────────────────────────────
-
 test.describe("responsive projection", () => {
-  const lineWidth = async (page: Page) =>
-    Math.round(
-      (await box(surface(page, "c-line-2x1").locator('[data-testid="analytics-line-chart"]')))
-        .width,
-    );
+  test.beforeEach(async ({ page }) => {
+    resetDiagnostics();
+    watch(page);
+    await openHarness(page);
+  });
+
+  test.afterEach(() => assertClean());
+
+  const lineWidth = async (page: Page, id = "c-line-2x1") =>
+    Math.round((await box(chartIn(page, id, "analytics-line-chart"))).width);
 
   test("charts redraw at 4 → 3 → 2 → 1 columns and every chart stays inside", async ({ page }) => {
     const widths: number[] = [];
@@ -510,7 +536,7 @@ test.describe("responsive projection", () => {
       await showColumns(page, columns);
       widths.push(await lineWidth(page));
       for (const { id, chart } of CHART_WIDGETS) {
-        const painted = surface(page, id).locator(`[data-testid="${chart}"]`).first();
+        const painted = chartIn(page, id, chart);
         await expect(painted, `${id} at ${columns} columns`).toBeVisible();
         await assertInside(painted, body(page, id), `${id} at ${columns} columns`);
         await assertNoScroll(surface(page, id), `${id} surface at ${columns} columns`);
@@ -518,50 +544,40 @@ test.describe("responsive projection", () => {
     }
     // Narrower projections really did give the chart a different width.
     expect(new Set(widths).size).toBeGreaterThan(1);
+    expect(writes, "dashboard writes caused by projecting alone").toEqual([]);
   });
 
   test("a narrower projection really does give the chart a narrower body", async ({ page }) => {
     // A 3-wide widget is the honest comparison: a 2-wide one clamps to the whole
     // of a two-column grid, so its body barely changes between 4 and 2 columns.
-    const wideChart = async () =>
-      Math.round(
-        (await box(surface(page, "c-line-3x1").locator('[data-testid="analytics-line-chart"]')))
-          .width,
-      );
     await showColumns(page, 4);
-    const atFour = await wideChart();
+    const atFour = await lineWidth(page, "c-line-3x1");
     await showColumns(page, 1);
-    expect(await wideChart()).toBeLessThan(atFour);
+    expect(await lineWidth(page, "c-line-3x1")).toBeLessThan(atFour);
   });
 
-  test("returning to four columns restores the original chart dimensions", async ({ page }) => {
+  test("returning to four columns restores the original chart dimensions, with no write", async ({
+    page,
+  }) => {
     await showColumns(page, 4);
     const atFour = await lineWidth(page);
     await showColumns(page, 2);
     await showColumns(page, 1);
     await showColumns(page, 4);
-    await expect.poll(() => lineWidth(page)).toBe(atFour);
-  });
-
-  test("no width change causes a dashboard write", async ({ page }) => {
-    for (const columns of [4, 3, 2, 1, 4] as const) await showColumns(page, columns);
+    expect(await lineWidth(page)).toBe(atFour);
     expect(writes, "dashboard writes caused by resizing alone").toEqual([]);
   });
-});
 
-// ── Active-edit canonical lock ───────────────────────────────────────────────
-
-test.describe("active-edit lock", () => {
-  test("charts stay at their canonical widths while narrowing during an edit", async ({ page }) => {
+  test("charts stay canonical while the window narrows during an edit", async ({ page }) => {
     await showColumns(page, 4);
     await page.getByRole("button", { name: /Edit dashboard/i }).click();
-    const svg = surface(page, "c-line-2x1").locator('[data-testid="analytics-line-chart"]');
+    const svg = chartIn(page, "c-line-2x1", "analytics-line-chart");
     const before = Math.round((await box(svg)).width);
     const canonicalBefore = await cell(page, "c-line-2x1").getAttribute("data-canonical-x");
 
     // Narrow the window directly — `showColumns` polls for a reprojection, and
     // the point of the lock is that one must NOT happen.
-    await page.setViewportSize({ width: MIN_CELL + 260, height: 1400 });
+    await page.setViewportSize({ width: MIN_CELL + 260, height: VIEWPORT.height });
     await page.waitForTimeout(300);
     await waitForCharts(page);
     expect(await gridColumns(page)).toBe(4);
@@ -571,7 +587,7 @@ test.describe("active-edit lock", () => {
     // being edited, or the chart's fit inside its card.
     expect(Math.abs(Math.round((await box(svg)).width) - before)).toBeLessThanOrEqual(12);
     expect(await cell(page, "c-line-2x1").getAttribute("data-canonical-x")).toBe(canonicalBefore);
-    expect(page.getByTestId("analytics-canonical-lock-notice")).toBeTruthy();
+    await expect(page.getByTestId("analytics-canonical-lock-notice")).toBeVisible();
     await assertInside(svg, body(page, "c-line-2x1"), "locked line chart");
     await assertNoScroll(surface(page, "c-line-2x1"), "locked line surface");
     expect(writes, "writes during the lock").toEqual([]);
