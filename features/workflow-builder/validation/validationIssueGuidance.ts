@@ -56,6 +56,8 @@ const EXPLANATION: Record<BuilderValidationIssueCode, string> = {
   router_routes_invalid: "The router's routes are incomplete, so it can't decide where to send each run.",
   schema_fields_invalid: "The fields you defined for this step aren't usable as written.",
   missing_required_field: "This step can't run until this value is set.",
+  missing_required_group:
+    "This step needs at least one of a small set of values, and none of them is filled in yet.",
   unreachable_node: "Nothing connects the trigger to this step, so it would never run.",
   stale_edge: "This connection points at a step that is no longer in the workflow.",
   self_loop_edge: "A step can't connect to itself — that would never finish.",
@@ -72,6 +74,7 @@ const NEXT_STEP: Record<BuilderValidationIssueCode, string> = {
   router_routes_invalid: "Open this step and finish its routes.",
   schema_fields_invalid: "Open this step and correct the field definitions.",
   missing_required_field: "Open this step and fill it in.",
+  missing_required_group: "Open this step and fill in any one of the listed fields.",
   unreachable_node: "Connect this step to the rest of the workflow.",
   stale_edge: "Remove this connection or point it at an existing step.",
   self_loop_edge: "Remove this connection.",

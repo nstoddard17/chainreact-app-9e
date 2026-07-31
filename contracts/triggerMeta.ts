@@ -3,7 +3,9 @@ import {
   ActionCategorySchema,
   FieldMetaSchema,
   OutputMetaSchema,
+  RequiredAnyOfGroupSchema,
   checkItemFieldOptionSourceReferences,
+  checkRequiredAnyOfReferences,
   checkVisibleWhenReferences,
   normalizeDependsOn,
   type FieldMeta,
@@ -89,9 +91,18 @@ export const TriggerMetaSchema = z
       .optional(),
     /** Optional sort hint within a provider's trigger list. Lower = earlier. */
     displayOrder: z.number().int().nullable().default(null),
+    /**
+     * WORKFLOW-LIVE-TEST-2 — cross-field "at least one of" requirements, same
+     * contract as the action side so readiness is provider- AND kind-agnostic.
+     * No trigger declares one today; the field exists so a trigger whose config
+     * schema grows a cross-field refine can express it instead of silently
+     * disagreeing with readiness.
+     */
+    requiredAnyOf: z.array(RequiredAnyOfGroupSchema).min(1).max(4).optional(),
   })
   .strict()
   .superRefine((meta, ctx) => {
+    checkRequiredAnyOfReferences(meta.fields, meta.requiredAnyOf, ctx);
     if (meta.key !== `${meta.provider}:${meta.type}`) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

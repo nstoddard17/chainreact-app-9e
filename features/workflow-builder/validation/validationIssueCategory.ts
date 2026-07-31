@@ -38,7 +38,11 @@ export function categorizeValidationIssue(
     // AI-PROVIDER-4 — `schema_fields_invalid` (a malformed user-defined
     // schema: duplicate / blank / invalid field names) is an author-input
     // problem, the same class as invalid router routes.
+    // WORKFLOW-LIVE-TEST-2 — `missing_required_group` (an unsatisfied "at least
+    // one of" group) is the same class as a blank required field: the author
+    // must fill something in.
     case "missing_required_field":
+    case "missing_required_group":
     case "unconfigured_node":
     case "router_routes_invalid":
     case "schema_fields_invalid":

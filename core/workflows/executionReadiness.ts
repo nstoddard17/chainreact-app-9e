@@ -3,6 +3,7 @@ import { findBranchWiringIssues } from "./branchWiring";
 import {
   type RequiredFieldsByType,
   missingRequiredFields,
+  missingRequiredGroups,
   requirementLookupKey,
 } from "./requiredFields";
 import { findSelfLoopEdges } from "./selfLoopEdges";
@@ -186,12 +187,18 @@ export function findFieldGaps(
   const gaps: ReadinessFieldGap[] = [];
   for (const node of nodes) {
     const missing = missingRequiredFields(node, requiredFieldsByType);
-    if (missing.length === 0) continue;
+    // WORKFLOW-LIVE-TEST-2 — cross-field groups ("at least one of textBody or
+    // htmlBody") are gaps too. Reported as ONE entry per group, using the
+    // group's own author-facing message, so the server verdict and the builder
+    // drawer say the same thing rather than the server silently passing a
+    // config the handler will reject.
+    const groups = missingRequiredGroups(node, requiredFieldsByType);
+    if (missing.length === 0 && groups.length === 0) continue;
     const reqs = requiredFieldsByType?.[requirementLookupKey(node)];
     gaps.push({
       nodeId: node.id,
       displayName: node.displayName ?? reqs?.displayName ?? node.type,
-      missingFields: missing.map((f) => f.label),
+      missingFields: [...missing.map((f) => f.label), ...groups.map((g) => g.message)],
     });
   }
   return gaps;

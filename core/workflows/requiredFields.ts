@@ -55,10 +55,35 @@ export interface NodeTypeRequirement {
   readonly visibleWhen?: FieldVisibilityCondition;
 }
 
+/**
+ * WORKFLOW-LIVE-TEST-2 — one unsatisfied cross-field group, ready to render.
+ * `fields` carries the members that were VISIBLE when the group was evaluated,
+ * so the UI can say exactly which fields would satisfy it and focus the first.
+ */
+export interface MissingRequiredGroup {
+  readonly message: string;
+  readonly fields: readonly NodeTypeRequirement[];
+}
+
 /** Required-field requirements for one node type, keyed by `provider:type`. */
 export interface NodeTypeRequirements {
   readonly displayName: string;
   readonly requiredFields: readonly NodeTypeRequirement[];
+  /**
+   * WORKFLOW-LIVE-TEST-2 — cross-field "at least one of" groups declared by the
+   * node's metadata. Absent for the overwhelming majority of node types.
+   */
+  readonly requiredAnyOf?: readonly RequiredAnyOfGroupRequirement[];
+}
+
+/**
+ * A `requiredAnyOf` group resolved against the node's field metadata: the raw
+ * names are paired with their author-facing labels and visibility conditions so
+ * readiness can evaluate and render the group without re-reading the registry.
+ */
+export interface RequiredAnyOfGroupRequirement {
+  readonly message: string;
+  readonly fields: readonly NodeTypeRequirement[];
 }
 
 /**
@@ -82,16 +107,29 @@ export function buildRequiredFieldsByType(
 ): RequiredFieldsByType {
   const out: Record<string, NodeTypeRequirements> = {};
   for (const meta of [...actionMetas, ...triggerMetas]) {
+    const toRequirement = (f: FieldMeta): NodeTypeRequirement => ({
+      name: f.name,
+      label: f.label,
+      hasDefault: f.defaultValue !== undefined,
+      ...(f.visibleWhen ? { visibleWhen: f.visibleWhen } : {}),
+    });
+    const byName = new Map(meta.fields.map((f: FieldMeta) => [f.name, f]));
+    // WORKFLOW-LIVE-TEST-2 — resolve each declared group's names to their field
+    // metadata once, here, so evaluation stays a pure function of this map.
+    // The meta schema guarantees every name exists; the filter is belt-and-braces.
+    const groups = (meta.requiredAnyOf ?? [])
+      .map((g) => ({
+        message: g.message,
+        fields: g.fields
+          .map((name) => byName.get(name))
+          .filter((f): f is FieldMeta => f !== undefined)
+          .map(toRequirement),
+      }))
+      .filter((g) => g.fields.length > 0);
     out[meta.key] = {
       displayName: meta.displayName,
-      requiredFields: meta.fields
-        .filter((f: FieldMeta) => f.required)
-        .map((f: FieldMeta) => ({
-          name: f.name,
-          label: f.label,
-          hasDefault: f.defaultValue !== undefined,
-          ...(f.visibleWhen ? { visibleWhen: f.visibleWhen } : {}),
-        })),
+      requiredFields: meta.fields.filter((f: FieldMeta) => f.required).map(toRequirement),
+      ...(groups.length > 0 ? { requiredAnyOf: groups } : {}),
     };
   }
   return out;
@@ -153,4 +191,43 @@ export function missingRequiredFields(
       isVisibleWhenMet(f.visibleWhen, config) &&
       isRequiredValueMissing(config[f.name]),
   );
+}
+
+/**
+ * WORKFLOW-LIVE-TEST-2 — the node's UNSATISFIED cross-field groups.
+ *
+ * A group is satisfied when ANY of its currently-VISIBLE members holds a value.
+ * Two deliberate rules keep it honest:
+ *   - A member hidden by an unmet `visibleWhen` can neither satisfy the group
+ *     nor be offered as a way to satisfy it — a value stranded in a mode the
+ *     user isn't in must not read as complete.
+ *   - A group with NO visible members is skipped entirely: it belongs to a mode
+ *     that isn't active, so demanding it would be a phantom gap.
+ * A member carrying a metadata `defaultValue` satisfies the group, mirroring
+ * `missingRequiredFields` — the builder and the handler both supply it.
+ *
+ * Shared by the builder collector and the server execution-readiness validator,
+ * so "Ready" means the same thing on both sides of the wire.
+ */
+export function missingRequiredGroups(
+  node: WorkflowNode,
+  requiredFieldsByType: RequiredFieldsByType | undefined,
+): readonly MissingRequiredGroup[] {
+  if (!node.type) return [];
+  const key = requirementLookupKey(node);
+  if (key === ROUTER_NODE_TYPE) return [];
+  const groups = requiredFieldsByType?.[key]?.requiredAnyOf;
+  if (!groups || groups.length === 0) return [];
+  const config = node.config ?? {};
+
+  const out: MissingRequiredGroup[] = [];
+  for (const group of groups) {
+    const visible = group.fields.filter((f) => isVisibleWhenMet(f.visibleWhen, config));
+    if (visible.length === 0) continue;
+    const satisfied = visible.some(
+      (f) => f.hasDefault || !isRequiredValueMissing(config[f.name]),
+    );
+    if (!satisfied) out.push({ message: group.message, fields: visible });
+  }
+  return out;
 }

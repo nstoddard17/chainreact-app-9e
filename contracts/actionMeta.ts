@@ -286,6 +286,78 @@ export function isVisibleWhenMet(
 }
 
 /**
+ * WORKFLOW-LIVE-TEST-2 — a CROSS-FIELD requirement: "at least one of these".
+ *
+ * `FieldMeta.required` is per-field and cannot express a relationship between
+ * fields, so a handler schema like `gmail:send_email`'s
+ * `.refine(textBody || htmlBody)` was invisible to readiness: the builder
+ * reported Ready for a send with no body at all, and the run failed at dispatch.
+ *
+ * Provider-agnostic by construction — the group names ORDINARY sibling fields
+ * and carries its own author-facing message. Readiness reports one issue per
+ * unsatisfied group (never one per member), and only VISIBLE members can
+ * satisfy or trigger it, so a group scoped to a mode the user isn't in stays
+ * silent. The handler's Zod schema remains the final authority; this is the
+ * metadata shadow of it, kept honest by a drift test.
+ */
+export const RequiredAnyOfGroupSchema = z
+  .object({
+    /** Sibling field names, at least two — any ONE of them satisfies the group. */
+    fields: z.array(z.string().min(1)).min(2).max(8),
+    /** Author-facing, plain English, e.g. "Add a text body or HTML body." */
+    message: z.string().min(1).max(200),
+  })
+  .strict();
+export type RequiredAnyOfGroup = z.infer<typeof RequiredAnyOfGroupSchema>;
+
+/**
+ * Shared meta-level validation for `requiredAnyOf` groups — used by BOTH
+ * ActionMetaSchema and TriggerMetaSchema superRefines. A group that names an
+ * unknown field can never be satisfied; a group whose member is ALREADY
+ * unconditionally `required: true` is contradictory (the per-field rule
+ * already forces it, so the group would be dead weight that hides the real
+ * requirement).
+ */
+export function checkRequiredAnyOfReferences(
+  fields: readonly FieldMeta[],
+  groups: readonly RequiredAnyOfGroup[] | undefined,
+  ctx: z.RefinementCtx,
+): void {
+  if (!groups) return;
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i]!;
+    const seen = new Set<string>();
+    for (const name of group.fields) {
+      if (seen.has(name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["requiredAnyOf", i, "fields"],
+          message: `Duplicate field '${name}' in requiredAnyOf group.`,
+        });
+      }
+      seen.add(name);
+      const field = byName.get(name);
+      if (!field) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["requiredAnyOf", i, "fields"],
+          message: `requiredAnyOf names unknown field '${name}'.`,
+        });
+        continue;
+      }
+      if (field.required === true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["requiredAnyOf", i, "fields"],
+          message: `Field '${name}' is already required — a requiredAnyOf group over it is contradictory.`,
+        });
+      }
+    }
+  }
+}
+
+/**
  * Shared meta-level validation for top-level `visibleWhen` references —
  * used by BOTH ActionMetaSchema and TriggerMetaSchema superRefines:
  *   - the controller must be a known sibling field, and
@@ -1440,9 +1512,17 @@ export const ActionMetaSchema = z
      * (CS-8). See `DynamicOutputsDeclarationSchema`.
      */
     dynamicOutputs: z.array(DynamicOutputsDeclarationSchema).min(1).max(4).optional(),
+    /**
+     * WORKFLOW-LIVE-TEST-2 — cross-field "at least one of" requirements that
+     * mirror the handler schema's cross-field refinements. Additive and
+     * optional: every existing meta parses unchanged and reports no groups.
+     * See {@link RequiredAnyOfGroupSchema}.
+     */
+    requiredAnyOf: z.array(RequiredAnyOfGroupSchema).min(1).max(4).optional(),
   })
   .strict()
   .superRefine((meta, ctx) => {
+    checkRequiredAnyOfReferences(meta.fields, meta.requiredAnyOf, ctx);
     if (meta.key !== `${meta.provider}:${meta.type}`) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

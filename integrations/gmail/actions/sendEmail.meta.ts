@@ -138,6 +138,13 @@ export const sendEmailMeta: ActionMeta = {
         "Label ids successfully applied. Empty when no labels were requested.",
     },
   ],
+  // WORKFLOW-LIVE-TEST-2 — mirrors SendEmailConfigSchema's cross-field refine
+  // ("At least one of textBody or htmlBody must be provided."). Without this the
+  // builder reported Ready for a send with no body at all and the run failed at
+  // dispatch. Readiness reports ONE issue naming both fields.
+  requiredAnyOf: [
+    { fields: ["textBody", "htmlBody"], message: "Add a text body or HTML body." },
+  ],
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
