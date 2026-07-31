@@ -54,17 +54,19 @@ export function RunResultsPanel({ accountId }: { accountId?: string } = {}) {
   return (
     <section
       aria-label="Latest run results"
-      className="flex flex-col gap-2 p-3"
+      className="flex min-w-0 flex-col gap-2 p-3"
       data-status={status}
       style={{ background: "var(--builder-panel)" }}
     >
-      <header className="flex items-center justify-between gap-2">
-        <h3 className="text-[13px] font-semibold" style={{ color: "var(--builder-text)" }}>
+      <header className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <h3 className="shrink-0 text-[13px] font-semibold" style={{ color: "var(--builder-text)" }}>
           Latest run
         </h3>
         {runId ? (
           <code
-            className="builder-mono text-[10.5px]"
+            // A 36-character unbroken id: `break-all` is the only thing that can
+            // split it, and it stays selectable/copyable in full.
+            className="builder-mono min-w-0 break-all text-[10.5px]"
             data-testid="run-id"
             style={{ color: "var(--builder-muted)" }}
           >
@@ -180,7 +182,7 @@ function RunStatusLine({
 }) {
   const succeeded = detail.status === "succeeded";
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
       <StatusPill status={detail.status} />
       <span className="text-xs text-muted-foreground">
         {succeeded ? "Succeeded" : "Failed"} ·{" "}
@@ -220,21 +222,27 @@ function StepRow({ step, nodeLabel }: { step: WorkflowRunStep; nodeLabel: string
   const hasOutput = step.output !== undefined;
   return (
     <article
-      className="flex flex-col gap-1 rounded border border-input p-2"
+      className="flex min-w-0 flex-col gap-1 rounded border border-input p-2"
       data-status={step.status}
       data-testid={`step-${step.nodeId}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <StatusPill status={step.status} />
-          <span className="text-xs text-muted-foreground truncate" title={step.nodeId}>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <div
+          className="flex min-w-0 flex-1 items-center gap-2"
+          data-legible-min="140"
+          data-legible-what="results step identity"
+        >
+          <span className="shrink-0">
+            <StatusPill status={step.status} />
+          </span>
+          <span className="min-w-0 break-words text-xs text-muted-foreground" title={step.nodeId}>
             {nodeLabel}
           </span>
         </div>
         {(hasOutput || step.error) && (
           <button
             type="button"
-            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            className="shrink-0 text-xs text-muted-foreground underline-offset-2 hover:underline"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             data-testid={`step-${step.nodeId}-toggle`}
@@ -244,14 +252,19 @@ function StepRow({ step, nodeLabel }: { step: WorkflowRunStep; nodeLabel: string
         )}
       </div>
       {step.error ? (
-        <p className="text-xs text-destructive">
+        <p className="min-w-0 break-words text-xs text-destructive">
           <span className="font-medium">{step.error.code}: </span>
           {step.error.message}
         </p>
       ) : null}
       {open && hasOutput ? (
         <pre
-          className="max-h-48 overflow-auto rounded bg-muted p-2 text-xs"
+          // The ONE place local horizontal scrolling is the right answer: JSON
+          // lines are irreducibly wide and reflowing them would destroy the
+          // structure the author is reading. `max-w-full min-w-0` is what stops
+          // the block's intrinsic content width from becoming the panel's
+          // minimum width — the viewer scrolls, the Builder does not.
+          className="max-h-48 min-w-0 max-w-full overflow-auto rounded bg-muted p-2 text-xs"
           data-testid={`step-${step.nodeId}-output`}
         >
           {safeStringify(step.output)}
@@ -294,12 +307,12 @@ function ClassifiedErrorBlock({
   return (
     <div
       role={classification.severity === "error" ? "alert" : "status"}
-      className="flex flex-col gap-0.5 rounded bg-muted p-2 text-xs"
+      className="flex min-w-0 flex-col gap-0.5 rounded bg-muted p-2 text-xs"
       data-severity={classification.severity}
       data-testid="run-error-classification"
     >
-      <span className="font-medium">{classification.title}</span>
-      <span className="text-muted-foreground">{classification.description}</span>
+      <span className="break-words font-medium">{classification.title}</span>
+      <span className="break-words text-muted-foreground">{classification.description}</span>
       {classification.hint ? (
         <span className="text-muted-foreground">
           <span className="font-medium">Hint: </span>

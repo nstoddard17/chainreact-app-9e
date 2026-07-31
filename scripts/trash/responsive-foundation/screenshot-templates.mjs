@@ -200,12 +200,27 @@ const REGIONS = [
   '[data-testid^="runs-row-1"]',
   '[data-testid="runs-empty-state-no-runs"]',
   '[data-testid="data-surface-toast"]',
+  // RESPONSIVE-BUILDER-RUNS-6 — the builder's two run surfaces: the Runs tab
+  // (history nav + selected-run detail + step timeline) and the latest-run
+  // results drawer (the only per-step OUTPUT surface).
+  '[data-testid="builder-runs-tab"]',
+  '[data-testid="runs-nav"]',
+  '[data-testid^="run-row-"]',
+  '[data-testid="run-detail"]',
+  '[data-testid="run-detail-actions"]',
+  '[data-testid="run-error-classification"]',
+  '[data-testid^="run-step-"]',
+  '[data-testid="runs-empty-state"]',
+  '[data-testid="builder-right-drawer"]',
+  '[data-testid^="step-node-"]',
+  '[data-testid="run-id"]',
+  '[data-testid="builder-runs-toast"]',
 ];
 
 const fragments = readdirSync(HTML_DIR)
   .filter(
     (f) =>
-      /^(templates|workflows|consumers|account|team|wflist|runlist)-/.test(f) &&
+      /^(templates|workflows|consumers|account|team|wflist|runlist|brun)-/.test(f) &&
       f.endsWith(".html"),
   )
   .sort();
@@ -220,6 +235,7 @@ function labelFor(name) {
   if (name.startsWith("team-")) return "Team";
   if (name.startsWith("wflist-")) return "Workflows";
   if (name.startsWith("runlist-")) return "Runs";
+  if (name.startsWith("brun-")) return "Workflow builder";
   if (name.startsWith("workflows-")) return "Workflows";
   if (name.startsWith("consumers-01")) return "Runs";
   if (name.startsWith("consumers-02")) return "Apps";
@@ -253,7 +269,24 @@ for (const file of fragments) {
       };
       for (const sel of regionSelectors) {
         for (const el of document.querySelectorAll(sel)) {
-          const overflow = el.scrollWidth - el.clientWidth;
+          // RESPONSIVE-BUILDER-RUNS-6 — separate the PAGE/PANEL question from the
+          // LOCAL DATA VIEWER question, which is exactly the distinction the
+          // builder's run surfaces need.
+          //
+          // An element that declares `overflow-x: auto|scroll` is an opt-in
+          // scroller: a JSON/log viewer or a genuine provider table, where
+          // content wider than the box is the POINT. Reporting its internal
+          // scroll as a containment failure says nothing — the real question for
+          // such an element is whether it was ALLOWED to scroll there, and that
+          // is what `data-no-pan-below` answers. Surfaces that must never pan
+          // (the Runs panel, its history nav, the run detail) carry that
+          // declaration, so nothing is let off: the assertion moves to the right
+          // instrument rather than being dropped. Its own containment (does the
+          // scroller stay inside its card?) is still checked by the escape pass.
+          const selfOverflowX = getComputedStyle(el).overflowX;
+          const isDeclaredScroller =
+            selfOverflowX === "auto" || selfOverflowX === "scroll";
+          const overflow = isDeclaredScroller ? 0 : el.scrollWidth - el.clientWidth;
           const rect = el.getBoundingClientRect();
           out.regions.push({
             sel,

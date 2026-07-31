@@ -69,6 +69,11 @@ export function RunsPanel({ onOpenFailedStep, runEditBlocked }: RunsPanelProps =
   const [listState, setListState] = useState<"loading" | "loaded" | "error">("loading");
   const [listError, setListError] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  // Presentation only: which surface is on screen when there is not room for
+  // both. It never decides WHICH run is selected — `selectedRunId` does, in
+  // both presentations — so the two can never disagree, and it is ignored from
+  // `lg` up where the split view renders both.
+  const [narrowView, setNarrowView] = useState<"list" | "detail">("list");
 
   const loadRuns = useCallback(async () => {
     if (!workflowId) return;
@@ -119,6 +124,7 @@ export function RunsPanel({ onOpenFailedStep, runEditBlocked }: RunsPanelProps =
   return (
     <div
       data-testid="builder-runs-tab"
+      data-no-pan-below="1600"
       className="absolute inset-0 z-10 flex flex-col overflow-hidden"
       style={{ background: "var(--builder-bg)" }}
     >
@@ -169,22 +175,60 @@ export function RunsPanel({ onOpenFailedStep, runEditBlocked }: RunsPanelProps =
           </p>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1">
-          <RunList
-            runs={runs}
-            selectedRunId={selectedRunId}
-            onSelect={setSelectedRunId}
-            liveRunVisible={liveRunVisible}
-            liveRunId={liveRunId}
-            loading={listState === "loading"}
-          />
-          <RunDetailPane
-            workflowId={workflowId}
-            selectedRunId={selectedRunId}
-            isLiveSelection={liveRunVisible && selectedRunId === liveRunId}
-            {...(onOpenFailedStep ? { onOpenFailedStep } : {})}
-            runEditBlocked={runEditBlocked ?? false}
-          />
+        <div className="flex min-h-0 min-w-0 flex-1">
+          {/*
+            RESPONSIVE-BUILDER-RUNS-6 — ONE SURFACE AT A TIME below `lg`.
+
+            This was a permanent two-column split at every width: a `w-[300px]
+            shrink-0` history nav beside the detail. At 360px the nav alone took
+            300px and left the detail about 60px — the run you selected was
+            effectively invisible. That matches the builder's own accepted
+            responsive model, which already says narrow means one surface at a
+            time; the Runs tab simply never adopted it.
+
+            Both children stay MOUNTED in both presentations and visibility is all
+            that changes. That is deliberate: unmounting the detail on resize
+            would refetch the run and lose the loaded detail, and unmounting the
+            list would lose its scroll position. `selectedRunId` remains the
+            single source of truth for WHICH run is shown — `narrowView` only
+            decides which surface is on screen when there isn't room for both, and
+            it is ignored entirely from `lg` up.
+          */}
+          <div
+            data-testid="runs-list-surface"
+            className={
+              "flex min-h-0 min-w-0 lg:flex " +
+              (narrowView === "detail" ? "hidden" : "flex-1 lg:flex-none")
+            }
+          >
+            <RunList
+              runs={runs}
+              selectedRunId={selectedRunId}
+              onSelect={(id) => {
+                setSelectedRunId(id);
+                setNarrowView("detail");
+              }}
+              liveRunVisible={liveRunVisible}
+              liveRunId={liveRunId}
+              loading={listState === "loading"}
+            />
+          </div>
+          <div
+            data-testid="runs-detail-surface"
+            className={
+              "min-h-0 min-w-0 flex-1 lg:flex " +
+              (narrowView === "list" ? "hidden" : "flex")
+            }
+          >
+            <RunDetailPane
+              workflowId={workflowId}
+              selectedRunId={selectedRunId}
+              isLiveSelection={liveRunVisible && selectedRunId === liveRunId}
+              {...(onOpenFailedStep ? { onOpenFailedStep } : {})}
+              runEditBlocked={runEditBlocked ?? false}
+              onBackToList={() => setNarrowView("list")}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -209,7 +253,9 @@ function RunList({
   return (
     <nav
       aria-label="Recent runs"
-      className="flex w-[300px] shrink-0 flex-col gap-1 overflow-y-auto border-r p-2"
+      data-testid="runs-nav"
+      data-no-pan-below="1600"
+      className="flex w-full min-w-0 flex-col gap-1 overflow-y-auto border-r p-2 lg:w-[300px] lg:shrink-0"
       style={{ borderColor: "var(--builder-border)" }}
     >
       {liveRunVisible && liveRunId ? (
@@ -265,7 +311,7 @@ function RunListRow(
       data-testid={`run-row-${props.runId}`}
       data-status={status}
       data-selected={props.selected}
-      className="flex flex-col gap-1 rounded-[6px] border px-2.5 py-2 text-left"
+      className="flex min-w-0 flex-col gap-1 rounded-[6px] border px-2.5 py-2 text-left"
       style={{
         borderColor: props.selected
           ? "var(--builder-accent, #0284c7)"
@@ -273,16 +319,16 @@ function RunListRow(
         background: props.selected ? "var(--builder-panel-2)" : "var(--builder-panel)",
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <StatusBadge status={status} />
-        <span className="text-[12px]" style={{ color: "var(--builder-text)" }}>
+        <span className="min-w-0 break-words text-[12px]" style={{ color: "var(--builder-text)" }}>
           {sourceLabel}
         </span>
         {!isRunning && props.run.isTest ? (
           props.run.isLiveTest ? <LiveTestTag /> : <TestTag />
         ) : null}
       </div>
-      <span className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
+      <span className="min-w-0 break-words text-[11px]" style={{ color: "var(--builder-muted)" }}>
         {meta}
       </span>
     </button>

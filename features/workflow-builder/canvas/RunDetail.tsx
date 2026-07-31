@@ -34,12 +34,17 @@ export function RunDetailPane({
   isLiveSelection,
   onOpenFailedStep,
   runEditBlocked,
+  onBackToList,
 }: {
   workflowId: string | null;
   selectedRunId: string | null;
   isLiveSelection: boolean;
   onOpenFailedStep?: () => void;
   runEditBlocked: boolean;
+  /** RESPONSIVE-BUILDER-RUNS-6 — returns to the history list in the narrow
+   *  single-surface presentation. Never rendered from `lg` up, where both
+   *  surfaces are on screen and there is nothing to go back to. */
+  onBackToList?: () => void;
 }) {
   const [detail, setDetail] = useState<WorkflowRunDetail | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
@@ -73,7 +78,27 @@ export function RunDetailPane({
       aria-label="Run detail"
       className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4"
       data-testid="run-detail"
+      data-legible-min="280"
+      data-legible-what="run detail pane"
+      data-no-pan-below="1600"
     >
+      {/* Narrow-only navigation. Not a duplicate of a wide control — from `lg`
+          up both surfaces are visible, so there is no "back" to offer. */}
+      {onBackToList ? (
+        <button
+          type="button"
+          onClick={onBackToList}
+          data-testid="run-detail-back"
+          className="mb-3 inline-flex w-fit shrink-0 items-center gap-1.5 rounded-[6px] border px-2.5 py-1.5 text-[12px] lg:hidden"
+          style={{
+            borderColor: "var(--builder-border)",
+            background: "var(--builder-panel)",
+            color: "var(--builder-text)",
+          }}
+        >
+          <span aria-hidden>←</span> All runs
+        </button>
+      ) : null}
       {isLiveSelection ? (
         <p role="status" className="text-[12.5px]" style={{ color: "var(--builder-muted)" }}>
           Run in progress…
@@ -164,20 +189,20 @@ function RunDetailBody({
       : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <StatusBadge status={detail.status} />
-          <span className="text-[13px] font-medium" style={{ color: "var(--builder-text)" }}>
+          <span className="min-w-0 break-words text-[13px] font-medium" style={{ color: "var(--builder-text)" }}>
             {SOURCE_LABEL[detail.triggeredBy ?? "unknown"]}
           </span>
           {detail.isTest ? (detail.isLiveTest ? <LiveTestTag /> : <TestTag />) : null}
         </div>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
-          <dt style={{ color: "var(--builder-muted)" }}>Started</dt>
-          <dd style={{ color: "var(--builder-text)" }}>{formatTimestamp(detail.startedAt)}</dd>
-          <dt style={{ color: "var(--builder-muted)" }}>Duration</dt>
-          <dd style={{ color: "var(--builder-text)" }}>
+        <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px]">
+          <dt className="min-w-0" style={{ color: "var(--builder-muted)" }}>Started</dt>
+          <dd className="min-w-0 break-words" style={{ color: "var(--builder-text)" }}>{formatTimestamp(detail.startedAt)}</dd>
+          <dt className="min-w-0" style={{ color: "var(--builder-muted)" }}>Duration</dt>
+          <dd className="min-w-0 break-words" style={{ color: "var(--builder-text)" }}>
             {durationLabel(detail.startedAt, detail.finishedAt) || "—"}
           </dd>
         </dl>

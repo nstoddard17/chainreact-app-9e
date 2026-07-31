@@ -93,14 +93,16 @@ export function ClassifiedErrorBlock({
   return (
     <div
       role={classification.severity === "error" ? "alert" : "status"}
-      className="flex flex-col gap-0.5 rounded bg-muted p-2.5 text-[12px]"
+      className="flex min-w-0 flex-col gap-0.5 rounded bg-muted p-2.5 text-[12px]"
       data-severity={classification.severity}
       data-testid="run-error-classification"
     >
-      <span className="font-medium">{classification.title}</span>
-      <span className="text-muted-foreground">{classification.description}</span>
+      {/* Long provider prose wraps — it is human-readable text, so it must never
+          need panning and must never be clipped. */}
+      <span className="break-words font-medium">{classification.title}</span>
+      <span className="break-words text-muted-foreground">{classification.description}</span>
       {classification.hint ? (
-        <span className="text-muted-foreground">
+        <span className="break-words text-muted-foreground">
           <span className="font-medium">Hint: </span>
           {classification.hint}
         </span>
@@ -132,28 +134,49 @@ export function StepTimeline({
             <div
               data-testid={`run-step-${step.nodeId}`}
               data-status={step.status}
-              className="flex flex-col gap-1 rounded-[6px] border p-2"
+              className="flex min-w-0 flex-col gap-1 rounded-[6px] border p-2"
               style={{
                 borderColor: failed ? "rgb(220 38 38 / 0.5)" : "var(--builder-border)",
                 background: failed ? "rgb(220 38 38 / 0.06)" : "var(--builder-panel)",
               }}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
+              {/*
+                RESPONSIVE-BUILDER-RUNS-6 — the step order number and the status
+                badge hold their intrinsic size (they are the two things that must
+                stay scannable down a column of steps); the NODE NAME is the part
+                that yields. It wraps rather than truncating, because a step card
+                has a full line for it and a half-shown node name is not much use
+                when you are trying to work out which step failed.
+
+                Previously the name carried `truncate` inside a row with no
+                `min-w-0` and non-shrinking siblings, so it burst out of its own
+                row instead of ellipsising.
+              */}
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span
+                  className="shrink-0 text-[11px]"
+                  style={{ color: "var(--builder-muted)" }}
+                >
                   {idx + 1}.
                 </span>
-                <StatusBadge status={step.status} />
+                <span className="shrink-0">
+                  <StatusBadge status={step.status} />
+                </span>
                 <span
-                  className="truncate text-[12px]"
+                  className="min-w-0 flex-1 break-words text-[12px]"
                   style={{ color: "var(--builder-text)" }}
                   title={step.nodeId}
+                  data-legible-min="140"
+                  data-legible-what="step identity"
                 >
                   {labelForNodeId(step.nodeId)}
                 </span>
               </div>
               {/* Server-humanized, identifier-free message only — never raw output. */}
               {step.error ? (
-                <p className="text-[11.5px] text-destructive">{step.error.message}</p>
+                <p className="min-w-0 break-words text-[11.5px] text-destructive">
+                  {step.error.message}
+                </p>
               ) : null}
             </div>
           </li>
