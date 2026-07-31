@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "../../../../_shared";
 import { startLiveTestListening } from "@/services/workflows/liveTest/sessionService";
+// Side-effect import: populates the live-capture adapter registry — start needs the adapter to
+// establish the listening baseline (poll-triggers cron route pattern).
+import "@/integrations/_registry";
 
 /**
  * POST /api/workflows/[id]/live-test/[sessionId]/start — the EXPLICIT consent action

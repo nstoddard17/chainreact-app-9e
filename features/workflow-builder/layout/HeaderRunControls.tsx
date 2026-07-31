@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRunControls } from "../hooks/useRunControls";
+import { useLiveTestSession } from "../live-test/useLiveTestSession";
+import { LiveTestModal } from "../live-test/LiveTestModal";
 import { DestructiveActionConfirmationModal } from "../panels/DestructiveActionConfirmationModal";
 import type { TestPreflightResult } from "../validation/testPreflight";
 
@@ -122,6 +124,22 @@ export function HeaderRunControls({
   const safeTestDispatchable = triggerKind === "manual";
   const [safeTestNotice, setSafeTestNotice] = useState<string | null>(null);
 
+  // WORKFLOW-LIVE-TEST-4 — the Run Live Test journey (automated triggers). The hook owns the
+  // whole prepare → disclose → consent → listen → run lifecycle; this component only offers the
+  // entry button (validation-first, same as every testing entry point) and mounts the modal.
+  const liveTest = useLiveTestSession({
+    workflowId,
+    onOpenValidation,
+  });
+
+  async function onRunLiveTestClick(): Promise<void> {
+    if (preflightBlocked) {
+      onOpenValidation?.();
+      return;
+    }
+    await liveTest.openLiveTest();
+  }
+
   async function onTestClick(): Promise<void> {
     setSafeTestNotice(null);
     if (preflightBlocked) {
@@ -149,22 +167,44 @@ export function HeaderRunControls({
         className="relative flex flex-col"
         data-testid="run-controls-panel-automated"
       >
-        <Button
-          type="button"
-          size="sm"
-          variant="default"
-          onClick={onTestClick}
-          disabled={anyRunning || runEditBlocked}
-          data-testid="run-controls-test-button"
-          className="h-8 text-[12px]"
-          title={
-            runEditBlocked
-              ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
-              : preflightSummary ?? AUTOMATED_SAFE_TEST_COPY
-          }
-        >
-          {runningMode === "test" ? "Testing…" : "Test Workflow"}
-        </Button>
+        <div className="flex items-center gap-2" data-testid="run-controls-actions">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onTestClick}
+            disabled={anyRunning || runEditBlocked}
+            data-testid="run-controls-test-button"
+            className="h-8 text-[12px]"
+            title={
+              runEditBlocked
+                ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
+                : preflightSummary ?? AUTOMATED_SAFE_TEST_COPY
+            }
+          >
+            {runningMode === "test" ? "Testing…" : "Test Workflow"}
+          </Button>
+          {/* WORKFLOW-LIVE-TEST-4 — the real-event test path for automated triggers. Opens a
+              disclosure of the workflow's real external effects; nothing runs until the user
+              explicitly starts listening inside the modal. */}
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            onClick={onRunLiveTestClick}
+            disabled={anyRunning || runEditBlocked || liveTest.busy}
+            data-testid="run-controls-live-test-button"
+            className="h-8 text-[12px]"
+            title={
+              runEditBlocked
+                ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
+                : preflightSummary ??
+                  "Captures one real trigger event and runs the workflow once for real. You review its external effects and explicitly start listening first."
+            }
+          >
+            Run Live Test
+          </Button>
+        </div>
         {/* WORKFLOW-LIVE-TEST-2 §2 — a blocked pre-flight is explained in the surface itself,
             never only in a tooltip. Selecting it opens the issues rail, where each item jumps
             into the step that needs setup. */}
@@ -210,10 +250,18 @@ export function HeaderRunControls({
           — use Activate to wire up the trigger.
         </p>
         <p className="sr-only">
-          Test runs for automated workflows are in development. To validate
-          this workflow end-to-end today, activate it and trigger the source
-          event.
+          Run Live Test captures one real trigger event and runs the workflow
+          once through the real runtime. The workflow stays inactive.
         </p>
+        <LiveTestModal
+          phase={liveTest.phase}
+          busy={liveTest.busy}
+          onStart={() => void liveTest.startListening()}
+          onCancelSession={() => void liveTest.cancelSession()}
+          onCancelBlockingAndRetry={() => void liveTest.cancelBlockingAndRetry()}
+          onRetry={() => void liveTest.openLiveTest()}
+          onClose={liveTest.close}
+        />
       </section>
     );
   }

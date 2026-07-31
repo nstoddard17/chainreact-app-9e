@@ -168,6 +168,7 @@ import {
 } from "@/services/workflows/liveTest/sessionService";
 import { attemptLiveTestCapture } from "@/services/workflows/liveTest/captureService";
 import { authorizeLiveTestExecution } from "@/services/workflows/liveTest/authorizeService";
+import { advanceLiveTestSession } from "@/services/workflows/liveTest/orchestrationService";
 import {
   registerLiveTriggerCaptureAdapter,
   resetLiveTriggerCaptureRegistryForTests,
@@ -533,5 +534,92 @@ describe("live-test flow — payload contract and usage", () => {
     expect(p).toEqual({
       ok: false, reason: "trigger_capture_unsupported", provider: "gmail", eventType: "new_email",
     });
+  });
+});
+
+// ── WORKFLOW-LIVE-TEST-4 §2 — the status-poll advancement loop ───────────────
+describe("live-test flow — status-poll advancement (serverless capture loop)", () => {
+  it("each poll advances one bounded step: waiting → captured+authorized in ONE tick → converges on the same run", async () => {
+    const { sessionId } = await listening();
+
+    // Tick 1: nothing matched — honest waiting, nothing created.
+    adapterState.results = [{ status: "waiting" }];
+    const t1 = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    expect(t1).toMatchObject({
+      ok: true,
+      advisory: null,
+      queuedRunId: null,
+      status: { status: "waiting_for_trigger" },
+    });
+    expect(mem.runs).toHaveLength(0);
+
+    // Tick 2: the event arrives — capture AND authorization happen in the same tick, so the
+    // user's poll comes back already `running` with the canonical run id.
+    adapterState.results = [{ status: "captured", payload: CANONICAL_EVENT, preview: PREVIEW, baseline: {} }];
+    const t2 = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    if (!t2.ok) throw new Error("advance failed");
+    expect(t2.status.status).toBe("running");
+    expect(t2.queuedRunId).toBe(mem.runs[0]!.id);
+    expect(mem.runs).toHaveLength(1);
+
+    // Tick 3 (another tab / a slow duplicate poll): no second run, same run id handed back so
+    // a lost drain kick can be retried.
+    const t3 = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    if (!t3.ok) throw new Error("advance failed");
+    expect(t3.queuedRunId).toBe(t2.queuedRunId);
+    expect(mem.runs).toHaveLength(1);
+  });
+
+  it("an adapter throw keeps the session listening and reports only a typed transient advisory", async () => {
+    const { sessionId } = await listening();
+    adapterState.onCaptureNext = () => {
+      throw new Error("gmail 503: internal token dump — must never surface");
+    };
+    const t = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    expect(t).toMatchObject({ ok: true, advisory: "capture_error", queuedRunId: null });
+    if (!t.ok) throw new Error("unreachable");
+    expect(t.status.status).toBe("waiting_for_trigger");
+    // The advisory is a closed enum value — the provider error text never rides along.
+    expect(JSON.stringify(t)).not.toContain("token dump");
+  });
+
+  it("a reached task limit is an advisory; the captured event stays recoverable and later runs", async () => {
+    const { sessionId } = await listening();
+    adapterState.results = [{ status: "captured", payload: CANONICAL_EVENT, preview: PREVIEW, baseline: {} }];
+    mockGetUsage.mockResolvedValue({ tasksUsed: 100, tasksLimit: 100 });
+    const blocked = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    expect(blocked).toMatchObject({ ok: true, advisory: "usage_limit_reached", queuedRunId: null });
+    expect(find(sessionId)!.status).toBe("trigger_received");
+    expect(mem.runs).toHaveLength(0);
+
+    // Upgrade → the NEXT poll authorizes the SAME captured event, no re-capture.
+    mockGetUsage.mockResolvedValue({ tasksUsed: 100, tasksLimit: 1000 });
+    const t = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    if (!t.ok) throw new Error("advance failed");
+    expect(t.status.status).toBe("running");
+    expect(mem.runs).toHaveLength(1);
+    expect(adapterState.contexts).toHaveLength(1); // captured once, never twice
+  });
+
+  it("a non-member poll collapses to session_not_found and advances nothing", async () => {
+    const { sessionId } = await listening();
+    mockRequireRole.mockResolvedValue({ ok: false });
+    adapterState.results = [{ status: "captured", payload: CANONICAL_EVENT, preview: PREVIEW, baseline: {} }];
+    expect(await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER })).toEqual({
+      ok: false,
+      reason: "session_not_found",
+    });
+    expect(find(sessionId)!.status).toBe("waiting_for_trigger");
+    expect(adapterState.contexts).toHaveLength(0); // no provider call for a refused caller
+  });
+
+  it("a lapsed listening window expires on poll without touching the provider", async () => {
+    const { sessionId } = await listening();
+    find(sessionId)!.expires_at = new Date(Date.now() - 1000).toISOString();
+    const t = await advanceLiveTestSession({ sessionId, workflowId: WF_ID, userId: USER });
+    if (!t.ok) throw new Error("advance failed");
+    expect(t.status.status).toBe("expired");
+    expect(adapterState.contexts).toHaveLength(0);
+    expect(mem.runs).toHaveLength(0);
   });
 });

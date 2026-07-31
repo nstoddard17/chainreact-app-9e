@@ -102,6 +102,29 @@ export type CaptureAttemptOutcome =
   /** Adapter identity did not match the session's trigger binding. */
   | { ok: false; reason: "adapter_mismatch" };
 
+/**
+ * Non-fatal advisories from a status-poll advancement tick (WORKFLOW-LIVE-TEST-4 §2). The
+ * session is still honest in `status`; the advisory explains why it has not moved forward.
+ */
+export type LiveTestAdvanceAdvisory =
+  /** Captured, but the account's task limit blocks execution — recoverable until the TTL. */
+  | "usage_limit_reached"
+  /** This tick's provider inspection failed transiently; listening continues. */
+  | "capture_error";
+
+export type AdvanceLiveTestResult =
+  | {
+      ok: true;
+      status: LiveTestSessionStatusDto;
+      advisory: LiveTestAdvanceAdvisory | null;
+      /**
+       * Set when THIS tick (or a prior converged one) authorized the canonical run — the route
+       * kicks the queue drain for it via `after()`. Null when nothing is executable yet.
+       */
+      queuedRunId: string | null;
+    }
+  | { ok: false; reason: "session_not_found" };
+
 export type AuthorizeLiveTestResult =
   | { ok: true; runId: string; alreadyAuthorized: boolean }
   | { ok: false; reason: "session_not_found" }

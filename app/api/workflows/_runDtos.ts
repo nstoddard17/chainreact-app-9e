@@ -42,6 +42,14 @@ function gateErrorClassificationCta(
 
 export function toWorkflowRunSummary(
   record: WorkflowRunRecord,
+  opts?: {
+    /**
+     * WORKFLOW-LIVE-TEST-4 — true when a consumed live-test session names this run
+     * (server-side lookup in the route; never client-supplied). Distinguishes a
+     * consented live test (real calls) from a safe test in the UI badges.
+     */
+    isLiveTest?: boolean;
+  },
 ): WorkflowRunSummary {
   return {
     id: record.id,
@@ -59,6 +67,7 @@ export function toWorkflowRunSummary(
     // provenance to the account-wide `RunListItem`; no raw payload exposure.
     triggeredBy: record.triggeredBy,
     isTest: record.isTest,
+    ...(opts?.isLiveTest !== undefined ? { isLiveTest: opts.isLiveTest } : {}),
   };
 }
 
@@ -92,6 +101,7 @@ export function toWorkflowRunDetail(
   record: WorkflowRunRecord,
   callerUserId: string,
   workflowNodes?: readonly WorkflowNode[],
+  opts?: { isLiveTest?: boolean },
 ): WorkflowRunDetail {
   const includeOutput =
     record.isTest &&
@@ -101,7 +111,7 @@ export function toWorkflowRunDetail(
     includeOutput ? workflowNodes : undefined,
   );
   return {
-    ...toWorkflowRunSummary(record),
+    ...toWorkflowRunSummary(record, opts),
     steps: record.steps.map((s) => ({
       nodeId: s.nodeId,
       status: s.status,

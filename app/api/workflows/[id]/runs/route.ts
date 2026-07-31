@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
+import * as liveTestSessionsRepo from "@/repositories/liveTest/workflowLiveTestSessions";
 import {
   requireUser,
   toWorkflowRunSummary,
@@ -44,7 +45,21 @@ export async function GET(
     id,
     limit !== undefined ? { limit } : {},
   );
+  // WORKFLOW-LIVE-TEST-4 — label runs a consumed live-test session authorized, so
+  // the Runs tab distinguishes a consented live test (real calls) from a safe
+  // test. Ids-only batch lookup over the test rows; a lookup failure degrades to
+  // the unlabeled (safe-test) presentation rather than failing the list.
+  let liveTestRunIds: ReadonlySet<string> = new Set();
+  try {
+    liveTestRunIds = await liveTestSessionsRepo.listConsumedRunIds(
+      records.filter((r) => r.isTest).map((r) => r.id),
+    );
+  } catch {
+    liveTestRunIds = new Set();
+  }
   return NextResponse.json({
-    runs: records.map(toWorkflowRunSummary),
+    runs: records.map((record) =>
+      toWorkflowRunSummary(record, { isLiveTest: liveTestRunIds.has(record.id) }),
+    ),
   });
 }

@@ -87,6 +87,24 @@ describe("RunRow", () => {
     expect(screen.getByTestId(`runs-row-${test.id}-test-marker`)).toBeInTheDocument();
   });
 
+  it("a consented live test shows the Live test marker INSTEAD of the plain Test marker (WORKFLOW-LIVE-TEST-4)", () => {
+    const liveTest = fixtureRun({
+      id: "live-1",
+      isTest: true,
+      isLiveTest: true,
+      triggeredBy: "test",
+    });
+    render(
+      <ul>
+        <RunRow run={liveTest} />
+      </ul>,
+    );
+    const marker = screen.getByTestId(`runs-row-${liveTest.id}-live-test-marker`);
+    expect(marker).toHaveTextContent(/live test/i);
+    // Never both — "Test" implies no external calls, which would misdescribe this run.
+    expect(screen.queryByTestId(`runs-row-${liveTest.id}-test-marker`)).toBeNull();
+  });
+
   it("renders the humanized error block + one reconnect CTA when action=reconnect (CR-FAILREASON-2)", () => {
     const run = fixtureRun({
       id: "err-1",

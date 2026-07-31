@@ -150,6 +150,28 @@ describe("toRunListItem", () => {
     ).toBe(false);
   });
 
+  it("labels a run named by a consumed live-test session as isLiveTest (WORKFLOW-LIVE-TEST-4)", () => {
+    const testRun = { ...baseRecord, isTest: true, triggeredBy: "test" as const };
+    const labeled = toRunListItem(
+      testRun,
+      new Map([[baseRecord.workflowId, "W"]]),
+      new Set([testRun.id]),
+    );
+    expect(labeled.isLiveTest).toBe(true);
+
+    const safeTest = toRunListItem(
+      testRun,
+      new Map([[baseRecord.workflowId, "W"]]),
+      new Set(["some-other-run"]),
+    );
+    expect(safeTest.isLiveTest).toBe(false);
+
+    // Callers that don't thread the set get the safe-test default — never a fabricated label.
+    expect(
+      toRunListItem(testRun, new Map([[baseRecord.workflowId, "W"]])).isLiveTest,
+    ).toBe(false);
+  });
+
   it("output validates against RunListItemSchema (no extra fields, no missing ones)", () => {
     const result = toRunListItem(
       baseRecord,

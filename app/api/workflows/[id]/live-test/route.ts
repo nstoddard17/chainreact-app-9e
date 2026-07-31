@@ -7,6 +7,9 @@ import {
 } from "../../_shared";
 import * as workflowsRepo from "@/repositories/workflows";
 import { prepareLiveTestSession } from "@/services/workflows/liveTest/sessionService";
+// Side-effect import: populates the live-capture adapter registry so `isLiveCaptureSupported`
+// answers from the real production registrations (poll-triggers cron route pattern).
+import "@/integrations/_registry";
 
 /**
  * POST /api/workflows/[id]/live-test — prepare a live-test session (WORKFLOW-LIVE-TEST-3 §14).

@@ -69,6 +69,22 @@ export function TestTag() {
   );
 }
 
+/**
+ * WORKFLOW-LIVE-TEST-4 — a CONSENTED live test. Distinct from TestTag because
+ * "Test" implies no external calls, and a live test made real ones under an
+ * explicit consent. Rose tint keeps the "this touched real systems" signal.
+ */
+export function LiveTestTag() {
+  return (
+    <span
+      data-testid="run-live-test-tag"
+      className="rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-300"
+    >
+      Live test
+    </span>
+  );
+}
+
 export function ClassifiedErrorBlock({
   classification,
 }: {

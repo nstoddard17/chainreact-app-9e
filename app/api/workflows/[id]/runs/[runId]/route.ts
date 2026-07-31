@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import * as workflowsRepo from "@/repositories/workflows";
+import * as liveTestSessionsRepo from "@/repositories/liveTest/workflowLiveTestSessions";
 import {
   requireUser,
   toWorkflowRunDetail,
@@ -68,5 +69,20 @@ export async function GET(
     workflowNodes = undefined;
   }
 
-  return NextResponse.json(toWorkflowRunDetail(record, auth.userId, workflowNodes));
+  // WORKFLOW-LIVE-TEST-4 — live-test labeling: only a consumed session (mintable
+  // solely by the service-role authorize RPC) marks a run as a live test. Lookup
+  // failure degrades to the unlabeled safe-test presentation.
+  let isLiveTest = false;
+  if (record.isTest) {
+    try {
+      isLiveTest =
+        (await liveTestSessionsRepo.getConsumedSessionByRunId(runId)) !== null;
+    } catch {
+      isLiveTest = false;
+    }
+  }
+
+  return NextResponse.json(
+    toWorkflowRunDetail(record, auth.userId, workflowNodes, { isLiveTest }),
+  );
 }

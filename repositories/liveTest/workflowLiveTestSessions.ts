@@ -226,6 +226,31 @@ export async function getConsumedSessionByRunId(
   return data ? rowToRecord(data) : null;
 }
 
+/**
+ * Which of these run ids were authorized by a CONSUMED live-test session — the runs surfaces'
+ * batch labeling lookup (WORKFLOW-LIVE-TEST-4). Returns ids only; no session content leaves
+ * this function, so the display layer learns "live test: yes/no" and nothing else.
+ */
+export async function listConsumedRunIds(
+  runIds: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (runIds.length === 0) return new Set();
+  const supabase = getServiceRoleClient("workflow_live_test_sessions: consumed run ids");
+  const { data, error } = await supabase
+    .from("workflow_live_test_sessions")
+    .select("workflow_run_id")
+    .in("workflow_run_id", [...runIds])
+    .not("consumed_at", "is", null);
+  if (error) {
+    throw new Error(`workflow_live_test_sessions.listConsumedRunIds failed: ${error.message}`);
+  }
+  return new Set(
+    ((data ?? []) as { workflow_run_id: string | null }[])
+      .map((r) => r.workflow_run_id)
+      .filter((id): id is string => id !== null),
+  );
+}
+
 // ── guarded transitions ──────────────────────────────────────────────────────
 
 export type TransitionResult =

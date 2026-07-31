@@ -31,14 +31,30 @@ jest.mock("@/repositories/accountMemberships", () => ({
 }));
 const mockPrepare = jest.fn();
 const mockStart = jest.fn();
-const mockStatus = jest.fn();
 const mockCancel = jest.fn();
 jest.mock("@/services/workflows/liveTest/sessionService", () => ({
   prepareLiveTestSession: (...a: unknown[]) => mockPrepare(...a),
   startLiveTestListening: (...a: unknown[]) => mockStart(...a),
-  getLiveTestSessionStatus: (...a: unknown[]) => mockStatus(...a),
   cancelLiveTestSession: (...a: unknown[]) => mockCancel(...a),
 }));
+// WORKFLOW-LIVE-TEST-4 — GET now performs one advancement tick via the orchestration service.
+const mockAdvance = jest.fn();
+jest.mock("@/services/workflows/liveTest/orchestrationService", () => ({
+  advanceLiveTestSession: (...a: unknown[]) => mockAdvance(...a),
+}));
+const mockProcessQueuedRun = jest.fn();
+jest.mock("@/services/execution/runQueueProcessor", () => ({
+  processQueuedRun: (...a: unknown[]) => mockProcessQueuedRun(...a),
+}));
+// The routes side-effect-import the full provider registry to populate the live-capture
+// adapter registry; the route boundary under test doesn't need real providers loaded.
+jest.mock("@/integrations/_registry", () => ({}));
+// `after` requires a Next request scope; in tests it runs the task inline.
+const mockAfter = jest.fn((task: unknown) => task);
+jest.mock("next/server", () => {
+  const actual = jest.requireActual("next/server");
+  return { ...actual, after: (task: unknown) => mockAfter(task) };
+});
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -94,7 +110,7 @@ describe("live-test routes — auth gate", () => {
     for (const r of responses) expect(r.status).toBe(401);
     expect(mockPrepare).not.toHaveBeenCalled();
     expect(mockStart).not.toHaveBeenCalled();
-    expect(mockStatus).not.toHaveBeenCalled();
+    expect(mockAdvance).not.toHaveBeenCalled();
     expect(mockCancel).not.toHaveBeenCalled();
   });
 
@@ -181,13 +197,54 @@ describe("start route — the strict consent boundary", () => {
 });
 
 describe("status + cancel routes", () => {
-  it("status returns the safe DTO and 404s on a typed miss", async () => {
-    mockStatus.mockResolvedValue({ ok: true, status: { sessionId: "s1", status: "waiting_for_trigger" } });
+  it("status returns the safe DTO from ONE advancement tick and 404s on a typed miss", async () => {
+    mockAdvance.mockResolvedValue({
+      ok: true,
+      status: { sessionId: "s1", status: "waiting_for_trigger" },
+      advisory: null,
+      queuedRunId: null,
+    });
     const ok = await statusGet(new Request("http://test.local"), params({ sessionId: "s1" }));
     expect(ok.status).toBe(200);
-    mockStatus.mockResolvedValue({ ok: false, reason: "session_not_found" });
+    const okBody = (await ok.json()) as { session: unknown; advisory?: unknown };
+    expect(okBody.session).toEqual({ sessionId: "s1", status: "waiting_for_trigger" });
+    expect(okBody.advisory).toBeUndefined();
+    // The poll supplies ids only — the tick call carries no client-shaped payload.
+    expect(mockAdvance).toHaveBeenCalledWith({
+      sessionId: "s1",
+      workflowId: "wf-1",
+      userId: "user-1",
+    });
+    expect(mockAfter).not.toHaveBeenCalled();
+
+    mockAdvance.mockResolvedValue({ ok: false, reason: "session_not_found" });
     const miss = await statusGet(new Request("http://test.local"), params({ sessionId: "nope" }));
     expect(miss.status).toBe(404);
+  });
+
+  it("a tick that authorized the run kicks the queue drain via after() and reports the run id", async () => {
+    mockAdvance.mockResolvedValue({
+      ok: true,
+      status: { sessionId: "s1", status: "running", workflowRunId: "run-9" },
+      advisory: null,
+      queuedRunId: "run-9",
+    });
+    const r = await statusGet(new Request("http://test.local"), params({ sessionId: "s1" }));
+    expect(r.status).toBe(200);
+    expect(mockProcessQueuedRun).toHaveBeenCalledWith("run-9");
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+  });
+
+  it("a typed advisory rides along with the honest status", async () => {
+    mockAdvance.mockResolvedValue({
+      ok: true,
+      status: { sessionId: "s1", status: "trigger_received" },
+      advisory: "usage_limit_reached",
+      queuedRunId: null,
+    });
+    const r = await statusGet(new Request("http://test.local"), params({ sessionId: "s1" }));
+    const body = (await r.json()) as { advisory?: string };
+    expect(body.advisory).toBe("usage_limit_reached");
   });
 
   it("cancel maps execution_already_started to a 409 whose copy never claims rollback", async () => {
