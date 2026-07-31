@@ -21,7 +21,7 @@ import {
   isPreExecutionLiveTestStatus,
   isTerminalLiveTestStatus,
   type LiveTestSessionStatus,
-} from "@/core/workflows/liveTestSessionLifecycle";
+} from "@/core/workflows/liveTest/liveTestSessionLifecycle";
 
 const MIGRATION = readFileSync(
   join(resolve(process.cwd(), "supabase/migrations"), "20260811000000_workflow_live_test_sessions.sql"),
