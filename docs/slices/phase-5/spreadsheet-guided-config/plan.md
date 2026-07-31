@@ -123,22 +123,22 @@ Read in full — layout, CSS states, and the interaction script. The file is a
 
 ## 3. Current Google Sheets config architecture (verified in-repo)
 
-Provider root: [`integrations/google-sheets/`](../../../integrations/google-sheets/) —
+Provider root: [`integrations/google-sheets/`](../../../../integrations/google-sheets/) —
 12 actions, 3 option resolvers, 2 triggers.
 
 **`google-sheets:append_row`** (the design's target):
 
-- Schema [`appendRow.schema.ts`](../../../integrations/google-sheets/actions/appendRow.schema.ts)
+- Schema [`appendRow.schema.ts`](../../../../integrations/google-sheets/actions/appendRow.schema.ts)
   (`.strict()`): `spreadsheetId` (required) · `range` (required free-text A1) ·
   `values` (required **positional** `(string|number|boolean|null)[]`, min 1) ·
   `valueInputOption` (**required enum, no default — Q11**) · `insertDataOption`
   (enum, default `INSERT_ROWS`).
-- Meta [`appendRow.meta.ts`](../../../integrations/google-sheets/actions/appendRow.meta.ts):
+- Meta [`appendRow.meta.ts`](../../../../integrations/google-sheets/actions/appendRow.meta.ts):
   `spreadsheetId` combobox (`google-sheets:spreadsheets`) · `range` **plain text** ·
   `values` **string-array chips** · two selects. No `advanced`, no `visibleWhen`, no
   `dependsOn` anywhere. The meta header comment records that a sheet combobox was
   requested and deliberately not added because the live schema has no `sheetName`.
-- Handler [`appendRow.ts`](../../../integrations/google-sheets/actions/appendRow.ts)
+- Handler [`appendRow.ts`](../../../../integrations/google-sheets/actions/appendRow.ts)
   wraps `values` into `[[...]]` and calls `valuesAppend` (POST
   `/values/{range}:append`), passing `range` through verbatim.
 - Resolvers:
@@ -170,7 +170,7 @@ Provider root: [`integrations/google-sheets/`](../../../integrations/google-shee
 
 ## 4. Current Microsoft Excel config architecture (verified in-repo)
 
-Provider root: [`integrations/microsoft-excel/`](../../../integrations/microsoft-excel/) —
+Provider root: [`integrations/microsoft-excel/`](../../../../integrations/microsoft-excel/) —
 13 actions, 5 resolvers, 5 polling triggers. Two distinct surfaces, never mixed:
 **worksheet-range actions** (`add_row`, `update_row`, `delete_row`, `read_range`,
 `export_sheet`…) keyed by `workbookId + worksheetName`, and **table (ListObject)
@@ -199,7 +199,7 @@ surface).
 Prior art shipped by SPREADSHEET-CONFIG-REDESIGN-1 and reusable as-is:
 
 - `spreadsheet-rows` FieldType + composite editor
-  ([`fields/spreadsheet/`](../../../features/workflow-builder/config-modal/fields/spreadsheet/)):
+  ([`fields/spreadsheet/`](../../../../features/workflow-builder/config-modal/fields/spreadsheet/)):
   real-column loading via `useOptionsSource`, honest "We couldn't detect any column
   names…" fallback with manual entry, per-cell variable picker, preview block,
   serialize helpers (`cellsToPositionalValues` keeps in-between blanks as `""`, trims
@@ -223,9 +223,9 @@ Field renderer (ComboboxField / SpreadsheetRowsField / …)
 ```
 
 - Failure classification is shared and provider-agnostic:
-  [`core/workflows/options/optionsRecovery.ts`](../../../core/workflows/options/optionsRecovery.ts)
+  [`core/workflows/options/optionsRecovery.ts`](../../../../core/workflows/options/optionsRecovery.ts)
   (`classifyOptionsRecovery`, `reconnectHrefForProvider`, `validateManualOptionId`) —
-  rule doc [`option-source-recovery.md`](../../rules/option-source-recovery.md). Every
+  rule doc [`option-source-recovery.md`](../../../rules/option-source-recovery.md). Every
   non-ready state must say what happened and offer only recoveries that state supports.
 - Pagination: none — `hasMore` is a UI hint ("Refine search to narrow"). Search is
   passed as `q` (Sheets/Excel resolvers filter client-side today).
@@ -523,7 +523,7 @@ reusing existing primitives, not a parallel engine:
 
 ## 15. Accessibility / responsive plan
 
-Follows [`responsive-layout-and-validation.md`](../../rules/responsive-layout-and-validation.md)
+Follows [`responsive-layout-and-validation.md`](../../../rules/responsive-layout-and-validation.md)
 (360→1600px sweep, containment · legibility · panning policy, non-vacuous proof) and
 the builder tiers (`builderLayoutPolicy.ts`: config is an in-flow ~24rem panel only at
 `wide` ≥1280, an overlay sheet below that — so the guided UI's primary width is the

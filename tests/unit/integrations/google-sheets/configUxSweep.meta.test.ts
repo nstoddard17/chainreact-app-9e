@@ -20,10 +20,18 @@
  * columns picker are pinned in the builder integration test
  * (google-sheets-row-changed-trigger-config.test.tsx).
  *
- * Deliberately NOT changed (deferred product decision per
- * docs/slices/phase-5/spreadsheet-config-redesign-closeout.md §Secondary
- * targets): free-text A1 `range` on read/append/update/clear and the
- * positional `values` arrays.
+ * SHEETS-GUIDED-CONFIG-1 resolved the deferral this file used to record for
+ * `append_row`. The deferred product decision (a tab picker + a derived
+ * range, per docs/slices/phase-5/spreadsheet-guided-config/plan.md §10 / D1)
+ * is now implemented, so append_row's `range` is an ADVANCED field, its
+ * `values` is the column-aware `spreadsheet-rows` editor, and its two write-
+ * behavior selects carry plain-language labels. Those pins live in
+ * "google-sheets:append_row — guided destination (SHEETS-GUIDED-CONFIG-1)"
+ * below, and in the builder integration test.
+ *
+ * Still deliberately NOT changed (same deferral, still open for these):
+ * free-text A1 `range` on read_rows / update_row / clear_range and the
+ * positional `values` array on update_row. S1 covered append_row only.
  */
 
 import { googleSheetsReadRowsMeta } from "@/integrations/google-sheets/actions/readRows.meta";
@@ -73,23 +81,114 @@ describe("google-sheets valueInputOption label polish (CONFIG-UX sweep)", () => 
     ["update_cell", googleSheetsUpdateCellMeta],
     ["batch_update", googleSheetsBatchUpdateMeta],
   ] as const)(
-    "%s — friendlier labels, verbatim runtime enum values, Q11 requiredness intact",
+    "%s — Q11 holds: required, no default, and the committed values are the verbatim runtime enum",
     (_key, meta) => {
       const f = field(meta, "valueInputOption");
       expect(f.type).toBe("select");
       expect(f.required).toBe(true);
+      // The single most important pin in this file: a default here would
+      // silently choose how a user's numbers, dates and formulas are written.
       expect(f.defaultValue).toBeUndefined();
       // Committed VALUES are exactly the runtime enum.
       expect(f.options!.map((o) => o.value).sort()).toEqual([
         "RAW",
         "USER_ENTERED",
       ]);
-      // Labels are outcome-language, not raw enum echoes.
-      const byValue = new Map(f.options!.map((o) => [o.value, o.label]));
+    },
+  );
+
+  it.each([
+    ["update_row", googleSheetsUpdateRowMeta],
+    ["update_cell", googleSheetsUpdateCellMeta],
+    ["batch_update", googleSheetsBatchUpdateMeta],
+  ] as const)(
+    "%s — keeps the CONFIG-UX sweep labels (not yet migrated to guided copy)",
+    (_key, meta) => {
+      const byValue = new Map(
+        field(meta, "valueInputOption").options!.map((o) => [o.value, o.label]),
+      );
       expect(byValue.get("USER_ENTERED")).toBe("Parse as if typed in Sheets");
       expect(byValue.get("RAW")).toBe("Store exactly as written");
     },
   );
+});
+
+describe("google-sheets:append_row — guided destination (SHEETS-GUIDED-CONFIG-1)", () => {
+  it("asks which TAB with a real picker instead of making the user write A1 notation", () => {
+    const f = field(googleSheetsAppendRowMeta, "sheetName");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("google-sheets:sheets");
+    // The tab picker is what makes a columns cascade possible at all.
+    expect(f.dependsOn).toBe("spreadsheetId");
+    expect(f.required).toBe(true);
+    // A power user with a tab the picker can't list is never trapped.
+    expect(f.allowManualEntry).toBe(true);
+  });
+
+  it("reads the destination's real columns instead of asking for blind positional cells", () => {
+    const f = field(googleSheetsAppendRowMeta, "values");
+    expect(f.type).toBe("spreadsheet-rows");
+    expect(f.optionsSource).toBe("google-sheets:columns");
+    // Both parents — the resolver reads row 1 of a specific tab.
+    expect(f.dependsOn).toEqual(["spreadsheetId", "sheetName"]);
+    expect(f.required).toBe(true);
+    // Sheets has no multi-row append action, so the editor must not offer a
+    // "several rows" mode that no runtime schema would accept.
+    expect(f.batchRowsField).toBeUndefined();
+  });
+
+  it("keeps the raw cell range available to power users, off the normal path", () => {
+    const f = field(googleSheetsAppendRowMeta, "range");
+    expect(f.advanced).toBe(true);
+    // Still REQUIRED at runtime — it is the only value sent to the API, so
+    // demoting it to Advanced must not make it optional.
+    expect(f.required).toBe(true);
+    expect(f.type).toBe("text");
+  });
+
+  it("states the two write-behavior choices as outcomes a business user can judge", () => {
+    const byValue = new Map(
+      field(googleSheetsAppendRowMeta, "valueInputOption").options!.map((o) => [
+        o.value,
+        o.label,
+      ]),
+    );
+    expect(byValue.get("USER_ENTERED")).toBe("Like something you typed in");
+    expect(byValue.get("RAW")).toBe("Exactly as plain text");
+
+    const insert = new Map(
+      field(googleSheetsAppendRowMeta, "insertDataOption").options!.map((o) => [
+        o.value,
+        o.label,
+      ]),
+    );
+    // The old labels echoed the raw API enum at the user.
+    expect(insert.get("INSERT_ROWS")).toBe(
+      "Push them down and slot the new row in",
+    );
+    expect(insert.get("OVERWRITE")).toBe("Write over whatever is there");
+    // The destructive option must say so in words, not rely on styling.
+    expect(
+      insert.get("OVERWRITE") === undefined
+        ? ""
+        : field(googleSheetsAppendRowMeta, "insertDataOption").options!.find(
+            (o) => o.value === "OVERWRITE",
+          )!.description!,
+    ).toMatch(/permanently erase|replaces existing/i);
+  });
+
+  it("no builder-visible copy asks the user to hand-write A1 notation on the normal path", () => {
+    for (const f of googleSheetsAppendRowMeta.fields) {
+      if (f.advanced === true) continue; // the Advanced range may say so
+      expect(`${f.label} ${f.description ?? ""}`).not.toMatch(/A1 notation/i);
+    }
+  });
+
+  it("the declared cascade parents are real sibling fields", () => {
+    const names = googleSheetsAppendRowMeta.fields.map((x) => x.name);
+    expect(names).toContain("spreadsheetId");
+    expect(names).toContain("sheetName");
+  });
 });
 
 describe("google-sheets:find_row copy polish (CONFIG-UX sweep)", () => {

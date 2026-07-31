@@ -3,33 +3,52 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 /**
  * Builder-facing metadata for `google-sheets:append_row`.
  *
- * Mirrors `appendRow.schema.ts` EXACTLY — the schema uses `range` (not
- * `sheetName`) as the row-target spec, so the meta surfaces `range` as
- * a text input rather than a sheet picker. The plan-level memo asked
- * for a sheet combobox here; the live schema does not accept one, and
- * the slice rule is "use exact runtime field names, do not infer from
- * plan memory if live schema differs."
+ * SHEETS-GUIDED-CONFIG-1 reworked this surface. It previously mirrored
+ * the runtime schema literally — a free-text A1 `range` box and a blind
+ * positional chip list — because the schema had no tab field to hang a
+ * column resolver on. That was recorded as a deferred product decision
+ * in `docs/slices/phase-5/spreadsheet-config-redesign-closeout.md`
+ * §"Secondary targets"; the guided-config plan
+ * (`docs/slices/phase-5/spreadsheet-guided-config/plan.md` §10, D1)
+ * resolved it: the schema gained an OPTIONAL `sheetName`, so the normal
+ * path can ask which tab and derive the range.
  *
  * Fields:
  *   - `spreadsheetId`     (required) — combobox from
  *                          `google-sheets:spreadsheets`.
- *   - `range`             (required) — A1 notation (typically
- *                          `Sheet1!A:A` or `Sheet1!A:Z` so Sheets
- *                          detects the table and appends below the
- *                          bottom row).
- *   - `values`            (required) — textarea paste-JSON. Array of
- *                          primitives — one cell per column, in the
- *                          order the sheet expects. Caller knows the
- *                          column order; the UI stores the literal
- *                          string, runtime validates.
+ *   - `sheetName`         (required in the builder) — combobox from
+ *                          `google-sheets:sheets`, dependent on the
+ *                          spreadsheet. OPTIONAL at runtime, so every
+ *                          pre-slice saved config still validates and
+ *                          runs; the builder asks for it because it is
+ *                          the `dependsOn` parent the columns resolver
+ *                          needs and the input the derived range comes
+ *                          from.
+ *   - `values`            (required) — `spreadsheet-rows`, the existing
+ *                          column-aware editor, reading REAL header
+ *                          names from `google-sheets:columns`. Commits
+ *                          the same positional array as before: header
+ *                          names are how the cells are LABELLED, not a
+ *                          new save shape. No `batchRowsField` — Sheets
+ *                          has no multi-row append action, and the
+ *                          editor hides its mode toggle without one.
  *   - `valueInputOption`  (required, Q11) — RAW vs USER_ENTERED.
  *                          Authors choose explicitly: V1 silently
- *                          defaulted to RAW which surprised users
- *                          with formula content.
+ *                          defaulted to RAW which surprised users with
+ *                          formula content. Deliberately carries NO
+ *                          `defaultValue`; the guided step marks
+ *                          USER_ENTERED as recommended without
+ *                          pre-selecting it, so the choice stays the
+ *                          user's and readiness can name it as missing.
  *   - `insertDataOption`  (required select, defaults to INSERT_ROWS).
  *                          Mirrors the schema's `.default("INSERT_ROWS")`;
  *                          Q11-safe because INSERT_ROWS preserves
  *                          existing data rather than overwriting.
+ *   - `range`             (required, ADVANCED) — still the only value
+ *                          sent to the API, so runtime behavior is
+ *                          unchanged. Derived from the selected tab for
+ *                          the normal path; a deliberately hand-written
+ *                          range is never overwritten by a tab change.
  *
  * Outputs match `appendRow.ts:return` — structural counters only
  * (`{spreadsheetId, tableRange, updatedRange, updatedRows,
@@ -42,7 +61,7 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
   type: "append_row",
   displayName: "Append Row",
   description:
-    "Append a single row to a Google Sheet. Sheets detects the existing table from the supplied range and appends below the bottom row. Add one cell value per column, in column order. Required choice: parse values as if typed in Sheets, or store them exactly as written.",
+    "Add one new row to the bottom of a Google Sheets tab, filling in each column by name. Required choice: treat values as if you typed them into the sheet, or store them exactly as plain text.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -57,63 +76,80 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
       placeholder: "Search spreadsheets…",
     },
     {
-      name: "range",
-      label: "Range",
+      name: "sheetName",
+      label: "Tab",
       description:
-        "A1-notation range Sheets uses to locate the table. Common shapes: `Sheet1!A:A` or `Sheet1!A:Z` (Sheets finds the bottom of those columns and appends below — typical), or just `Sheet1` (finds the bottom of the entire sheet — less precise).",
-      type: "text",
+        "Which tab inside that spreadsheet the row is added to. We read this tab's first row to work out its columns, so you never have to type a cell range.",
+      type: "combobox",
+      optionsSource: "google-sheets:sheets",
+      dependsOn: "spreadsheetId",
       required: true,
-      placeholder: "Sheet1!A:Z",
+      allowManualEntry: true,
+      placeholder: "Select spreadsheet first",
     },
     {
       name: "values",
       label: "Row values",
       description:
-        "Add one value per column, in the column order the sheet expects. With USER_ENTERED below, Sheets parses numbers, dates, and formulas as if you typed them into the sheet.",
-      type: "string-array",
+        "What goes in each column of the new row. Leave a column blank to keep that cell empty. With 'parse as typed' below, Sheets treats numbers, dates and formulas as if you had typed them in.",
+      type: "spreadsheet-rows",
+      optionsSource: "google-sheets:columns",
+      dependsOn: ["spreadsheetId", "sheetName"],
       required: true,
-      placeholder: "Type a cell value and press Enter",
     },
     {
       name: "valueInputOption",
-      label: "Value input option",
+      label: "How should numbers, dates and formulas be treated?",
       description:
-        "How Sheets treats your values. Required — 'parse as typed' makes =SUM(...), dates and numbers live; 'store exactly' keeps them as text.",
+        "Required — we don't choose this for you, because the two answers write different things into your sheet.",
       type: "select",
       required: true,
       options: [
         {
           value: "USER_ENTERED",
-          label: "Parse as if typed in Sheets",
-          description: "Formulas evaluate, dates and numbers become live values.",
+          label: "Like something you typed in",
+          description:
+            "\"7/31/2026\" becomes a real date, \"=SUM(A1:A9)\" becomes a working formula.",
         },
         {
           value: "RAW",
-          label: "Store exactly as written",
-          description: "Everything stays literal text — =SUM(...) stays a string.",
+          label: "Exactly as plain text",
+          description:
+            "Everything stays literal text — nothing is converted or calculated.",
         },
       ],
     },
     {
       name: "insertDataOption",
-      label: "Insert data option",
+      label: "What if there are already rows below your table?",
       description:
-        "What Sheets does with existing rows below the table. INSERT_ROWS (default) pushes existing rows down to make room — preserves data. OVERWRITE overwrites any cells in the way — destructive on a populated sheet.",
+        "Sheets appends below the table it finds. This decides what happens to anything already sitting in the way.",
       type: "select",
       required: true,
       defaultValue: "INSERT_ROWS",
       options: [
         {
           value: "INSERT_ROWS",
-          label: "INSERT_ROWS",
-          description: "Push existing rows down (default — preserves data).",
+          label: "Push them down and slot the new row in",
+          description: "Nothing in your sheet is lost.",
         },
         {
           value: "OVERWRITE",
-          label: "OVERWRITE",
-          description: "Overwrite existing cells — destructive on a populated sheet.",
+          label: "Write over whatever is there",
+          description:
+            "Faster, but it replaces existing cells. This can permanently erase data on a sheet that already has content below the table.",
         },
       ],
+    },
+    {
+      name: "range",
+      label: "Cell range",
+      description:
+        "Set from your tab automatically. Only change this if your table doesn't start at the top-left of the sheet. Uses A1 notation, for example 'Email log'!A:F.",
+      type: "text",
+      required: true,
+      advanced: true,
+      placeholder: "'Email log'!A:F",
     },
   ],
   outputs: [

@@ -1,28 +1,33 @@
 /**
- * Slice 3.GSHEETS-3 integration test — Google Sheets `append_row` config
- * end-to-end through the live WorkflowBuilder shell.
+ * Google Sheets `append_row` configuration through the live
+ * WorkflowBuilder shell.
  *
- * Pins the visual row-values write path through the live builder for
- * Google Sheets (CONFIG-UX-AUDIT-1 — the values field is a string-array
- * chip editor writing a REAL string[], replacing the paste-JSON
- * textarea whose literal string the runtime z.array schema rejected).
- * Covers:
- *   - spreadsheetId combobox sourced from `google-sheets:spreadsheets`,
- *   - range text (A1 notation),
- *   - values string-array — one chip per cell, committed as string[],
- *   - valueInputOption required select with Q11 NO-default semantics
- *     (author picks RAW vs USER_ENTERED explicitly),
- *   - insertDataOption select pre-filled with the schema's
- *     `INSERT_ROWS` default.
+ * SHEETS-GUIDED-CONFIG-1 rewrote this suite. It previously pinned the
+ * deferred experience — a free-text A1 `range` box, a blind positional
+ * chip list, and the explicit absence of a tab picker. That deferral was
+ * resolved by the approved plan
+ * (docs/slices/phase-5/spreadsheet-guided-config/plan.md §10, decision
+ * D1), so the assertions are REPLACED, not dropped: each one below
+ * states the behavior a normal business user now gets.
  *
- * **Schema-vs-plan deviation:** the append_row schema does NOT accept a
- * separate `sheetName` — the A1 range is the authoritative target spec
- * (Sheets parses the sheet name out of `Sheet1!A:Z`). The slice plan
- * memo asked for a sheet combobox here; the live schema doesn't take
- * one and the slice rule is "use exact runtime field names, do not
- * infer from plan memory if live schema differs." Sheet-cascade
- * behavior is exercised by the GSHEETS-2 cascade test + the
- * `get_cell_value` / `find_row` / `update_cell` meta surface tests.
+ * What this suite protects:
+ *   - The normal setup path never asks for A1 notation. The user picks a
+ *     spreadsheet, then a TAB; the raw cell range lives in Advanced for
+ *     the power case.
+ *   - Row values are labelled with the sheet's REAL column names, read
+ *     through `google-sheets:columns` — never invented, never positional
+ *     guesswork.
+ *   - The SAVED SHAPE IS UNCHANGED: `values` still commits a real
+ *     positional `string[]`. Column names are how cells are labelled,
+ *     not a new storage format — that is what keeps existing workflows
+ *     and the runtime handler compatible.
+ *   - Q11 holds: `valueInputOption` has no default and the author must
+ *     choose.
+ *
+ * Range DERIVATION (writing the range from the chosen tab) belongs to
+ * the guided destination step and is covered by the guided suites; here
+ * the range is set through Advanced, which also proves it stays
+ * reachable and required.
  */
 
 const mockUpdateWorkflow = jest.fn();
@@ -105,8 +110,70 @@ const triggerProviders = [{ id: "native", displayName: "Native" }];
 const actionProviders = [{ id: "google-sheets", displayName: "Google Sheets" }];
 
 const SPREADSHEET_ID = "1aBcDeFgHiJkLmNoPqRsTuVwXyZ";
-const RANGE = "Sheet1!A:Z";
-const VALUES = ["alice@example.com", "Premium", "42", "true"];
+const TAB = "Email log";
+const COLUMNS = ["Timestamp", "From", "Subject"];
+
+function optionsFor(source: string, deps: Record<string, string> | undefined) {
+  if (source === "google-sheets:spreadsheets") {
+    return {
+      ok: true as const,
+      source,
+      items: [
+        {
+          value: SPREADSHEET_ID,
+          label: "Workflow activity log",
+          description: "Modified 2026-05-20",
+        },
+      ],
+      hasMore: false,
+    };
+  }
+  if (source === "google-sheets:sheets") {
+    if (!deps?.spreadsheetId) {
+      return {
+        ok: false as const,
+        source,
+        code: "MISSING_DEPENDENCY",
+        message: "Select a spreadsheet first.",
+      };
+    }
+    return {
+      ok: true as const,
+      source,
+      items: [
+        { value: TAB, label: TAB, description: "412 rows × 3 columns" },
+        { value: "Archive", label: "Archive", description: "1908 rows" },
+      ],
+      hasMore: false,
+    };
+  }
+  if (source === "google-sheets:columns") {
+    if (!deps?.spreadsheetId || !deps?.sheetName) {
+      return {
+        ok: false as const,
+        source,
+        code: "MISSING_DEPENDENCY",
+        message: "Select a sheet first.",
+      };
+    }
+    return {
+      ok: true as const,
+      source,
+      items: COLUMNS.map((name, i) => ({
+        value: name,
+        label: name,
+        description: `Column ${String.fromCharCode(65 + i)}`,
+      })),
+      hasMore: false,
+    };
+  }
+  return {
+    ok: false as const,
+    source,
+    code: "SOURCE_NOT_FOUND",
+    message: `Unknown source '${source}'.`,
+  };
+}
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
@@ -121,28 +188,10 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  mockFetchOptionsSource.mockImplementation(async (source: string) => {
-    if (source === "google-sheets:spreadsheets") {
-      return {
-        ok: true,
-        source: "google-sheets:spreadsheets",
-        items: [
-          {
-            value: SPREADSHEET_ID,
-            label: "Q4 Forecast",
-            description: "Modified 2026-05-20",
-          },
-        ],
-        hasMore: false,
-      };
-    }
-    return {
-      ok: false,
-      source,
-      code: "SOURCE_NOT_FOUND",
-      message: `Unknown source '${source}'.`,
-    };
-  });
+  mockFetchOptionsSource.mockImplementation(
+    async (source: string, args?: { deps?: Record<string, string> }) =>
+      optionsFor(source, args?.deps),
+  );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -152,24 +201,32 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Google Sheets append_row meta exposes spreadsheetId / range / values / valueInputOption / insertDataOption — Slice 3.GSHEETS-3 meta guard", () => {
+it("append_row metadata asks which spreadsheet and which tab, and keeps the raw cell range off the normal path", () => {
   const names = googleSheetsAppendRowMeta.fields.map((f) => f.name);
+  // The tab picker is the change that makes column discovery possible.
+  expect(names).toContain("sheetName");
   expect(names).toEqual([
     "spreadsheetId",
-    "range",
+    "sheetName",
     "values",
     "valueInputOption",
     "insertDataOption",
+    "range",
   ]);
-  expect(names).not.toContain("sheetName");
 
   const byName = new Map(googleSheetsAppendRowMeta.fields.map((f) => [f.name, f]));
   expect(byName.get("spreadsheetId")!.type).toBe("combobox");
   expect(byName.get("spreadsheetId")!.optionsSource).toBe(
     "google-sheets:spreadsheets",
   );
-  expect(byName.get("range")!.type).toBe("text");
-  expect(byName.get("values")!.type).toBe("string-array");
+  expect(byName.get("sheetName")!.optionsSource).toBe("google-sheets:sheets");
+  // Real columns, not positional chips.
+  expect(byName.get("values")!.type).toBe("spreadsheet-rows");
+  expect(byName.get("values")!.optionsSource).toBe("google-sheets:columns");
+  // The range is still required at runtime — it is what the API receives —
+  // but a business user is no longer asked to write it.
+  expect(byName.get("range")!.advanced).toBe(true);
+  expect(byName.get("range")!.required).toBe(true);
 
   // Q11 — valueInputOption is required with NO defaultValue.
   const vio = byName.get("valueInputOption")!;
@@ -193,7 +250,7 @@ it("Google Sheets append_row meta exposes spreadsheetId / range / values / value
   expect(googleSheetsAppendRowMeta.riskDescription!.length).toBeGreaterThan(0);
 });
 
-it("end-to-end: pick spreadsheet → type range → add row values as chips → pick valueInputOption → Modal Save (draft only) → Toolbar Save (updateWorkflow once; values persisted as a REAL string[])", async () => {
+it("a user picks a spreadsheet and a tab, fills the sheet's real columns by name, and the saved row is still a positional array", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -226,62 +283,87 @@ it("end-to-end: pick spreadsheet → type range → add row values as chips → 
   const action = useGraphSlice
     .getState()
     .pendingNodes.find((n) => n.kind === "action")!;
-  expect(action.provider).toBe("google-sheets");
   expect(action.type).toBe("append_row");
 
-  // 3. Open config rail. Expected controls: spreadsheet combobox +
-  //    range text + values chip editor + 2 selects.
+  // 3. Open config. The normal path offers pickers — not notation.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("combobox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
-  expect(screen.getByRole("textbox", { name: /^range$/i })).toBeInTheDocument();
-  expect(
-    screen.getByRole("textbox", { name: /^row values$/i }),
-  ).toBeInTheDocument();
-  // The paste-JSON era is over — no JSON language on the panel.
+  // The tab picker exists but waits for its parent — it says which choice
+  // comes first instead of offering an empty list.
+  expect(screen.getByTestId("combobox-parent-missing")).toHaveTextContent(
+    /select spreadsheet first/i,
+  );
+  // The raw A1 range is NOT on the setup path any more.
+  expect(screen.queryByRole("textbox", { name: /^cell range$/i })).toBeNull();
+  // No paste-JSON era language either.
   expect(document.body.textContent).not.toMatch(/paste json|json array/i);
-  expect(
-    screen.getByRole("combobox", { name: /^value input option$/i }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByRole("combobox", { name: /^insert data option$/i }),
-  ).toBeInTheDocument();
-  // No sheet picker — schema uses `range` only.
-  expect(screen.queryByRole("combobox", { name: /^sheet$/i })).toBeNull();
 
-  // 4. Pick the spreadsheet.
-  await pickComboboxOption(user, /^spreadsheet$/i, "Q4 Forecast");
+  // 4. Pick the spreadsheet, then the tab.
+  await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.spreadsheetId,
   ).toBe(SPREADSHEET_ID);
 
-  // 5. Type the A1 range.
-  await user.type(screen.getByRole("textbox", { name: /^range$/i }), RANGE);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.range).toBe(RANGE);
-
-  // 6. Add the row values as chips — one per column, in order. The
-  //    renderer commits a REAL string[] (never a JSON-encoded string).
-  const valuesInput = screen.getByRole("textbox", { name: /^row values$/i });
-  for (const cell of VALUES) {
-    await user.type(valuesInput, cell);
-    await user.keyboard("{Enter}");
-  }
-  expect(useConfigSlice.getState().drafts[action.id]!.values.values).toEqual(
-    VALUES,
+  await waitFor(() => {
+    expect(screen.getByRole("combobox", { name: /^tab$/i })).toBeInTheDocument();
+  });
+  await pickComboboxOption(user, /^tab$/i, TAB);
+  expect(useConfigSlice.getState().drafts[action.id]!.values.sheetName).toBe(
+    TAB,
   );
 
-  // 7. Pick valueInputOption (Q11 — no default; author MUST choose).
-  // CONFIG-UX sweep — friendlier option label; committed value stays
-  // the verbatim USER_ENTERED enum (asserted below).
-  await selectFieldOption(user, /^value input option$/i, "Parse as if typed in Sheets");
+  // 5. The row editor now shows the sheet's REAL column names.
+  for (const column of COLUMNS) {
+    await waitFor(() => {
+      expect(
+        screen.getByRole("textbox", { name: new RegExp(`^${column}$`, "i") }),
+      ).toBeInTheDocument();
+    });
+  }
+
+  // 6. Fill two columns and deliberately leave the third blank.
+  await user.type(
+    screen.getByRole("textbox", { name: /^timestamp$/i }),
+    "2026-07-31",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: /^subject$/i }),
+    "Invoice 4471",
+  );
+
+  // The blank middle column is preserved as "" so later cells stay aligned
+  // with their sheet columns — that alignment IS the save contract.
+  await waitFor(() => {
+    expect(useConfigSlice.getState().drafts[action.id]!.values.values).toEqual([
+      "2026-07-31",
+      "",
+      "Invoice 4471",
+    ]);
+  });
+
+  // 7. Explicit write behavior (Q11 — nothing was pre-chosen).
+  await selectFieldOption(
+    user,
+    /how should numbers, dates and formulas be treated\?/i,
+    "Like something you typed in",
+  );
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.valueInputOption,
   ).toBe("USER_ENTERED");
 
-  // 8. Modal Save flushes the draft.
+  // 8. The raw range remains reachable for the power case — in Advanced.
+  await user.click(screen.getByRole("tab", { name: /advanced/i }));
+  const rangeInput = await screen.findByRole("textbox", {
+    name: /^cell range$/i,
+  });
+  await user.type(rangeInput, "'Email log'!A:C");
+  await user.click(screen.getByRole("tab", { name: /setup/i }));
+
+  // 9. Modal Save flushes the draft locally.
   const modal = screen.getByRole("complementary", {
     name: /node configuration/i,
   });
@@ -290,14 +372,15 @@ it("end-to-end: pick spreadsheet → type range → add row values as chips → 
     .getState()
     .pendingNodes.find((n) => n.id === action.id)!.config;
   expect(pendingConfig.spreadsheetId).toBe(SPREADSHEET_ID);
-  expect(pendingConfig.range).toBe(RANGE);
-  // CRITICAL: persisted as the REAL array the runtime schema expects.
-  expect(pendingConfig.values).toEqual(VALUES);
+  expect(pendingConfig.sheetName).toBe(TAB);
+  expect(pendingConfig.range).toBe("'Email log'!A:C");
+  // CRITICAL: still the REAL positional array the runtime schema expects.
+  expect(pendingConfig.values).toEqual(["2026-07-31", "", "Invoice 4471"]);
   expect(pendingConfig.valueInputOption).toBe("USER_ENTERED");
 
   expect(mockUpdateWorkflow).not.toHaveBeenCalled();
 
-  // 9. Toolbar Save persists once.
+  // 10. Toolbar Save persists once.
   const allSaveButtons = screen.getAllByRole("button", { name: /^save$/i });
   const toolbarSave = allSaveButtons.find((btn) => !modal.contains(btn))!;
   await user.click(toolbarSave);
@@ -305,19 +388,74 @@ it("end-to-end: pick spreadsheet → type range → add row values as chips → 
     expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
   });
   const persistedNodes = mockUpdateWorkflow.mock.calls[0]![1].draftDefinition
-    .nodes as Array<{
-    kind: string;
-    provider: string;
-    type: string;
-    config: Record<string, unknown>;
-  }>;
+    .nodes as Array<{ kind: string; config: Record<string, unknown> }>;
   const persistedAction = persistedNodes.find((n) => n.kind === "action")!;
-  expect(persistedAction.provider).toBe("google-sheets");
-  expect(persistedAction.type).toBe("append_row");
-  expect(persistedAction.config.spreadsheetId).toBe(SPREADSHEET_ID);
-  expect(persistedAction.config.range).toBe(RANGE);
-  expect(persistedAction.config.values).toEqual(VALUES);
-  expect(persistedAction.config.valueInputOption).toBe("USER_ENTERED");
+  expect(persistedAction.config.values).toEqual([
+    "2026-07-31",
+    "",
+    "Invoice 4471",
+  ]);
+  expect(persistedAction.config.sheetName).toBe(TAB);
+});
 
-  expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
+it("cannot ask for columns before a tab is chosen, and changing the spreadsheet drops the stale tab", async () => {
+  const user = userEvent.setup();
+  render(
+    <WorkflowBuilder
+      workflow={baseWorkflow}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
+  await waitFor(() => expect(screen.getByText("Manual")).toBeInTheDocument());
+  await user.click(screen.getByText("Manual"));
+  await user.click(screen.getByRole("button", { name: /add action/i }));
+  await user.click(
+    screen.getByRole("button", { name: /browse google sheets actions/i }),
+  );
+  await waitFor(() =>
+    expect(screen.getByText("Append Row")).toBeInTheDocument(),
+  );
+  await user.click(screen.getByText("Append Row"));
+  const action = useGraphSlice
+    .getState()
+    .pendingNodes.find((n) => n.kind === "action")!;
+
+  await openLastNodeOfKind("action");
+  await waitFor(() => {
+    expect(
+      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+    ).toBeInTheDocument();
+  });
+
+  // With no tab chosen, the editor says which choice is missing rather than
+  // rendering an empty column list that looks like "this sheet has none".
+  expect(
+    screen.getByTestId("spreadsheet-rows-values-parent-missing"),
+  ).toBeInTheDocument();
+  // …and no columns request was made with an incomplete dependency set.
+  expect(
+    mockFetchOptionsSource.mock.calls.filter(
+      ([source]) => source === "google-sheets:columns",
+    ),
+  ).toHaveLength(0);
+
+  await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+  await pickComboboxOption(user, /^tab$/i, TAB);
+  await waitFor(() => {
+    expect(
+      screen.getByRole("textbox", { name: /^timestamp$/i }),
+    ).toBeInTheDocument();
+  });
+
+  // Changing the spreadsheet must not leave a tab from the previous file
+  // selected — it would address a tab that may not exist in the new one.
+  await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+  await waitFor(() => {
+    expect(
+      useConfigSlice.getState().drafts[action.id]!.values.sheetName,
+    ).toBeUndefined();
+  });
 });

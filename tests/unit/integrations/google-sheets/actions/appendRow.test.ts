@@ -132,6 +132,43 @@ describe("appendRow action", () => {
     );
   });
 
+  it("sends the saved range and never the builder's tab — execution is unchanged by SHEETS-GUIDED-CONFIG-1", async () => {
+    // `sheetName` exists so the BUILDER can offer a tab picker and derive a
+    // range. The API contract is untouched: Sheets is addressed by `range`
+    // alone. If the tab ever leaked into the request, a guided-configured
+    // node would take a different execution path than a legacy one.
+    mockRefreshAndRetry.mockImplementation(async ({ apiCall }) => apiCall("t"));
+    mockValuesAppend.mockResolvedValue({
+      spreadsheetId: "s",
+      updates: {
+        updatedRange: "'Email log'!A5:C5",
+        updatedRows: 1,
+        updatedColumns: 3,
+        updatedCells: 3,
+      },
+    });
+
+    await appendRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        spreadsheetId: "s",
+        sheetName: "Email log",
+        range: "'Email log'!A:C",
+        values: ["a", "b", "c"],
+        valueInputOption: "USER_ENTERED",
+      },
+      triggerEvent: trigger(),
+    });
+
+    const sent = mockValuesAppend.mock.calls[0]![0] as Record<string, unknown>;
+    expect(sent.range).toBe("'Email log'!A:C");
+    expect(sent).not.toHaveProperty("sheetName");
+  });
+
   it("rejects missing valueInputOption (Q11 — no hidden default)", async () => {
     await expect(
       appendRow({

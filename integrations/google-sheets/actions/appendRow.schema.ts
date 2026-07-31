@@ -22,12 +22,29 @@ import { z } from "zod";
  *   - "Sheet1"                       — Google finds the bottom of the
  *                                     entire sheet. Less precise.
  *
+ * `sheetName` (SHEETS-GUIDED-CONFIG-1) is the tab the guided builder
+ * targets. It is OPTIONAL and additive by design:
+ *   - The handler does not read it — `range` remains the single value
+ *     sent to the API, so execution semantics are unchanged.
+ *   - It exists so the builder has a real `dependsOn` parent for the
+ *     `google-sheets:columns` resolver (a free-text `range` cannot be
+ *     one) and so the normal path derives `range` instead of asking a
+ *     business user to hand-write A1 notation.
+ *   - Optional, with NO default, precisely so every configuration saved
+ *     before this slice keeps parsing and running untouched. Making it
+ *     required — or defaulting it — would invalidate live workflows.
+ *
  * Strict mode rejects unknown fields.
  */
 export const AppendRowConfigSchema = z
   .object({
     spreadsheetId: z.string().min(1, "spreadsheetId is required."),
     range: z.string().min(1, "range is required."),
+    /**
+     * Builder-side destination tab. Optional for backward compatibility;
+     * see the note above. Never sent to the Sheets API.
+     */
+    sheetName: z.string().min(1, "sheetName must not be empty.").optional(),
     values: z
       .array(z.union([z.string(), z.number(), z.boolean(), z.null()]))
       .min(1, "values must be a non-empty array."),
