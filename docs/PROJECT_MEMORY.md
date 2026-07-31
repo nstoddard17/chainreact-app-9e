@@ -62,6 +62,16 @@
 
 ## Durable decisions
 
+- [2026-07-31] **Responsive work is a product decision plus a three-part measurement.**
+  Every layout group must pick an explicit out-of-space behavior (shrink/wrap/reflow/stack/
+  collapse/truncate/switch presentation/overflow menu/contained scroll) — "no behavior
+  selected" is the failure mode. Overflow is never masked with `overflow-x-hidden`; a
+  responsive presentation never gets a second set of interactive controls; and validation
+  requires **all three** of containment, legibility floors (`data-legible-min`) and
+  horizontal-panning policy (`data-no-pan-below`) across a **360→1600px, ≤8px** browser
+  sweep — because each of the three caught a real defect the other two passed. A green
+  harness does not count until proven to fail against the pre-fix defect. →
+  [`docs/rules/responsive-layout-and-validation.md`](./rules/responsive-layout-and-validation.md)
 - [2026-07-26] **The full repository test suite is NOT the default verification gate.**
   A bare `npm test` runs the whole inventory; its time/machine cost is out of proportion
   to the signal for a normal batch. Default = the four static checks + the **focused
@@ -283,6 +293,19 @@
 
 ## Recently completed arcs
 
+- **SIGNED-IN RESPONSIVE SWEEP — ARC CLOSED (2026-07-31)** — the authenticated app now
+  works continuously from 360px to 1600px: Workflow Builder shell + React Agent rail +
+  config sheet, Templates, Workflows dashboard/toolbar/list, Runs list, Builder Runs
+  list/detail, Account Settings, Team management, and the shared `AppTopBar` /
+  `AppMobileBar` / `AppPageContainer`. Commit range **`1f4db2684` → `265723b87`**
+  (7 commits, 2026-07-30 → 2026-07-31); `1f4db2684` and `548f18a9c` are on `origin/v2-main`,
+  the remaining five sit on `responsive-builder-runs-6`.
+  **Method promoted to a durable rule:**
+  [`docs/rules/responsive-layout-and-validation.md`](./rules/responsive-layout-and-validation.md)
+  — the authoritative source for layout behavior, the containment/legibility/panning
+  validation model, the continuous-width sweep, and the non-vacuity requirement.
+  **Still unswept: the public marketing and authentication surfaces** — no fixture emitter,
+  no structure guard, no measured evidence. Treat them as unverified.
 - **CONNECTED ANALYTICS — ARC CLOSED, RELEASED TO PRODUCTION (2026-07-26)** — the
   provider-agnostic connected-data platform plus the Custom Insight product: catalog/
   query contracts, Insights route, snapshot cache + request coalescing + per-account
@@ -1101,7 +1124,7 @@
   output stays enums/counts/ids/field-names only (route=gate/validate/serialize ·
   `services/diagnostics/*`=brain · MCP=adapter/render). Deferred / do-not-build: smoke runners + any
   mutating/deploy/db/prod-data tools →
-  [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp-diagnostic-suite-closeout.md) +
+  [`mcp-diagnostic-suite-closeout.md`](./slices/phase-4/mcp/mcp-diagnostic-suite-closeout.md) +
   [`mcp/mcp-development-tooling-audit.md`](./slices/phase-4/mcp/mcp-development-tooling-audit.md).
 - **Connected-app recovery + disconnect (local-only, 2026-06-12)** — **Reconnect UX-complete**
   on connected app cards (provider-level recovery, always visible on collapsed cards;

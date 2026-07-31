@@ -75,6 +75,19 @@ The visual layout is fixed: three-pane (library / canvas / config), bottom execu
 
 ### Responsive presentation (BUILDER-RESPONSIVE-LAYOUT-1)
 
+> **Project-wide responsive rules — layout behavior *and* the three-part validation model
+> (containment · legibility · panning policy), the 360→1600px continuous sweep, and the
+> non-vacuity requirement — live in
+> [responsive-layout-and-validation.md](./responsive-layout-and-validation.md).** This
+> section covers only what is specific to the builder. For builder surfaces that rule adds
+> four expectations: **the canvas keeps width priority** (a secondary surface becomes an
+> overlay rather than shrinking the canvas to a strip); **one surface at a time** below
+> `narrow`, including inside the Runs tab; **presentation changes preserve state** (both
+> run surfaces stay mounted, `selectedRunId` stays the single source of truth, the rail
+> keeps its transcript mounted-but-hidden); and **technical viewers stay bounded** — the
+> per-step JSON block is `max-h-48 min-w-0 max-w-full overflow-auto` and is deliberately
+> exempt from the no-pan declaration its surrounding panel carries.
+
 The three-pane layout is the **wide-desktop** arrangement, not the only one. The
 panes are the same components at every width; what changes is how a secondary
 surface is *presented*.

@@ -362,6 +362,7 @@ The universal rules are in **V2 Provider Authoring Rules** above. Per-provider s
 - File output (FileRef): [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md)
 - Token-ingest auth: [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md)
 - Option-source recovery (resolver failures must stay recoverable): [`docs/rules/option-source-recovery.md`](./docs/rules/option-source-recovery.md)
+- Responsive layout + validation (every group picks an out-of-space behavior; never mask overflow; one responsive DOM; validated by containment · legibility · panning policy across a 360→1600px sweep, proven non-vacuous): [`docs/rules/responsive-layout-and-validation.md`](./docs/rules/responsive-layout-and-validation.md)
 - React Agent conversation persistence (history remembers; the SAVED workflow decides what exists; readiness decides what's next): [`docs/rules/react-agent-conversation-persistence.md`](./docs/rules/react-agent-conversation-persistence.md)
 - Folder / module boundaries (50-file cap): [`docs/rules/project-structure-and-module-boundaries.md`](./docs/rules/project-structure-and-module-boundaries.md)
 - Testing strategy + shared-mock e2e execution: [`docs/rules/testing-strategy.md`](./docs/rules/testing-strategy.md)

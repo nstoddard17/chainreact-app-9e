@@ -109,6 +109,26 @@ Lives in `tests/unit/features/`. Examples:
 - Disabled fields render disabled based on the lifecycle projection helper.
 - Error banner displays the humanized error from the classifier.
 
+#### Responsive work
+
+Responsive layout follows [responsive-layout-and-validation.md](./responsive-layout-and-validation.md),
+which adds requirements a normal component test does not cover:
+
+- **Continuous-width browser measurement** — 360→1600px in ≤8px increments across the
+  surface's representative fixture states, not a handful of named breakpoints.
+- **Three assertion classes, all required** — *containment* (nothing escapes the box that
+  lays it out, walking descendants and not just document width), *legibility* (a contained
+  region still has enough width to be readable), and *panning policy* (ordinary management
+  data must not require sideways dragging on a phone). Each of the three catches defects
+  the other two pass.
+- **Non-vacuous proof** — a green harness does not count until it has been shown to fail
+  against the pre-fix source, a reverted fix, a mutation, or a controlled fixture defect,
+  reported with failure counts and width ranges. Never weaken an assertion to make the
+  final source pass.
+
+Plus a `tests/structure/*-responsive-source.test.ts` guard for the surface, and rendered
+tests proving one control set per entity across the presentation switch.
+
 ### G. E2E tests
 
 Lives in `tests/e2e/playwright/`. Reserved for **critical user journeys only**:

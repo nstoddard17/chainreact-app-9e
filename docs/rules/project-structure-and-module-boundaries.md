@@ -216,6 +216,16 @@ The single exception is `core/auth/` for cached-token / session reads on the cli
 - **Provider config UI files:** split by tab or by section if they grow.
 - **Route handlers:** typically under 50 lines. API routes do not contain business logic.
 - **Leaf-folder count:** no directory leaf may exceed 50 files. CI check enforces this.
+  The check scans the **filesystem**, so a gitignored directory is *not* exempt — generated
+  evidence such as responsive screenshots must use per-state subfolders under
+  `owner-review/`, never one flat directory.
+
+**Responsive surfaces:** a responsive presentation must not become a second module. One
+interactive implementation per surface — CSS and presentation wrappers change layout and
+visibility; they never produce a parallel "mobile" component with its own controls, state
+or permission calculation. Shared responsive primitives (`components/app-shell/AppPageContainer.tsx`,
+`features/workflow-builder/layout/useBuilderOverlaySurface.ts`) are extended rather than
+re-implemented per page. See [responsive-layout-and-validation.md](./responsive-layout-and-validation.md).
 
 ## Single-source-of-truth rules
 
