@@ -1,0 +1,21 @@
+{
+  "//": "Build config for @chainreact/mobile-contracts ONLY. Emits CommonJS + .d.ts to packages/mobile-contracts/dist/ (gitignored). The root tsconfig still typechecks these .ts sources via `npm run typecheck` (dist is root-excluded); this file exists solely to produce the publishable artifact. `types: []` keeps the package free of node/jest ambient types — it must run in React Native, Node, and Jest alike. Follows the scripts/mcp + scripts/chainreact subfolder-build precedent; no workspaces, no monorepo tooling.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

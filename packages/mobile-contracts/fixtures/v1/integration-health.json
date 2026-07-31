@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "providerId": "example-chat",
+      "name": "Example Chat",
+      "iconUrl": "/integrations/example-chat.svg",
+      "isConnected": true,
+      "needsReconnect": true,
+      "connectionCount": 1
+    },
+    {
+      "providerId": "example-sheets",
+      "name": "Example Sheets",
+      "iconUrl": null,
+      "isConnected": true,
+      "needsReconnect": false,
+      "connectionCount": 2
+    }
+  ],
+  "needsAttentionCount": 1
+}

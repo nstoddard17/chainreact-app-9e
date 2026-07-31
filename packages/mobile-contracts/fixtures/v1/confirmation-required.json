@@ -1,0 +1,13 @@
+{
+  "requiresConfirmation": true,
+  "confirmationText": "CONFIRM",
+  "actions": [
+    {
+      "nodeId": "node-9",
+      "provider": "example-storage",
+      "type": "delete_file",
+      "displayName": "Delete file",
+      "riskDescription": "Permanently deletes the matched file from Example Storage."
+    }
+  ]
+}

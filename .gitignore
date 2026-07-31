@@ -30,6 +30,9 @@ next-env.d.ts
 build
 dist
 
+# @chainreact/mobile-contracts — local pack artifacts (npm run mobile-contracts:pack)
+packages/mobile-contracts/*.tgz
+
 # misc
 .DS_Store
 *.pem

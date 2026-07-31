@@ -1,0 +1,17 @@
+{
+  "id": "00000000-0000-4000-8000-0000000000c2",
+  "workflowId": "00000000-0000-4000-8000-0000000000b1",
+  "workflowName": "Example lead follow-up",
+  "status": "failed",
+  "isTest": false,
+  "triggeredBy": "webhook",
+  "startedAt": "2026-07-31T10:05:00.000Z",
+  "finishedAt": "2026-07-31T10:05:04.000Z",
+  "durationMs": 4000,
+  "errorClassification": null,
+  "steps": [],
+  "fatalError": {
+    "code": "HANDLER_FAILED",
+    "message": "FAKE ENGINE INTERNAL: TypeError at services/execution/engine.ts:123 — must never reach mobile"
+  }
+}

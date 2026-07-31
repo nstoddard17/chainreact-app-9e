@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "providerId": "example-chat",
+      "name": "Example Chat",
+      "iconUrl": null,
+      "isConnected": true,
+      "needsReconnect": false,
+      "connectionCount": 1,
+      "accessTokenEncrypted": "FAKE-ENCRYPTED-TOKEN-BLOB",
+      "scopes": ["fake.scope.read", "fake.scope.write"],
+      "providerAccountId": "FAKE-WORKSPACE-ID",
+      "accountMetadata": { "adminEmail": "fake-admin@example.test" }
+    }
+  ],
+  "needsAttentionCount": 0
+}

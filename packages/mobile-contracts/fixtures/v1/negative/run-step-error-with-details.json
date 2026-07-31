@@ -1,0 +1,13 @@
+{
+  "nodeId": "node-2",
+  "displayName": "Send channel message",
+  "status": "failed",
+  "error": {
+    "code": "HANDLER_FAILED",
+    "message": "The step failed.",
+    "details": {
+      "providerResponseBody": "FAKE-RAW-PROVIDER-ERROR-JSON-THAT-MUST-NEVER-REACH-MOBILE",
+      "sqlState": "23505 duplicate key value violates unique constraint fake_constraint"
+    }
+  }
+}

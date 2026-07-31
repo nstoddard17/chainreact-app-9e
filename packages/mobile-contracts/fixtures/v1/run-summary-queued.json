@@ -1,0 +1,12 @@
+{
+  "id": "00000000-0000-4000-8000-0000000000c1",
+  "workflowId": "00000000-0000-4000-8000-0000000000b1",
+  "workflowName": "Example lead follow-up",
+  "status": "queued",
+  "isTest": false,
+  "triggeredBy": "manual",
+  "startedAt": "2026-07-31T10:00:00.000Z",
+  "finishedAt": null,
+  "durationMs": null,
+  "errorClassification": null
+}

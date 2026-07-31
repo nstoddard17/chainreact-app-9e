@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "type": "workflow_failed",
+  "accountId": "00000000-0000-4000-8000-0000000000a2",
+  "notificationId": "00000000-0000-4000-8000-0000000000d1",
+  "workflowId": "00000000-0000-4000-8000-0000000000b1",
+  "runId": "00000000-0000-4000-8000-0000000000c2",
+  "accessToken": "FAKE-OAUTH-ACCESS-TOKEN-THAT-MUST-NEVER-RIDE-IN-A-PUSH"
+}

@@ -5,7 +5,7 @@ import {
   ResourceLinkMatchTierSchema,
 } from "./resourceLinkDismissals";
 import type { ResourceLinkMatchTier } from "./resourceLinkDismissals";
-import type { LinkHealthStatus } from "@/core/resourceLinks/linkHealth";
+import type { LinkHealthStatus } from "./linkHealth";
 
 /**
  * 5.TRUCK-BRIDGE-1 CS-5 — UI/route contracts for suggestions and link health.

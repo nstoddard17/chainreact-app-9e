@@ -1,0 +1,41 @@
+{
+  "id": "00000000-0000-4000-8000-0000000000c2",
+  "workflowId": "00000000-0000-4000-8000-0000000000b1",
+  "workflowName": "Example lead follow-up",
+  "status": "failed",
+  "isTest": false,
+  "triggeredBy": "webhook",
+  "startedAt": "2026-07-31T10:05:00.000Z",
+  "finishedAt": "2026-07-31T10:05:04.000Z",
+  "durationMs": 4000,
+  "errorClassification": {
+    "title": "Example Chat connection needs attention",
+    "description": "ChainReact could no longer authenticate with Example Chat, so this step could not run.",
+    "hint": "Reconnect Example Chat from the Apps page, then run the workflow again.",
+    "action": "reconnect",
+    "severity": "error"
+  },
+  "steps": [
+    {
+      "nodeId": "node-1",
+      "displayName": "New row added",
+      "status": "succeeded",
+      "error": null
+    },
+    {
+      "nodeId": "node-2",
+      "displayName": "Send channel message",
+      "status": "failed",
+      "error": {
+        "code": "INTEGRATION_REAUTH_REQUIRED",
+        "message": "The Example Chat connection needs to be reconnected."
+      }
+    },
+    {
+      "nodeId": "node-3",
+      "displayName": "Append row",
+      "status": "skipped",
+      "error": null
+    }
+  ]
+}

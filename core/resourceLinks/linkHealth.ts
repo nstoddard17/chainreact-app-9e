@@ -53,14 +53,15 @@ export interface VisibleVehicle {
  *   `target_archived`   — Fleetio lists it, explicitly archived.
  *   `source_unknown`    — Motive's list could not be loaded. NOT missing.
  *   `target_unknown`    — Fleetio's list could not be loaded. NOT missing.
+ *
+ * The canonical union lives in `contracts/linkHealth.ts` (it crosses the
+ * server→client boundary); re-exported here so existing consumers of this
+ * module keep working. `core/` importing `contracts/` is the allowed
+ * direction — see `tests/structure/core-purity.test.ts`.
  */
-export type LinkHealthStatus =
-  | "ok"
-  | "source_missing"
-  | "target_missing"
-  | "target_archived"
-  | "source_unknown"
-  | "target_unknown";
+import type { LinkHealthStatus } from "@/contracts/linkHealth";
+
+export type { LinkHealthStatus } from "@/contracts/linkHealth";
 
 export interface LinkHealth {
   readonly linkId: string;

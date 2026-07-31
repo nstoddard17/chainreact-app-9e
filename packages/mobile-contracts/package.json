@@ -1,0 +1,36 @@
+{
+  "name": "@chainreact/mobile-contracts",
+  "version": "0.1.0",
+  "description": "The only public transport contract between the ChainReactV2 backend (/api/mobile/v1) and the ChainReactMobile app. Zod schemas + inferred types for mobile-safe requests, responses, errors, deep links, and push payloads. Contains no server code and no secrets.",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./fixtures/*": "./fixtures/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "fixtures",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "zod": "^3.24.1"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chain-React-Org/chainreact-app.git",
+    "directory": "packages/mobile-contracts"
+  }
+}

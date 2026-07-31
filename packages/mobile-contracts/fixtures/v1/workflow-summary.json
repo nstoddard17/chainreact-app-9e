@@ -1,0 +1,20 @@
+{
+  "id": "00000000-0000-4000-8000-0000000000b1",
+  "name": "Example lead follow-up",
+  "state": "active",
+  "disabledReason": null,
+  "providers": [
+    { "id": "example-chat", "label": "Example Chat", "iconUrl": null },
+    { "id": "example-sheets", "label": "Example Sheets", "iconUrl": "/integrations/example-sheets.svg" }
+  ],
+  "triggerCount": 1,
+  "actionCount": 3,
+  "runStats": {
+    "total": 42,
+    "succeeded": 40,
+    "successRate": 0.9523809523809523,
+    "lastRunAt": "2026-07-30T09:15:00.000Z",
+    "lastRunStatus": "succeeded"
+  },
+  "updatedAt": "2026-07-29T18:00:00.000Z"
+}

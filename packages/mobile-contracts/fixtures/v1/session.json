@@ -1,0 +1,21 @@
+{
+  "userId": "00000000-0000-4000-8000-000000000001",
+  "email": "fixture-user@example.test",
+  "accounts": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000a1",
+      "name": "Example Person",
+      "type": "personal",
+      "role": "owner",
+      "isFrozen": false
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000a2",
+      "name": "Example Team",
+      "type": "team",
+      "role": "member",
+      "isFrozen": false
+    }
+  ],
+  "defaultAccountId": "00000000-0000-4000-8000-0000000000a2"
+}

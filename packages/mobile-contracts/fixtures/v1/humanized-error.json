@@ -1,0 +1,7 @@
+{
+  "title": "Monthly task limit reached",
+  "description": "This account has used all of its included tasks for the current period, so new runs are paused.",
+  "hint": "Upgrade the plan or wait for the period to reset.",
+  "action": "upgrade_plan",
+  "severity": "warning"
+}

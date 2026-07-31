@@ -7,6 +7,12 @@
 data-access architecture is **rejected** here (§4).
 **Status:** Plan of record for the permanent ChainReact native mobile application.
 Nothing in this batch was pushed, deployed, or migrated.
+**Owner decisions locked 2026-07-31 (MOBILE-COMPANION-M0-CONTRACTS-FOUNDATION-1):**
+(1) a dedicated staging environment (**S0**) is now a hard prerequisite between M0
+and M1 — see §24/§25; (2) the workflow-failure push recipient policy is final —
+see §12; (3) `@chainreact/mobile-contracts` distributes via **GitHub Packages**
+(immutable semver, pinned consumer versions) — see §9. M0 itself shipped the
+contracts package with **zero runtime behavior**.
 
 ---
 
@@ -492,10 +498,18 @@ and the app routes locally; #8/#9 are the resolvers.
   structure test asserting `packages/mobile-contracts/**` imports only `zod` +
   `contracts/*` siblings. **Pre-work:** inline the one `contracts/` impurity
   (`vehicleSuggestions.ts` → `core/resourceLinks/linkHealth`) or exclude that file.
-- **Versioning & consumption:** semver in the package.json, released as a git tag
-  (`mobile-contracts-v1.x.y`) on ChainReactV2; ChainReactMobile consumes via git
-  reference pinned to the tag (`file:` for local dev). No npm registry until external
-  release requires it. Contract compatibility tests live in **both** repos (§23):
+- **Versioning & consumption (LOCKED 2026-07-31 — supersedes the earlier git-tag
+  proposal):** the package is a real private package published to **GitHub
+  Packages** under the ChainReact organization. Semantic versions; **published
+  versions are immutable** (a bad release is superseded, never mutated);
+  ChainReactMobile **pins an exact version** (no ranges, no mutable `latest` in
+  production builds); git dependencies are NOT a supported distribution
+  mechanism; local development uses a `file:` path or a packed tarball
+  (`npm run mobile-contracts:pack`). Publication flow, CI gates, org-managed
+  Actions credentials, and rollback:
+  [`packages/mobile-contracts/PUBLISHING.md`](../../../../packages/mobile-contracts/PUBLISHING.md).
+  Not published in M0 — publish-ready only. Contract compatibility tests live in
+  **both** repos (§23):
   the web repo parses fixture responses of every mobile route against the package;
   the mobile repo runs the same fixtures against its client decoders.
 
@@ -619,11 +633,22 @@ change (targeting is resolved per event).
 **v1 push events (from §2.4 candidates):** `workflow_failed` (severity `error`;
 per-run deduped) and `integration_reconnect_needed` (one-shot by construction).
 High-risk audit + API-key events stay in-app only (actor = recipient).
-**Required recipient fix before push ships:** `workflow_failed` targets only
-`createdByUserId` today. The plan is to fan out to **account members who have
-workflow alerts enabled** (creator always included) — a product-visible change that
-needs Marcus's sign-off (§25); push without it amplifies the wrong-recipient gap on
-team accounts.
+
+**Workflow-failure recipient policy (LOCKED by Marcus, 2026-07-31):**
+
+- **Personal account:** the account owner.
+- **Team / organization account:** the workflow **creator** (only while still an
+  active account member) **plus all current account owners and admins**.
+- Every recipient must have **workflow alerts enabled**
+  (`notify_workflow_alerts`); recipients qualifying through multiple rules are
+  **deduplicated**; removed/former members are **never** notified; ordinary
+  members do **not** receive every workflow failure by default.
+- Per-workflow followers/subscriptions are the deferred long-term granular
+  model (not v1).
+- **M3 implements this as a dedicated recipient-resolution service** (pure
+  resolution + focused tests: each rule, dedup, removed-member exclusion,
+  preference gating) — not inline in the engine or the channel registry, and
+  not in M0 (which is behavior-free).
 
 **App-side behavior:** `expo-notifications` handlers for foreground (in-app banner +
 badge/query invalidation), background/terminated (system tray), and cold start
@@ -798,11 +823,13 @@ CI, the four static gates + focused suites cover the new namespace as usual.
    SDK product usage; `[auth.third_party.firebase]` stays disabled).
 5. **Sentry** (or chosen equivalent) org + project for crash reporting.
 6. **GitHub repo `ChainReactMobile`** in the org.
-7. **Decision: staging Supabase project + staging deployment** — the gate for any
-   external tester (§19, §25).
+7. **S0: staging Supabase project + staging deployment** — DECIDED 2026-07-31:
+   now a hard prerequisite before M1 (§24, §25), not merely before external
+   testers.
 8. Supabase dashboard: register the `chainreact://auth/callback` redirect for Google
    OAuth on mobile.
-9. Product sign-off: failed-run push **recipient model** (§12).
+9. ~~Product sign-off: failed-run push recipient model~~ — DECIDED 2026-07-31;
+   policy recorded in §12.
 
 ## 23. Testing & device-certification matrix
 
@@ -848,10 +875,21 @@ Backend batches ship dark behind `ENABLE_MOBILE_API` (default OFF → 404); each
 independent local batch with the four static gates + focused suites; nothing is
 pushed/applied without Marcus's per-batch approval.
 
-- **M0 — Contracts foundation (web repo).** `packages/mobile-contracts/` skeleton +
-  build script + purity/denylist structure tests; inline the `vehicleSuggestions`
-  impurity. No behavior change. *Reversal: delete folder.*
-- **M1 — Mobile auth gate + first reads.** `_shared.ts` bearer gate (+ flag + rate
+- **M0 — Contracts foundation (web repo). ✅ DELIVERED 2026-07-31**
+  (MOBILE-COMPANION-M0-CONTRACTS-FOUNDATION-1). `packages/mobile-contracts/`
+  (publish-ready, unpublished) + build/pack/pack-check scripts + contracts-purity
+  and package-boundary structure locks + parity/denylist/fixture suites; the
+  `vehicleSuggestions` impurity corrected via `contracts/linkHealth.ts`. No
+  behavior change. *Reversal: delete folder.*
+- **S0 — Dedicated ChainReact staging environment (LOCKED prerequisite,
+  2026-07-31).** A separate staging Supabase project + staging application
+  deployment, established and documented, before any M1 work. Rationale: mobile
+  bearer authentication, rate limiting, and account-isolation testing must not
+  be developed primarily against production data (§2.7's single-project posture).
+  **Stop condition: M1 does not begin until S0 exists and is documented.** S0 is
+  its own owner-approved batch — not part of M0, and deliberately not designed
+  here.
+- **M1 — Mobile auth gate + first reads (after S0 only).** `_shared.ts` bearer gate (+ flag + rate
   limiter) + `app-config`, `session`, workflows list/light-detail, runs
   list/per-workflow/detail (incl. non-terminal detail read model) + egress parse +
   no-leak suites. *Reversal: flag off (already dark).*
@@ -883,8 +921,8 @@ pushed/applied without Marcus's per-batch approval.
 
 | # | Risk/blocker | Severity | Handling |
 |---|---|---|---|
-| 1 | **Single Supabase project (prod-as-dev).** Device-token migrations hit prod; external testers would touch real data. | **Blocking for external testing & store release** | Internal-device dev may proceed (owner-accepted, matches current web posture). **Stop condition:** no TestFlight-external/Play-open build until a staging project + staging API exist. |
-| 2 | Failed-run recipient = creator only; push amplifies it on team accounts. | High | M3 gated on Marcus's recipient-model sign-off (§12). |
+| 1 | **Single Supabase project (prod-as-dev).** Device-token migrations hit prod; external testers would touch real data. | **Blocking — S0 is now a hard prerequisite (locked 2026-07-31)** | **Stop condition (tightened):** M1 (bearer auth, rate limiting, account-isolation testing) does not begin until the S0 staging Supabase project + staging deployment exist and are documented. M0 was allowed against the current checkout because it changes no runtime behavior. External-tester distribution additionally waits for S0. |
+| 2 | Failed-run recipient = creator only; push amplifies it on team accounts. | Resolved (policy) | Recipient policy LOCKED 2026-07-31 (§12); M3 implements it via a dedicated recipient-resolution service with focused tests. |
 | 3 | No rate limiting on session-shaped auth today; a polling client is unbounded. | High | Limiter ships **in M1 with the gate**, not later. |
 | 4 | Push delivery currently would sit on engine finalization path. | High | M3's queued drain is a hard requirement — a push outage must never block a run. |
 | 5 | Non-terminal run detail 404s; run-now returns an unfetchable runId. | Medium | M1 read model must include `queued/running` or the signature journey dead-ends. |
