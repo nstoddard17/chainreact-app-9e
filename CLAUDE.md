@@ -80,6 +80,26 @@ reconciliation repaired it. To keep it repaired:
   `git diff --name-status origin/v2-main HEAD` — files there that aren't yours
   are another session's work you would ship or revert. Never force-push.
 
+### Database environments & promotion pipeline (SUPABASE-ENV-PIPELINE-1, 2026-07-31)
+
+Local → development → production is designed and implemented repo-side; the
+hosted `chainreact-dev` project awaits a one-time owner setup (see
+[`docs/runbooks/supabase-environments.md`](./docs/runbooks/supabase-environments.md)).
+Durable rules once active:
+
+- **`v2-dev` is a deployment-marker branch**, not a working branch — it receives
+  only Marcus-approved exact SHAs; `deploy-development` certifies them; only a
+  **dev-certified SHA** may be promoted to production via the approval-gated
+  `promote-production` workflow. Never promote a different SHA because it's newer.
+- Dev-database commands are target-guarded and fail closed
+  (`scripts/lib/env-target.mjs`; the production ref is denylisted). Never work
+  around a guard by calling the Supabase CLI directly against a hosted project.
+- `types/database.types.ts` is the canonical generated-types artifact; schema
+  migrations must regenerate it (`npm run db:types` against a clean local
+  reset) in the same batch — `db-ci` fails on drift.
+- Applied migrations are never edited (forward-only; db-ci fails PRs that
+  modify one). `supabase/seed.sql` stays data-only and synthetic (guard-tested).
+
 ---
 
 ## Provider Authoring — start from V2 patterns

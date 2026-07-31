@@ -137,8 +137,15 @@ describeDb("account_billing RLS — Slice 4.ACCOUNT-MODEL-9b", () => {
       .update({ tasks_used: 0, tasks_limit: 999999 })
       .eq("account_id", a.accountId)
       .select("account_id");
-    // RLS allows SELECT only; the UPDATE matches no writable row → no error, 0 rows.
-    expect(error).toBeNull();
+    // Two valid denial shapes, same invariant (member mutates nothing):
+    //   - clean replayed schema (explicit grants only): UPDATE has no grant at
+    //     all → PostgREST denies with 42501,
+    //   - legacy default-privilege environments (pre-2026 auto-grants): the
+    //     grant exists but RLS has no write policy → no error, 0 rows.
+    // Same accept-either-shape pattern as the anon test above.
+    if (error) {
+      expect(error.code).toBe("42501");
+    }
     expect(data ?? []).toHaveLength(0);
 
     const { data: srv } = await admin

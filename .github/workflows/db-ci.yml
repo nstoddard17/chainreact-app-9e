@@ -1,0 +1,137 @@
+name: Database CI
+
+# SUPABASE-ENV-PIPELINE-1 — proves, on every relevant change, that the
+# repository migrations are the schema source of truth:
+#   1. a CLEAN local Supabase stack rebuilds from supabase/migrations alone,
+#   2. the seed file loads (data-only; guard-tested),
+#   3. migration lint passes (RLS / policies / grants / version uniqueness),
+#   4. the committed types/database.types.ts matches the schema (no drift),
+#   5. the RLS / database integration suites pass against that clean stack.
+#
+# NO cloud project is ever touched: everything runs on the loopback Docker
+# stack inside the runner. There are deliberately no secrets in this workflow —
+# the local stack's keys are ephemeral throwaways.
+
+on:
+  pull_request:
+    branches: [v2-main]
+    paths:
+      - "supabase/**"
+      - "types/database.types.ts"
+      - "scripts/check-migration-rls.mjs"
+      - "scripts/db-types.mjs"
+      - "scripts/supabase-test.mjs"
+      - "scripts/db-push*.mjs"
+      - "scripts/dev-*.mjs"
+      - "scripts/lib/**"
+      - "tests/integration/security/**"
+      - "tests/integration/migrations/**"
+      - "tests/helpers/**"
+      - ".github/workflows/db-ci.yml"
+  push:
+    branches: [v2-main, v2-dev]
+    paths:
+      - "supabase/**"
+      - "types/database.types.ts"
+      - "scripts/check-migration-rls.mjs"
+      - "scripts/db-types.mjs"
+      - "scripts/supabase-test.mjs"
+      - "scripts/db-push*.mjs"
+      - "scripts/dev-*.mjs"
+      - "scripts/lib/**"
+      - "tests/integration/security/**"
+      - "tests/integration/migrations/**"
+      - "tests/helpers/**"
+      - ".github/workflows/db-ci.yml"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit SHA to verify (defaults to the ref's head)"
+        required: false
+  workflow_call:
+    inputs:
+      sha:
+        description: "Commit SHA to verify"
+        required: false
+        type: string
+
+concurrency:
+  group: db-ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.sha || 'head' }}
+  cancel-in-progress: true
+
+jobs:
+  db-ci:
+    name: clean reset + lint + types + RLS suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Migration lint (RLS / policies / grants / version uniqueness)
+        run: npm run lint:migrations
+
+      - name: Forward-only guard — applied migrations are never edited
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          MODIFIED=$(git diff --name-only --diff-filter=M "origin/${{ github.base_ref }}"...HEAD -- supabase/migrations || true)
+          if [ -n "$MODIFIED" ]; then
+            echo "ABORT — existing migration files were MODIFIED (migrations are forward-only; add a new migration instead):"
+            echo "$MODIFIED"
+            exit 1
+          fi
+
+      - name: Start local Supabase stack (applies all migrations + seed)
+        # Same pinned CLI + loopback-only helper used locally; writes
+        # .env.test.local with the stack's throwaway keys.
+        run: npm run supabase:test:start
+
+      - name: Prove clean reset-from-zero
+        # `start` already applied the chain once; `db reset` drops and replays
+        # every migration plus supabase/seed.sql from scratch — the actual
+        # "migrations reconstruct the schema from zero" proof.
+        run: npm run supabase:test:reset
+
+      - name: Types drift gate
+        run: npm run db:types:check
+
+      - name: RLS / database integration suites
+        # Suites are opt-in and read connection values from process env with
+        # precedence over .env files; export the loopback stack's values.
+        run: |
+          set -euo pipefail
+          # Loopback-only throwaway keys from the stack we just started.
+          while IFS='=' read -r k v; do
+            case "$k" in
+              NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|TOKEN_ENCRYPTION_KEY|OAUTH_STATE_SIGNING_KEY)
+                echo "::add-mask::$v"
+                export "$k=$v"
+                ;;
+            esac
+          done < .env.test.local
+          case "$NEXT_PUBLIC_SUPABASE_URL" in
+            http://127.0.0.1:*|http://localhost:*) ;;
+            *) echo "ABORT — expected loopback Supabase URL"; exit 1 ;;
+          esac
+          # Serial: the suites share one database; parallel workers race on
+          # population-wide invariants (e.g. the accounts-backfill no-op check).
+          ALLOW_DB_INTEGRATION_TESTS=true npm test -- --runInBand \
+            tests/integration/security tests/integration/migrations
+
+      - name: Stop local stack
+        if: always()
+        run: npm run supabase:test:stop

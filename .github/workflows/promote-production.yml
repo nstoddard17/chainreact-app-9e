@@ -1,0 +1,295 @@
+name: Promote production
+
+# SUPABASE-ENV-PIPELINE-1 — production promotion, built but NEVER auto-run.
+#
+# Manual dispatch only, gated by the `production` GitHub Environment (configure
+# required reviewers = Marcus, so every run pauses for explicit approval before
+# any production credential is available to a job).
+#
+# Contract:
+#   * ONE exact SHA. It must carry a development certification artifact
+#     produced by deploy-development for the SAME SHA — a newer/different SHA
+#     is refused, never substituted.
+#   * Forward-only migrations. This workflow NEVER seeds production
+#     (no --include-seed), NEVER resets (no `db reset`), NEVER repairs history
+#     (`migration repair` is an exceptional manual runbook operation).
+#     tests/unit/pipeline/promote-production-workflow.test.ts enforces those
+#     bans on this file's text.
+#   * Database gate before app deployment; failed migration or verification
+#     blocks the deploy.
+#   * Destructive migrations (DROP/TRUNCATE/data-DELETE) require the
+#     backup_confirmed input — after verifying a restorable backup exists.
+#   * Logs print project refs and hostnames only, never secrets.
+#
+# Environment `production` secrets (set by owner before first run):
+#   SUPABASE_PROD_PROJECT_REF, SUPABASE_PROD_DB_URL (percent-encoded pooler URL)
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+#   PROD_SMOKE_EMAIL / PROD_SMOKE_PASSWORD (optional — authenticated smoke)
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Exact commit SHA that passed development certification"
+        required: true
+      certification_run_id:
+        description: "deploy-development run id that produced the certification artifact"
+        required: true
+      backup_confirmed:
+        description: "Set true ONLY after verifying a restorable production backup (required when destructive migrations are pending)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  verify-certification:
+    name: verify exact-SHA development certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve requested SHA
+        id: resolve
+        run: |
+          set -euo pipefail
+          REQUESTED="${{ inputs.sha }}"
+          if ! [[ "$REQUESTED" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "ABORT — '$REQUESTED' is not a full 40-char commit SHA."
+            exit 1
+          fi
+          if ! git cat-file -e "$REQUESTED^{commit}"; then
+            echo "ABORT — commit $REQUESTED does not exist in this repository."
+            exit 1
+          fi
+          echo "sha=$REQUESTED" >> "$GITHUB_OUTPUT"
+
+      - name: Download development certification for this exact SHA
+        uses: actions/download-artifact@v4
+        with:
+          name: dev-certification-${{ steps.resolve.outputs.sha }}
+          run-id: ${{ inputs.certification_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse a mismatched certification
+        run: |
+          set -euo pipefail
+          CERT_SHA=$(node -e "console.log(require('./dev-certification.json').sha)")
+          if [ "$CERT_SHA" != "${{ steps.resolve.outputs.sha }}" ]; then
+            echo "ABORT — certification is for $CERT_SHA, not the requested SHA. A different SHA is never promoted."
+            exit 1
+          fi
+          echo "Certification verified for $CERT_SHA"
+
+  verification-gates:
+    name: repository verification gates
+    needs: verify-certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-certification.outputs.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Lint structure
+        run: npm run lint:structure
+
+      - name: Lint migrations
+        run: npm run lint:migrations
+
+      - name: Jest
+        run: npm test
+
+  migrate-production:
+    name: production database migration (approval-gated)
+    needs: [verify-certification, verification-gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-certification.outputs.sha }}
+
+      - name: Verify production target identity (refs only)
+        env:
+          SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: |
+          set -euo pipefail
+          node -e '
+            import("./scripts/lib/db-target.mjs").then(({ parseRefFromPgUrl }) => {
+              const ref = process.env.SUPABASE_PROD_PROJECT_REF;
+              const urlRef = parseRefFromPgUrl(process.env.SUPABASE_PROD_DB_URL);
+              if (!ref || !/^[a-z0-9]{20}$/.test(ref)) { console.error("ABORT — SUPABASE_PROD_PROJECT_REF missing/invalid."); process.exit(1); }
+              if (urlRef !== ref) { console.error(`ABORT — DB URL ref ${urlRef} != declared production ref ${ref}.`); process.exit(1); }
+              console.log("Production target confirmed: " + ref);
+            });
+          '
+
+      - name: Check migration history for unexpected divergence
+        env:
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.109.1 migration list --db-url "$SUPABASE_PROD_DB_URL" | tee migration-list.txt
+          # Remote-only rows (remote timestamp, no local file) mean history has
+          # diverged from the repository — stop; that needs the recovery
+          # runbook (docs/runbooks/supabase-environments.md), not automation.
+          if awk -F'|' 'NR>2 && $2 ~ /[0-9]/ && $1 !~ /[0-9]/ { found=1 } END { exit !found }' migration-list.txt; then
+            echo "ABORT — remote migration history contains versions unknown to this repository."
+            exit 1
+          fi
+
+      - name: Destructive-migration gate
+        env:
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: |
+          set -euo pipefail
+          # Pending = local files with no remote timestamp in the list output.
+          PENDING=$(awk -F'|' 'NR>2 && $1 ~ /[0-9]/ && $2 !~ /[0-9]/ { gsub(/ /,"",$1); print $1 }' migration-list.txt)
+          if [ -z "$PENDING" ]; then
+            echo "No pending migrations."
+            exit 0
+          fi
+          DESTRUCTIVE=0
+          for v in $PENDING; do
+            f=$(ls supabase/migrations/${v}_*.sql 2>/dev/null || true)
+            [ -z "$f" ] && continue
+            if grep -qiE '^\s*(drop\s+table|drop\s+column|truncate|delete\s+from)' "$f"; then
+              echo "Destructive statements found in $f"
+              DESTRUCTIVE=1
+            fi
+          done
+          if [ "$DESTRUCTIVE" = "1" ] && [ "${{ inputs.backup_confirmed }}" != "true" ]; then
+            echo "ABORT — destructive migrations pending and backup_confirmed != true."
+            echo "Verify a restorable production backup, then re-run with backup_confirmed=true."
+            exit 1
+          fi
+
+      - name: Migration dry-run
+        env:
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: npx --yes supabase@2.109.1 db push --db-url "$SUPABASE_PROD_DB_URL" --include-all --dry-run
+
+      - name: Apply pending forward migrations
+        env:
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: echo y | npx --yes supabase@2.109.1 db push --db-url "$SUPABASE_PROD_DB_URL" --include-all
+
+      - name: Verify migration history after apply
+        env:
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.109.1 migration list --db-url "$SUPABASE_PROD_DB_URL" | tee post-apply.txt
+          if awk -F'|' 'NR>2 && $1 ~ /[0-9]/ && $2 !~ /[0-9]/ { found=1 } END { exit !found }' post-apply.txt; then
+            echo "ABORT — migrations still pending after apply. App deployment is BLOCKED."
+            exit 1
+          fi
+
+  deploy-app:
+    name: production application deployment (after DB gate)
+    needs: [verify-certification, migrate-production]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-certification.outputs.sha }}
+
+      - name: Deploy to Vercel production
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          URL=$(npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" 2>vercel-err.log) || {
+            cat vercel-err.log; exit 1;
+          }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed: $URL"
+
+  smoke:
+    name: production smoke + report
+    needs: [verify-certification, deploy-app]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-certification.outputs.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install (npm ci + browsers)
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Production smoke
+        env:
+          PRODUCTION_SMOKE_BASE_URL: https://chainreact.app
+          PRODUCTION_SMOKE_EMAIL: ${{ secrets.PROD_SMOKE_EMAIL }}
+          PRODUCTION_SMOKE_PASSWORD: ${{ secrets.PROD_SMOKE_PASSWORD }}
+        run: npm run smoke:prod
+
+      - name: Promotion report (sanitized)
+        if: always()
+        run: |
+          set -euo pipefail
+          cat > promotion-report.json << EOF
+          {
+            "sha": "${{ needs.verify-certification.outputs.sha }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "deployment_url": "${{ needs.deploy-app.outputs.url }}",
+            "smoke": "${{ job.status }}",
+            "promoted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cat promotion-report.json
+
+      - name: Upload promotion report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promotion-report-${{ needs.verify-certification.outputs.sha }}
+          path: promotion-report.json
+          retention-days: 365

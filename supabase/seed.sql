@@ -1,0 +1,28 @@
+-- ChainReactV2 development seed (SUPABASE-ENV-PIPELINE-1).
+--
+-- Runs automatically after `supabase db reset` (local stack and guarded dev
+-- resets only — the production promotion workflow NEVER passes --include-seed,
+-- enforced by tests/unit/pipeline/promote-production-workflow.test.ts).
+--
+-- POLICY (guard-tested by tests/unit/pipeline/seed-safety.test.ts):
+--   * Data-only. No DDL — schema lives exclusively in supabase/migrations/.
+--   * Deterministic and commit-safe. No secrets, tokens, keys, real email
+--     addresses, provider identifiers, or production data of any kind.
+--   * Nothing auth-dependent: rows that hang off auth.users (accounts,
+--     memberships, workflows, integrations, billing) CANNOT be seeded here,
+--     because auth users must be created through the supported auth.admin API.
+--     That lives in `npm run dev:bootstrap` (scripts/dev-bootstrap.mjs), which
+--     is target-guarded and idempotent.
+--
+-- Official marketplace templates are deliberately NOT here either — they are
+-- product data, seeded by forward-only data migrations (e.g.
+-- 20260618000000_seed_official_templates.sql) so every environment gets them
+-- from the migration chain itself.
+--
+-- Today the migration chain plus dev:bootstrap covers every fixture the app
+-- needs, so this file intentionally seeds no rows. It exists so [db.seed] in
+-- supabase/config.toml resolves, and as the single sanctioned home for any
+-- future auth-independent dev fixture (add data-only INSERTs below; the guard
+-- tests will hold the line on DDL and secret-shaped values).
+
+SELECT 1; -- no-op: valid SQL, zero rows touched
