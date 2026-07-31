@@ -204,6 +204,12 @@ describe("medium (1024px) — the canvas gets width priority", () => {
     expect(rail()).toHaveAttribute("data-collapsed", "false");
   });
 
+  it("keeps Run Live Test directly visible inline at medium width (WORKFLOW-LIVE-TEST-MERGE-1)", () => {
+    mount(1024);
+    expect(screen.getByTestId("run-controls-live-test-button")).toBeVisible();
+    expect(screen.getByTestId("run-controls-live-test-button")).toBeEnabled();
+  });
+
   it("keeps Save, Test and the lifecycle action reachable, with the rest in overflow", async () => {
     const user = userEvent.setup();
     mount(1024);
@@ -331,6 +337,21 @@ describe("narrow (390px phone) — one secondary surface at a time", () => {
     await user.click(screen.getByTestId("builder-header-overflow-trigger"));
     const panel = screen.getByTestId("builder-header-overflow-panel");
     expect(panel).toContainElement(screen.getByTestId("run-controls-test-button"));
+  });
+
+  it("keeps Run Live Test reachable AND enabled through the overflow control (WORKFLOW-LIVE-TEST-MERGE-1)", async () => {
+    // The regression Marcus hit: a crowded header must never leave the automated
+    // workflow's REAL testing entry point undiscoverable — at overflow densities
+    // the More panel exposes Run Live Test itself, clickable, not merely an
+    // unexplained disabled Test Workflow control.
+    const user = userEvent.setup();
+    mount(390);
+    expect(screen.queryByTestId("run-controls-live-test-button")).toBeNull();
+    await user.click(screen.getByTestId("builder-header-overflow-trigger"));
+    const panel = screen.getByTestId("builder-header-overflow-panel");
+    const liveTest = screen.getByTestId("run-controls-live-test-button");
+    expect(panel).toContainElement(liveTest);
+    expect(liveTest).toBeEnabled();
   });
 });
 
