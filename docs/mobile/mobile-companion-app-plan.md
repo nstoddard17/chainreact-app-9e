@@ -1,6 +1,15 @@
 # ChainReactV2 — Mobile Companion App Plan (Expo / React Native)
 
-> **Status: deferred.** To be reattacked once the web version is closer to finished. This is a scoping + readiness plan, not an immediate implementation.
+> **Status: SUPERSEDED (2026-07-31).** The plan of record is now
+> [`docs/slices/phase-5/mobile-companion/mobile-companion-foundation-plan.md`](../slices/phase-5/mobile-companion/mobile-companion-foundation-plan.md)
+> (MOBILE-COMPANION-FOUNDATION-AUDIT-1). The product scope below survives, but the
+> core "hybrid data access" architecture (direct Supabase SDK table reads + raw-table
+> realtime) is **rejected** there — `authenticated` SELECT on `workflow_runs` and
+> `integrations` has since been revoked, and all mobile access now goes through the
+> versioned `/api/mobile/v1` contract. §A1's named auth-gate file is also inaccurate
+> (six gates exist, not one). Do not build from this document.
+
+> Original status note: deferred; scoping + readiness plan, not an immediate implementation.
 
 ## Context
 
