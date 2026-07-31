@@ -38,20 +38,36 @@ export function AppPageContainer({
   children,
   className,
   as: Tag = "main",
+  width = "app",
   "data-testid": testId = "app-page-container",
 }: {
   children: ReactNode;
   className?: string;
   /** `main` by default; pass `div` when the caller already renders the landmark. */
   as?: "main" | "div" | "section";
+  /**
+   * RESPONSIVE-PAGES-2 — which bound this page wants. Added so pages that had a
+   * DELIBERATE narrower reading width could adopt the container without silently
+   * being widened to 1600px:
+   *
+   *   `app`     1600px — dashboards and card grids (the default).
+   *   `content` 1152px — Runs, which reads as a focused list, not a board.
+   *   `reading`  672px — Notifications, a single narrow column of prose.
+   *
+   * Three named values rather than an open `maxWidth` string, so the set stays
+   * reviewable and pages can't drift into a dozen bespoke widths. Every variant
+   * keeps the same fluid gutter and `min-width: 0`.
+   */
+  width?: AppPageWidth;
   "data-testid"?: string;
 }) {
   return (
     <Tag
       data-testid={testId}
+      data-page-width={width}
       className={cn("mx-auto flex w-full min-w-0 flex-col", className)}
       style={{
-        maxWidth: APP_PAGE_MAX_WIDTH,
+        maxWidth: APP_PAGE_WIDTHS[width],
         paddingInline: APP_PAGE_PADDING_INLINE,
       }}
     >
@@ -67,3 +83,16 @@ export function AppPageContainer({
  */
 export const APP_PAGE_MAX_WIDTH = "1600px";
 export const APP_PAGE_PADDING_INLINE = "clamp(1rem, 2.5vw, 2rem)";
+
+export type AppPageWidth = "app" | "content" | "reading";
+
+/**
+ * The three sanctioned page bounds. `app` matches `APP_PAGE_MAX_WIDTH`; the
+ * narrower two preserve widths pages had already chosen deliberately, so
+ * adopting the container is a layout fix rather than a visual change.
+ */
+export const APP_PAGE_WIDTHS: Readonly<Record<AppPageWidth, string>> = {
+  app: APP_PAGE_MAX_WIDTH,
+  content: "1152px",
+  reading: "672px",
+};

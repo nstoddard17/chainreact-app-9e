@@ -70,10 +70,10 @@ export function WorkflowsEmptyState({ kind, limit, onClearFilters }: Props) {
       <div
         data-testid="workflows-empty-no-workflows"
         role="status"
-        className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border bg-card p-10 text-center"
+        className="flex min-w-0 flex-col items-center gap-3 rounded-md border border-dashed border-border bg-card p-6 text-center sm:p-10"
       >
         <p className="text-sm font-semibold text-foreground">No workflows yet</p>
-        <p className="max-w-md text-xs text-muted-foreground">
+        <p className="max-w-md break-words text-xs text-muted-foreground">
           Workflows automate things across your connected apps. Create your first
           one to get started — the builder will guide you through picking a
           trigger and adding actions.
@@ -106,7 +106,7 @@ export function WorkflowsEmptyState({ kind, limit, onClearFilters }: Props) {
       className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border bg-card p-10 text-center"
     >
       <p className="text-sm font-semibold text-foreground">{c.title}</p>
-      <p className="max-w-md text-xs text-muted-foreground">{body}</p>
+      <p className="max-w-md break-words text-xs text-muted-foreground">{body}</p>
       {showClearFilters && (
         <button
           type="button"

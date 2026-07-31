@@ -42,13 +42,18 @@ const NAMED = [1600, 1440, 1200, 1024, 820, 640, 480, 390, 360];
  */
 const SWEEP = [];
 for (let w = 360; w <= 1600; w += 8) SWEEP.push(w);
+// The 8px grid from 360 does NOT land on every named width (390 and 820 are off
+// it), so they were swept past and never screenshotted. Union the two sets and
+// sort, so every named width is both measured and captured.
+for (const w of NAMED) if (!SWEEP.includes(w)) SWEEP.push(w);
+SWEEP.sort((a, b) => a - b);
 
 /**
  * Reproduces the authenticated shell around the page fragment: a 64px fixed rail
  * and a 56px top bar, matching AppRail/AppTopBar. Without it the measurements
  * would flatter the page — the real Templates page never gets the full viewport.
  */
-function pageHtml(fragment, width) {
+function pageHtml(fragment, width, pageLabel = "Templates") {
   const showRail = width >= 768; // AppRail is `hidden md:flex`
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -71,7 +76,7 @@ function pageHtml(fragment, width) {
             <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/15 text-[11px] font-bold text-primary">A</span>
             <span class="min-w-0"><span class="block truncate text-xs font-semibold">Acme Corporation Holdings International</span><span class="block text-[10px] text-muted-foreground">Business</span></span>
           </button>
-          <span data-testid="app-shell-page-context" class="min-w-0 truncate text-sm font-semibold text-foreground">Templates</span>
+          <span data-testid="app-shell-page-context" class="min-w-0 truncate text-sm font-semibold text-foreground">${pageLabel}</span>
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <a data-testid="usage-meter" class="hidden shrink-0 items-center gap-3 rounded-md border border-border bg-background px-2.5 py-1.5 lg:flex">
@@ -83,11 +88,30 @@ function pageHtml(fragment, width) {
           <button class="h-9 w-9 shrink-0 rounded-full border border-border"></button>
         </div>
       </header>
+      ${showRail ? "" : mobileBar(pageLabel)}
       ${fragment}
     </div>
   </div>
 </body></html>`;
 }
+
+/**
+ * RESPONSIVE-PAGES-2 — the mobile bar, rendered below `md` exactly as AppShell
+ * does (the desktop bar is `hidden md:flex`, this one is `md:hidden`). Mirrors
+ * the fixed AppMobileBar: identity group `flex-1 min-w-0`, controls `shrink-0`.
+ */
+const mobileBar = (pageLabel) => `<header data-testid="app-shell-mobile-bar" class="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-card px-3 md:hidden">
+  <div class="flex min-w-0 flex-1 items-center gap-2">
+    <button class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border"></button>
+    <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/40"></span>
+    <span class="mx-1 h-5 w-px shrink-0 bg-border"></span>
+    <span data-testid="app-shell-page-context" class="min-w-0 truncate text-sm font-semibold text-foreground">${pageLabel}</span>
+  </div>
+  <div class="flex shrink-0 items-center gap-2">
+    <button class="h-9 w-9 shrink-0 rounded-md border border-border"></button>
+    <button class="h-9 w-9 shrink-0 rounded-full border border-border"></button>
+  </div>
+</header>`;
 
 /** Every bounded region the brief asks to be checked individually. */
 const REGIONS = [
@@ -100,14 +124,32 @@ const REGIONS = [
   '[data-testid="template-card"]',
   '[data-testid="templates-empty"]',
   '[data-testid="template-details-dialog"]',
+  // RESPONSIVE-PAGES-2 — Workflows + shared-shell regions.
+  '[data-testid="app-shell-mobile-bar"]',
+  '[data-testid="workflows-toolbar"]',
+  '[data-testid="workflows-tabs"]',
+  '[data-testid="workflows-stat-cards"]',
+  '[data-testid="workflows-grid-view"]',
+  '[data-testid="workflow-card"]',
+  '[data-testid="workflows-empty-state"]',
+  '[data-testid="workflows-toast"]',
 ];
 
 const fragments = readdirSync(HTML_DIR)
-  .filter((f) => f.startsWith("templates-") && f.endsWith(".html"))
+  .filter((f) => /^(templates|workflows|consumers)-/.test(f) && f.endsWith(".html"))
   .sort();
 if (fragments.length === 0) {
   console.error("No templates-*.html fragments. Run the harness test first.");
   process.exit(2);
+}
+
+/** Page-context label matching the fragment, so the evidence isn't mislabelled. */
+function labelFor(name) {
+  if (name.startsWith("workflows-")) return "Workflows";
+  if (name.startsWith("consumers-01")) return "Runs";
+  if (name.startsWith("consumers-02")) return "Apps";
+  if (name.startsWith("consumers-03")) return "Notifications";
+  return "Templates";
 }
 
 const failures = [];
@@ -122,7 +164,7 @@ for (const file of fragments) {
 
   for (const width of SWEEP) {
     await page.setViewportSize({ width, height: 900 });
-    await page.setContent(pageHtml(fragment, width), { waitUntil: "load" });
+    await page.setContent(pageHtml(fragment, width, labelFor(name)), { waitUntil: "load" });
 
     const result = await page.evaluate((regionSelectors) => {
       const doc = document.documentElement;
@@ -142,9 +184,19 @@ for (const file of fragments) {
             left: Math.round(rect.left),
           });
           // A child visibly bursting out of this bounded region.
+          //
+          // Out-of-flow children (position: fixed/absolute) are EXCLUDED: they
+          // are not laid out by this parent at all, so "escaping" it is not a
+          // defect — a fixed toast is anchored to the viewport by design, and
+          // the page container deliberately does not constrain overlays. They
+          // are still measured against the VIEWPORT as their own region below,
+          // so nothing is let off: the assertion is moved to the right frame of
+          // reference, not weakened.
           for (const child of el.children) {
             const c = child.getBoundingClientRect();
             if (c.width === 0) continue;
+            const pos = getComputedStyle(child).position;
+            if (pos === "fixed" || pos === "absolute") continue;
             if (c.right - rect.right > 1 || rect.left - c.left > 1) {
               out.escapes.push({
                 sel,
@@ -177,7 +229,13 @@ for (const file of fragments) {
     }
 
     if (named) {
-      await page.screenshot({ path: join(SHOT_DIR, `${name}-${width}.png`), fullPage: true });
+      // One folder per state. Flat output put 100+ files in a single directory,
+      // which trips the repo's leaf-folder count lint (it scans the filesystem,
+      // and `owner-review/` being gitignored does not exempt it). Per-state
+      // folders are also simply easier to review.
+      const stateDir = join(SHOT_DIR, name);
+      mkdirSync(stateDir, { recursive: true });
+      await page.screenshot({ path: join(stateDir, `${width}.png`), fullPage: true });
     }
   }
 }

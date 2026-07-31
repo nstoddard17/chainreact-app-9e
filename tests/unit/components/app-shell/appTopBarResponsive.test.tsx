@@ -27,6 +27,7 @@ global.fetch = jest.fn(() =>
 ) as unknown as typeof fetch;
 
 import { AppTopBar } from "@/components/app-shell/AppTopBar";
+import { AppMobileBar } from "@/components/app-shell/AppMobileBar";
 import { AppPageContext } from "@/components/app-shell/AppPageContext";
 
 function renderBar() {
@@ -63,6 +64,53 @@ describe("AppTopBar responsive contract", () => {
   it("does not hide overflow to make itself look correct", () => {
     renderBar();
     expect(screen.getByTestId("app-shell-top-bar").className).not.toMatch(
+      /overflow-x-(hidden|clip)/,
+    );
+  });
+});
+
+/**
+ * RESPONSIVE-PAGES-2 — the mobile bar had the SAME defect the desktop bar had,
+ * flagged as a follow-up last batch. It replaces the desktop bar entirely below
+ * `md`, so on a phone it is the only top bar there is.
+ */
+describe("AppMobileBar responsive contract", () => {
+  it("makes the identity group yield and pins the controls", () => {
+    render(
+      <AppMobileBar userEmail="owner@example.com" unreadNotifications={2} recentNotifications={[]} />,
+    );
+    const bar = screen.getByTestId("app-shell-mobile-bar");
+    const identity = bar.firstElementChild as HTMLElement;
+    const controls = bar.lastElementChild as HTMLElement;
+    expect(identity.className).toContain("flex-1");
+    expect(identity.className).toContain("min-w-0");
+    expect(controls.className).toContain("shrink-0");
+  });
+
+  it("keeps the brand tile square rather than letting it be squashed", () => {
+    render(
+      <AppMobileBar userEmail="owner@example.com" unreadNotifications={0} recentNotifications={[]} />,
+    );
+    expect(screen.getByTestId("app-shell-brand").className).toContain("shrink-0");
+  });
+
+  it("still exposes nav, notifications and the user menu on a phone", () => {
+    render(
+      <AppMobileBar userEmail="owner@example.com" unreadNotifications={5} recentNotifications={[]} />,
+    );
+    // Compact behaviour must not silently drop an action.
+    expect(screen.getByTestId("app-shell-brand")).toBeVisible();
+    expect(screen.getByTestId("app-shell-mobile-bar")).toBeVisible();
+    expect(
+      screen.getByTestId("app-shell-mobile-bar").querySelectorAll("button, a").length,
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it("does not hide overflow to look correct", () => {
+    render(
+      <AppMobileBar userEmail="o@e.com" unreadNotifications={0} recentNotifications={[]} />,
+    );
+    expect(screen.getByTestId("app-shell-mobile-bar").className).not.toMatch(
       /overflow-x-(hidden|clip)/,
     );
   });

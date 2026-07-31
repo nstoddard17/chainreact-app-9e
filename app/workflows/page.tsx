@@ -12,6 +12,7 @@ import { computeViewerCanRunEditBatch, toWorkflowListItem } from "@/app/api/work
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -134,7 +135,9 @@ export default async function WorkflowsPage() {
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}
     >
-      <main className="flex w-full flex-col p-6 sm:p-8">
+      {/* RESPONSIVE-PAGES-2 — adopts the shared container (bounded width, fluid
+          gutter, min-width:0), replacing the hand-rolled unbounded main. */}
+      <AppPageContainer className="py-6 sm:py-8">
         {/* HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS-AND-DASHBOARD-CLEANUP — the dashboard
             "Build with me" card was removed. The single AI build surface is the builder's left React
             Agent rail (BuilderGuidanceRail). /workflows is the workflow list/metrics/folders surface,
@@ -147,7 +150,7 @@ export default async function WorkflowsPage() {
           initialCollaborationOnboarding={collaborationOnboarding}
           onboardingVideo={onboarding ? getOnboardingVideoConfig() : null}
         />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }

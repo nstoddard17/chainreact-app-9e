@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as notificationsRepo from "@/repositories/notifications";
 import { NotificationsList } from "@/features/notifications/NotificationsList";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -45,12 +46,14 @@ export default async function NotificationsPage() {
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}
     >
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6 sm:p-8">
+      {/* RESPONSIVE-PAGES-2 — `reading` preserves the deliberate 672px single
+          column (was max-w-2xl); only the gutter and min-w-0 change. */}
+      <AppPageContainer width="reading" className="gap-6 py-6 sm:py-8">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Notifications
         </h1>
         <NotificationsList notifications={notifications} />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }

@@ -53,7 +53,11 @@ export function CreateWorkflowButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        data-testid="workflows-create-button"
+        /* RESPONSIVE-PAGES-2 — `shrink-0 whitespace-nowrap`: this is the page's
+           primary action, so it keeps its full label rather than wrapping to
+           "Create / workflow" or compressing when the toolbar tightens. */
+        className="shrink-0 whitespace-nowrap rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
       >
         Create workflow
       </button>
@@ -63,7 +67,14 @@ export function CreateWorkflowButton() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-2 rounded border border-input p-4"
+      data-testid="workflows-create-form"
+      /* RESPONSIVE-PAGES-2 — the open form lives inside the toolbar's action
+         cluster. Unbounded it had no way to fit a 360px screen: an input plus
+         two buttons and 1rem of padding is wider than the viewport once the
+         Filters and view-toggle controls sit beside it. `w-full min-w-0` lets it
+         take the toolbar row on a phone; `sm:w-72` restores the compact inline
+         panel as soon as there is room. */
+      className="flex w-full min-w-0 flex-col gap-2 rounded border border-input p-4 sm:w-72"
       aria-label="Create workflow"
     >
       <label htmlFor="new-workflow-name" className="text-sm font-medium">

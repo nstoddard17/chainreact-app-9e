@@ -6,6 +6,7 @@ import * as workflowsRepo from "@/repositories/workflows";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { RunsDashboard } from "@/features/runs/RunsDashboard";
 import {
@@ -84,9 +85,11 @@ export default async function RunsPage() {
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}
     >
-      <main className="mx-auto flex w-full max-w-6xl flex-col p-6 sm:p-8">
+      {/* RESPONSIVE-PAGES-2 — `content` preserves this page's deliberate 1152px
+          reading width (was max-w-6xl) while gaining the fluid gutter + min-w-0. */}
+      <AppPageContainer width="content" className="py-6 sm:py-8">
         <RunsDashboard initialRuns={runs} />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }

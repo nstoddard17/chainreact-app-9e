@@ -11,6 +11,7 @@ import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatus
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import type { AppsBridgeView } from "@/features/apps/AppsBridge";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -151,7 +152,9 @@ export default async function AppsPage({ searchParams }: Props) {
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}
     >
-      <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
+      {/* RESPONSIVE-PAGES-2 — adopts the shared container; the hand-rolled
+          unbounded main is gone (no double padding layered on top). */}
+      <AppPageContainer className="gap-6 py-6 sm:py-8">
         <ConnectionStatusBanner searchParams={params} />
         {/*
          * 5.TRUCK-BRIDGE-1 CS-4 / APPS-VL-DESIGN-1 — the entry point the
@@ -171,7 +174,7 @@ export default async function AppsPage({ searchParams }: Props) {
           bridge={bridge}
           vehicleLinksHref={vehicleLinksHref}
         />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }

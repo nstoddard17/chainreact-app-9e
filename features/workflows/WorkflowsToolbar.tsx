@@ -78,7 +78,7 @@ export function WorkflowsToolbar({
         data-testid="workflows-tabs"
         role="tablist"
         aria-label="Workflows view"
-        className="flex w-fit gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
+        className="flex w-fit max-w-full flex-wrap gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
       >
         {TABS.map((tt) => {
           const active = tab === tt.id;
@@ -103,15 +103,25 @@ export function WorkflowsToolbar({
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+      {/*
+        RESPONSIVE-PAGES-2 — the toolbar row. The search side already had
+        `flex-1 min-w-0`; the ACTION side had neither, so once the row ran out of
+        width the Filters + view-toggle + Create cluster refused to yield and the
+        search input was squeezed toward nothing while the cluster pushed on. The
+        row wraps, the action cluster is `shrink-0` (its controls are icon-sized
+        or a primary CTA — none can be shortened), and the search side keeps a
+        sensible flex basis so it drops to its own line rather than becoming a
+        stub. Create Workflow therefore stays intact and obvious at every width.
+      */}
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-1 basis-56 items-center gap-2">
           {/* Status pills first, then search (swapped per design feedback). */}
           {onAutomations && (
             <div
               data-testid="workflows-status-filter"
               role="tablist"
               aria-label="Filter by status"
-              className="hidden gap-1 rounded-md border border-border bg-muted/40 p-0.5 md:flex"
+              className="hidden shrink-0 gap-1 rounded-md border border-border bg-muted/40 p-0.5 md:flex"
             >
               {STATUS_FILTERS.map((f) => {
                 const active = statusFilter === f.id;
@@ -143,17 +153,17 @@ export function WorkflowsToolbar({
             placeholder={placeholder}
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            className="max-w-sm"
+            className="min-w-0 flex-1 max-w-sm"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {onAutomations && (
             <>
               <button
                 type="button"
                 data-testid="workflows-filters-open"
                 onClick={onOpenFilters}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:border-foreground/30"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:border-foreground/30"
               >
                 Filters
                 {activeFilterCount > 0 && (
@@ -166,7 +176,7 @@ export function WorkflowsToolbar({
                 data-testid="workflows-view-toggle"
                 role="group"
                 aria-label="View"
-                className="flex gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
+                className="flex shrink-0 gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
               >
                 <button
                   type="button"

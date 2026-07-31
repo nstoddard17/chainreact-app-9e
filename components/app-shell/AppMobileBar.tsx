@@ -39,13 +39,23 @@ export function AppMobileBar({
       data-testid="app-shell-mobile-bar"
       className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-card px-3 md:hidden"
     >
-      <div className="flex min-w-0 items-center gap-2">
+      {/*
+        RESPONSIVE-PAGES-2 — the same defect the desktop bar had, and the one
+        flagged as a follow-up last batch. The identity group could shrink but
+        had no `flex-1`, and the control cluster had neither `min-w-0` nor
+        `shrink-0` — so on a 360px phone the hamburger, brand and page label
+        together pushed the bell and avatar toward the edge instead of the label
+        yielding. `flex-1 min-w-0` here plus `shrink-0` on the controls makes the
+        page label the part that truncates, which is the only piece that can be
+        shortened without losing a function.
+      */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <AppMobileNav />
         <AppBrand />
-        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
         <AppPageContext />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <NotificationBell
           unreadCount={unreadNotifications}
           recentNotifications={recentNotifications}

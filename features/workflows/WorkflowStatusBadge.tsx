@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { displayStatus } from "@/core/workflows/projections";
 import type { WorkflowSummary } from "@/contracts/workflow";
+import { cn } from "@/lib/utils";
 
 /**
  * Workflow status badge for the workflows dashboard
@@ -36,7 +37,7 @@ export function WorkflowStatusBadge({ workflow, className }: Props) {
     <Badge
       variant={variant}
       data-status-kind={status.kind}
-      className={className}
+      className={cn("max-w-full break-words", className)}
       aria-label={`Status: ${status.label}`}
     >
       <StatusIcon kind={status.kind} />

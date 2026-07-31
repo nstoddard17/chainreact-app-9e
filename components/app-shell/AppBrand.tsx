@@ -23,7 +23,10 @@ export function AppBrand() {
       href="/workflows"
       data-testid="app-shell-brand"
       aria-label="ChainReact — Workflows"
-      className="group relative inline-flex h-9 w-9 items-center justify-center rounded-lg bg-muted/40 transition hover:bg-muted"
+      /* RESPONSIVE-PAGES-2 — `shrink-0`: a 36px square brand tile must keep its
+         shape. Without it the mobile bar's flex row was free to squash the logo
+         into a sliver before truncating the page label beside it. */
+      className="group relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 transition hover:bg-muted"
     >
       <span className="relative inline-flex h-full w-full items-center justify-center overflow-hidden rounded-lg">
         <MarketingBrandLogo variant="nav" size={26} wordmark={false} />

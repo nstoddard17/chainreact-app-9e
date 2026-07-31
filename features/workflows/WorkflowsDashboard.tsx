@@ -423,7 +423,10 @@ export function WorkflowsDashboard({
             <ul
               data-testid="workflows-grid-view"
               aria-label="Workflows grid"
-              className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+              /* RESPONSIVE-PAGES-2 — content-aware reflow, matching the accepted
+                 Templates grid. Replaces viewport-keyed sm:/lg: steps that
+                 ignored the container's real width behind the sidebar. */
+              className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(280px,100%),1fr))] gap-3"
             >
               {filtered.map((w) => (
                 <WorkflowCard key={w.id} workflow={w} onChanged={refresh} folderActions={makeFolderActions(w)} />

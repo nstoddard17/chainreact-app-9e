@@ -32,23 +32,34 @@ export function WorkflowCard({ workflow, onChanged, folderActions }: Props) {
     <li
       data-testid="workflow-card"
       data-workflow-id={workflow.id}
-      className="flex flex-col gap-3 rounded-md border border-border bg-card p-4 transition hover:border-foreground/20"
+      className="flex min-w-0 flex-col gap-3 rounded-md border border-border bg-card p-4 transition hover:border-foreground/20"
     >
-      <div className="flex items-start justify-between gap-2">
+      {/*
+        RESPONSIVE-PAGES-2 — the title row had the same defect the Templates card
+        did: `justify-between` with no `min-w-0` on the name and no `shrink-0` on
+        the actions menu, so a long name pushed the ⋯ trigger toward (and past)
+        the card edge. The name keeps its existing `line-clamp-2` truncation —
+        that was already a deliberate choice and is left alone — plus `break-words`
+        so a long UNBROKEN name clamps instead of widening the card.
+      */}
+      <div className="flex min-w-0 items-start justify-between gap-2">
         <Link
           href={`/workflows/${workflow.id}`}
           data-testid="workflow-card-name"
-          className="line-clamp-2 text-sm font-semibold text-foreground hover:underline"
+          className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-semibold text-foreground hover:underline"
         >
           {workflow.name}
         </Link>
-        <WorkflowActionsMenu
-          workflow={workflow}
-          onChanged={onChanged}
-          {...folderActions}
-        />
+        <span className="shrink-0">
+          <WorkflowActionsMenu
+            workflow={workflow}
+            onChanged={onChanged}
+            {...folderActions}
+          />
+        </span>
       </div>
-      <div className="flex items-center justify-between gap-2">
+      {/* Badge + toggle wrap rather than squash — both must stay readable. */}
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <WorkflowStatusBadge workflow={workflow} />
         <WorkflowStatusToggle workflow={workflow} onChanged={onChanged} />
       </div>
