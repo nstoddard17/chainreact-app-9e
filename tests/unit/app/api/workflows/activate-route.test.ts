@@ -95,7 +95,8 @@ const baseWorkflowRecord = {
         // Configured + connected so the B readiness gate treats the base
         // fixture as a valid, activatable workflow (gmail send_email requires
         // `to`). Tests that target the readiness gate override the definition.
-        config: { to: "ops@example.com" },
+        // textBody satisfies the WORKFLOW-LIVE-TEST-2 §3 requiredAnyOf body group.
+        config: { to: "ops@example.com", textBody: "status update" },
         position: { x: 0, y: 100 },
       },
     ],
@@ -482,7 +483,8 @@ describe("POST /activate — B: execution-readiness gate", () => {
     config: {},
     position: { x: 0, y: 100 },
   };
-  const configuredGmail = { ...emptyGmail, config: { to: "ops@example.com" } };
+  // textBody satisfies the §3 requiredAnyOf body group — a body-less send was never runnable.
+  const configuredGmail = { ...emptyGmail, config: { to: "ops@example.com", textBody: "b" } };
   function workflowGraph(nodes: unknown[], edges: unknown[]): typeof baseWorkflowRecord {
     return {
       ...baseWorkflowRecord,
@@ -512,7 +514,7 @@ describe("POST /activate — B: execution-readiness gate", () => {
 
   it("blocks activation of a draft with a broken deleted-step variable reference (422 INVALID_VARIABLE_REFERENCE, CS-2)", async () => {
     // `to` is non-empty (required field satisfied) but references a node not in the graph.
-    const brokenRefGmail = { ...emptyGmail, config: { to: "{{ghost-node.email}}" } };
+    const brokenRefGmail = { ...emptyGmail, config: { to: "{{ghost-node.email}}", textBody: "b" } };
     mockGetById.mockResolvedValueOnce(
       workflowGraph([trigger, brokenRefGmail], [{ id: "e1", from: "trigger-node", to: "action-node" }]),
     );

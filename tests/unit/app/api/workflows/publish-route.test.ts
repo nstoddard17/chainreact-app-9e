@@ -69,7 +69,8 @@ const baseRecord = {
         kind: "action" as const,
         provider: "gmail",
         type: "send_email",
-        config: { to: "ops@example.com" },
+        // textBody satisfies the WORKFLOW-LIVE-TEST-2 §3 requiredAnyOf body group.
+        config: { to: "ops@example.com", textBody: "status update" },
         position: { x: 0, y: 100 },
       },
     ],
@@ -147,7 +148,7 @@ describe("POST /api/workflows/[id]/publish (V2-READY-41G route contract)", () =>
       ...baseRecord.draftDefinition,
       nodes: [
         baseRecord.draftDefinition.nodes[0]!, // trigger
-        { ...baseRecord.draftDefinition.nodes[1]!, config: { to: "{{ghost-node.email}}" } }, // broken ref
+        { ...baseRecord.draftDefinition.nodes[1]!, config: { to: "{{ghost-node.email}}", textBody: "b" } }, // broken ref
       ],
     },
   };
