@@ -160,7 +160,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
         {/* ── Transfer ownership (owner only) ───────────────────────────────── */}
         {isOwner && (
           <div className="flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
               <div className="flex min-w-0 flex-col">
                 <span className="text-sm font-medium text-foreground">
                   Transfer ownership
@@ -174,6 +174,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                   type="button"
                   size="sm"
                   variant="outline"
+                  className="shrink-0"
                   data-testid="team-transfer-open"
                   disabled={targets.length === 0}
                   onClick={openTransfer}
@@ -219,7 +220,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                     value={targetUserId}
                     disabled={transferBusy}
                     onChange={(e) => setTargetUserId(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                   >
                     {targets.map((m) => (
                       <option key={m.userId} value={m.userId}>
@@ -239,7 +240,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                     disabled={transferBusy}
                     autoComplete="current-password"
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                   />
                 </label>
 
@@ -253,7 +254,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                   </p>
                 )}
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
                     size="sm"
@@ -281,7 +282,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
 
         {/* ── Leave team ────────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3 border-t border-border pt-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div className="flex min-w-0 flex-col">
               <span className="text-sm font-medium text-foreground">Leave team</span>
               <span className="text-xs text-muted-foreground">
@@ -294,6 +295,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                   type="button"
                   size="sm"
                   variant="outline"
+                  className="shrink-0"
                   data-testid="team-leave-open"
                   disabled
                 >
@@ -306,7 +308,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                   variant="outline"
                   data-testid="team-leave-open"
                   onClick={startLeave}
-                  className="text-destructive hover:text-destructive"
+                  className="shrink-0 text-destructive hover:text-destructive"
                 >
                   Leave team
                 </Button>
@@ -360,7 +362,7 @@ export function AccountActions({ account, members, onChanged }: Props) {
                 </p>
               )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"

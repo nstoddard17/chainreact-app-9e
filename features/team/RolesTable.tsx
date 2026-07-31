@@ -87,8 +87,20 @@ function CellMark({ cell }: { cell: Cell }) {
 export function RolesTable() {
   return (
     <div data-testid="team-roles-table" className="flex flex-col gap-3">
+      {/*
+        RESPONSIVE-TEAM-4 — this is the one surface on the page that keeps a
+        LOCAL horizontal scroller, and deliberately so. It is a genuine matrix:
+        five capabilities × three roles, where the whole point is comparing a row
+        ACROSS the roles. Stacking it into cards would repeat "Owner / Admin /
+        Member" fifteen times and destroy the comparison the table exists to make.
+        The member roster is the opposite case and was stacked instead.
+
+        The scroller stays inside its card (`Panel` clips to its rounded corners)
+        and never reaches the document, and the hint below tells a phone user the
+        matrix scrolls — an undiscoverable scroller is its own defect.
+      */}
       <Panel flush>
-        <div className="overflow-x-auto">
+        <div className="max-w-full overflow-x-auto">
           <div className="min-w-[640px]">
             {/* Header */}
             <div className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-3 border-b border-border bg-background/40 px-5 py-3 text-xs font-semibold text-muted-foreground">
@@ -117,6 +129,13 @@ export function RolesTable() {
           </div>
         </div>
       </Panel>
+
+      <p
+        data-testid="team-roles-scroll-hint"
+        className="text-xs text-muted-foreground sm:hidden"
+      >
+        Scroll the table sideways to compare all three roles.
+      </p>
 
       <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
         <p className="text-xs text-muted-foreground">{ROLE_SCOPE_NOTE}</p>

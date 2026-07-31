@@ -97,8 +97,8 @@ export function TeamMembersPanel({
         <InviteBar accountId={account.id} disabled={atLimit} onChanged={onChanged} />
       )}
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative w-full max-w-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full min-w-0 max-w-xs flex-1">
           <input
             type="search"
             aria-label="Search members"

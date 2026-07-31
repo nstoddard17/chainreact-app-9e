@@ -159,10 +159,37 @@ const REGIONS = [
   '[data-testid="subscription-cancel-panel"]',
   '[data-testid="checkout-choice-dialog"]',
   '[data-testid="account-toast"]',
+  // RESPONSIVE-TEAM-4 — Team management regions. The member and invitation rows
+  // are matched by testid PREFIX because their ids are per-user/per-invite, and
+  // a per-row assertion is the whole point: this page fails inside individual
+  // rows where identity, a role control and a destructive action share a line.
+  '[data-testid="team-dashboard"]',
+  '[data-testid="team-settings-nav"]',
+  '[data-testid="team-overview"]',
+  '[data-testid="team-account-switcher"]',
+  '[data-testid="team-account-list"]',
+  '[data-testid^="team-account-0"]',
+  '[data-testid="team-create-form"]',
+  '[data-testid="team-account-actions"]',
+  '[data-testid="team-transfer-form"]',
+  '[data-testid="team-leave-form"]',
+  '[data-testid="team-members-panel"]',
+  '[data-testid="team-limit-notice"]',
+  '[data-testid="team-invite-bar"]',
+  '[data-testid="team-invite-link"]',
+  '[data-testid="team-members-table"]',
+  '[data-testid^="team-member-"]',
+  '[data-testid^="team-remove-confirm-0"]',
+  '[data-testid="team-pending-invites"]',
+  '[data-testid^="team-invite-inv-"]',
+  '[data-testid^="team-invite-email-form-"]',
+  '[data-testid="team-invite-replacement"]',
+  '[data-testid="team-roles-table"]',
+  '[data-testid="team-toast"]',
 ];
 
 const fragments = readdirSync(HTML_DIR)
-  .filter((f) => /^(templates|workflows|consumers|account)-/.test(f) && f.endsWith(".html"))
+  .filter((f) => /^(templates|workflows|consumers|account|team)-/.test(f) && f.endsWith(".html"))
   .sort();
 if (fragments.length === 0) {
   console.error("No templates-*.html fragments. Run the harness test first.");
@@ -172,6 +199,7 @@ if (fragments.length === 0) {
 /** Page-context label matching the fragment, so the evidence isn't mislabelled. */
 function labelFor(name) {
   if (name.startsWith("account-")) return "Account settings";
+  if (name.startsWith("team-")) return "Team";
   if (name.startsWith("workflows-")) return "Workflows";
   if (name.startsWith("consumers-01")) return "Runs";
   if (name.startsWith("consumers-02")) return "Apps";
@@ -200,6 +228,7 @@ for (const file of fragments) {
         regions: [],
         escapes: [],
         deepEscapes: [],
+        illegible: [],
       };
       for (const sel of regionSelectors) {
         for (const el of document.querySelectorAll(sel)) {
@@ -247,12 +276,23 @@ for (const file of fragments) {
           // check stays green while the content is visibly cut off. Walking
           // descendants is what makes the clipped failure measurable.
           for (const node of el.querySelectorAll("*")) {
-            const parent = node.parentElement;
-            if (!parent) continue;
             const c = node.getBoundingClientRect();
             if (c.width === 0) continue;
             const pos = getComputedStyle(node).position;
             if (pos === "fixed" || pos === "absolute") continue;
+
+            // `display: contents` generates NO box, so its rect is empty and
+            // every child "escapes" it. Walk up to the nearest ancestor that
+            // actually generates one — which is the element genuinely
+            // responsible for laying this node out. This keeps the node under
+            // assertion rather than skipping it: coverage moves to the right
+            // parent, it is not dropped. (The Team roster uses `sm:contents` to
+            // dissolve a card-mode wrapper back into grid tracks.)
+            let parent = node.parentElement;
+            while (parent && getComputedStyle(parent).display === "contents") {
+              parent = parent.parentElement;
+            }
+            if (!parent) continue;
             const p = parent.getBoundingClientRect();
             // A scroller is a DELIBERATE local escape hatch: content wider than
             // the box is the point, and the box itself is measured for overflow
@@ -273,6 +313,35 @@ for (const file of fragments) {
           }
         }
       }
+      // RESPONSIVE-TEAM-4 — LEGIBILITY, not just containment.
+      //
+      // The Team page taught this lesson the hard way. Its member roster is a CSS
+      // grid whose identity track is `2.4fr` with `min-w-0`, so when space ran out
+      // the name and email column was what collapsed — to 64px, of which 32px was
+      // the avatar — while the role select, the date and the Remove button kept
+      // their intrinsic widths. The pending-invite row was worse: the invitee's
+      // email address, the single most important field on that row, laid out at
+      // SEVEN pixels. Nothing escaped anything, so a pure containment sweep passed
+      // it. "Contained" and "readable" are different claims and both are required.
+      //
+      // An element opts in by declaring the width below which it stops being
+      // readable, e.g. `data-legible-min="140"`. The component owns the number —
+      // the harness only enforces what the component claims — and an element that
+      // has stacked to full width satisfies it for free.
+      for (const el of document.querySelectorAll("[data-legible-min]")) {
+        const min = Number(el.getAttribute("data-legible-min"));
+        if (!Number.isFinite(min)) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue; // not rendered
+        if (rect.width + 1 < min) {
+          out.illegible.push({
+            what: el.getAttribute("data-legible-what") ?? el.tagName.toLowerCase(),
+            width: Math.round(rect.width),
+            min,
+          });
+        }
+      }
+
       return out;
     }, REGIONS);
 
@@ -295,6 +364,11 @@ for (const file of fragments) {
     }
     for (const e of result.deepEscapes) {
       failures.push(`${name} @${width}px — ${e.child} escapes its parent ${e.parent} by ${e.by}px`);
+    }
+    for (const e of result.illegible) {
+      failures.push(
+        `${name} @${width}px — ${e.what} squeezed to ${e.width}px (needs ${e.min}px to stay readable)`,
+      );
     }
 
     // `SHOTS=0` measures only. The sweep is the gate; the screenshots are owner

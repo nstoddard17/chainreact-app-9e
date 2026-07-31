@@ -113,7 +113,7 @@ export function CredentialRequestsPanel({ accountId }: Props) {
                 Accepting lets that workflow step act using your connected {provider}{" "}
                 account. You can change this later.
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"

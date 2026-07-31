@@ -77,8 +77,8 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
       aria-label="Your accounts"
       className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col">
           <h2 className="text-sm font-semibold text-foreground">Your accounts</h2>
           <p className="text-xs text-muted-foreground">
             Switch the active account or create a new team.
@@ -88,6 +88,7 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
           <Button
             type="button"
             size="sm"
+            className="shrink-0"
             data-testid="team-create-toggle"
             onClick={() => {
               setCreating(true);
@@ -103,7 +104,7 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
         <form
           onSubmit={handleCreate}
           data-testid="team-create-form"
-          className="flex flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 sm:flex-row sm:items-center"
+          className="flex flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 sm:flex-row sm:flex-wrap sm:items-center"
         >
           <Input
             aria-label="Team name"
@@ -112,9 +113,9 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
             onChange={(e) => setName(e.target.value)}
             maxLength={100}
             autoFocus
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={createPending}>
               {createPending ? "Creating…" : "Create team"}
             </Button>
@@ -148,13 +149,13 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
               key={acct.id}
               data-testid={`team-account-${acct.id}`}
               className={
-                "flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 " +
+                "flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 " +
                 (isActive
                   ? "border-primary/40 bg-primary/5"
                   : "border-border bg-background/40")
               }
             >
-              <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <span
                   aria-hidden
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold uppercase text-primary"
@@ -162,10 +163,10 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
                   {acct.name.slice(0, 2)}
                 </span>
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-medium text-foreground">
+                  <span className="min-w-0 break-words text-sm font-medium text-foreground sm:truncate">
                     {acct.name}
                   </span>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     {accountTypeLabel(acct.type)} · {acct.role}
                     {frozen && (
                       <Badge variant="outline" className="border-warning/40 text-warning">
@@ -184,6 +185,7 @@ export function AccountSwitcher({ accounts, activeAccountId, onChanged }: Props)
                   type="button"
                   size="sm"
                   variant="outline"
+                  className="shrink-0"
                   data-testid={`team-switch-${acct.id}`}
                   disabled={frozen || busyId !== null}
                   onClick={() => handleSwitch(acct.id)}

@@ -122,7 +122,13 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
       data-testid="team-members-table"
       className="overflow-hidden rounded-xl border border-border bg-card"
     >
-      <div className="grid grid-cols-[2.4fr_1.2fr_1fr_auto] gap-3 border-b border-border bg-background/40 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+      {/* Column headers belong to the TABLE presentation only. Below `sm` each
+          member becomes a stacked card, where a row of headings above the list
+          would label nothing. */}
+      <div
+        data-testid="team-members-table-head"
+        className="hidden grid-cols-[minmax(0,2.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto] gap-3 border-b border-border bg-background/40 px-4 py-2.5 text-xs font-medium text-muted-foreground sm:grid"
+      >
         <span>Member</span>
         <span>Role</span>
         <span>Joined</span>
@@ -148,8 +154,38 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
               data-testid={`team-member-${m.userId}`}
               className="border-t border-border first:border-t-0"
             >
-              <div className="grid grid-cols-[2.4fr_1.2fr_1fr_auto] items-center gap-3 px-4 py-3">
-              <div className="flex min-w-0 items-center gap-3">
+              {/*
+                RESPONSIVE-TEAM-4 — the member row is a TABLE above `sm` and a
+                STACKED CARD below it, from one set of markup.
+
+                The old row was a four-track grid at every width, and the identity
+                track (`2.4fr`, `min-w-0`) was the only one that could yield. So
+                when space ran out the name and email — the reason the row exists —
+                collapsed to 64px, of which 32px was the avatar, while the role
+                select, the joined date and the Remove button all kept their
+                intrinsic widths. Nothing overflowed, so this was invisible to a
+                containment check; it is why the harness now also enforces a
+                declared minimum readable width.
+
+                Below `sm` identity takes the full line and the secondary group
+                (role · joined · actions) wraps underneath it. At `sm` and up the
+                wrapper becomes `display: contents`, so its three children rejoin
+                the parent grid as tracks 2–4 and the aligned table is unchanged.
+                One DOM, one set of controls — a member cannot be offered an action
+                in one presentation and denied it in the other.
+              */}
+              <div className="flex flex-col gap-3 px-4 py-3 sm:grid sm:grid-cols-[minmax(0,2.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-3">
+              {/* The tag sits on the ALLOCATED cell, not on the identity block
+                  inside it: the block shrink-wraps its content, so a short name
+                  like "Team member" measures 91px and would look like a squeeze
+                  when it is simply short. The cell is the space the layout GAVE
+                  identity, which is the number that actually goes wrong. 180px
+                  leaves ~136px of text after the 32px avatar and its gap. */}
+              <div
+                className="flex min-w-0 items-center gap-3"
+                data-legible-min="180"
+                data-legible-what="member identity"
+              >
                 <span
                   aria-hidden
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold uppercase text-primary"
@@ -157,23 +193,37 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                   {identity.avatar.slice(0, 2)}
                 </span>
                 <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
-                    {identity.primary}
+                  {/* `truncate` was on the FLEX ROW, which cannot truncate its
+                      children — it just let the "You" badge escape. The name owns
+                      the truncation now (wrapping in card mode, ellipsis in table
+                      mode) and the badge holds its width. */}
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+                    <span className="min-w-0 break-words sm:truncate">
+                      {identity.primary}
+                    </span>
                     {m.isYou && (
-                      <Badge variant="outline" className="border-primary/30 text-primary">
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-primary/30 text-primary"
+                      >
                         You
                       </Badge>
                     )}
                   </span>
                   {identity.secondary && (
-                    <span className="truncate font-mono text-xs text-muted-foreground">
+                    // An email is one unbroken token; `break-all` is what actually
+                    // splits it when the card is narrow.
+                    <span className="min-w-0 break-all font-mono text-xs text-muted-foreground sm:truncate">
                       {identity.secondary}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div>
+              {/* Secondary group: its own wrapping row in card mode, dissolved
+                  back into grid tracks 2–4 by `sm:contents`. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:contents">
+              <div className="min-w-0">
                 {manageable ? (
                   <select
                     aria-label="Member role"
@@ -188,7 +238,9 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                         ),
                       )
                     }
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    // Content-sized in the wrapping card row so it sits beside the
+                    // date; fills its track in the aligned table.
+                    className="h-8 w-auto min-w-0 max-w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:w-full"
                   >
                     <option value="member">Member</option>
                     <option value="admin">Admin</option>
@@ -198,11 +250,14 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                 )}
               </div>
 
-              <span className="text-xs text-muted-foreground">
+              <span className="min-w-0 text-xs text-muted-foreground">
+                {/* In card mode the column header is gone, so the date says what
+                    it is. The table presentation already has a "Joined" header. */}
+                <span className="sm:hidden">Joined </span>
                 {formatTeamDate(m.joinedAt)}
               </span>
 
-              <div className="flex justify-end">
+              <div className="flex justify-start sm:justify-end">
                 {manageable && !confirming && (
                   <Button
                     type="button"
@@ -211,11 +266,12 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                     data-testid={`team-remove-${m.userId}`}
                     disabled={rowBusy}
                     onClick={() => startRemove(m.userId)}
-                    className="text-destructive hover:text-destructive"
+                    className="shrink-0 text-destructive hover:text-destructive"
                   >
                     {rowBusy ? "…" : "Remove"}
                   </Button>
                 )}
+              </div>
               </div>
               </div>
 
@@ -238,7 +294,7 @@ export function MembersTable({ accountId, members, canManage, onChanged }: Props
                       } with personal app steps under their connection (as creator or assigned owner). Those steps may stop running after removal until reconnected or reassigned.`}
                     </p>
                   )}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       size="sm"

@@ -96,7 +96,7 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
       data-testid="team-invite-bar"
       className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           type="email"
           aria-label="Invite by email"
@@ -104,14 +104,14 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={disabled || pending}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         <select
           aria-label="Invite role"
           value={role}
           onChange={(e) => setRole(e.target.value as TeamManageableRole)}
           disabled={disabled || pending}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+          className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto"
         >
           <option value="member">As Member</option>
           <option value="admin">As Admin</option>
@@ -175,13 +175,13 @@ export function InviteBar({ accountId, disabled, onChanged }: Props) {
               already exists.
             </span>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               readOnly
               aria-label="Invite link"
               value={acceptUrl(result.acceptPath)}
               onFocus={(e) => e.target.select()}
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 font-mono text-xs text-foreground"
+              className="h-9 w-full min-w-0 flex-1 rounded-md border border-input bg-background px-3 font-mono text-xs text-foreground"
             />
             <Button type="button" size="sm" variant="outline" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy link"}

@@ -141,7 +141,7 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
       data-testid="team-pending-invites"
       className="overflow-hidden rounded-xl border border-border bg-card"
     >
-      <div className="flex items-center gap-2 border-b border-border bg-background/40 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background/40 px-4 py-2.5 text-xs font-medium text-muted-foreground">
         <span>Pending invitations</span>
         <Badge variant="outline" className="border-warning/40 text-warning">
           {invitations.length}
@@ -155,9 +155,18 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
             data-testid={`team-invite-${iv.id}`}
             className="flex flex-col gap-2 border-t border-border px-4 py-3 first:border-t-0"
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-foreground">
+            {/* STACK below `sm`. The invitee's email is the only thing that
+                identifies this row, and it was competing with a role select and
+                two buttons on one non-wrapping line — it laid out at SEVEN pixels
+                on a phone. Now the address owns its own line and wraps; the
+                controls wrap beneath it. */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <div
+                className="flex min-w-0 flex-1 flex-col"
+                data-legible-min="180"
+                data-legible-what="invitation identity"
+              >
+                <span className="min-w-0 break-all text-sm font-medium text-foreground sm:truncate">
                   {iv.email}
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -165,7 +174,7 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
                   canceled
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <select
                   aria-label={`Role for ${iv.email}`}
                   data-testid={`team-invite-role-${iv.id}`}
@@ -174,7 +183,7 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
                   onChange={(e) =>
                     handleRoleChange(iv.id, e.target.value as TeamManageableRole)
                   }
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  className="h-8 min-w-0 max-w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -232,7 +241,7 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
                   and a new invitation email and link will be sent to the new
                   address (same role).
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Input
                     type="email"
                     aria-label="New invite email"
@@ -240,7 +249,7 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     disabled={busyId === iv.id}
-                    className="h-8 flex-1 text-xs"
+                    className="h-8 min-w-0 flex-1 text-xs"
                   />
                   <Button type="submit" size="sm" disabled={busyId === iv.id}>
                     {busyId === iv.id ? "Re-issuing…" : "Re-issue invite"}
@@ -265,13 +274,13 @@ export function PendingInvites({ accountId, invitations, onChanged }: Props) {
                 : `New invitation created for ${replacement.invitation.email}, but the email couldn't be sent. `}
             The previous link no longer works. New link:
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               readOnly
               aria-label="New invite link"
               value={replacementUrl(replacement.acceptPath)}
               onFocus={(e) => e.target.select()}
-              className="h-8 flex-1 rounded-md border border-input bg-background px-3 font-mono text-xs text-foreground"
+              className="h-8 w-full min-w-0 flex-1 rounded-md border border-input bg-background px-3 font-mono text-xs text-foreground"
             />
             <Button type="button" size="sm" variant="outline" onClick={handleCopyReplacement}>
               {copied ? "Copied!" : "Copy link"}

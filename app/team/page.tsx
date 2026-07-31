@@ -6,6 +6,7 @@ import { listMembers } from "@/services/accounts/membership";
 import { listInvitations } from "@/services/accounts/invitations";
 import { memberLimitFor, TEAM_MAX_MEMBERS } from "@/services/accounts/memberLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { recordCollaborationLearningEvent } from "@/services/collaborationOnboarding/learningEvents";
 import { TeamDashboard } from "@/features/team/TeamDashboard";
@@ -122,7 +123,18 @@ export default async function TeamPage() {
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}
     >
-      <main className="flex w-full flex-col p-6 sm:p-8">
+      {/*
+        RESPONSIVE-TEAM-4 — the shared page container replaces this route's
+        hand-rolled `flex w-full flex-col p-6 sm:p-8` (no bound, no `min-width: 0`,
+        a padding step at 640px instead of a fluid gutter).
+
+        `content` (1152px), matching the sibling Account Settings surface: this is
+        the same shape — a 224px settings rail beside one column — and unbounded it
+        stretched a member row to 1270px on a 1600px monitor, which is the
+        "unreadable full-width slab" the brief rules out. Existing named variant,
+        no new one.
+      */}
+      <AppPageContainer width="content" className="py-6 sm:py-8">
         <TeamDashboard
           accounts={accounts}
           activeAccountId={activeAccountId}
@@ -133,7 +145,7 @@ export default async function TeamPage() {
           memberCap={memberCap}
           teamMaxMembers={TEAM_MAX_MEMBERS}
         />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }
