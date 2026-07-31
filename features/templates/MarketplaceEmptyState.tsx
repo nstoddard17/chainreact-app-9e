@@ -20,7 +20,11 @@ export function MarketplaceEmptyState({ kind, showingMine, onReset }: Props) {
     <div
       data-testid="templates-empty"
       data-empty-kind={kind}
-      className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center"
+      /* §5 — the empty state sits in the SAME bounded content region as the grid
+         it replaces: `min-w-0` so it never widens the page, fluid horizontal
+         padding so a 360px viewport keeps its gutters, and a shorter block at
+         narrow widths where 4rem of vertical padding is most of the screen. */
+      className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center sm:px-6 sm:py-16"
     >
       {kind === "none-mine" && (
         <>

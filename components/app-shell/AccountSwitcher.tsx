@@ -37,7 +37,15 @@ export function AccountSwitcher() {
           type="button"
           data-testid="account-switcher-trigger"
           aria-label="Switch workspace"
-          className="flex max-w-[220px] items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-left hover:border-foreground/30"
+          /*
+            RESPONSIVE-FOUNDATION-1 — `max-w-[220px]` capped the trigger on a wide
+            screen but did nothing on a narrow one: a `max-width` is a ceiling,
+            and the problem below ~900px is the FLOOR. `min-w-0` lets the trigger
+            shrink and its inner `truncate` engage; `shrink` (not `shrink-0`)
+            makes it the part of the identity group that gives way first, since a
+            shortened workspace name is a smaller loss than a clipped page title.
+          */
+          className="flex min-w-0 shrink max-w-[220px] items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-left hover:border-foreground/30"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/15 text-[11px] font-bold text-primary">
             {(active?.name ?? "?").slice(0, 1).toUpperCase()}

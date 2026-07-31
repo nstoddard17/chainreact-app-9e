@@ -59,6 +59,18 @@ export function AppShell({
       className="flex min-h-screen bg-background text-foreground"
     >
       <AppRail />
+      {/*
+        RESPONSIVE-FOUNDATION-1 — `min-w-0` on the content column is load-bearing
+        and stays exactly as it is. It is what lets the column shrink below its
+        content instead of widening the shell.
+
+        Deliberately NOT adding `overflow-x-clip`/`hidden` here. Clipping would
+        make the harness's document-level scrollWidth assertion pass while a
+        child was still overflowing underneath — the check would go green by
+        hiding the bug rather than by the bug being fixed. Overflow is fixed at
+        its causes (see AppTopBar, TemplatesDashboard, TemplateCard); the harness
+        then measures both the document AND each bounded region.
+      */}
       <div className="flex min-w-0 flex-1 flex-col">
         <AppMobileBar
           userEmail={userEmail}

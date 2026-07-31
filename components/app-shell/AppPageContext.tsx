@@ -24,7 +24,13 @@ export function AppPageContext() {
   return (
     <span
       data-testid="app-shell-page-context"
-      className="truncate text-sm font-semibold text-foreground"
+      /*
+        RESPONSIVE-FOUNDATION-1 — `truncate` alone was inert here. As a flex item
+        this span defaults to `min-width: auto`, so it refused to shrink below
+        its text and the ellipsis never engaged; the label just pushed the row
+        wider. `min-w-0` is what actually turns truncation on.
+      */
+      className="min-w-0 truncate text-sm font-semibold text-foreground"
     >
       {active.label}
     </span>

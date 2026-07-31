@@ -2,14 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   listAccountTemplates,
   // aliased: the lib name starts with "use" but it is a plain API call, not a React hook.
@@ -22,13 +14,13 @@ import {
 import type { TemplateCategoryKey } from "@/contracts/workflowTemplate";
 import { TEMPLATE_CATEGORIES, providerLabel } from "@/core/workflows/templateCardMeta";
 import {
-  TEMPLATE_SORTS,
   type TemplateSortMode,
   filterMarketplaceTemplates,
   sortMarketplaceTemplates,
   isMarketplaceFilterActive,
 } from "@/core/workflows/templateBrowse";
 import { TemplateCard } from "./TemplateCard";
+import { TemplatesFilterBar } from "./TemplatesFilterBar";
 import { TemplateDetailsDialog } from "./TemplateDetailsDialog";
 import { MarketplaceEmptyState } from "./MarketplaceEmptyState";
 import { toMyTemplateItem, type MarketplaceTemplateSummary, type MyTemplateItem } from "./types";
@@ -231,9 +223,14 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
 
   return (
     <section data-testid="templates-dashboard" aria-label="Templates" className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Template marketplace</h1>
-        <p className="text-sm text-muted-foreground">
+      {/* §2 — the title block shrinks and wraps naturally. `min-w-0` so a long
+          heading can never push the page wider; text wraps rather than truncating,
+          because a marketplace description reads badly with an ellipsis. */}
+      <header className="flex min-w-0 flex-col gap-1">
+        <h1 className="text-balance text-2xl font-bold tracking-tight text-foreground">
+          Template marketplace
+        </h1>
+        <p className="text-pretty text-sm text-muted-foreground">
           Start from an automation that already works — built by ChainReact or shared by the community —
           or save your own and reuse it across your workflows.
         </p>
@@ -263,9 +260,20 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
       </div>
 
       {!showingMine && categoryFacets.size > 0 && (
+        /*
+          §4 — CATEGORY NAVIGATION: the chosen narrow behaviour is WRAP.
+          These are a filter chip SET, not a tab strip: there are up to ten of
+          them, every one is a destination the user might want, and the whole
+          point of a facet list is seeing what is on offer. Horizontal scrolling
+          would hide most of them behind a gesture and can push the ACTIVE chip
+          off-screen, which §4 forbids. Labels stay at full size (`shrink-0`) so
+          nothing compresses into unreadable text; the cost is vertical height at
+          360px, which is the right trade for a filter list.
+        */
         <div
           data-testid="templates-category-chips"
-          className="flex flex-wrap gap-1.5"
+          data-narrow-behavior="wrap"
+          className="flex min-w-0 flex-wrap gap-1.5"
           role="group"
           aria-label="Filter by category"
         >
@@ -275,7 +283,7 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
             aria-pressed={category === "all"}
             onClick={() => setCategory("all")}
             className={
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
               (category === "all"
                 ? "border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300"
                 : "border-border bg-card text-muted-foreground hover:text-foreground")
@@ -291,7 +299,7 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
               aria-pressed={category === c.key}
               onClick={() => setCategory(c.key)}
               className={
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
                 (category === c.key
                   ? "border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300"
                   : "border-border bg-card text-muted-foreground hover:text-foreground")
@@ -303,57 +311,18 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Input
-          data-testid="templates-search"
-          aria-label="Search templates"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, app, category, or step…"
-          className="max-w-md"
-        />
-        <div className="flex items-center gap-2">
-          {!showingMine && providerFacets.length > 0 && (
-            <Select value={provider} onValueChange={setProvider}>
-              <SelectTrigger className="w-44" data-testid="templates-provider-filter" aria-label="Filter by app">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All apps</SelectItem>
-                {providerFacets.map((p) => (
-                  <SelectItem key={p} value={p} data-testid={`templates-provider-option-${p}`}>
-                    {providerLabel(p)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {!showingMine && (
-            <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-              <SelectTrigger className="w-44" data-testid="templates-sort" aria-label="Sort templates">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TEMPLATE_SORTS.map((s) => (
-                  <SelectItem key={s.key} value={s.key} data-testid={`templates-sort-${s.key}`}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {filterActive && (
-            <button
-              type="button"
-              data-testid="templates-clear-filters"
-              onClick={clearFilters}
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      </div>
+      <TemplatesFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        showingMine={showingMine}
+        providerFacets={providerFacets}
+        provider={provider}
+        onProviderChange={setProvider}
+        sort={sort}
+        onSortChange={setSort}
+        filterActive={filterActive}
+        onClearFilters={clearFilters}
+      />
 
       <p data-testid="templates-count" className="text-xs text-muted-foreground">
         Showing <strong className="font-semibold text-foreground">{shownCount}</strong> template{shownCount === 1 ? "" : "s"}
@@ -363,7 +332,20 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
       {shownCount === 0 && emptyKind ? (
         <MarketplaceEmptyState kind={emptyKind} showingMine={showingMine} onReset={clearFilters} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        /*
+          §5 — the grid reflows itself instead of stepping through breakpoints.
+          `auto-fit` + `minmax(min(300px,100%),1fr)` fits as many ~300px columns
+          as the container allows and collapses to one automatically; the inner
+          `min(300px,100%)` is what stops a 300px track overflowing a container
+          narrower than 300px (a 360px phone minus gutters). The old
+          `grid-cols-1 sm:grid-cols-2 xl:grid-cols-3` jumped at fixed viewport
+          widths and ignored how much room the CONTAINER actually had, which is
+          the wrong question once a sidebar is in play.
+        */
+        <div
+          data-testid="templates-grid"
+          className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4"
+        >
           {showingMine
             ? visibleMine.map((m) => (
                 <TemplateCard
@@ -421,12 +403,28 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
         />
       )}
 
+      {/*
+        §10 — the toast is sized by its content but can never outgrow the
+        viewport. `width: max-content` keeps a short confirmation tight and
+        centred; `max-width: calc(100vw - 2rem)` guarantees a 1rem gutter on both
+        sides at every width, including 360px. `break-words` handles the case the
+        rule exists for: an unbroken server message, URL or id with no spaces to
+        wrap at, which would otherwise blow straight through the max-width.
+        Deliberately fixed to the VIEWPORT and not bounded by the page container —
+        a toast is `fixed` chrome, and the page container explicitly does not
+        constrain overlays.
+      */}
       {toast && (
         <div
           role="status"
           data-testid="templates-toast"
+          /* `w-max` (width: max-content) as a CLASS, not an inline style: jsdom's
+             CSS parser silently drops the `max-content` keyword from inline
+             styles, which would make this contract untestable at the unit level.
+             The viewport cap stays inline because it must never be purged. */
+          style={{ maxWidth: "calc(100vw - 2rem)" }}
           className={
-            "fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg px-4 py-3 text-sm font-medium shadow-lg " +
+            "fixed bottom-6 left-1/2 z-50 w-max -translate-x-1/2 whitespace-normal break-words rounded-lg px-4 py-3 text-sm font-medium shadow-lg " +
             (toast.tone === "error"
               ? "bg-destructive text-destructive-foreground"
               : "bg-foreground text-background")

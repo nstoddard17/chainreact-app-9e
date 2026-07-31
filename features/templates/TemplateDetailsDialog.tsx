@@ -49,11 +49,19 @@ export function TemplateDetailsDialog({ template, busy, onUse, onFork, onClose }
         aria-label={`Template details: ${template.name}`}
         data-testid="template-details-dialog"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+        /* §11 — verified sound and left almost alone. `w-full max-w-lg` inside the
+           overlay's `p-4` already guarantees a 1rem safe margin at 360px, and
+           `max-h-[85vh]` + the scrolling body already handle height. The only
+           addition is `min-w-0`, so the header/body/footer are free to shrink
+           inside it rather than the dialog being widened from within. */
+        className="flex max-h-[85vh] w-full min-w-0 max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold leading-tight text-foreground">{template.name}</h2>
+          <div className="min-w-0 flex-1">
+            {/* A long unbroken template name must wrap, not collide with the ✕. */}
+            <h2 className="break-words text-base font-semibold leading-tight text-foreground">
+              {template.name}
+            </h2>
             <div className="mt-1.5 flex min-h-[20px] items-center gap-2">
               {template.isOfficial ? (
                 <OfficialBadge />

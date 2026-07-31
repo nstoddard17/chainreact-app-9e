@@ -97,3 +97,62 @@ describe("UsageMeter", () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+/**
+ * RESPONSIVE-FOUNDATION-1 §9 — narrow-width behaviour.
+ *
+ * The meter used to be `hidden … lg:flex`: below 1024px the account's remaining
+ * usage simply vanished with nothing in its place. That is a hard cut, not a
+ * responsive behaviour, and it removes exactly the signal a user near their limit
+ * needs. A compact presentation of the SAME fetched data now renders alongside
+ * it, with CSS choosing which one is visible — no second fetch, no duplicated
+ * state, no viewport JavaScript in the shell.
+ */
+describe("UsageMeter — compact narrow variant", () => {
+  it("renders a compact readout that survives below the full meter's breakpoint", async () => {
+    fetchReturns(summaryOf({ used: 30, limit: 100 }, { used: 5, limit: 200 }));
+    render(<UsageMeter />);
+
+    const full = await screen.findByTestId("usage-meter");
+    const compact = screen.getByTestId("usage-meter-compact");
+    // The full meter hides below lg; the compact one hides at lg and above.
+    expect(full.className).toContain("lg:flex");
+    expect(full.className).toContain("hidden");
+    expect(compact.className).toContain("lg:hidden");
+    // Same destination, so usage detail is never unreachable on a narrow screen.
+    expect(compact).toHaveAttribute("href", "/account?section=billing");
+  });
+
+  it("surfaces the pool closest to exhaustion, not a hard-coded dimension", async () => {
+    // AI is at 90% while tasks sit at 30% — AI is what the user needs to see.
+    fetchReturns(summaryOf({ used: 30, limit: 100 }, { used: 180, limit: 200 }));
+    render(<UsageMeter />);
+    const compact = await screen.findByTestId("usage-meter-compact");
+    expect(compact).toHaveAttribute("data-dimension", "ai");
+    expect(compact).toHaveTextContent("20");
+    expect(compact.className).toMatch(/amber/);
+  });
+
+  it("switches to tasks when tasks are the tighter pool", async () => {
+    fetchReturns(summaryOf({ used: 95, limit: 100 }, { used: 5, limit: 200 }));
+    render(<UsageMeter />);
+    const compact = await screen.findByTestId("usage-meter-compact");
+    expect(compact).toHaveAttribute("data-dimension", "tasks");
+    expect(compact).toHaveTextContent("5");
+  });
+
+  it("names the remaining figure for assistive tech rather than relying on the bar", async () => {
+    fetchReturns(summaryOf({ used: 30, limit: 100 }, null));
+    render(<UsageMeter />);
+    const compact = await screen.findByTestId("usage-meter-compact");
+    expect(compact.getAttribute("aria-label")).toMatch(/70 tasks left/i);
+  });
+
+  it("stays absent entirely when there is no real usage data", async () => {
+    fetchReturns(summaryOf(null, null));
+    const { container } = render(<UsageMeter />);
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    // No compact fallback either — honest-by-construction still wins.
+    expect(container).toBeEmptyDOMElement();
+  });
+});

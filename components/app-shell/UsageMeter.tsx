@@ -68,19 +68,84 @@ export function UsageMeter() {
   const aiCredits = usage?.aiCredits.available ? usage.aiCredits : null;
   if (!usage || (!tasks && !aiCredits)) return null;
 
+  /*
+    RESPONSIVE-FOUNDATION-1 — the meter used to be `hidden … lg:flex`, i.e. below
+    1024px the account's remaining usage simply disappeared with no replacement.
+    That is a hard cut, not a responsive behaviour, and it hides exactly the
+    information a user near their limit needs.
+
+    Two presentations of the SAME fetched data now render, and CSS picks one — no
+    second fetch, no duplicated state, no viewport JavaScript in the shell:
+
+      >= lg   the full labelled bars, unchanged.
+      < lg    a compact pill showing the SMALLEST remaining pool as a number,
+              because "what am I about to run out of?" is the only question the
+              bar answers at a glance. It keeps the same link, the same tooltip
+              (every dimension, in full) and the same amber near-limit signal.
+
+    The primary/critical dimension is chosen by lowest remaining headroom rather
+    than by hard-coding Tasks, so an account that exhausts AI credits first still
+    sees the number that matters.
+  */
+  const critical = pickCriticalDimension(tasks, aiCredits);
+
   return (
-    <Link
-      href="/account?section=billing"
-      data-testid="usage-meter"
-      title={meterTitle(usage)}
-      aria-label="Account usage — open plan and billing"
-      className="hidden items-center gap-3 rounded-md border border-border bg-background px-2.5 py-1.5 hover:border-foreground/30 lg:flex"
-    >
-      {tasks && <MeterSegment label="Tasks" dim={tasks} testId="usage-meter-tasks" />}
-      {aiCredits && (
-        <MeterSegment label="AI" dim={aiCredits} testId="usage-meter-ai" />
+    <>
+      <Link
+        href="/account?section=billing"
+        data-testid="usage-meter"
+        title={meterTitle(usage)}
+        aria-label="Account usage — open plan and billing"
+        className="hidden shrink-0 items-center gap-3 rounded-md border border-border bg-background px-2.5 py-1.5 hover:border-foreground/30 lg:flex"
+      >
+        {tasks && <MeterSegment label="Tasks" dim={tasks} testId="usage-meter-tasks" />}
+        {aiCredits && (
+          <MeterSegment label="AI" dim={aiCredits} testId="usage-meter-ai" />
+        )}
+      </Link>
+      {critical && (
+        <Link
+          href="/account?section=billing"
+          data-testid="usage-meter-compact"
+          data-dimension={critical.key}
+          title={meterTitle(usage)}
+          aria-label={`Account usage — ${critical.dim.remaining.toLocaleString()} ${critical.label} left. Open plan and billing`}
+          className={
+            "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold tabular-nums lg:hidden " +
+            (critical.dim.nearLimit || critical.dim.overLimit
+              ? "border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+              : "border-border bg-background text-muted-foreground hover:border-foreground/30")
+          }
+        >
+          <span aria-hidden>{critical.short}</span>
+          <span>{critical.dim.remaining.toLocaleString()}</span>
+        </Link>
       )}
-    </Link>
+    </>
+  );
+}
+
+/**
+ * The dimension a narrow header should surface: whichever pool the account is
+ * closest to exhausting. Ties and single-dimension accounts fall back to
+ * whichever is available, so the compact pill is never empty when the full meter
+ * would have rendered something.
+ */
+function pickCriticalDimension(
+  tasks: UsageDimensionSummary | null,
+  aiCredits: UsageDimensionSummary | null,
+): { key: "tasks" | "ai"; label: string; short: string; dim: UsageDimensionSummary } | null {
+  const candidates: Array<{
+    key: "tasks" | "ai";
+    label: string;
+    short: string;
+    dim: UsageDimensionSummary;
+  }> = [];
+  if (tasks) candidates.push({ key: "tasks", label: "tasks", short: "Tasks", dim: tasks });
+  if (aiCredits) candidates.push({ key: "ai", label: "AI credits", short: "AI", dim: aiCredits });
+  if (candidates.length === 0) return null;
+  return candidates.reduce((worst, next) =>
+    next.dim.percentUsed > worst.dim.percentUsed ? next : worst,
   );
 }
 

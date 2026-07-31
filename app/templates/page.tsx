@@ -8,6 +8,7 @@ import {
 } from "@/services/workflows/templateManagement";
 import * as notificationsRepo from "@/repositories/notifications";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -50,13 +51,17 @@ export default async function TemplatesPage() {
 
   return (
     <AppShell userEmail={user.email ?? ""} unreadNotifications={unread} recentNotifications={recentNotifications}>
-      <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
+      {/* RESPONSIVE-FOUNDATION-1 — Templates is the first consumer of the shared
+          page container (bounded max-width, fluid gutters, min-width:0). It
+          replaces the hand-rolled `w-full … p-6 sm:p-8` main this page used to
+          own. Vertical rhythm stays on the existing Tailwind scale. */}
+      <AppPageContainer className="gap-6 py-6 sm:py-8">
         <TemplatesDashboard
           accountId={account.id}
           initialMarketplace={marketplace}
           initialMine={mine}
         />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }

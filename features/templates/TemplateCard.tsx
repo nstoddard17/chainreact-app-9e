@@ -73,7 +73,7 @@ function MetaChip({ children, testid, title }: { children: ReactNode; testid?: s
     <span
       data-testid={testid}
       title={title}
-      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground"
+      className="inline-flex max-w-full shrink-0 items-center gap-1 truncate rounded-full border border-border bg-muted px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground"
     >
       {children}
     </span>
@@ -86,8 +86,8 @@ function MetaChip({ children, testid, title }: { children: ReactNode; testid?: s
 function CardMeta({ card }: { card: TemplateCardMeta }) {
   const preview = card.steps.map(stepLabel);
   return (
-    <div className="flex flex-col gap-2" data-testid="template-card-meta">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex min-w-0 flex-col gap-2" data-testid="template-card-meta">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <MetaChip testid="template-category">{categoryLabel(card.category)}</MetaChip>
         <MetaChip testid="template-trigger-kind" title="How this template starts">
           {TRIGGER_KIND_LABELS[card.triggerKind]}
@@ -98,7 +98,7 @@ function CardMeta({ card }: { card: TemplateCardMeta }) {
       </div>
 
       {card.providers.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5" data-testid="template-providers">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="template-providers">
           {card.providers.map((p) => (
             <MetaChip key={p} testid={`template-provider-${p}`}>
               {providerLabel(p)}
@@ -110,7 +110,7 @@ function CardMeta({ card }: { card: TemplateCardMeta }) {
       {preview.length > 0 && (
         <p
           data-testid="template-preview"
-          className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground"
+          className="line-clamp-2 break-words text-[11px] leading-relaxed text-muted-foreground"
           title={preview.join(" → ")}
         >
           {preview.map((label, i) => (
@@ -130,29 +130,55 @@ export function TemplateCard(props: TemplateCardProps) {
   return (
     <div
       data-testid="template-card"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-sky-500/60"
+      /* `min-w-0` so the card can never be the thing that widens its grid track —
+         it fills the track the grid gives it and its contents adapt inside. */
+      className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-sky-500/60"
     >
-      <div className="flex items-start justify-between gap-2">
+      {/*
+        §6 — the title row. Previously `justify-between gap-2` with neither side
+        constrained: the title had no `min-w-0` (so it refused to shrink below its
+        text) and the chip had no `shrink-0` (so it was the thing that gave way).
+        A long name therefore pushed the visibility chip out of the card.
+
+        Now the title takes `min-w-0 flex-1` and the chip takes `shrink-0`. Titles
+        WRAP rather than truncate — a template name is the primary thing a user
+        scans, and clipping every one of them to a single line to satisfy one
+        pathological fixture would be the wrong trade. `break-words` is scoped to
+        exactly that pathological case: a long UNBROKEN name with no spaces, which
+        wrapping alone cannot break.
+      */}
+      <div className="flex min-w-0 items-start justify-between gap-2">
         {onDetails ? (
           <button
             type="button"
             data-testid="template-title"
             onClick={onDetails}
-            className="text-left text-base font-semibold leading-tight text-foreground hover:text-sky-700 hover:underline dark:hover:text-sky-300"
+            className="min-w-0 flex-1 break-words text-left text-base font-semibold leading-tight text-foreground hover:text-sky-700 hover:underline dark:hover:text-sky-300"
           >
             {props.name}
           </button>
         ) : (
-          <h3 className="text-base font-semibold leading-tight text-foreground">{props.name}</h3>
+          <h3 className="min-w-0 flex-1 break-words text-base font-semibold leading-tight text-foreground">
+            {props.name}
+          </h3>
         )}
-        {visibility && <VisibilityChip visibility={visibility} />}
+        {visibility && (
+          <span className="shrink-0">
+            <VisibilityChip visibility={visibility} />
+          </span>
+        )}
       </div>
 
+      {/* Already a correct truncate choice — 3 lines then clamp. `break-words`
+          added only so an unbroken token can't widen the card before clamping. */}
       {props.description && (
-        <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{props.description}</p>
+        <p className="line-clamp-3 break-words text-sm leading-relaxed text-muted-foreground">
+          {props.description}
+        </p>
       )}
 
-      <div className="flex min-h-[20px] items-center gap-2">
+      {/* §7 — attribution wraps; the creator name is the only shrinkable part. */}
+      <div className="flex min-h-[20px] min-w-0 flex-wrap items-center gap-2">
         {attribution.kind === "official" && <OfficialBadge />}
         {attribution.kind === "creator" && attribution.name && <CreatorChip displayName={attribution.name} />}
         {attribution.kind === "mine" && (
@@ -162,26 +188,35 @@ export function TemplateCard(props: TemplateCardProps) {
 
       {card && <CardMeta card={card} />}
 
-      <div className="flex items-center gap-4 border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1" title="Times used">
+      {/* §7 — counters. `shrink-0` on each pair keeps the icon welded to its
+          number so they can never be split across a wrap or overlap each other. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
+        <span className="inline-flex shrink-0 items-center gap-1" title="Times used">
           <IconDownload /> {props.usageCount}
         </span>
-        <span className="inline-flex items-center gap-1" title="Times copied">
+        <span className="inline-flex shrink-0 items-center gap-1" title="Times copied">
           <IconFork /> {props.forkCount}
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      {/*
+        §8 — actions wrap; they never set the card's minimum width. Each button is
+        `shrink-0` so its label can't be compressed into its icon, and the row
+        wraps instead. At the narrowest card the buttons stack naturally as each
+        wraps onto its own line, which is why no separate stacking rule is needed.
+        Use stays visually primary (solid, others outline) at every width.
+      */}
+      <div className="flex min-w-0 flex-wrap gap-2">
         {onDetails && (
-          <Button size="sm" variant="outline" data-testid="template-details" disabled={props.busy} onClick={onDetails}>
+          <Button size="sm" variant="outline" data-testid="template-details" disabled={props.busy} onClick={onDetails} className="shrink-0">
             Details
           </Button>
         )}
-        <Button size="sm" data-testid="template-use" disabled={props.busy} onClick={props.onUse} className="gap-1.5">
+        <Button size="sm" data-testid="template-use" disabled={props.busy} onClick={props.onUse} className="shrink-0 gap-1.5">
           <IconBolt /> Use
         </Button>
         {/* "Save a copy" (not "Fork" — dev jargon): creates the user's own editable copy. */}
-        <Button size="sm" variant="outline" data-testid="template-fork" disabled={props.busy} onClick={props.onFork} className="gap-1.5">
+        <Button size="sm" variant="outline" data-testid="template-fork" disabled={props.busy} onClick={props.onFork} className="shrink-0 gap-1.5">
           <IconFork /> Save a copy
         </Button>
         {manage && (
@@ -192,6 +227,7 @@ export function TemplateCard(props: TemplateCardProps) {
               data-testid="template-toggle-publish"
               disabled={props.busy}
               onClick={manage.onTogglePublish}
+              className="shrink-0"
             >
               {manage.visibility === "private" ? "Publish" : "Unpublish"}
             </Button>
@@ -201,7 +237,7 @@ export function TemplateCard(props: TemplateCardProps) {
               data-testid="template-delete"
               disabled={props.busy}
               onClick={manage.onDelete}
-              className="text-destructive hover:text-destructive"
+              className="shrink-0 text-destructive hover:text-destructive"
             >
               Delete
             </Button>
