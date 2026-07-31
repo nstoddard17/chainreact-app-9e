@@ -208,7 +208,7 @@ export function SubscriptionCancelPanel({ accountId, frozen }: Props) {
             your workflows, runs, integrations, members, and history all stay. You can turn
             this off any time before that date.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"

@@ -49,7 +49,7 @@ function Block({ testId, children }: { testId: string; children: string }) {
   return (
     <pre
       data-testid={testId}
-      className="overflow-x-auto rounded-md border border-border bg-background/40 p-3 font-mono text-[11px] leading-relaxed text-foreground"
+      className="min-w-0 max-w-full overflow-x-auto rounded-md border border-border bg-background/40 p-3 font-mono text-[11px] leading-relaxed text-foreground"
     >
       {children}
     </pre>

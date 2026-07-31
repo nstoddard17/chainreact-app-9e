@@ -17,16 +17,24 @@ export function Panel({
   flush?: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card">
+    <section
+      data-testid="settings-panel"
+      // `min-w-0` so the card can be narrower than its widest child instead of
+      // widening its column. `overflow-hidden` stays — it is what rounds the
+      // corners — but it is deliberately NOT the containment mechanism: it clips
+      // rather than fixes, which is precisely how the SettingRow defect stayed
+      // invisible to a document-level overflow check for so long.
+      className="min-w-0 overflow-hidden rounded-xl border border-border bg-card"
+    >
       {(title || desc) && (
-        <div className="px-5 pt-4">
+        <div className="min-w-0 px-5 pt-4">
           {title && (
-            <div className="text-sm font-semibold text-foreground">{title}</div>
+            <div className="break-words text-sm font-semibold text-foreground">{title}</div>
           )}
-          {desc && <p className="mt-1 text-xs text-muted-foreground">{desc}</p>}
+          {desc && <p className="mt-1 break-words text-xs text-muted-foreground">{desc}</p>}
         </div>
       )}
-      <div className={flush ? "" : "p-5"}>{children}</div>
+      <div className={flush ? "min-w-0" : "min-w-0 p-5"}>{children}</div>
     </section>
   );
 }

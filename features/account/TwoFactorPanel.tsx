@@ -184,8 +184,8 @@ export function TwoFactorPanel() {
   const enabled = status?.enabled ?? false;
 
   return (
-    <div data-testid="mfa-panel" className="flex w-full max-w-sm flex-col gap-3">
-      <div className="flex items-center gap-2">
+    <div data-testid="mfa-panel" className="flex w-full min-w-0 max-w-sm flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <span
           data-testid="mfa-status"
           className={
@@ -253,7 +253,7 @@ export function TwoFactorPanel() {
                 data-testid="mfa-secret"
                 value={enrollment.secret}
                 onFocus={(e) => e.target.select()}
-                className="h-9 rounded-md border border-input bg-background px-3 font-mono text-xs text-foreground"
+                className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 font-mono text-xs text-foreground"
               />
               <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
                 2. Enter the 6-digit code
@@ -278,7 +278,7 @@ export function TwoFactorPanel() {
                   {actionError}
                 </p>
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" size="sm" data-testid="mfa-enroll-confirm" disabled={busy} onClick={() => void confirmEnroll()}>
                   {busy ? "Verifying…" : "Turn on two-factor"}
                 </Button>
@@ -330,7 +330,7 @@ export function TwoFactorPanel() {
               {actionError}
             </p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" variant="destructive" data-testid="mfa-disable-confirm" disabled={busy} onClick={() => void confirmDisable()}>
               {busy ? "Turning off…" : "Turn off"}
             </Button>

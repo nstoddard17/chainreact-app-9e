@@ -97,7 +97,7 @@ export function ChangePasswordForm() {
   return (
     <div
       data-testid="security-change-password-form"
-      className="flex w-full max-w-sm flex-col gap-3 rounded-xl border border-border bg-background/40 p-4"
+      className="flex w-full min-w-0 max-w-sm flex-col gap-3 rounded-xl border border-border bg-background/40 p-4"
     >
       <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
         Current password
@@ -171,7 +171,7 @@ export function ChangePasswordForm() {
         </p>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"

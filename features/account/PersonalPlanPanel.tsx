@@ -197,7 +197,7 @@ export function PersonalPlanPanel({ accountId, frozen }: Props) {
                 until then. Once confirmed, this cancellation stands even if you don&apos;t
                 finish a Team/Business checkout.
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"

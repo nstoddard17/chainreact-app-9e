@@ -323,7 +323,7 @@ export function BillingSection({
                 : "This billing period."
             }
           >
-            <span className="flex flex-col items-end gap-0.5 text-sm">
+            <span className="flex min-w-0 flex-col items-start gap-0.5 text-sm sm:items-end">
               <span data-testid="billing-usage" className="font-medium text-foreground">
                 {taskUsage.used} / {taskUsage.limit} tasks
               </span>
@@ -371,7 +371,7 @@ export function BillingSection({
                 : "Paid AI features (Builder AI Q&A / Explain). Deterministic checks stay free."
             }
           >
-            <span className="flex flex-col items-end gap-0.5 text-sm">
+            <span className="flex min-w-0 flex-col items-start gap-0.5 text-sm sm:items-end">
               <span data-testid="billing-ai-credits" className="font-medium text-foreground">
                 {aiCreditsUsage.used} / {aiCreditsUsage.limit} credits
               </span>

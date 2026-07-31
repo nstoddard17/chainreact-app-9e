@@ -36,16 +36,16 @@ export function DeveloperSection({
             label="Account"
             desc="Tokens are scoped to this account only. A token works just for this account and does not follow your active-account changes."
           >
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
               <span
                 data-testid="mcp-account-name"
-                className="text-sm font-medium text-foreground"
+                className="min-w-0 break-words text-sm font-medium text-foreground"
               >
                 {active.name}
               </span>
               <span
                 data-testid="mcp-account-type"
-                className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
+                className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
               >
                 {accountTypeLabel(active.type)}
               </span>

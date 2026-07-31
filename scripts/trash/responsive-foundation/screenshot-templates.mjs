@@ -133,10 +133,36 @@ const REGIONS = [
   '[data-testid="workflow-card"]',
   '[data-testid="workflows-empty-state"]',
   '[data-testid="workflows-toast"]',
+  // RESPONSIVE-SETTINGS-3 — Account Settings regions. `settings-panel` and
+  // `setting-row` are the two that matter most: a settings page fails as a
+  // hundred small containment failures inside cards and label/control rows, not
+  // as one page-level burst, so every card and every form row is measured
+  // individually at every swept width.
+  '[data-testid="account-settings"]',
+  '[data-testid="account-settings-nav"]',
+  '[data-testid="account-settings-nav-toggle"]',
+  '[data-testid="account-settings-panel"]',
+  '[data-testid="settings-panel"]',
+  '[data-testid="setting-row"]',
+  '[data-testid="account-deletion-card"]',
+  '[data-testid="account-delete-form"]',
+  '[data-testid="account-danger-non-personal"]',
+  '[data-testid="api-keys-panel"]',
+  '[data-testid="api-keys-list"]',
+  '[data-testid="api-key-create-form"]',
+  '[data-testid="mcp-tokens-panel"]',
+  '[data-testid="mcp-tokens-list"]',
+  '[data-testid="mfa-panel"]',
+  '[data-testid="mfa-enroll-form"]',
+  '[data-testid="security-change-password-form"]',
+  '[data-testid="personal-plan-panel"]',
+  '[data-testid="subscription-cancel-panel"]',
+  '[data-testid="checkout-choice-dialog"]',
+  '[data-testid="account-toast"]',
 ];
 
 const fragments = readdirSync(HTML_DIR)
-  .filter((f) => /^(templates|workflows|consumers)-/.test(f) && f.endsWith(".html"))
+  .filter((f) => /^(templates|workflows|consumers|account)-/.test(f) && f.endsWith(".html"))
   .sort();
 if (fragments.length === 0) {
   console.error("No templates-*.html fragments. Run the harness test first.");
@@ -145,6 +171,7 @@ if (fragments.length === 0) {
 
 /** Page-context label matching the fragment, so the evidence isn't mislabelled. */
 function labelFor(name) {
+  if (name.startsWith("account-")) return "Account settings";
   if (name.startsWith("workflows-")) return "Workflows";
   if (name.startsWith("consumers-01")) return "Runs";
   if (name.startsWith("consumers-02")) return "Apps";
@@ -172,6 +199,7 @@ for (const file of fragments) {
         docOverflow: doc.scrollWidth - doc.clientWidth,
         regions: [],
         escapes: [],
+        deepEscapes: [],
       };
       for (const sel of regionSelectors) {
         for (const el of document.querySelectorAll(sel)) {
@@ -205,6 +233,44 @@ for (const file of fragments) {
               });
             }
           }
+
+          // RESPONSIVE-SETTINGS-3 — the same containment question, asked of EVERY
+          // descendant against ITS OWN parent rather than only of direct children
+          // against the region.
+          //
+          // A card-grid page fails as one visible burst, so the direct-child check
+          // was enough for it. A settings page does not: it fails as a long input,
+          // a 74-character email, or a two-button action row bursting out of the
+          // small box three levels down that is supposed to hold it. Worse, the
+          // settings card (`Panel`) carries `overflow-hidden` for its rounded
+          // corners, which CLIPS that burst — so the document-level scrollWidth
+          // check stays green while the content is visibly cut off. Walking
+          // descendants is what makes the clipped failure measurable.
+          for (const node of el.querySelectorAll("*")) {
+            const parent = node.parentElement;
+            if (!parent) continue;
+            const c = node.getBoundingClientRect();
+            if (c.width === 0) continue;
+            const pos = getComputedStyle(node).position;
+            if (pos === "fixed" || pos === "absolute") continue;
+            const p = parent.getBoundingClientRect();
+            // A scroller is a DELIBERATE local escape hatch: content wider than
+            // the box is the point, and the box itself is measured for overflow
+            // against ITS parent. Only skip when the parent genuinely scrolls.
+            const parentOverflowX = getComputedStyle(parent).overflowX;
+            if (parentOverflowX === "auto" || parentOverflowX === "scroll") continue;
+            const by = Math.max(c.right - p.right, p.left - c.left);
+            if (by > 1) {
+              out.deepEscapes.push({
+                sel,
+                child: node.getAttribute("data-testid") ?? node.tagName.toLowerCase(),
+                parent:
+                  parent.getAttribute("data-testid") ??
+                  `${parent.tagName.toLowerCase()}.${String(parent.className).split(" ").slice(0, 3).join(".")}`,
+                by: Math.round(by),
+              });
+            }
+          }
         }
       }
       return out;
@@ -227,8 +293,14 @@ for (const file of fragments) {
     for (const e of result.escapes) {
       failures.push(`${name} @${width}px — ${e.child} escapes ${e.sel} by ${e.by}px`);
     }
+    for (const e of result.deepEscapes) {
+      failures.push(`${name} @${width}px — ${e.child} escapes its parent ${e.parent} by ${e.by}px`);
+    }
 
-    if (named) {
+    // `SHOTS=0` measures only. The sweep is the gate; the screenshots are owner
+    // evidence, and re-shooting 100+ full-page PNGs on every measure-fix-measure
+    // iteration is the slow part. The measurement itself is never skipped.
+    if (named && process.env.SHOTS !== "0") {
       // One folder per state. Flat output put 100+ files in a single directory,
       // which trips the repo's leaf-folder count lint (it scans the filesystem,
       // and `owner-review/` being gitignored does not exempt it). Per-state
@@ -249,7 +321,26 @@ if (unique.length === 0) {
   console.log("\nPASS — no horizontal overflow and no region escapes at any swept width.");
   process.exit(0);
 }
-console.log(`\nFAIL — ${unique.length} distinct problems:`);
-for (const f of unique.slice(0, 60)) console.log("  x " + f);
-if (unique.length > 60) console.log(`  … and ${unique.length - 60} more`);
+console.log(`\nFAIL — ${unique.length} distinct problems.`);
+
+// The same defect repeats at every width it breaks at, so a flat list buries the
+// handful of ROOT CAUSES under hundreds of near-duplicate lines. Collapse each
+// failure to (state, shape) and report the width RANGE it breaks across — that is
+// the form a fix is actually planned from.
+const groups = new Map();
+for (const f of unique) {
+  const m = /^(\S+) @(\d+)px — (.*)$/.exec(f);
+  if (!m) continue;
+  const key = `${m[1]} :: ${m[3].replace(/\d+px/g, "Npx")}`;
+  const g = groups.get(key) ?? { widths: [], sample: m[3] };
+  g.widths.push(Number(m[2]));
+  groups.set(key, g);
+}
+const sorted = [...groups.entries()].sort((a, b) => b[1].widths.length - a[1].widths.length);
+console.log(`\n${sorted.length} distinct (state × defect) groups:`);
+for (const [key, g] of sorted) {
+  const lo = Math.min(...g.widths);
+  const hi = Math.max(...g.widths);
+  console.log(`  x ${key}\n      breaks at ${g.widths.length} widths, ${lo}px–${hi}px`);
+}
 process.exit(1);

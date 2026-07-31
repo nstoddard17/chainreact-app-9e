@@ -21,10 +21,16 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-5">
+    // RESPONSIVE-SETTINGS-3 — WRAP. The title and its action were a non-wrapping
+    // `justify-between` row, so a long section title and an action button fought
+    // for the same line. The action keeps its intrinsic width (a button label must
+    // stay readable) and the row drops it onto its own line instead.
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-x-5 gap-y-3">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-muted-foreground">{sub}</p>}
+        <h1 className="break-words text-2xl font-bold tracking-tight text-foreground">
+          {title}
+        </h1>
+        {sub && <p className="mt-1 break-words text-sm text-muted-foreground">{sub}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

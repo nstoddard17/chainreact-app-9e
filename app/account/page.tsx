@@ -13,6 +13,7 @@ import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { AppPageContainer } from "@/components/app-shell/AppPageContainer";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AccountSettings } from "@/features/account/AccountSettings";
 import type { AccountBillingView } from "@/features/account/AccountSections";
@@ -193,7 +194,20 @@ export default async function AccountPage({ searchParams }: Props) {
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}
     >
-      <main className="flex w-full flex-col p-6 sm:p-8">
+      {/*
+        RESPONSIVE-SETTINGS-3 — the shared page container replaces this route's
+        hand-rolled `flex w-full flex-col p-6 sm:p-8`, which had no bound, no
+        `min-width: 0`, and a padding step at 640px instead of a fluid gutter.
+
+        `content` (1152px), not the default `app` (1600px): Account Settings is a
+        224px nav rail beside a single column of FORMS, and the brief is explicit
+        that forms should stay comfortably bounded rather than stretch across a
+        1600px monitor. `content` leaves roughly a 900px form column, which is a
+        readable settings width; `app` would have left ~1330px. Reusing the
+        existing named variant rather than minting a new one — nothing here needs a
+        width the sanctioned set doesn't already describe.
+      */}
+      <AppPageContainer width="content" className="py-6 sm:py-8">
         <AccountSettings
           active={
             active
@@ -214,7 +228,7 @@ export default async function AccountPage({ searchParams }: Props) {
           // Document Builder flag is on (one view ⇒ nothing to choose).
           builderViewPreferenceEnabled={isDocumentBuilderEnabled()}
         />
-      </main>
+      </AppPageContainer>
     </AppShell>
   );
 }

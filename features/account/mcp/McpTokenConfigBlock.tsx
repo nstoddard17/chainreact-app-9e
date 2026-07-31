@@ -36,7 +36,7 @@ interface Props {
 export function McpTokenConfigBlock({ rawToken, accountName, configCopied, onCopyConfig }: Props) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium text-foreground">Client config</span>
         <Button
           type="button"
@@ -50,7 +50,7 @@ export function McpTokenConfigBlock({ rawToken, accountName, configCopied, onCop
       </div>
       <pre
         data-testid="mcp-token-config"
-        className="overflow-x-auto rounded-md border border-input bg-background p-3 font-mono text-[11px] leading-relaxed text-foreground"
+        className="min-w-0 max-w-full overflow-x-auto rounded-md border border-input bg-background p-3 font-mono text-[11px] leading-relaxed text-foreground"
       >
         {buildClientConfig(rawToken)}
       </pre>

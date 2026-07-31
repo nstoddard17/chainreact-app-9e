@@ -76,7 +76,11 @@ export function ReadOnlyRow({
 }) {
   return (
     <SettingRow label={label} desc={desc}>
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      {/* `break-words`: these slots carry account names, plan names and dates —
+          the values most likely to be long enough to burst the row. Wrapping is
+          the intentional behaviour chosen for them; truncation would hide the end
+          of an account name with no way to see it. */}
+      <span className="block break-words text-sm font-medium text-foreground">{value}</span>
     </SettingRow>
   );
 }

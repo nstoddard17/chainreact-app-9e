@@ -77,7 +77,10 @@ export function ProfileSection({
     <div data-testid="account-section-profile" className="flex flex-col gap-5">
       <Panel title="Profile" desc="How you appear across ChainReact.">
         <SettingRow label="Email" desc="The address you sign in with.">
-          <span data-testid="profile-email" className="text-sm font-medium text-foreground">
+          <span
+            data-testid="profile-email"
+            className="block break-all text-sm font-medium text-foreground"
+          >
             {email || "—"}
           </span>
         </SettingRow>
@@ -87,8 +90,12 @@ export function ProfileSection({
           desc="Shown to teammates across ChainReact. Leave blank to use your sign-in name."
           stacked
         >
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
+            {/* WRAP. The field yields (`min-w-0`) and Save holds its label
+                (`shrink-0`, and Button is `whitespace-nowrap`), so "Saving…"
+                can never squeeze the label into something unreadable — the row
+                drops the button to the next line instead. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <input
                 type="text"
                 aria-label="Display name"
@@ -102,11 +109,12 @@ export function ProfileSection({
                   setSaved(false);
                   setError(null);
                 }}
-                className="h-9 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                className="h-9 w-full min-w-0 max-w-sm flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               />
               <Button
                 type="button"
                 size="sm"
+                className="shrink-0"
                 data-testid="profile-display-name-save"
                 disabled={busy || !dirty}
                 onClick={save}

@@ -66,14 +66,14 @@ export function DefaultBuilderViewControl() {
   const selectValue = value === "loading" ? "ask" : (value ?? "ask");
 
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex min-w-0 flex-col items-start gap-1">
       <select
         data-testid="default-builder-view-select"
         aria-label="Default builder view"
         value={selectValue}
         disabled={value === "loading"}
         onChange={(e) => void handleChange(e.target.value)}
-        className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        className="h-9 w-full min-w-0 max-w-xs rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
       >
         {OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

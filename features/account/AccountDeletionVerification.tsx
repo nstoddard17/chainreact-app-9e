@@ -253,7 +253,7 @@ export function AccountDeletionVerification({
               disabled={busy}
               spellCheck={false}
               onChange={(e) => setCode(e.target.value)}
-              className="h-9 w-40 rounded-md border border-input bg-background px-3 font-mono text-base tracking-[0.3em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              className="h-9 w-40 max-w-full rounded-md border border-input bg-background px-3 font-mono text-base tracking-[0.3em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             />
           </label>
           <p id="account-delete-code-help" className="text-xs text-muted-foreground">
@@ -307,7 +307,7 @@ export function AccountDeletionVerification({
               autoCapitalize="none"
               spellCheck={false}
               onChange={(e) => setConfirmText(e.target.value)}
-              className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              className="h-9 w-48 max-w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             />
           </label>
           <div>

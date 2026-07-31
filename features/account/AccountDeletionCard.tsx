@@ -214,7 +214,7 @@ export function AccountDeletionCard({
                 <li
                   key={a.id}
                   data-testid={`account-owned-${a.id}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background/40 px-3 py-2"
                 >
                   <span className="truncate text-sm font-medium text-foreground">
                     {a.name}
@@ -266,7 +266,7 @@ export function AccountDeletionCard({
             </ul>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm" variant="outline">
               <Link href="/team" data-testid="account-blocked-team-link">
                 Go to Team page

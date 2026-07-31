@@ -94,7 +94,14 @@ export function AccountSettings({
   const [section, setSection] = useState<AccountSection>(
     initialSection ?? DEFAULT_ACCOUNT_SECTION,
   );
+  // Presentation only (RESPONSIVE-SETTINGS-3): whether the compact nav disclosure
+  // is expanded below `lg`. It never decides WHICH section is shown — `section`
+  // does, in both presentations — so the two can't drift apart.
+  const [navOpen, setNavOpen] = useState(false);
   const heading = ACCOUNT_SECTION_HEADINGS[section];
+  const activeItem = ACCOUNT_NAV_GROUPS.flatMap((g) => g.items).find(
+    (i) => i.id === section,
+  );
 
   return (
     <section
@@ -102,49 +109,95 @@ export function AccountSettings({
       aria-label="Account settings"
       className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10"
     >
-      {/* Left sub-nav — sidebar on lg+, stacked above content on mobile. */}
+      {/*
+        Left sub-nav — a permanent sidebar on lg+, a COLLAPSED disclosure below it.
+
+        RESPONSIVE-SETTINGS-3. Stacking the full nav above the content (the old
+        behaviour) is not a horizontal-overflow bug, but on a phone it put eleven
+        rows — three group headings and eight sections — between the top of the
+        page and the section the user actually came to read. The brief rules out a
+        horizontally scrolling tab strip (it can hide the active section), so this
+        collapses to a single full-width button naming the CURRENT section, which
+        expands the very same list.
+
+        Deliberately ONE nav, not a desktop copy and a mobile copy: the same
+        buttons are rendered once and the wrapper's visibility is what changes
+        (`hidden`/`flex` below lg, always `lg:flex`). `section` remains the single
+        source of truth, so the two presentations cannot disagree — the only extra
+        state is whether the disclosure is open, which is presentation and nothing
+        else. Selecting a section closes it, matching what a menu is expected to do.
+      */}
       <aside
         data-testid="account-settings-nav"
         aria-label="Account settings sections"
-        className="flex shrink-0 flex-col gap-5 lg:sticky lg:top-6 lg:w-56"
+        className="flex min-w-0 shrink-0 flex-col gap-3 lg:sticky lg:top-6 lg:w-56 lg:gap-5"
       >
-        {ACCOUNT_NAV_GROUPS.map((group) => (
-          <nav key={group.head} className="flex flex-col gap-0.5">
-            <div className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-              {group.head}
-            </div>
-            {group.items.map((item) => {
-              const isActive = section === item.id;
-              const danger = item.tone === "danger";
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-testid={`account-nav-${item.id}`}
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={() => setSection(item.id)}
-                  className={
-                    "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm font-medium transition " +
-                    (isActive
-                      ? danger
-                        ? "border-destructive/30 bg-destructive/10 text-destructive"
-                        : "border-primary/25 bg-primary/10 text-primary"
-                      : danger
-                        ? "border-transparent text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground")
-                  }
-                >
-                  <NavGlyph d={item.glyph} />
-                  <span className="flex-1">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        ))}
+        <button
+          type="button"
+          data-testid="account-settings-nav-toggle"
+          aria-expanded={navOpen}
+          aria-controls="account-settings-nav-sections"
+          onClick={() => setNavOpen((o) => !o)}
+          className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-left text-sm font-medium text-foreground lg:hidden"
+        >
+          <span className="flex min-w-0 items-center gap-2.5">
+            <NavGlyph d={activeItem?.glyph ?? ""} />
+            <span className="min-w-0 break-words">{activeItem?.label ?? heading.title}</span>
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {navOpen ? "Close" : "Change section"}
+          </span>
+        </button>
+
+        <div
+          id="account-settings-nav-sections"
+          className={
+            (navOpen ? "flex" : "hidden") + " min-w-0 flex-col gap-5 lg:flex"
+          }
+        >
+          {ACCOUNT_NAV_GROUPS.map((group) => (
+            <nav key={group.head} className="flex min-w-0 flex-col gap-0.5">
+              <div className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                {group.head}
+              </div>
+              {group.items.map((item) => {
+                const isActive = section === item.id;
+                const danger = item.tone === "danger";
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    data-testid={`account-nav-${item.id}`}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => {
+                      setSection(item.id);
+                      setNavOpen(false);
+                    }}
+                    className={
+                      "flex w-full min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm font-medium transition " +
+                      (isActive
+                        ? danger
+                          ? "border-destructive/30 bg-destructive/10 text-destructive"
+                          : "border-primary/25 bg-primary/10 text-primary"
+                        : danger
+                          ? "border-transparent text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground")
+                    }
+                  >
+                    <NavGlyph d={item.glyph} />
+                    {/* `min-w-0` + wrap: a long section label shrinks the text, it
+                        does not widen the 224px rail. */}
+                    <span className="min-w-0 flex-1 break-words">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          ))}
+        </div>
       </aside>
 
       {/* Content column. */}
-      <div className="min-w-0 flex-1">
+      <div data-testid="account-settings-panel" className="min-w-0 flex-1">
         <SectionHeading title={heading.title} sub={heading.sub} />
 
         {section === "account" && (

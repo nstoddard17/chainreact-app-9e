@@ -146,7 +146,7 @@ export function McpTokenList({
                 data-testid={`mcp-token-row-${t.id}`}
                 className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium text-foreground">{t.name}</span>
@@ -160,9 +160,9 @@ export function McpTokenList({
                       size="sm"
                       variant="ghost"
                       data-testid={`mcp-token-revoke-${t.id}`}
+                      className="shrink-0 text-destructive hover:text-destructive"
                       disabled={rowBusy}
                       onClick={() => onRevokeOpen(t.id)}
-                      className="text-destructive hover:text-destructive"
                     >
                       {rowBusy ? "…" : "Revoke"}
                     </Button>
@@ -180,7 +180,7 @@ export function McpTokenList({
                 {confirming && (
                   <div
                     data-testid={`mcp-token-revoke-confirm-row-${t.id}`}
-                    className="flex items-center gap-2 border-t border-border pt-2"
+                    className="flex flex-wrap items-center gap-2 border-t border-border pt-2"
                   >
                     <span className="text-xs text-muted-foreground">
                       Revoke this token? It will stop working immediately.

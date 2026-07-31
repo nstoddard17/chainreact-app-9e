@@ -202,7 +202,7 @@ export function ApiKeysPanel({ accountId, frozen }: Props) {
           <p data-testid="api-key-reveal-warning" className="text-xs text-amber-600 dark:text-amber-400">
             Copy this now. You won&apos;t be able to see it again.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               readOnly
               aria-label="New API key"
@@ -281,7 +281,7 @@ export function ApiKeysPanel({ accountId, frozen }: Props) {
               {createError}
             </p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
@@ -352,9 +352,9 @@ export function ApiKeysPanel({ accountId, frozen }: Props) {
                 data-testid={`api-key-row-${k.id}`}
                 className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-medium text-foreground">{k.name}</span>
                       <StatusBadge status={k.status} />
                     </div>
@@ -366,12 +366,12 @@ export function ApiKeysPanel({ accountId, frozen }: Props) {
                       size="sm"
                       variant="ghost"
                       data-testid={`api-key-revoke-${k.id}`}
+                      className="shrink-0 text-destructive hover:text-destructive"
                       disabled={rowBusy}
                       onClick={() => {
                         setRevokeId(k.id);
                         setActionError(null);
                       }}
-                      className="text-destructive hover:text-destructive"
                     >
                       {rowBusy ? "…" : "Revoke"}
                     </Button>
@@ -388,7 +388,7 @@ export function ApiKeysPanel({ accountId, frozen }: Props) {
                 {confirming && (
                   <div
                     data-testid={`api-key-revoke-confirm-row-${k.id}`}
-                    className="flex items-center gap-2 border-t border-border pt-2"
+                    className="flex flex-wrap items-center gap-2 border-t border-border pt-2"
                   >
                     <span className="text-xs text-muted-foreground">
                       Revoke this key? It will stop working immediately.

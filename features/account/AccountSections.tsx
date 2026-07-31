@@ -45,7 +45,9 @@ export function AccountOverview({
       {active && (
         <Panel title="Account overview" desc="The workspace you're currently working in.">
           <SettingRow label="Account name">
-            <span className="text-sm font-medium text-foreground">{active.name}</span>
+            <span className="block break-words text-sm font-medium text-foreground">
+              {active.name}
+            </span>
           </SettingRow>
           <SettingRow label="Account type">
             <span
@@ -110,8 +112,13 @@ export function SecuritySection({
     <div data-testid="account-section-security" className="flex flex-col gap-5">
       <Panel title="Sign-in & security" desc="How you sign in to ChainReact.">
         <SettingRow label="Email address" desc="The address you use to sign in.">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">{email || "—"}</span>
+          {/* An email is one unbroken token, so `break-words` alone won't split it —
+              `break-all` is the deliberate choice here. The row WRAPS rather than
+              letting the address and its status badge fight for one line. */}
+          <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+            <span className="min-w-0 break-all text-sm font-medium text-foreground">
+              {email || "—"}
+            </span>
             {emailVerified ? (
               <span
                 data-testid="security-email-status"
@@ -192,16 +199,16 @@ export function ApiSection({
       >
         {active && (
           <SettingRow label="Account" desc="Developer access is scoped to this account.">
-            <span className="flex items-center gap-2">
+            <span className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
               <span
                 data-testid="api-account-name"
-                className="text-sm font-medium text-foreground"
+                className="min-w-0 break-words text-sm font-medium text-foreground"
               >
                 {active.name}
               </span>
               <span
                 data-testid="api-account-type"
-                className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
+                className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary"
               >
                 {accountTypeLabel(active.type)}
               </span>
