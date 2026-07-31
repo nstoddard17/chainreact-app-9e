@@ -220,7 +220,15 @@ describe("createWorkflowFromTemplate (use)", () => {
       // redaction (no __REDACTED__ marker), and no secret-shaped string appears.
       for (const node of createArg.draftDefinition.nodes as Array<{ config: Record<string, unknown> }>) {
         for (const value of Object.values(node.config)) {
-          expect(typeof value).toBe("string"); // scalar prewiring only — never a nested payload
+          // Prewiring is SCALAR, typed to its meta field — never a nested payload. A `boolean`
+          // field carries a boolean (Gmail trigger `subjectExactMatch`) and a `string-array`
+          // field carries a flat string[] (Sheets row `values`); anything deeper is rejected.
+          if (typeof value === "boolean") continue;
+          if (Array.isArray(value)) {
+            for (const item of value) expect(typeof item).toBe("string");
+            continue;
+          }
+          expect(typeof value).toBe("string");
         }
       }
       const blob = JSON.stringify(createArg.draftDefinition);

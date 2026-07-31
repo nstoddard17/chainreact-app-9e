@@ -256,6 +256,12 @@ export const WorkflowRunSummarySchema = z.object({
   // `toWorkflowRunSummary` always populates both from the record.
   triggeredBy: WorkflowRunTriggeredBySchema.optional(),
   isTest: z.boolean().optional(),
+  // WORKFLOW-LIVE-TEST-4 — true when this test run was a CONSENTED LIVE test (real
+  // provider calls, authorized by a consumed live-test session). Distinguishes it
+  // from a safe test in every runs surface, because "Test" implies no external
+  // calls and a live test made real ones. Server-derived from the session table;
+  // `.optional()` for fixture/consumer back-compat (absent ⇒ safe test).
+  isLiveTest: z.boolean().optional(),
 });
 export type WorkflowRunSummary = z.infer<typeof WorkflowRunSummarySchema>;
 
@@ -342,6 +348,9 @@ export const RunListItemSchema = z.object({
   workflowName: z.string(),
   status: WorkflowRunDisplayStatusSchema,
   isTest: z.boolean(),
+  // WORKFLOW-LIVE-TEST-4 — consented live test (real calls) vs safe test. See
+  // WorkflowRunSummarySchema.isLiveTest. Absent ⇒ safe test.
+  isLiveTest: z.boolean().optional(),
   triggeredBy: WorkflowRunTriggeredBySchema,
   /**
    * RH-3 — non-secret API-key prefix snapshot for `api_key` runs (null

@@ -16,6 +16,7 @@ import {
   SOURCE_LABEL,
   StatusBadge,
   StepTimeline,
+  LiveTestTag,
   TestTag,
   durationLabel,
   formatTimestamp,
@@ -170,7 +171,7 @@ function RunDetailBody({
           <span className="text-[13px] font-medium" style={{ color: "var(--builder-text)" }}>
             {SOURCE_LABEL[detail.triggeredBy ?? "unknown"]}
           </span>
-          {detail.isTest ? <TestTag /> : null}
+          {detail.isTest ? (detail.isLiveTest ? <LiveTestTag /> : <TestTag />) : null}
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
           <dt style={{ color: "var(--builder-muted)" }}>Started</dt>

@@ -5,6 +5,7 @@ import type { WorkflowState } from "@/contracts/workflow";
 import { undoWithConfigSync, redoWithConfigSync } from "../state/historyNav";
 import { LifecycleActions } from "../panels/LifecycleActions";
 import type { countBuilderValidationIssues } from "../validation/collectBuilderValidationIssues";
+import type { TestPreflightResult } from "../validation/testPreflight";
 import { BuilderIconButton, RedoIcon, UndoIcon } from "./_BuilderHeaderIcons";
 import { HeaderValidationPill } from "./_BuilderHeaderPills";
 import { HeaderRunControls } from "./HeaderRunControls";
@@ -52,6 +53,7 @@ export function BuilderHeaderActions({
   onOpenTemplates,
   validation,
   validationCounts,
+  testPreflight,
   lifecycle,
   runEditBlocked,
   focusPulse = null,
@@ -67,6 +69,8 @@ export function BuilderHeaderActions({
   onOpenTemplates: () => void;
   validation?: { onOpen: () => void };
   validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
+  /** WORKFLOW-LIVE-TEST-2 §2 — canonical pre-flight verdict, derived from the SAME issue list. */
+  testPreflight?: TestPreflightResult;
   lifecycle?: {
     workflowId: string;
     state: WorkflowState;
@@ -186,6 +190,8 @@ export function BuilderHeaderActions({
       <HeaderRunControls
         blockingIssueCount={blockingIssueCount}
         runEditBlocked={runEditBlocked}
+        {...(testPreflight ? { preflight: testPreflight } : {})}
+        {...(validation ? { onOpenValidation: validation.onOpen } : {})}
       />
     </FocusPulseWrap>
   );

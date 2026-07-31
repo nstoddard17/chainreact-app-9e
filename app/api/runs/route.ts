@@ -5,6 +5,7 @@ import * as workflowsRepo from "@/repositories/workflows";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import {
   RUN_LIST_DEFAULT_LIMIT,
+  lookupLiveTestRunIds,
   toRunListItem,
 } from "@/app/runs/_shared";
 
@@ -45,10 +46,13 @@ export async function GET(request: Request) {
   });
 
   const workflowIds = Array.from(new Set(records.map((r) => r.workflowId)));
-  const nameRows = await workflowsRepo.listNamesByIds(workflowIds);
+  const [nameRows, liveTestRunIds] = await Promise.all([
+    workflowsRepo.listNamesByIds(workflowIds),
+    lookupLiveTestRunIds(records),
+  ]);
   const workflowNameById = new Map(nameRows.map((w) => [w.id, w.name]));
 
-  const runs = records.map((r) => toRunListItem(r, workflowNameById));
+  const runs = records.map((r) => toRunListItem(r, workflowNameById, liveTestRunIds));
   return NextResponse.json({ runs });
 }
 

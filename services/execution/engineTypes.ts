@@ -174,6 +174,24 @@ export interface RunWorkflowInput {
    */
   testMode?: boolean;
   /**
+   * WORKFLOW-LIVE-TEST-3 §11 — LABELING override, never authorization. When set, `isTest`
+   * (persisted to `workflow_runs.is_test`, shown in Runs, excluded from stats) takes this value
+   * instead of mirroring `testMode`. The ONLY caller that sets it is the queue processor's
+   * live-test elevation (a consumed `workflow_live_test_sessions` row naming this exact run):
+   * a live test executes REAL handlers (`testMode: false`) while remaining a test run for
+   * history (`recordAsTest: true`).
+   *
+   * Deliberately powerless in every other direction:
+   *   - it never reaches `decideTestModeBlock` (handler gating keys off `testMode` alone);
+   *   - it never reaches `executionBillingGate` (billing keys off `testMode` alone — a run
+   *     doing real provider work bills normally regardless of its label);
+   *   - it never selects the definition (`executionDefinitionMode` derivation keys off
+   *     `testMode` alone);
+   *   - no HTTP route accepts it — `runNowRequestSchema` has no such field, so a client
+   *     posting `recordAsTest` is ignored by parsing.
+   */
+  recordAsTest?: boolean;
+  /**
    * Slice 3.SEC-2 — how the run was kicked off. Persisted to
    * `workflow_runs.triggered_by`. Defaults to `"unknown"` when omitted.
    * Callers (run-now route, webhook dispatcher, cron) MUST supply their

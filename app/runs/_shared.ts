@@ -1,6 +1,7 @@
 import type { RunListItem } from "@/contracts/workflow";
 import { filterVehicleLinksCta } from "@/services/resourceLinks/flags";
 import type { WorkflowRunDisplayRecord } from "@/repositories/workflowRuns";
+import * as liveTestSessionsRepo from "@/repositories/liveTest/workflowLiveTestSessions";
 
 /**
  * Server-side mapper from the safe repository projection
@@ -23,6 +24,7 @@ import type { WorkflowRunDisplayRecord } from "@/repositories/workflowRuns";
 export function toRunListItem(
   record: WorkflowRunDisplayRecord,
   workflowNameById: ReadonlyMap<string, string>,
+  liveTestRunIds: ReadonlySet<string> = new Set(),
 ): RunListItem {
   return {
     id: record.id,
@@ -30,6 +32,9 @@ export function toRunListItem(
     workflowName: workflowNameById.get(record.workflowId) ?? "Untitled workflow",
     status: record.status,
     isTest: record.isTest,
+    // WORKFLOW-LIVE-TEST-4 — a consumed live-test session names this run: a
+    // consented live test (real calls), badged distinctly from a safe test.
+    isLiveTest: liveTestRunIds.has(record.id),
     triggeredBy: record.triggeredBy,
     triggeredByApiKeyPrefix: record.triggeredByApiKeyPrefix,
     startedAt: record.startedAt,
@@ -78,3 +83,21 @@ function computeDurationMs(
  * tests).
  */
 export const RUN_LIST_DEFAULT_LIMIT = 50;
+
+/**
+ * WORKFLOW-LIVE-TEST-4 — which of these display records were consented live
+ * tests (a consumed live-test session names the run). Only test rows are looked
+ * up; a lookup failure degrades to the unlabeled safe-test presentation rather
+ * than failing the runs list.
+ */
+export async function lookupLiveTestRunIds(
+  records: readonly WorkflowRunDisplayRecord[],
+): Promise<ReadonlySet<string>> {
+  const testRunIds = records.filter((r) => r.isTest).map((r) => r.id);
+  if (testRunIds.length === 0) return new Set();
+  try {
+    return await liveTestSessionsRepo.listConsumedRunIds(testRunIds);
+  } catch {
+    return new Set();
+  }
+}

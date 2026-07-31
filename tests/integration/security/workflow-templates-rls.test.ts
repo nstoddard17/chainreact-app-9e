@@ -125,7 +125,12 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
     {
       const { data, error } = await admin
         .from("workflow_templates")
-        .insert({ account_id: null, created_by_user_id: a.userId, name: "Official Starter", definition: DEF, schema_version: 1, source: "official", visibility: "public", creator_display_name_snapshot: "ChainReact" })
+        // GOOGLE-REVIEW-TEMPLATE-1 — a self-describing fixture name. This row is account-less,
+        // public and source='official', so if a run aborts before afterAll it survives as a
+        // real-looking, zero-step card in the marketplace (that is exactly how an "Official
+        // Starter" card once appeared in a live catalog). globalTeardown now sweeps officials
+        // with a non-null author, and the name says what it is if one is ever seen again.
+        .insert({ account_id: null, created_by_user_id: a.userId, name: "DB TEST FIXTURE - official template (delete me)", definition: DEF, schema_version: 1, source: "official", visibility: "public", creator_display_name_snapshot: "ChainReact" })
         .select("id")
         .single<{ id: string }>();
       if (error || !data) throw new Error(`seed official: ${error?.message ?? "no row"}`);
@@ -137,6 +142,15 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
     // The OFFICIAL template is platform-owned (account_id NULL), so it neither
     // cascades from an account nor is reachable by the shared account-scoped
     // teardown. Remove templates by author first; the rest is account-scoped.
+    //
+    // GOOGLE-REVIEW-CERTIFICATION-2 — delete the official fixture BY ITS OWN ID first.
+    // created_by_user_id is ON DELETE SET NULL, so once the fixture author is removed the
+    // by-author sweep below (and globalTeardown's) can no longer see this row: it survives as an
+    // official-badged, zero-step card in the live marketplace. That is exactly how a stray
+    // "Official Starter" card reached production and had to be deleted by migration.
+    if (admin && officialTemplateId) {
+      await admin.from("workflow_templates").delete().eq("id", officialTemplateId);
+    }
     if (admin && fixtures.userIds.length > 0) {
       await admin.from("workflow_templates").delete().in("created_by_user_id", [...fixtures.userIds]);
     }

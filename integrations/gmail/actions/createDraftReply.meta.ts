@@ -99,6 +99,12 @@ export const createDraftReplyMeta: ActionMeta = {
     { name: "replyingTo", type: "string", description: "Echoes the input originalMessageId." },
     { name: "subject", type: "string", description: "Final Subject used (override or auto-prefixed)." },
   ],
+  // WORKFLOW-LIVE-TEST-2 — mirrors CreateDraftReplyConfigSchema's cross-field
+  // refine ("At least one of textBody or htmlBody must be provided."), which the
+  // per-field `required` model cannot express. One readiness issue, both fields named.
+  requiredAnyOf: [
+    { fields: ["textBody", "htmlBody"], message: "Add a text body or HTML body." },
+  ],
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 40,

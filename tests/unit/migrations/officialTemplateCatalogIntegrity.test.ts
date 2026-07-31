@@ -109,13 +109,23 @@ const firstSeg = (path: string) => path.split(/[.[]/)[0]!;
 const isPureRef = (v: unknown) =>
   typeof v === "string" && v.trim().startsWith("{{") && v.trim().endsWith("}}");
 
+/** Every string leaf of a config value — `string-array` fields (Sheets row `values`, Gmail
+ *  recipients, label lists) carry their references inside an ARRAY, so a string-only walk would
+ *  silently skip them and let an undeclared path ship unvalidated. */
+function stringLeaves(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(stringLeaves);
+  if (value && typeof value === "object") return Object.values(value).flatMap(stringLeaves);
+  return [];
+}
+
 describe("official catalog — effective reconstruction (sanity)", () => {
   it("parsed seeds, retirements, and prewires", () => {
-    expect(seeded.length).toBeGreaterThanOrEqual(102); // 5 + 45 + 25 + 15 + 12
+    expect(seeded.length).toBeGreaterThanOrEqual(105); // 5 + 45 + 25 + 15 + 12 + 3 (Google reviewer)
     expect(retired.size).toBe(75); // batches 1–3 (all ≤4-node demos)
     expect(prewired.size).toBeGreaterThanOrEqual(15); // batch 4
-    // deliberate floor: 15 kept batch-4 + 12 batch-5 = 27 effective templates.
-    expect(catalog.length).toBeGreaterThanOrEqual(27);
+    // deliberate floor: 15 kept batch-4 + 12 batch-5 + 3 Google reviewer = 30 effective templates.
+    expect(catalog.length).toBeGreaterThanOrEqual(30);
   });
 
   it("retired ids never reappear in a later seed batch or prewire target", () => {
@@ -246,8 +256,7 @@ describe("effective catalog — registered nodes and contract-backed configs", (
     for (const row of catalog) {
       const byId = new Map(row.def.nodes.map((n) => [n.id, n]));
       for (const node of row.def.nodes) {
-        for (const value of Object.values(node.config ?? {})) {
-          if (typeof value !== "string") continue;
+        for (const value of Object.values(node.config ?? {}).flatMap(stringLeaves)) {
           for (const ref of parseReferences(value)) {
             const src = byId.get(ref.nodeId);
             expect(src).toBeDefined();

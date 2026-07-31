@@ -186,6 +186,13 @@ substantially wired — but ONLY under these rules. This is what `20260711000000
 - **Allowed expressions:** credential-free `{{trigger.<path>}}` and `{{<upstreamNodeId>.<path>}}`
   references, plus safe non-account-specific static labels. Example safe references:
   `{{trigger.subject}}`, `{{a1.email}}`, `{{a3.boardId}}`.
+- **A prewired value is TYPED to its meta field, not stringly-typed** (GOOGLE-REVIEW-TEMPLATE-1).
+  A `boolean` field carries a boolean (`subjectExactMatch: false`), a `string-array` field carries a
+  flat `string[]` (Sheets row `values`, recipient/label lists) — a string in a `z.array()` /
+  `z.boolean()` slot fails the handler schema at runtime. It stays a SCALAR shape: booleans,
+  strings, and flat arrays of strings only — never a nested object or array-of-objects payload.
+  References inside an array are validated exactly like top-level ones (walk the string leaves;
+  `resolveStrict` already recurses arrays).
 - **Every expression MUST be verified against the declared output contract** — the trigger's
   `payloadShape[]` or the upstream action's `OutputMeta` `outputs[]`. The first path segment must
   be a declared output of the referenced node.

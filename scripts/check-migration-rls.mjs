@@ -137,9 +137,38 @@ for (const [table, file] of createdTables) {
   }
 }
 
+// GOOGLE-REVIEW-CERTIFICATION-2 — DUPLICATE VERSION PREFIX.
+// Supabase keys migration history on the leading version (the chars before the first `_`), NOT
+// the filename. Two files sharing a version means whichever ran first records the version and the
+// other is SILENTLY SKIPPED FOREVER — `supabase db push` reports success and the second file's
+// DDL/DML never runs. This bit a real batch: a new template seed reused 20260730000000, already
+// taken by an applied migration, so the template would never have been inserted.
+{
+  const byVersion = new Map();
+  for (const file of files) {
+    const version = file.split("_")[0];
+    if (!/^\d{14}$/.test(version)) {
+      console.error(`MIGRATION-VERSION VIOLATION: ${file} has no 14-digit version prefix.`);
+      violations += 1;
+      continue;
+    }
+    byVersion.set(version, [...(byVersion.get(version) ?? []), file]);
+  }
+  for (const [version, sharing] of byVersion) {
+    if (sharing.length > 1) {
+      console.error(
+        `MIGRATION-VERSION VIOLATION: version ${version} is used by ${sharing.length} files — supabase records the version once, so all but the first are silently skipped:`,
+      );
+      for (const f of sharing) console.error(`  ${f}`);
+      console.error(`  Renumber all but one to an unused version.`);
+      violations += 1;
+    }
+  }
+}
+
 if (violations > 0) {
   console.error(
-    `\n${violations} migration RLS/GRANT violation(s). See docs/rules/database-security.md.`,
+    `\n${violations} migration RLS/GRANT/VERSION violation(s). See docs/rules/database-security.md.`,
   );
   console.error(
     `Either add policies/GRANTs, or mark the table system-only with a header comment:`,

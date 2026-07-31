@@ -68,12 +68,20 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       required: false,
       defaultValue: false,
     },
+    // GOOGLE-REVIEW-CERTIFICATION-2 — required-WHEN-VISIBLE (CONFIG-UX-SETUP-ADVANCED-1).
+    // `createEvent.schema.ts` superRefine REQUIRES startDateTime + endDateTime when allDay is
+    // false, and startDate + endDate when it is true. Declaring all four `required: false` made
+    // readiness permit a configuration the runtime then rejects — the node showed no Setup Needed
+    // and failed mid-run instead. Each pair is now `required: true` scoped by its existing
+    // top-level `visibleWhen`, so `missingRequiredFields` flags exactly the pair the current
+    // All Day mode reveals and NEVER the hidden pair. No `defaultValue` is added: a guessed
+    // date/time is worse than an explicit gap.
     {
       name: "startDateTime",
       label: "Start Date-Time",
       description: "Event start. Required unless All Day is on.",
       type: "datetime",
-      required: false,
+      required: true,
       visibleWhen: { field: "allDay", valueTruthy: false },
     },
     {
@@ -81,7 +89,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       label: "End Date-Time",
       description: "Event end. Required unless All Day is on.",
       type: "datetime",
-      required: false,
+      required: true,
       visibleWhen: { field: "allDay", valueTruthy: false },
     },
     {
@@ -89,7 +97,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       label: "Start Date",
       description: "All-day start. Required when All Day is on.",
       type: "date",
-      required: false,
+      required: true,
       visibleWhen: { field: "allDay", valueTruthy: true },
     },
     {
@@ -98,7 +106,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       description:
         "All-day end (exclusive — the day after the event ends). Required when All Day is on.",
       type: "date",
-      required: false,
+      required: true,
       visibleWhen: { field: "allDay", valueTruthy: true },
     },
     {

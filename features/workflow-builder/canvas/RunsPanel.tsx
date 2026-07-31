@@ -11,6 +11,7 @@ import {
   metaLine,
   SOURCE_LABEL,
   StatusBadge,
+  LiveTestTag,
   TestTag,
   type RowStatus,
 } from "./runsPanelParts";
@@ -277,7 +278,9 @@ function RunListRow(
         <span className="text-[12px]" style={{ color: "var(--builder-text)" }}>
           {sourceLabel}
         </span>
-        {!isRunning && props.run.isTest ? <TestTag /> : null}
+        {!isRunning && props.run.isTest ? (
+          props.run.isLiveTest ? <LiveTestTag /> : <TestTag />
+        ) : null}
       </div>
       <span className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
         {meta}

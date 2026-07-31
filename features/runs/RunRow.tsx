@@ -62,14 +62,24 @@ export function RunRow({ run }: Props) {
           triggeredBy={run.triggeredBy}
           apiKeyPrefix={run.triggeredByApiKeyPrefix}
         />
-        {run.isTest && (
-          <span
-            data-testid={`runs-row-${run.id}-test-marker`}
-            className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
-          >
-            Test
-          </span>
-        )}
+        {run.isTest &&
+          (run.isLiveTest ? (
+            // WORKFLOW-LIVE-TEST-4 — a consented live test made REAL external
+            // calls; the plain "Test" marker (which implies none) would mislead.
+            <span
+              data-testid={`runs-row-${run.id}-live-test-marker`}
+              className="inline-flex items-center rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300"
+            >
+              Live test
+            </span>
+          ) : (
+            <span
+              data-testid={`runs-row-${run.id}-test-marker`}
+              className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+            >
+              Test
+            </span>
+          ))}
         <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
           <span
             data-testid={`runs-row-${run.id}-started`}

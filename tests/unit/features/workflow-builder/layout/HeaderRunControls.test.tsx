@@ -6,8 +6,11 @@
  * `features/workflow-builder/state/triggerKind.ts`):
  *
  *   - Manual workflows  → Test Workflow + Run Manually
- *   - Automated workflows → Test Workflow (disabled, with copy)
+ *   - Automated workflows → Test Workflow (ENABLED; explains itself, never dispatches)
  *   - No trigger        → nothing rendered
+ *
+ * WORKFLOW-LIVE-TEST-2 §2 adds a canonical PRE-FLIGHT ahead of every testing entry point: a
+ * blocked pre-flight opens the issues rail and dispatches nothing at all.
  *
  * Behavior boundaries verified here:
  *   - Test Workflow NEVER opens the destructive-action confirmation
@@ -656,36 +659,40 @@ describe("HeaderRunControls (migrated from RunNowPanel) — automated workflows 
     ).not.toBeInTheDocument();
   });
 
-  it("renders a disabled Test Workflow button with explanatory copy on scheduled workflows", () => {
+  // WORKFLOW-LIVE-TEST-2 §2/§4 — the automated Test button is no longer an inert disabled
+  // control whose only explanation is a tooltip. It is ENABLED and explains itself on click.
+  // The invariant that survives: it still never dispatches a run (the run-now route only
+  // accepts manual triggers), so no request that cannot succeed is ever fired.
+  it("renders an ENABLED Test Workflow button on scheduled workflows", () => {
     bootWithScheduledTrigger();
     render(<HeaderRunControls />);
     const button = screen.getByTestId("run-controls-test-button");
     expect(button).toBeInTheDocument();
-    expect(button).toBeDisabled();
+    expect(button).toBeEnabled();
     expect(button).toHaveTextContent(/test workflow/i);
-    // Copy explains the alternative path is Activate.
-    expect(
-      screen.getByText(/test runs for automated workflows are in development/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/activate it and trigger the source event/i),
-    ).toBeInTheDocument();
   });
 
-  it("renders a disabled Test Workflow button on provider event workflows", () => {
+  it("renders an ENABLED Test Workflow button on provider event workflows", () => {
     bootWithProviderTrigger();
     render(<HeaderRunControls />);
-    const button = screen.getByTestId("run-controls-test-button");
-    expect(button).toBeInTheDocument();
-    expect(button).toBeDisabled();
+    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
   });
 
-  it("never calls runNowWorkflow from the automated panel — the button is non-interactive", async () => {
+  it("explains why a safe dry run cannot fabricate a provider event, and points at the live path", async () => {
     bootWithScheduledTrigger();
     const user = userEvent.setup();
     render(<HeaderRunControls />);
-    // Clicking a disabled button is a no-op in real browsers; userEvent
-    // mirrors that. The handler must never fire.
+    await user.click(screen.getByTestId("run-controls-test-button"));
+    const notice = await screen.findByTestId("run-controls-safe-test-notice");
+    expect(notice).toHaveTextContent(/can.t invent a provider event/i);
+    expect(notice).toHaveTextContent(/run live test/i);
+  });
+
+  it("never calls runNowWorkflow from the automated panel, even though the button is clickable", async () => {
+    bootWithScheduledTrigger();
+    const user = userEvent.setup();
+    render(<HeaderRunControls />);
+    await user.click(screen.getByTestId("run-controls-test-button"));
     await user.click(screen.getByTestId("run-controls-test-button"));
     expect(mockRunNowWorkflow).not.toHaveBeenCalled();
   });
@@ -825,5 +832,87 @@ describe("HeaderRunControls — WF-RUNPERM private-credential run/edit gating", 
     expect(
       screen.getByTestId("run-controls-private-credential-status"),
     ).toHaveTextContent(SAFE_COPY);
+  });
+});
+
+describe("HeaderRunControls — WORKFLOW-LIVE-TEST-2 §2 testing pre-flight", () => {
+  const BLOCKED = {
+    ok: false as const,
+    issueCount: 4,
+    summary: "Finish 4 setup items before testing this workflow.",
+    items: [
+      {
+        id: "missing_required_field:a2:spreadsheetId",
+        message: "Append Row needs a Spreadsheet.",
+        nodeId: "a2",
+        fieldName: "spreadsheetId",
+        fieldLabel: "Spreadsheet",
+      },
+    ],
+  };
+
+  it("a blocked pre-flight opens the setup summary and dispatches NOTHING (manual)", async () => {
+    bootWithManualTrigger();
+    const onOpenValidation = jest.fn();
+    const user = userEvent.setup();
+    render(<HeaderRunControls preflight={BLOCKED} onOpenValidation={onOpenValidation} />);
+
+    await user.click(screen.getByTestId("run-controls-test-button"));
+
+    expect(onOpenValidation).toHaveBeenCalledTimes(1);
+    // No run is created, no provider call is made — the request never leaves the client.
+    expect(mockRunNowWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("a blocked pre-flight opens the setup summary and dispatches NOTHING (automated)", async () => {
+    bootWithScheduledTrigger();
+    const onOpenValidation = jest.fn();
+    const user = userEvent.setup();
+    render(<HeaderRunControls preflight={BLOCKED} onOpenValidation={onOpenValidation} />);
+
+    await user.click(screen.getByTestId("run-controls-test-button"));
+
+    expect(onOpenValidation).toHaveBeenCalledTimes(1);
+    expect(mockRunNowWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("states the actionable summary in the surface, not only in a tooltip", () => {
+    bootWithManualTrigger();
+    render(<HeaderRunControls preflight={BLOCKED} onOpenValidation={jest.fn()} />);
+    const line = screen.getByTestId("run-controls-preflight-blocked");
+    expect(line).toHaveTextContent("Finish 4 setup items before testing this workflow.");
+    // …and selecting it is itself the way into the issues rail.
+    expect(line.tagName).toBe("BUTTON");
+  });
+
+  it("keeps the button ENABLED while blocked so it can explain itself", () => {
+    bootWithManualTrigger();
+    render(<HeaderRunControls preflight={BLOCKED} onOpenValidation={jest.fn()} />);
+    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
+  });
+
+  it("a passing pre-flight dispatches the safe test exactly as before (manual)", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow.mockResolvedValueOnce({ runId: "run-1" });
+    const onOpenValidation = jest.fn();
+    const user = userEvent.setup();
+    render(<HeaderRunControls preflight={{ ok: true }} onOpenValidation={onOpenValidation} />);
+
+    await user.click(screen.getByTestId("run-controls-test-button"));
+
+    await waitFor(() => expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1));
+    // Still a SAFE test: testMode stays true, so the gate blocks every external handler.
+    expect(mockRunNowWorkflow.mock.calls[0]![2]).toEqual({ testMode: true });
+    expect(onOpenValidation).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("run-controls-preflight-blocked")).not.toBeInTheDocument();
+  });
+
+  it("omitting the pre-flight preserves prior behavior for callers that don't thread validation", async () => {
+    bootWithManualTrigger();
+    mockRunNowWorkflow.mockResolvedValueOnce({ runId: "run-1" });
+    const user = userEvent.setup();
+    render(<HeaderRunControls />);
+    await user.click(screen.getByTestId("run-controls-test-button"));
+    await waitFor(() => expect(mockRunNowWorkflow).toHaveBeenCalledTimes(1));
   });
 });

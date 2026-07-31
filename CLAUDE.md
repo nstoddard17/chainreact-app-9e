@@ -299,6 +299,15 @@ linked here.
 11. **Baseline-first polling.** `onActivate` seeds the snapshot before the first poll; the first poll after activation fires zero events. Throw on seed failure (→ `TRIGGER_REGISTRATION_FAILED`) — never swallow it (the "first-poll-miss" bug).
 12. **Trigger filters are pure.** No enrichment I/O (`*.info`), no `FileRef` construction, no Promises — the trigger emits a thin handle, the action does the I/O. Compose downstream for bytes/metadata.
 13. **DB-backed dedup with stable provider IDs; fail-closed.** Key `webhook_event_dedup` on stable provider ids (hashes, not raw PII); on dedup outage skip-enqueue this tick. Prefix the eventId per-trigger when one entity fans out to multiple triggers.
+    - **Live testing is opt-in per trigger via a capture adapter (WORKFLOW-LIVE-TEST-4).** A
+      trigger supports the builder's Run Live Test only when it registers a
+      `LiveTriggerCaptureAdapter` (`services/triggers/liveCapture/registry.ts`) at module scope
+      beside its polling/activation registrations. The adapter is session-scoped, reuses the
+      trigger's own schema/filters/hydration so it emits the CANONICAL `TriggerEvent`, and must
+      never touch production trigger state — no `trigger_resources` write, no
+      `webhook_event_dedup` consume. An unregistered trigger is a typed
+      `trigger_capture_unsupported` refusal, never a pretend capability. Reference:
+      `integrations/gmail/triggers/newEmail/liveCapture.ts`.
 
 **Structure**
 14. **Don't treat orphan files as shipped.** Registry presence — not `.ts` presence — defines the action set; orphan backfill is product-signal-gated.

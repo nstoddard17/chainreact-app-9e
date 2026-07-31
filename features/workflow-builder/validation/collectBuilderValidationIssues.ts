@@ -2,6 +2,7 @@ import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import {
   isRequiredValueMissing,
   missingRequiredFields,
+  missingRequiredGroups,
   requirementLookupKey,
   type NodeTypeRequirement,
   type NodeTypeRequirements,
@@ -33,6 +34,8 @@ import { validateSchemaFieldsValue } from "../config-modal/fields/_schemaFieldsV
  *   - `unconfigured_node` (error) — node added but never picked a type.
  *   - `router_routes_invalid` (error) — native router with invalid routes.
  *   - `missing_required_field` (error) — a typed node left a required field empty.
+ *   - `missing_required_group` (error) — a cross-field "at least one of" requirement
+ *     (e.g. Gmail send needs a text OR HTML body) is unsatisfied. One issue per group.
  *   - `unreachable_node` (error) — action not connected to the trigger (won't run).
  *   - `stale_edge` (error) — an edge references a node that no longer exists.
  *   - `self_loop_edge` (error) — an edge connects a step to itself (CS-1; now a shared
@@ -51,7 +54,12 @@ export type {
   NodeTypeRequirements,
   RequiredFieldsByType,
 };
-export { isRequiredValueMissing, missingRequiredFields, requirementLookupKey };
+export {
+  isRequiredValueMissing,
+  missingRequiredFields,
+  missingRequiredGroups,
+  requirementLookupKey,
+};
 
 export type BuilderValidationSeverity = "error" | "warning";
 
@@ -62,6 +70,7 @@ export type BuilderValidationIssueCode =
   | "router_routes_invalid"
   | "schema_fields_invalid"
   | "missing_required_field"
+  | "missing_required_group"
   | "unreachable_node"
   | "stale_edge"
   | "self_loop_edge"
@@ -199,6 +208,23 @@ export function collectBuilderValidationIssues(
           nodeId: node.id,
           fieldName: field.name,
           fieldLabel: field.label,
+        });
+      }
+      // WORKFLOW-LIVE-TEST-2 — cross-field "at least one of" groups. ONE issue
+      // per unsatisfied group (never one per member), naming every field that
+      // would satisfy it, and focusing the first visible member so selecting
+      // the issue opens somewhere the user can actually act.
+      for (const group of missingRequiredGroups(node, input.requiredFieldsByType)) {
+        const first = group.fields[0]!;
+        const options = group.fields.map((f) => f.label).join(" or ");
+        issues.push({
+          id: `missing_required_group:${node.id}:${group.fields.map((f) => f.name).join("+")}`,
+          code: "missing_required_group",
+          severity: "error",
+          message: `${displayName}: ${group.message} (${options})`,
+          nodeId: node.id,
+          fieldName: first.name,
+          fieldLabel: first.label,
         });
       }
     }

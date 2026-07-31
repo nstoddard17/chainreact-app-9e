@@ -25,6 +25,15 @@ jest.mock("@/repositories/workflowRuns", () => ({
     mockFailQueuedRunIfStillQueued(...a),
 }));
 
+// WORKFLOW-LIVE-TEST-3 — the processor now consults the live-test session repo for is_test
+// dispatches (elevation lookup). Default: no session → every pre-existing fixture keeps its
+// exact prior envelope. The elevation behavior itself is covered in
+// liveTestQueueDispatch.test.ts.
+jest.mock("@/repositories/liveTest/workflowLiveTestSessions", () => ({
+  getConsumedSessionByRunId: jest.fn(async () => null),
+  completeSessionForRun: jest.fn(async () => undefined),
+}));
+
 const mockRunWorkflow = jest.fn();
 jest.mock("@/services/execution/engine", () => ({
   WorkflowEngine: jest.fn(() => ({ runWorkflow: mockRunWorkflow })),

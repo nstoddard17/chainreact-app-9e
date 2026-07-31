@@ -4097,3 +4097,94 @@ describe("WorkflowEngine — advanced-branching plan gate (BRANCH-ENT-1)", () =>
     expect(result.fatalError?.code).toBe("PLAN_FEATURE_REQUIRED");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORKFLOW-LIVE-TEST-3 §11 — isTest is the LABEL, testMode is the GATE.
+//
+// The queue processor's live-test elevation passes {testMode:false, recordAsTest:true,
+// executionDefinitionMode:"draft"}. These tests pin the split at the ENGINE: the label can never
+// unblock a handler or skip a bill, and the gate can never be bypassed by labeling.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("WorkflowEngine — live-test label/gate split (WORKFLOW-LIVE-TEST-3)", () => {
+  function seedLinear(): { handler: jest.Mock } {
+    const t = trigger("t1");
+    const a1 = action("a1", "step_one");
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, a1], edges: [edge("e1", "t1", "a1")] },
+    });
+    const handler = jest.fn(async () => ({ output: { done: true } }));
+    mockGetActionHandler.mockReturnValue(handler);
+    return { handler };
+  }
+
+  it("live-test input runs the REAL handler while the run stays LABELED a test", async () => {
+    const { handler } = seedLinear();
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: false,
+      recordAsTest: true,
+      executionDefinitionMode: "draft",
+    });
+    expect(result.status).toBe("succeeded");
+    expect(handler).toHaveBeenCalledTimes(1); // real execution — no gate consult
+    expect(result.isTest).toBe(true); // …but recorded as a test run
+    // The consented DRAFT was executed (explicit mode, not the testMode-derived fallback).
+    expect(mockGetDefinitionForExecution.mock.calls[0]![1]).toBe("draft");
+  });
+
+  it("a live test BILLS like a real run — the gate receives the GATING flag, not the label", async () => {
+    seedLinear();
+    await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: false,
+      recordAsTest: true,
+      executionDefinitionMode: "draft",
+    });
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: false });
+  });
+
+  it("a SAFE test still blocks the handler and still skips billing (unchanged SEC-2/COST-2A)", async () => {
+    const { handler } = seedLinear();
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+    });
+    expect(handler).not.toHaveBeenCalled(); // unregistered meta → gate fails CLOSED
+    expect(result.isTest).toBe(true);
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: true });
+  });
+
+  it("recordAsTest has NO gating power: labeling cannot unblock a gated test", async () => {
+    const { handler } = seedLinear();
+    // Adversarial combination: gate ON, label forced real. The gate must still block.
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+      recordAsTest: false,
+    });
+    expect(handler).not.toHaveBeenCalled(); // still blocked — the label changed nothing
+    expect(result.isTest).toBe(false); // the label is honored for HISTORY only
+    expect(mockBillingGate).toHaveBeenCalledWith("acct-user-1", { testMode: true }); // still free
+  });
+
+  it("omitting recordAsTest reproduces the historical coupling exactly (no caller changes)", async () => {
+    seedLinear();
+    const real = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: false,
+    });
+    expect(real.isTest).toBe(false);
+    expect(mockGetDefinitionForExecution.mock.calls[0]![1]).toBe("live");
+  });
+});

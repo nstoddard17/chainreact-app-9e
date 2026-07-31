@@ -12,7 +12,7 @@ import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
 } from "@/app/notifications/notificationPreview";
-import { RUN_LIST_DEFAULT_LIMIT, toRunListItem } from "./_shared";
+import { RUN_LIST_DEFAULT_LIMIT, lookupLiveTestRunIds, toRunListItem } from "./_shared";
 
 /**
  * Runs dashboard route (Slice 4.RUNS-PAGE-1).
@@ -64,9 +64,12 @@ export default async function RunsPage() {
   ]);
 
   const workflowIds = Array.from(new Set(runRecords.map((r) => r.workflowId)));
-  const nameRows = await workflowsRepo.listNamesByIds(workflowIds);
+  const [nameRows, liveTestRunIds] = await Promise.all([
+    workflowsRepo.listNamesByIds(workflowIds),
+    lookupLiveTestRunIds(runRecords),
+  ]);
   const workflowNameById = new Map(nameRows.map((w) => [w.id, w.name]));
-  const runs = runRecords.map((r) => toRunListItem(r, workflowNameById));
+  const runs = runRecords.map((r) => toRunListItem(r, workflowNameById, liveTestRunIds));
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   // CS-8: surface pending credential-reassignment requests in the bell.
   const bell = await applyCredentialRequestNotice(
