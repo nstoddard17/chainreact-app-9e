@@ -3,7 +3,7 @@
  *
  * Same approach as the accepted harnesses: render the REAL components with
  * synthetic fixtures, write the markup to `owner-review/html/brun-*.html`, and
- * let `scripts/trash/responsive-foundation/screenshot-templates.mjs` wrap it and
+ * let `scripts/responsive/measure-app-shell.mjs` wrap it and
  * measure continuously from 360→1600 in Chromium.
  *
  * AUDITED SURFACE (what actually ships — no invented sections):

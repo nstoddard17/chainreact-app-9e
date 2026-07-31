@@ -5,7 +5,7 @@
  * `workflowsScreens.harness.test.tsx`: render the REAL Account Settings shell and
  * its REAL section bodies with representative fixtures, then write the markup to
  * `owner-review/html/account-*.html`, which
- * `scripts/trash/responsive-foundation/screenshot-templates.mjs` wraps with
+ * `scripts/responsive/measure-app-shell.mjs` wraps with
  * compiled Tailwind + the authenticated shell chrome and measures continuously
  * from 360→1600 in a real browser. No database, no auth, no dev server.
  *

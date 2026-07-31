@@ -18,7 +18,7 @@
  * Run:
  *   npm test -- --testMatch='**\/tests/tools/marketingScreens.harness.test.tsx'
  *   npx tailwindcss -i app/globals.css -o owner-review/html/tailwind.css --minify
- *   node scripts/trash/responsive-foundation/measure-marketing.mjs
+ *   node scripts/responsive/measure-marketing.mjs
  */
 import { chromium } from "playwright";
 import { readFileSync, readdirSync, mkdirSync, existsSync } from "node:fs";
@@ -141,7 +141,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage();
 
 /** The measurement, run inside the page. Identical assertion classes to the shell harness. */
-async function measure(width, height) {
+async function measure() {
   return page.evaluate((regionSelectors) => {
     const doc = document.documentElement;
     const out = {
@@ -319,7 +319,7 @@ for (const file of fragments) {
   for (const width of SWEEP) {
     await page.setViewportSize({ width, height: SWEEP_HEIGHT });
     await page.setContent(html, { waitUntil: "load" });
-    record(name, width, SWEEP_HEIGHT, await measure(width, SWEEP_HEIGHT), false);
+    record(name, width, SWEEP_HEIGHT, await measure(), false);
     checks += 1;
 
     if (NAMED.includes(width) && process.env.SHOTS !== "0") {
@@ -333,7 +333,7 @@ for (const file of fragments) {
     for (const width of HEIGHT_WIDTHS) {
       await page.setViewportSize({ width, height });
       await page.setContent(html, { waitUntil: "load" });
-      record(name, width, height, await measure(width, height), true);
+      record(name, width, height, await measure(), true);
       checks += 1;
       if (height !== SWEEP_HEIGHT && process.env.SHOTS !== "0" && (width === 390 || width === 1024)) {
         const stateDir = join(SHOT_DIR, name, "short");

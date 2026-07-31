@@ -346,7 +346,7 @@ transcript (rule §7) — those controls must not become Tab targets.
 Three assertion classes. Each catches defects the other two pass. All three are required.
 
 The reference implementation is
-[scripts/trash/responsive-foundation/screenshot-templates.mjs](../../scripts/trash/responsive-foundation/screenshot-templates.mjs) —
+[scripts/responsive/measure-app-shell.mjs](../../scripts/responsive/measure-app-shell.mjs) —
 a Playwright/Chromium measurement pass over static HTML fragments emitted by the
 `tests/tools/*Screens.harness.test.tsx` files. **No database, no auth, no dev server.**
 
@@ -486,6 +486,53 @@ that surface needs.
 
 ---
 
+### D. Control presence — the limit of geometry
+
+*Is every control the surface promises still **there** at this width?*
+
+**Geometry cannot answer this, and it never will.** The three assertion classes above
+all measure boxes that exist. They are silent about a box that stopped existing.
+
+The marketing header proved it. It dropped all five primary navigation links below
+960px with `display: none` and nothing in their place — no trigger, no menu, no
+replacement. Pricing became unreachable from navigation on every phone. Measured
+against the pre-fix source, that defect produces:
+
+| assertion | result |
+| --- | --- |
+| containment | **0 failures** — nothing overflows |
+| legibility | **0 failures** — nothing is compressed |
+| panning | **0 failures** — nothing pans |
+| document width | **clean** |
+
+A fully green sweep, on a page whose navigation is gone. `display: none` is the
+perfect crime: the harness sees a tidier page and approves.
+
+**The rule.** Hiding a control at a breakpoint is only acceptable when the same
+destination or action remains reachable through another control that IS present at
+that width. "It collapses into the menu" is a claim that must be **asserted**, not
+assumed — and asserted behaviourally, because pixels cannot check it.
+
+Required whenever a breakpoint hides anything interactive:
+
+- A rendered test that every hidden destination/action is still reachable at that
+  width, from the control that replaced it.
+- A test that exactly **one** control exists per action (per rule §6) — the fix for a
+  missing menu must not become a duplicated one.
+- A structure guard that the hiding rule and the replacement ship **together**: a rule
+  that hides the controls is only valid inside a block that also reveals the trigger.
+
+Landed example: [MarketingNav.tsx](../../features/marketing/MarketingNav.tsx) (one
+`NAV_LINKS` declaration, one `<nav>`, one state source) with
+[marketingResponsive.test.tsx](../../tests/unit/features/marketing/marketingResponsive.test.tsx)
+and [marketing-responsive-source.test.ts](../../tests/structure/marketing-responsive-source.test.ts)
+carrying the assertion the sweep cannot.
+
+**Generalise this.** Before trusting any green responsive run, ask what the harness is
+structurally incapable of seeing on this surface — missing controls, wrong reading
+order, an unreachable focus target, a control rendered but not operable — and put that
+under a different instrument. A harness's silence is not evidence.
+
 ## Continuous-width validation
 
 **The default responsive sweep for major responsive work:**
@@ -570,10 +617,13 @@ panning policy.
 - **Never** credentials, tokens, signed URLs, secrets, billing IDs, or private email
   addresses — including in fixture props that never render.
 - Store generated screenshots under the gitignored **`owner-review/`** convention
-  (`.gitignore`), e.g. `owner-review/responsive-foundation/<state>/<width>.png`.
-- **Use per-state subfolders.** Flat output puts 100+ files in one directory and trips the
-  repo's leaf-folder count lint — which scans the filesystem, so `owner-review/` being
-  gitignored does **not** exempt it. See
+  (`.gitignore`), e.g. `owner-review/responsive-app-shell/<state>/<width>.png`.
+- **Use per-state subfolders** — a full certification writes 100+ screenshots, and a flat
+  directory is unreviewable. (Historical note: this was also a *lint* requirement, because
+  the leaf-folder check scanned `owner-review/` despite it being gitignored. As of
+  RESPONSIVE-CERTIFICATION-10 that directory is excluded from the check — it is generated
+  output, not source, and "split the folder" is not a remedy a generator can apply. The
+  subfolder convention stands on reviewability alone.) See
   [project-structure-and-module-boundaries.md](./project-structure-and-module-boundaries.md).
 - **Do not commit screenshots** unless Marcus explicitly asks.
 - **State which screenshots were directly reviewed.** Do not claim review of all generated
@@ -634,9 +684,25 @@ panning policy.
 For any surface receiving responsive work:
 
 1. **A continuous-width browser sweep** — 360→1600, ≤8px, across the representative fixture
-   states, asserting **containment + legibility + panning**. Reference:
-   [screenshot-templates.mjs](../../scripts/trash/responsive-foundation/screenshot-templates.mjs);
+   states, asserting **containment + legibility + panning**.
+
+   ```bash
+   npm run verify:responsive          # every surface, one shared build
+   npm run verify:responsive -- --shots   # …and the named-width screenshots
+   ```
+
+   That is the **only supported entry point**. It clears stale fragments, re-emits every
+   fixture, compiles one Tailwind build, and runs all three measurement passes against it
+   — so a surface cannot pass on last week's artifacts.
+   [scripts/responsive/verify.mjs](../../scripts/responsive/verify.mjs) ·
+   passes: [measure-app-shell.mjs](../../scripts/responsive/measure-app-shell.mjs) ·
+   [measure-auth.mjs](../../scripts/responsive/measure-auth.mjs) ·
+   [measure-marketing.mjs](../../scripts/responsive/measure-marketing.mjs) ·
    fixture emitters: `tests/tools/*Screens.harness.test.tsx`.
+
+   **A new surface joins the certification** by adding its emitter to `EMITTERS` in
+   `verify.mjs` and its regions to the pass whose page frame it shares. A surface that
+   is swept but never added to the runner is a surface that stops being checked.
 2. **A structure guard** for the surface, asserting at minimum: no overflow masking; the
    named/allowed set of local scrollers and their caps; page bounds via a named
    `AppPageContainer` variant with no layered gutter; no breakpoint-scoped control; legibility
@@ -674,7 +740,10 @@ Reusable by future responsive implementation prompts:
 - [ ] Containment assertions pass.
 - [ ] Legibility floors pass.
 - [ ] Panning-policy assertions pass.
-- [ ] Continuous-width sweep passes (360→1600, ≤8px).
+- [ ] **Every control hidden at a breakpoint is reachable another way, and that is
+      asserted behaviourally** — geometry cannot see a missing control (§D).
+- [ ] Continuous-width sweep passes — `npm run verify:responsive`, all passes green.
+- [ ] The surface's emitter is registered in `verify.mjs`, so it stays certified.
 - [ ] Named screenshots generated and representative ones reviewed (say which).
 - [ ] Harness proven non-vacuous.
 - [ ] Relevant behavior, payload, permission, and structure tests pass.
@@ -693,9 +762,9 @@ Reusable by future responsive implementation prompts:
 | Builder Runs list ↔ detail | [features/workflow-builder/canvas/RunsPanel.tsx](../../features/workflow-builder/canvas/RunsPanel.tsx) · [RunDetail.tsx](../../features/workflow-builder/canvas/RunDetail.tsx) |
 | JSON / local scroller | [RunResultsPanel.tsx](../../features/workflow-builder/panels/RunResultsPanel.tsx) · [RolesTable.tsx](../../features/team/RolesTable.tsx) |
 | Builder tiers + overlay behavior | [builderLayoutPolicy.ts](../../features/workflow-builder/layout/builderLayoutPolicy.ts) · [useBuilderOverlaySurface.ts](../../features/workflow-builder/layout/useBuilderOverlaySurface.ts) |
-| Responsive measurement harness | [scripts/trash/responsive-foundation/screenshot-templates.mjs](../../scripts/trash/responsive-foundation/screenshot-templates.mjs) |
+| Responsive measurement harness | [scripts/responsive/measure-app-shell.mjs](../../scripts/responsive/measure-app-shell.mjs) |
 | Fixture emitters | `tests/tools/{templates,workflows,accountSettings,team,dataSurface,builderRuns}Screens.harness.test.tsx` |
-| Containment assertion | `screenshot-templates.mjs` — `escapes` / `deepEscapes` |
+| Containment assertion | `measure-app-shell.mjs` — `escapes` / `deepEscapes` |
 | Legibility declaration | `data-legible-min` / `data-legible-what` — [WorkflowRow.tsx](../../features/workflows/WorkflowRow.tsx), [RunRow.tsx](../../features/runs/RunRow.tsx) |
 | Panning declaration | `data-no-pan-below` — [WorkflowsTable.tsx](../../features/workflows/WorkflowsTable.tsx) (1024), [RunsPanel.tsx](../../features/workflow-builder/canvas/RunsPanel.tsx) (1600) |
 | Structure guards | [tests/structure/](../../tests/structure/) — `*-responsive-source.test.ts`, `builder-responsive-single-viewport-source.test.ts` |

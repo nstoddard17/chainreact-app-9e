@@ -3,8 +3,8 @@
  *
  * Same approach as the accepted harnesses: render the REAL auth components with
  * synthetic fixtures, write the markup to `owner-review/html/auth-*.html`, and let
- * `scripts/trash/responsive-foundation/screenshot-templates.mjs` wrap it and measure
- * continuously from 360→1600 in Chromium.
+ * `scripts/responsive/measure-auth.mjs` wrap it and measure continuously from
+ * 360→1600 in Chromium. Run everything at once with `npm run verify:responsive`.
  *
  * AUDITED SURFACE (what actually ships — no invented routes or states):
  *

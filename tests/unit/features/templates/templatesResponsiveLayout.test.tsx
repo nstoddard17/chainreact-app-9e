@@ -2,7 +2,7 @@
  * RESPONSIVE-FOUNDATION-1 — Templates responsive regression coverage.
  *
  * jsdom has no layout engine, so the PIXEL claims live in the harness sweep
- * (`scripts/trash/responsive-foundation/screenshot-templates.mjs`, 780
+ * (`scripts/responsive/measure-app-shell.mjs`, 780
  * measurements from 360→1600). What is asserted here is the set of structural
  * decisions those pixels depend on — the ones a future edit could silently undo:
  * the fixed widths that must stay gone, the `min-w-0`/`shrink-0` pairs that

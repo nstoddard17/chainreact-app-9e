@@ -4,7 +4,7 @@
  * Follows the `documentScreens.harness.test.tsx` approach: render the REAL
  * Templates components with representative fixtures and write the resulting
  * markup to `owner-review/html/*.html`. A sibling Playwright script
- * (`scripts/trash/responsive-foundation/screenshot-templates.mjs`) wraps each
+ * (`scripts/responsive/measure-app-shell.mjs`) wraps each
  * file with compiled Tailwind + the globals tokens, screenshots it across the
  * required widths, and asserts horizontal overflow — WITHOUT a database or auth,
  * which is what makes continuous 1600→360 verification possible while local

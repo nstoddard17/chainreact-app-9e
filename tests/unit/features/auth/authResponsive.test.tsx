@@ -2,7 +2,7 @@
  * RESPONSIVE-AUTH-8 — rendered proof for the auth responsive hardening.
  *
  * The geometry lives in the browser sweep
- * (`scripts/trash/responsive-foundation/measure-auth.mjs`); jsdom has no layout
+ * (`scripts/responsive/measure-auth.mjs`); jsdom has no layout
  * engine and asserting pixel widths here would be theatre. What this file proves
  * is the part geometry cannot: that the responsive declarations are actually
  * ATTACHED to the elements the sweep measures, that there is exactly ONE of every

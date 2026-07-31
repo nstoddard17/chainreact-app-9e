@@ -2,7 +2,7 @@
  * RESPONSIVE-MARKETING-9 — rendered proof for the public funnel hardening.
  *
  * The geometry lives in the browser sweep
- * (`scripts/trash/responsive-foundation/measure-marketing.mjs`). This file exists
+ * (`scripts/responsive/measure-marketing.mjs`). This file exists
  * because the batch's most important defect is one geometry CANNOT see.
  *
  * The marketing header used to drop its five primary links at 960px with

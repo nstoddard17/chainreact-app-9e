@@ -51,7 +51,16 @@ function isNestedGitBoundary(dirAbs) {
  * makes the traversal robust to those leftovers WITHOUT touching authoritative `.claude`
  * content (skills / agents / commands), which live in sibling folders.
  */
-const EXCLUDED_PATHS = new Set([".claude/worktrees"]);
+const EXCLUDED_PATHS = new Set([
+  ".claude/worktrees",
+  // `owner-review/` is GENERATED, gitignored review evidence — rendered HTML
+  // fixtures and screenshots written by `npm run verify:responsive`. It is not
+  // this repo's source, and the cap's remedy ("split the folder / add structure")
+  // is meaningless for machine-written output whose shape the generator decides.
+  // Certifying every surface in one run legitimately emits 100+ fragments, which
+  // tripped the cap on a directory nobody hand-maintains. (RESPONSIVE-CERTIFICATION-10)
+  "owner-review",
+]);
 
 /**
  * Leaf folders exempt from the file-count cap because the "split the folder / add

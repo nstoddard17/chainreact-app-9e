@@ -3,7 +3,7 @@
  *
  * Same approach as the accepted harnesses: render the REAL marketing components
  * with synthetic public content, write the markup to `owner-review/html/mk-*.html`,
- * and let `scripts/trash/responsive-foundation/measure-marketing.mjs` measure it
+ * and let `scripts/responsive/measure-marketing.mjs` measure it
  * continuously from 360→1600 in Chromium.
  *
  * AUDITED SURFACE — the actual public route tree, enumerated from `app/`:

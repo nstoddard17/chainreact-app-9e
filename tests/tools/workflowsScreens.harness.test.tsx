@@ -4,7 +4,7 @@
  * Same proven approach as `templatesScreens.harness.test.tsx`: render the REAL
  * components with representative fixtures and write the markup to
  * `owner-review/html/*.html`, which
- * `scripts/trash/responsive-foundation/screenshot-templates.mjs` then wraps with
+ * `scripts/responsive/measure-app-shell.mjs` then wraps with
  * compiled Tailwind and measures continuously from 360→1600. No database, no
  * auth, no dev server.
  *

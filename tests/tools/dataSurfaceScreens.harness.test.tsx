@@ -4,7 +4,7 @@
  * Same approach as the accepted templates / workflows / account / team
  * harnesses: render the REAL components with synthetic fixtures, write the
  * markup to `owner-review/html/{wflist,runlist}-*.html`, and let
- * `scripts/trash/responsive-foundation/screenshot-templates.mjs` wrap it with
+ * `scripts/responsive/measure-app-shell.mjs` wrap it with
  * compiled Tailwind + the authenticated shell chrome and measure continuously
  * from 360→1600 in Chromium. No database, no auth, no dev server.
  *

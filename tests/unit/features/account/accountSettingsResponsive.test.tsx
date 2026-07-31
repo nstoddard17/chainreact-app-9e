@@ -3,7 +3,7 @@
  *
  * jsdom has no layout engine, so GEOMETRY is not asserted here — that is the job
  * of the continuous real-browser sweep
- * (`scripts/trash/responsive-foundation/screenshot-templates.mjs`, 15 states ×
+ * (`scripts/responsive/measure-app-shell.mjs`, 15 states ×
  * 158 widths from 360→1600). What this file protects is everything the sweep
  * cannot see: that the compact navigation actually navigates, that the active
  * section survives the presentation change, that the controls the brief requires

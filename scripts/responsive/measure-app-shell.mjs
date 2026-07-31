@@ -16,7 +16,7 @@
  * No database, no auth, no dev server. Run:
  *   npm test -- --testMatch='**\/tests/tools/templatesScreens.harness.test.tsx'
  *   npx tailwindcss -i app/globals.css -o owner-review/html/tailwind.css --minify
- *   node scripts/trash/responsive-foundation/screenshot-templates.mjs
+ *   node scripts/responsive/measure-app-shell.mjs
  */
 import { chromium } from "playwright";
 import { readFileSync, readdirSync, mkdirSync, existsSync } from "node:fs";
@@ -477,7 +477,14 @@ await browser.close();
 
 const unique = [...new Set(failures)];
 console.log(`\nStates: ${fragments.length} · widths swept: ${SWEEP.length} (360→1600 step 8) · measurements: ${checks}`);
-console.log(`Screenshots written for ${NAMED.length} named widths → owner-review/responsive-foundation/`);
+// Report what actually happened. This line used to claim screenshots were written
+// unconditionally, including under SHOTS=0 where none are — a verification command
+// must not overstate its own evidence (RESPONSIVE-CERTIFICATION-10).
+console.log(
+  process.env.SHOTS === "0"
+    ? "Screenshots skipped (SHOTS=0) — measurement only."
+    : `Screenshots written for ${NAMED.length} named widths → owner-review/responsive-app-shell/`,
+);
 if (unique.length === 0) {
   console.log("\nPASS — no horizontal overflow and no region escapes at any swept width.");
   process.exit(0);
