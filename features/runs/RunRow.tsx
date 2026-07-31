@@ -49,12 +49,19 @@ export function RunRow({ run }: Props) {
       data-test={run.isTest ? "true" : "false"}
       className="flex flex-col gap-2 rounded-md border border-border bg-card p-3 transition hover:bg-muted/40"
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div
+        className="flex flex-wrap items-center gap-x-3 gap-y-1"
+        data-legible-min="220"
+        data-legible-what="run identity"
+      >
         <RunStatusBadge status={run.status} />
         <Link
           href={`/workflows/${encodeURIComponent(run.workflowId)}`}
           data-testid={`runs-row-${run.id}-workflow-link`}
-          className="truncate text-sm font-semibold text-foreground hover:underline"
+          // WRAP, not truncate. `truncate` inside a `flex-wrap` row let the name
+          // shrink toward zero with nothing to ellipsise against; in a list card
+          // there is a whole line available, so wrapping keeps the name readable.
+          className="min-w-0 break-words text-sm font-semibold text-foreground hover:underline"
         >
           {run.workflowName}
         </Link>
@@ -80,7 +87,10 @@ export function RunRow({ run }: Props) {
               Test
             </span>
           ))}
-        <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+        {/* Timestamp + duration: pushed to the right end when the row has room,
+            and allowed to drop onto its own line when it does not. `ml-auto` on a
+            non-shrinking group was what pushed this row past its card. */}
+        <span className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:ml-auto">
           <span
             data-testid={`runs-row-${run.id}-started`}
             title={new Date(run.startedAt).toISOString()}

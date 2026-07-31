@@ -52,11 +52,18 @@ export function WorkflowsTable({
     <div
       data-testid="workflows-list-view"
       aria-label="Workflows list"
-      className="overflow-x-auto rounded-lg border border-border bg-card"
+      data-no-pan-below="1024"
+      // The scroller and the 880px floor apply from `lg` UP. Below it the rows are
+      // stacked cards that fit the column they are given, so there is nothing to
+      // scroll — and a phone user is never asked to drag the table sideways to
+      // reach an action, which is what this declaration forbids.
+      className="rounded-lg border border-border bg-card lg:overflow-x-auto"
     >
-      <div className="min-w-[880px]">
+      <div className="lg:min-w-[880px]">
         <div
+          data-testid="workflows-list-head"
           className={
+            "hidden " +
             (selectable ? WORKFLOW_ROW_GRID_SELECTABLE : WORKFLOW_ROW_GRID) +
             " border-b border-border bg-muted/40 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
           }

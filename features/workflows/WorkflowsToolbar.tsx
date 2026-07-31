@@ -114,7 +114,19 @@ export function WorkflowsToolbar({
         stub. Create Workflow therefore stays intact and obvious at every width.
       */}
       <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-1 basis-56 items-center gap-2">
+        {/*
+          RESPONSIVE-DATA-SURFACES-5 — `md:basis-96`.
+
+          Found by the strengthened descendant-containment check, which the
+          accepted batch's harness did not yet have: at exactly 768–784px the
+          status pills switch on (`hidden md:flex`) and they are `shrink-0`, so
+          inside a `basis-56` (224px) search side the pills alone exceeded the
+          allocation and pushed the search input out of its own container.
+          Asking for a larger basis from `md` means the row WRAPS the search side
+          onto its own line instead — which is the behaviour the accepted batch
+          chose for it. The pills keep their labels; nothing is squashed.
+        */}
+        <div className="flex min-w-0 flex-1 basis-56 items-center gap-2 md:basis-96">
           {/* Status pills first, then search (swapped per design feedback). */}
           {onAutomations && (
             <div

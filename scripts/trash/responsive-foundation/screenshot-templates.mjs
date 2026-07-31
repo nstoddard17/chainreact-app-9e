@@ -186,10 +186,28 @@ const REGIONS = [
   '[data-testid="team-invite-replacement"]',
   '[data-testid="team-roles-table"]',
   '[data-testid="team-toast"]',
+  // RESPONSIVE-DATA-SURFACES-5 — workflow list/table + runs list. Row-level
+  // regions matter most here for the same reason they did on Team: these pages
+  // fail inside individual rows, where identity competes with badges, metadata
+  // and an action control on one line.
+  '[data-testid="workflows-list-view"]',
+  '[data-testid="workflows-list-head"]',
+  '[data-testid="workflow-row"]',
+  '[data-testid="workflows-bulk-bar"]',
+  '[data-testid="workflow-actions-menu-content"]',
+  '[data-testid="workflows-empty-no-workflows"]',
+  '[data-testid="runs-list"]',
+  '[data-testid^="runs-row-1"]',
+  '[data-testid="runs-empty-state-no-runs"]',
+  '[data-testid="data-surface-toast"]',
 ];
 
 const fragments = readdirSync(HTML_DIR)
-  .filter((f) => /^(templates|workflows|consumers|account|team)-/.test(f) && f.endsWith(".html"))
+  .filter(
+    (f) =>
+      /^(templates|workflows|consumers|account|team|wflist|runlist)-/.test(f) &&
+      f.endsWith(".html"),
+  )
   .sort();
 if (fragments.length === 0) {
   console.error("No templates-*.html fragments. Run the harness test first.");
@@ -200,6 +218,8 @@ if (fragments.length === 0) {
 function labelFor(name) {
   if (name.startsWith("account-")) return "Account settings";
   if (name.startsWith("team-")) return "Team";
+  if (name.startsWith("wflist-")) return "Workflows";
+  if (name.startsWith("runlist-")) return "Runs";
   if (name.startsWith("workflows-")) return "Workflows";
   if (name.startsWith("consumers-01")) return "Runs";
   if (name.startsWith("consumers-02")) return "Apps";
@@ -229,6 +249,7 @@ for (const file of fragments) {
         escapes: [],
         deepEscapes: [],
         illegible: [],
+        pannable: [],
       };
       for (const sel of regionSelectors) {
         for (const el of document.querySelectorAll(sel)) {
@@ -342,6 +363,34 @@ for (const file of fragments) {
         }
       }
 
+      // RESPONSIVE-DATA-SURFACES-5 — PANNING, which containment and legibility
+      // both miss by design.
+      //
+      // The workflows list is a hard `min-w-[880px]` grid inside an
+      // `overflow-x-auto` card. Nothing overflows the document (the scroller
+      // absorbs it) and nothing is squeezed (inside the scroller every column has
+      // its full width) — so both existing assertions pass while a phone user has
+      // to drag an 880px table sideways to reach the actions column. That is the
+      // exact failure the brief names, and it needs its own assertion.
+      //
+      // A region opts in by declaring the width below which panning is NOT an
+      // acceptable answer, e.g. `data-no-pan-below="1024"`. This is deliberately
+      // opt-in: a genuinely irreducible matrix (the Team roles table) or a JSON
+      // viewer is ALLOWED to pan, and stays un-annotated.
+      for (const el of document.querySelectorAll("[data-no-pan-below]")) {
+        const below = Number(el.getAttribute("data-no-pan-below"));
+        if (!Number.isFinite(below)) continue;
+        if (document.documentElement.clientWidth >= below) continue;
+        const pan = el.scrollWidth - el.clientWidth;
+        if (pan > 1) {
+          out.pannable.push({
+            what: el.getAttribute("data-testid") ?? el.tagName.toLowerCase(),
+            pan: Math.round(pan),
+            below,
+          });
+        }
+      }
+
       return out;
     }, REGIONS);
 
@@ -368,6 +417,11 @@ for (const file of fragments) {
     for (const e of result.illegible) {
       failures.push(
         `${name} @${width}px — ${e.what} squeezed to ${e.width}px (needs ${e.min}px to stay readable)`,
+      );
+    }
+    for (const e of result.pannable) {
+      failures.push(
+        `${name} @${width}px — ${e.what} needs ${e.pan}px of sideways panning to reach its controls (must not below ${e.below}px)`,
       );
     }
 
