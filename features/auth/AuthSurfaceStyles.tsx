@@ -58,7 +58,7 @@ export function AuthSurfaceStyles() {
       .au-fld-link { font-size: 12.5px; color: var(--au-muted); background: none; border: 0; padding: 0; border-radius: 4px; }
       .au-fld-link:hover { color: var(--au-accent); }
       .au-fld-hint { font-size: 11.5px; color: var(--au-muted-2); margin-top: 1px; }
-      .au-fld-err { font-size: 11.5px; color: var(--au-danger); margin-top: 1px; }
+      .au-fld-err { font-size: 11.5px; color: var(--au-danger); margin-top: 1px; overflow-wrap: anywhere; }
 
       .au-inp { position: relative; }
       .au-inp input { width: 100%; padding: 11px 13px; background: var(--au-panel); border: 1px solid var(--au-border); border-radius: 10px; color: var(--au-text); font-size: 14px; outline: none; transition: border-color .15s ease, box-shadow .15s ease; }
@@ -109,10 +109,22 @@ export function AuthSurfaceStyles() {
          to out-specify the generic au-root input focus-visible rule above. */
       .au-root .au-code .au-code-input:focus-visible { outline: none; }
 
-      /* ---------- messages ---------- */
-      .au-alert { display: flex; gap: 9px; align-items: flex-start; margin: 0; padding: 10px 12px; background: var(--au-danger-soft); border: 1px solid color-mix(in oklab, var(--au-danger) 34%, transparent); border-radius: 10px; font-size: 12.5px; line-height: 1.45; color: var(--au-text); }
-      .au-status { margin: 0; padding: 12px 14px; background: color-mix(in oklab, var(--au-success) 12%, transparent); border: 1px solid color-mix(in oklab, var(--au-success) 32%, transparent); border-radius: 10px; font-size: 13px; line-height: 1.5; color: var(--au-text-2); }
-      .au-note { margin: 0; padding: 10px 12px; background: var(--au-panel); border: 1px solid var(--au-border); border-radius: 10px; font-size: 12px; line-height: 1.45; color: var(--au-muted); }
+      /* ---------- messages ----------
+         RESPONSIVE-AUTH-8 — overflow-wrap:anywhere on every slot that can receive
+         a value the user did not author: a provider error echoing an opaque
+         reference, or an address typed into the form. Measured: a 60-char token
+         with no break opportunity pushed the DOCUMENT 184px wide at 360px and
+         burst .au-sub by 205px. Emails survived only because Chrome breaks at
+         the at-sign, dot and hyphen — an underscored reference has none of those.
+
+         overflow-wrap:anywhere and NOT word-break:break-all: it breaks a word
+         only when that word would otherwise overflow, so ordinary prose in these
+         same banners keeps normal word wrapping. That is the targeted behaviour
+         docs/rules/responsive-layout-and-validation.md section 4 requires, and
+         not the indiscriminate breaking it forbids. */
+      .au-alert { display: flex; gap: 9px; align-items: flex-start; margin: 0; padding: 10px 12px; background: var(--au-danger-soft); border: 1px solid color-mix(in oklab, var(--au-danger) 34%, transparent); border-radius: 10px; font-size: 12.5px; line-height: 1.45; color: var(--au-text); min-width: 0; overflow-wrap: anywhere; }
+      .au-status { margin: 0; padding: 12px 14px; background: color-mix(in oklab, var(--au-success) 12%, transparent); border: 1px solid color-mix(in oklab, var(--au-success) 32%, transparent); border-radius: 10px; font-size: 13px; line-height: 1.5; color: var(--au-text-2); overflow-wrap: anywhere; }
+      .au-note { margin: 0; padding: 10px 12px; background: var(--au-panel); border: 1px solid var(--au-border); border-radius: 10px; font-size: 12px; line-height: 1.45; color: var(--au-muted); overflow-wrap: anywhere; }
 
       /* ---------- swap / back / badge ---------- */
       .au-swap { text-align: center; font-size: 13px; color: var(--au-muted); margin: 22px 0 0; }
@@ -124,8 +136,11 @@ export function AuthSurfaceStyles() {
 
       .au-back { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 26px; padding: 6px 12px 6px 8px; background: var(--au-panel); border: 1px solid var(--au-border); border-radius: 999px; font-size: 12.5px; color: var(--au-muted); transition: border-color .15s ease, color .15s ease; }
       .au-back:hover { color: var(--au-text); border-color: var(--au-border-strong); }
-      .au-badge { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; background: var(--au-accent-soft); border: 1px solid color-mix(in oklab, var(--au-accent) 30%, var(--au-border)); color: var(--au-accent); }
-      .au-em { color: var(--au-text); font-weight: 600; }
+      .au-badge { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; background: var(--au-accent-soft); border: 1px solid color-mix(in oklab, var(--au-accent) 30%, var(--au-border)); color: var(--au-accent); flex: none; }
+      /* The slot that renders the user's own address back to them ("we sent a code
+         to …"). It is the one piece of prose on this surface guaranteed to contain
+         a user-supplied unbroken token, so it breaks targetedly. */
+      .au-em { color: var(--au-text); font-weight: 600; overflow-wrap: anywhere; }
 
       .au-foot { padding: 22px 24px; font-size: 11.5px; color: var(--au-muted-2); text-align: center; line-height: 1.5; }
       @media (min-width: 560px) { .au-foot { padding: 22px 40px; } }

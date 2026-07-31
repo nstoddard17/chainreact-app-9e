@@ -31,7 +31,17 @@ export function AuthShell({
   showcase?: "sign-in" | "sign-up";
 }) {
   return (
-    <div className="au-root" data-auth-surface>
+    <div
+      className="au-root"
+      data-auth-surface
+      /*
+       * RESPONSIVE-AUTH-8 — an auth page must never require sideways panning at
+       * any supported width; there is no irreducibly-wide technical content here
+       * to justify it. Declared at the top of the supported range rather than at
+       * a breakpoint, per docs/rules/responsive-layout-and-validation.md §C.
+       */
+      data-no-pan-below="1600"
+    >
       <main className="au-form-col">
         <header className="au-head">
           <Link href="/" className="au-brand" aria-label="ChainReact home">
@@ -47,7 +57,23 @@ export function AuthShell({
         </header>
 
         <div className="au-body">
-          <div className="au-inner">{children}</div>
+          {/*
+            RESPONSIVE-AUTH-8 — the form well is an ALLOCATED region (width:100%
+            of the body, capped at 380px), so a legibility floor belongs here.
+            280px is derived from the widest thing the well must hold on a phone:
+            the six-cell verification code grid needs ~40px cells to stay a usable
+            touch target, i.e. 6×40 + 5×8 of gap = 280px.
+
+            This declaration is what makes a COMPRESSION failure detectable at
+            all. Measured: with the ≤900px single-column collapse removed, the
+            split persisted onto a 360px phone and this well fell to 128px — code
+            cells 15px wide — while document width stayed at ZERO overflow. A
+            containment-only sweep passes that silently. See §B of the responsive
+            rule; this is the Team-roster lesson applied to auth.
+          */}
+          <div className="au-inner" data-legible-min="280" data-legible-what="auth form well">
+            {children}
+          </div>
         </div>
 
         <footer className="au-foot">

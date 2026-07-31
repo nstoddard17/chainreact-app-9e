@@ -44,7 +44,22 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string } = {}) {
 
   return (
     <div className="au-social">
-      <button type="button" onClick={handleClick} disabled={pending} className="au-sso">
+      {/*
+        RESPONSIVE-AUTH-8 — `.au-sso` is `width:100%`, so its width is an
+        ALLOCATION rather than its intrinsic content size, which is what makes a
+        legibility floor valid here (the responsive rule forbids floors on
+        intrinsic-width buttons). 240px keeps the provider icon plus the full
+        "Continue with Google" label on one line — a truncated OAuth label is an
+        unusable sign-in control, not a cosmetic issue.
+      */}
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={pending}
+        className="au-sso"
+        data-legible-min="240"
+        data-legible-what="OAuth provider control"
+      >
         <GoogleG size={16} />
         {pending ? "Redirecting…" : "Continue with Google"}
       </button>

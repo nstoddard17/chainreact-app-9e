@@ -94,7 +94,18 @@ export function AuthCodeInput({
         {label}
       </label>
 
-      <div className="au-code" data-disabled={disabled ? "true" : undefined}>
+      {/*
+        RESPONSIVE-AUTH-8 — the code grid is allocated (six `1fr` tracks across
+        the full field width), so it carries its own floor. 252px = six 36px
+        cells plus five 8px gaps: below that the cells stop being reliable touch
+        targets even though nothing has overflowed anything.
+      */}
+      <div
+        className="au-code"
+        data-disabled={disabled ? "true" : undefined}
+        data-legible-min="252"
+        data-legible-what="verification code entry"
+      >
         {cells.map((digit, i) => (
           <div
             key={i}
