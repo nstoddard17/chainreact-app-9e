@@ -38,8 +38,7 @@ import {
 } from "@/core/integrations/connectionlessProviders";
 import { findAiActionByKey, useAiActions } from "../hooks/useAiActions";
 import { collectJsonFieldBlockingError } from "./fields/_jsonFieldValue";
-import { NodeConfigReadinessBanner } from "./NodeConfigReadinessBanner";
-import { NodeConfigOverview } from "./NodeConfigOverview";
+import { ConfigSetupTabBody } from "./ConfigSetupTabBody";
 import { computeConfigReadiness } from "./readiness/computeConfigReadiness";
 import { connectionInputForProvider } from "./readiness/connectionInput";
 import { useConnectionReadiness } from "../hooks/useConnectionReadiness";
@@ -490,79 +489,25 @@ export function ConfigModalShell() {
           />
         </section>
       ) : (
-      <section aria-label="Setup fields" className="flex flex-col gap-3">
-        {readiness ? <NodeConfigReadinessBanner readiness={readiness} /> : null}
-        {/* CONFIG-UX-NODE-SUMMARY-1 — what this step will do on every run,
-            in plain language with recognizable resource names. Read-only;
-            renders nothing until something is configured. */}
-        {activeMeta ? (
-          <NodeConfigOverview
-            displayName={activeMeta.displayName}
-            fields={activeMeta.fields}
-            values={values as Readonly<Record<string, unknown>>}
-          />
-        ) : null}
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="node-name-input"
-            className="text-xs font-medium text-muted-foreground"
-          >
-            Node name
-          </label>
-          {/*
-            Uncontrolled + keyed by node id: the browser owns the live value
-            (so multi-word names with spaces type smoothly), while each keystroke
-            writes through `renameNode`, which trims for storage and clears to
-            the metadata default when blank. Remounts when the active node
-            changes. This is a USER-only label — never identity.
-          */}
-          <input
-            key={activeNodeId}
-            id="node-name-input"
-            data-testid="node-name-input"
-            type="text"
-            maxLength={120}
-            defaultValue={activeNode.displayName ?? ""}
-            placeholder={getNodeDisplayName(
-              {
-                kind: activeNode.kind,
-                provider: activeNode.provider,
-                type: activeNode.type,
-              },
-              activeMeta ? { displayName: activeMeta.displayName } : null,
-            )}
-            onChange={(e) => renameNode(activeNodeId, e.target.value)}
-            className="rounded border border-input bg-background px-2 py-1 text-sm"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            A friendly name shown on the canvas. Leave blank to use the default.
-          </p>
-        </div>
-        {isLoadingMeta ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : metaError ? (
-          <p role="alert" className="text-xs text-destructive">
-            {metaError}
-          </p>
-        ) : !activeMeta ? (
-          <p role="alert" className="text-xs text-destructive">
-            No metadata for {missingMetaLabel}{" "}
-            <code>
-              {activeNode.provider}:{activeNode.type}
-            </code>
-            . The node may have been added before its metadata shipped.
-          </p>
-        ) : (
-          <SchemaForm
-            fields={activeMeta.fields}
-            values={values}
-            errors={errors}
-            onChange={(name, value) => updateField({ name, value })}
-            section="setup"
-            {...(highlightFieldName ? { highlightFieldName } : {})}
-          />
-        )}
-      </section>
+        <ConfigSetupTabBody
+          readiness={readiness}
+          metaKey={activeMeta?.key}
+          displayName={activeMeta?.displayName}
+          fields={activeMeta?.fields}
+          values={values as Readonly<Record<string, unknown>>}
+          errors={errors}
+          onChangeField={(name, value) => updateField({ name, value })}
+          nodeId={activeNodeId}
+          nodeKind={activeNode.kind}
+          nodeProvider={activeNode.provider}
+          nodeType={activeNode.type}
+          nodeDisplayName={activeNode.displayName}
+          onRename={renameNode}
+          isLoadingMeta={isLoadingMeta}
+          metaError={metaError}
+          missingMetaLabel={missingMetaLabel}
+          {...(highlightFieldName ? { highlightFieldName } : {})}
+        />
       )}
 
       {pendingClose ? (
