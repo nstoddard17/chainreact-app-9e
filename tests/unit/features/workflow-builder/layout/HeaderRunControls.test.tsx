@@ -30,6 +30,22 @@
  *     (the Slice 3.2 boundary).
  */
 
+// LIVE-TEST-HEADER-UX-1 — the automated panel's primary action is Run Live Test. In THIS suite
+// prepare always answers with the typed unsupported refusal, which doubles as the coverage for
+// "an unsupported automated trigger explains itself instead of silently doing nothing". The
+// happy-path disclosure journey lives in live-test/liveTestJourney.test.tsx.
+const mockPrepareLiveTest = jest.fn();
+jest.mock("@/lib/api/liveTest", () => {
+  const actual = jest.requireActual("@/lib/api/liveTest");
+  return {
+    ...actual,
+    prepareLiveTest: (...args: unknown[]) => mockPrepareLiveTest(...args),
+    getLiveTestStatus: jest.fn(),
+    startLiveTest: jest.fn(),
+    cancelLiveTest: jest.fn(),
+  };
+});
+
 const mockRunNowWorkflow = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
   const actual = jest.requireActual("@/lib/api/workflows");
@@ -78,6 +94,14 @@ function bootWithProviderTrigger(): void {
 
 beforeEach(() => {
   mockRunNowWorkflow.mockReset();
+  const { LiveTestApiError } = jest.requireActual("@/lib/api/liveTest");
+  mockPrepareLiveTest.mockReset().mockRejectedValue(
+    new LiveTestApiError({
+      message: "Live trigger capture is not yet supported for this trigger.",
+      code: "trigger_capture_unsupported",
+      status: 422,
+    }),
+  );
   useGraphSlice.getState().reset();
 });
 
@@ -659,41 +683,65 @@ describe("HeaderRunControls (migrated from RunNowPanel) — automated workflows 
     ).not.toBeInTheDocument();
   });
 
-  // WORKFLOW-LIVE-TEST-2 §2/§4 — the automated Test button is no longer an inert disabled
-  // control whose only explanation is a tooltip. It is ENABLED and explains itself on click.
-  // The invariant that survives: it still never dispatches a run (the run-now route only
-  // accepts manual triggers), so no request that cannot succeed is ever fired.
-  it("renders an ENABLED Test Workflow button on scheduled workflows", () => {
+  // LIVE-TEST-HEADER-UX-1 — ONE trigger-aware primary testing action. The automated panel
+  // offers Run Live Test alone; Safe Test never competes as a second button, and its
+  // unavailability is explained at a readable size inside the attached testing-options
+  // popover — never as tiny inline text beneath the header row.
+  it("renders Run Live Test as the ONLY primary testing action on scheduled workflows", () => {
     bootWithScheduledTrigger();
     render(<HeaderRunControls />);
-    const button = screen.getByTestId("run-controls-test-button");
-    expect(button).toBeInTheDocument();
-    expect(button).toBeEnabled();
-    expect(button).toHaveTextContent(/test workflow/i);
+    const liveTest = screen.getByTestId("run-controls-live-test-button");
+    expect(liveTest).toBeEnabled();
+    expect(liveTest).toHaveTextContent(/run live test/i);
+    expect(screen.queryByTestId("run-controls-test-button")).not.toBeInTheDocument();
   });
 
-  it("renders an ENABLED Test Workflow button on provider event workflows", () => {
+  it("renders Run Live Test as the ONLY primary testing action on provider event workflows", () => {
     bootWithProviderTrigger();
     render(<HeaderRunControls />);
-    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
+    expect(screen.getByTestId("run-controls-live-test-button")).toBeEnabled();
+    expect(screen.queryByTestId("run-controls-test-button")).not.toBeInTheDocument();
   });
 
-  it("explains why a safe dry run cannot fabricate a provider event, and points at the live path", async () => {
+  it("never renders the old tiny inline Safe Test explanation", () => {
+    bootWithScheduledTrigger();
+    render(<HeaderRunControls />);
+    expect(screen.queryByTestId("run-controls-safe-test-notice")).not.toBeInTheDocument();
+  });
+
+  it("explains Safe Test's unavailability in the testing-options popover, at a readable size", async () => {
     bootWithScheduledTrigger();
     const user = userEvent.setup();
     render(<HeaderRunControls />);
-    await user.click(screen.getByTestId("run-controls-test-button"));
-    const notice = await screen.findByTestId("run-controls-safe-test-notice");
-    expect(notice).toHaveTextContent(/can.t invent a provider event/i);
-    expect(notice).toHaveTextContent(/run live test/i);
+    const trigger = screen.getByTestId("run-controls-testing-options-trigger");
+    expect(trigger).toHaveAttribute("aria-haspopup", "true");
+    await user.click(trigger);
+    const options = screen.getByTestId("run-controls-testing-options");
+    expect(options).toHaveTextContent(/safe test unavailable/i);
+    expect(options).toHaveTextContent(/can.t generate a real provider event/i);
+    expect(options).toHaveTextContent(/run live test/i);
+    // Toggling again closes it.
+    await user.click(trigger);
+    expect(screen.queryByTestId("run-controls-testing-options")).not.toBeInTheDocument();
   });
 
-  it("never calls runNowWorkflow from the automated panel, even though the button is clickable", async () => {
+  it("an unsupported automated trigger explains itself instead of silently doing nothing", async () => {
+    // prepare (mocked suite-wide) answers trigger_capture_unsupported — the click opens the
+    // live-test dialog with the typed, readable refusal rather than an inert control.
     bootWithScheduledTrigger();
     const user = userEvent.setup();
     render(<HeaderRunControls />);
-    await user.click(screen.getByTestId("run-controls-test-button"));
-    await user.click(screen.getByTestId("run-controls-test-button"));
+    await user.click(screen.getByTestId("run-controls-live-test-button"));
+    const error = await screen.findByTestId("live-test-error");
+    expect(error).toHaveTextContent(/not yet supported for this trigger/i);
+  });
+
+  it("never calls runNowWorkflow from the automated panel", async () => {
+    bootWithScheduledTrigger();
+    const user = userEvent.setup();
+    render(<HeaderRunControls />);
+    await user.click(screen.getByTestId("run-controls-live-test-button"));
+    await user.click(screen.getByTestId("run-controls-testing-options-trigger"));
     expect(mockRunNowWorkflow).not.toHaveBeenCalled();
   });
 
@@ -823,12 +871,11 @@ describe("HeaderRunControls — WF-RUNPERM private-credential run/edit gating", 
     ).toBeNull();
   });
 
-  it("automated private-credential workflow: keeps Test disabled and shows the safe copy", () => {
-    // The automated Test button is already disabled ("in development"); for a
-    // non-creator we swap in the private-credential copy so the reason is clear.
+  it("automated private-credential workflow: keeps Run Live Test disabled and shows the safe copy", () => {
     bootWithScheduledTrigger();
     render(<HeaderRunControls runEditBlocked />);
-    expect(screen.getByTestId("run-controls-test-button")).toBeDisabled();
+    expect(screen.getByTestId("run-controls-live-test-button")).toBeDisabled();
+    expect(screen.getByTestId("run-controls-testing-options-trigger")).toBeDisabled();
     expect(
       screen.getByTestId("run-controls-private-credential-status"),
     ).toHaveTextContent(SAFE_COPY);
@@ -870,10 +917,12 @@ describe("HeaderRunControls — WORKFLOW-LIVE-TEST-2 §2 testing pre-flight", ()
     const user = userEvent.setup();
     render(<HeaderRunControls preflight={BLOCKED} onOpenValidation={onOpenValidation} />);
 
-    await user.click(screen.getByTestId("run-controls-test-button"));
+    await user.click(screen.getByTestId("run-controls-live-test-button"));
 
     expect(onOpenValidation).toHaveBeenCalledTimes(1);
     expect(mockRunNowWorkflow).not.toHaveBeenCalled();
+    // No session was even prepared — validation comes first.
+    expect(mockPrepareLiveTest).not.toHaveBeenCalled();
   });
 
   it("states the actionable summary in the surface, not only in a tooltip", () => {

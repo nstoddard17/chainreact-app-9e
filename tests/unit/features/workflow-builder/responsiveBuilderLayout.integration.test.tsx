@@ -330,13 +330,19 @@ describe("narrow (390px phone) — one secondary surface at a time", () => {
     expect(pill).toHaveAttribute("data-error-count");
   });
 
-  it("keeps Test Workflow reachable through the overflow control", async () => {
+  it("keeps the whole testing control (primary + options) reachable through the overflow control", async () => {
+    // LIVE-TEST-HEADER-UX-1 — the automated panel's single split control moves into the
+    // overflow intact: the primary Run Live Test action AND its testing-options popover
+    // trigger, so narrow widths lose no capability.
     const user = userEvent.setup();
     mount(390);
-    expect(screen.queryByTestId("run-controls-test-button")).toBeNull();
+    expect(screen.queryByTestId("run-controls-live-test-button")).toBeNull();
     await user.click(screen.getByTestId("builder-header-overflow-trigger"));
     const panel = screen.getByTestId("builder-header-overflow-panel");
-    expect(panel).toContainElement(screen.getByTestId("run-controls-test-button"));
+    expect(panel).toContainElement(screen.getByTestId("run-controls-live-test-button"));
+    expect(panel).toContainElement(
+      screen.getByTestId("run-controls-testing-options-trigger"),
+    );
   });
 
   it("keeps Run Live Test reachable AND enabled through the overflow control (WORKFLOW-LIVE-TEST-MERGE-1)", async () => {

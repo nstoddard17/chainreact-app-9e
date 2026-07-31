@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRunControls } from "../hooks/useRunControls";
 import { useLiveTestSession } from "../live-test/useLiveTestSession";
@@ -78,12 +78,13 @@ export interface HeaderRunControlsProps {
  * the server 403 message).
  */
 /**
- * WORKFLOW-LIVE-TEST-2 §4 — what Safe Test means for an app-triggered workflow. A safe dry run
- * needs trigger data it cannot invent for a provider event, so Safe Test explains that and points
- * at the live path rather than silently doing nothing.
+ * LIVE-TEST-HEADER-UX-1 — why Safe Test is not offered as a primary action for an app-triggered
+ * workflow (WORKFLOW-LIVE-TEST-2 §4's rationale, moved out of tiny inline text): a safe dry run
+ * needs trigger data it cannot invent for a provider event. This copy lives in the testing-options
+ * popover attached to Run Live Test, at a normal readable size.
  */
-export const AUTOMATED_SAFE_TEST_COPY =
-  "Safe Test can't invent a provider event for this trigger. Use Run Live Test to capture a real one.";
+export const SAFE_TEST_UNAVAILABLE_COPY =
+  "Safe Test can't generate a real provider event for this trigger. Use Run Live Test to capture a real message instead.";
 
 export const PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY =
   "This workflow runs with the creator’s private connection. Duplicate it to use your own connection.";
@@ -116,13 +117,27 @@ export function HeaderRunControls({
   const preflightBlocked = preflight !== undefined && preflight.ok === false;
   const preflightSummary = preflight && preflight.ok === false ? preflight.summary : null;
 
-  // WORKFLOW-LIVE-TEST-2 §4 — Safe Test is only DISPATCHABLE when the trigger contract can supply
-  // trigger data without touching a provider. Today that is the manual trigger. For an app trigger
-  // there is no legitimate safe sample, so Safe Test explains itself and points at the live path
-  // instead of dispatching to a route that would reject it — the button is never inert, and it
-  // never fires a request that cannot succeed.
-  const safeTestDispatchable = triggerKind === "manual";
-  const [safeTestNotice, setSafeTestNotice] = useState<string | null>(null);
+  // LIVE-TEST-HEADER-UX-1 — one trigger-aware primary testing action. Safe Test is only
+  // DISPATCHABLE for the manual trigger (WORKFLOW-LIVE-TEST-2 §4: an app trigger has no
+  // legitimate safe sample), so the automated surface offers Run Live Test as its single
+  // primary testing control and explains Safe Test's unavailability in the attached
+  // testing-options popover — never as a competing button or tiny inline text.
+  const [testingOptionsOpen, setTestingOptionsOpen] = useState(false);
+  const testingOptionsRef = useRef<HTMLElement | null>(null);
+
+  // Dismiss the testing-options popover on a pointer press outside it (same pattern as the
+  // header's overflow menu, so the two popovers feel like one system).
+  useEffect(() => {
+    if (!testingOptionsOpen) return;
+    function handler(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (testingOptionsRef.current?.contains(target)) return;
+      setTestingOptionsOpen(false);
+    }
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [testingOptionsOpen]);
 
   // WORKFLOW-LIVE-TEST-4 — the Run Live Test journey (automated triggers). The hook owns the
   // whole prepare → disclose → consent → listen → run lifecycle; this component only offers the
@@ -133,6 +148,7 @@ export function HeaderRunControls({
   });
 
   async function onRunLiveTestClick(): Promise<void> {
+    setTestingOptionsOpen(false);
     if (preflightBlocked) {
       onOpenValidation?.();
       return;
@@ -141,13 +157,8 @@ export function HeaderRunControls({
   }
 
   async function onTestClick(): Promise<void> {
-    setSafeTestNotice(null);
     if (preflightBlocked) {
       onOpenValidation?.();
-      return;
-    }
-    if (!safeTestDispatchable) {
-      setSafeTestNotice(AUTOMATED_SAFE_TEST_COPY);
       return;
     }
     await handleTestWorkflow();
@@ -159,76 +170,93 @@ export function HeaderRunControls({
 
   if (triggerKind === "automated") {
     return (
-      // BUILDER-HEADER-ACTION-BAR-POLISH — `relative` so the private-credential
-      // status line can hang BELOW the button (absolute) instead of growing the
-      // flex column and pushing the Test button off the header's shared baseline.
+      // LIVE-TEST-HEADER-UX-1 — the automated surface is ONE split control on the header
+      // baseline: Run Live Test (the only correct testing action for an app trigger) plus a
+      // small attached testing-options popover that explains, at a readable size, why Safe
+      // Test is not offered. No competing second button, no tiny helper sentence beneath the
+      // row. `relative` keeps the popover + private-credential status absolutely positioned
+      // so the header row never grows.
       <section
+        ref={testingOptionsRef}
         aria-label="Workflow testing"
         className="relative flex flex-col"
         data-testid="run-controls-panel-automated"
       >
-        <div className="flex items-center gap-2" data-testid="run-controls-actions">
+        <div className="flex items-center" data-testid="run-controls-actions">
+          {/* WORKFLOW-LIVE-TEST-4 — opens a disclosure of the workflow's real external
+              effects; nothing runs until the user explicitly starts listening inside the
+              modal. Validation-first: a blocked pre-flight opens the setup summary instead
+              (the adjacent header pill carries the issue count). */}
           <Button
             type="button"
             size="sm"
             variant="outline"
-            onClick={onTestClick}
-            disabled={anyRunning || runEditBlocked}
-            data-testid="run-controls-test-button"
-            className="h-8 text-[12px]"
-            title={
-              runEditBlocked
-                ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
-                : preflightSummary ?? AUTOMATED_SAFE_TEST_COPY
-            }
-          >
-            {runningMode === "test" ? "Testing…" : "Test Workflow"}
-          </Button>
-          {/* WORKFLOW-LIVE-TEST-4 — the real-event test path for automated triggers. Opens a
-              disclosure of the workflow's real external effects; nothing runs until the user
-              explicitly starts listening inside the modal. */}
-          <Button
-            type="button"
-            size="sm"
-            variant="default"
             onClick={onRunLiveTestClick}
             disabled={anyRunning || runEditBlocked || liveTest.busy}
             data-testid="run-controls-live-test-button"
-            className="h-8 text-[12px]"
+            className="h-8 rounded-r-none text-[12px]"
             title={
               runEditBlocked
                 ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
-                : preflightSummary ??
-                  "Captures one real trigger event and runs the workflow once for real. You review its external effects and explicitly start listening first."
+                : "Captures one real trigger event and runs the workflow once for real. You review its external effects and explicitly start listening first."
             }
           >
             Run Live Test
           </Button>
-        </div>
-        {/* WORKFLOW-LIVE-TEST-2 §2 — a blocked pre-flight is explained in the surface itself,
-            never only in a tooltip. Selecting it opens the issues rail, where each item jumps
-            into the step that needs setup. */}
-        {preflightSummary ? (
-          <button
+          <Button
             type="button"
-            onClick={onOpenValidation}
-            role="status"
-            data-testid="run-controls-preflight-blocked"
-            className="mt-1 text-left text-[11px] leading-tight underline-offset-2 hover:underline"
-            style={{ color: "var(--builder-muted)" }}
+            size="sm"
+            variant="outline"
+            onClick={() => setTestingOptionsOpen((open) => !open)}
+            disabled={runEditBlocked}
+            aria-label="Testing options"
+            aria-haspopup="true"
+            aria-expanded={testingOptionsOpen}
+            data-testid="run-controls-testing-options-trigger"
+            className="h-8 w-7 rounded-l-none border-l-0 px-0 text-[12px]"
+            title="Testing options"
           >
-            {preflightSummary}
-          </button>
-        ) : null}
-        {safeTestNotice ? (
-          <p
-            role="status"
-            data-testid="run-controls-safe-test-notice"
-            className="mt-1 max-w-[260px] text-[11px] leading-tight"
-            style={{ color: "var(--builder-muted)" }}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Button>
+        </div>
+        {testingOptionsOpen ? (
+          <div
+            role="group"
+            aria-label="Testing options"
+            data-testid="run-controls-testing-options"
+            className="absolute right-0 top-full z-30 mt-1 w-[280px] rounded-md p-3 shadow-xl"
+            style={{
+              background: "var(--builder-panel)",
+              border: "1px solid var(--builder-border)",
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setTestingOptionsOpen(false);
+            }}
           >
-            {safeTestNotice}
-          </p>
+            {/* The one secondary item: Safe Test, honestly disabled with a READABLE reason
+                (normal 12px text, regular contrast) instead of a competing button. */}
+            <p
+              className="text-[12px] font-medium"
+              style={{ color: "var(--builder-text)" }}
+              data-testid="run-controls-safe-test-unavailable"
+            >
+              Safe Test unavailable
+            </p>
+            <p
+              className="mt-1 text-[12px] leading-snug"
+              style={{ color: "var(--builder-text-2)" }}
+            >
+              {SAFE_TEST_UNAVAILABLE_COPY}
+            </p>
+          </div>
         ) : null}
         {runEditBlocked ? (
           <p

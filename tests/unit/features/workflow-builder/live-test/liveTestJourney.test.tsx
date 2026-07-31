@@ -114,11 +114,15 @@ beforeEach(() => {
 });
 
 describe("Run Live Test — entry + consent boundary", () => {
-  it("the automated panel offers Run Live Test alongside the safe test", () => {
+  it("the automated panel offers Run Live Test as its single primary testing action (LIVE-TEST-HEADER-UX-1)", () => {
     render(<HeaderRunControls />);
     expect(screen.getByTestId("run-controls-panel-automated")).toBeInTheDocument();
     expect(screen.getByTestId("run-controls-live-test-button")).toBeEnabled();
-    expect(screen.getByTestId("run-controls-test-button")).toBeEnabled();
+    // No competing Safe Test button and no tiny inline explanation — Safe Test's
+    // unavailability lives in the attached testing-options popover.
+    expect(screen.queryByTestId("run-controls-test-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-controls-safe-test-notice")).not.toBeInTheDocument();
+    expect(screen.getByTestId("run-controls-testing-options-trigger")).toBeEnabled();
   });
 
   it("clicking Run Live Test prepares and shows the disclosure — it does NOT start listening", async () => {

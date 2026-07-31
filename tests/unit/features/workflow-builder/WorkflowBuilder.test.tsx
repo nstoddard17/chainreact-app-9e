@@ -1002,8 +1002,9 @@ describe("WorkflowBuilder", () => {
     expect(
       screen.getAllByTestId("run-controls-panel-automated"),
     ).toHaveLength(1);
+    // LIVE-TEST-HEADER-UX-1 — the automated panel's single primary testing action.
     expect(
-      screen.getAllByTestId("run-controls-test-button"),
+      screen.getAllByTestId("run-controls-live-test-button"),
     ).toHaveLength(1);
     // Manual panel + Run Manually button are NOT rendered for an
     // automated workflow.
