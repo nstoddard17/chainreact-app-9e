@@ -548,6 +548,193 @@ describe("pasting a link instead of searching", () => {
   });
 });
 
+describe("when the provider will not answer", () => {
+  const configured: WorkflowNode = {
+    id: "n-configured",
+    kind: "action",
+    provider: "google-sheets",
+    type: "append_row",
+    config: {
+      spreadsheetId: SPREADSHEET_ID,
+      sheetName: TAB,
+      range: "'Email log'!A:C",
+      values: ["kept-value", "", "also-kept"],
+      valueInputOption: "USER_ENTERED",
+    },
+    position: { x: 0, y: 0 },
+  } as WorkflowNode;
+
+  it.each([
+    ["a revoked connection", "INTEGRATION_DISCONNECTED", /reconnect/i],
+    ["rate limiting", "PROVIDER_ERROR", /couldn.t read|try again/i],
+    ["a provider outage", "PROVIDER_ERROR", /couldn.t read|try again/i],
+  ])(
+    "explains %s instead of showing an empty column list",
+    async (_label, code, expectedCopy) => {
+      mockFetchOptionsSource.mockImplementation(
+        async (source: string, args?: { deps?: Record<string, string> }) => {
+          if (source === "google-sheets:columns") {
+            return {
+              ok: false as const,
+              source,
+              code,
+              message:
+                code === "INTEGRATION_DISCONNECTED"
+                  ? "Reconnect Google Sheets and try again."
+                  : "Couldn't read the sheet's columns. Try again.",
+            };
+          }
+          return optionsFor(source, args?.deps);
+        },
+      );
+
+      render(
+        <WorkflowBuilder
+          workflow={workflowWith([configured])}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      await openLastNodeOfKind("action");
+
+      const problem = await screen.findByTestId(
+        "spreadsheet-rows-values-columns-error",
+      );
+      expect(problem.textContent ?? "").toMatch(expectedCopy);
+      // An empty list would read as "this sheet has no columns" — a lie.
+      expect(
+        screen.queryByTestId("spreadsheet-rows-values-no-columns"),
+      ).toBeNull();
+    },
+  );
+
+  it("does not erase the mappings the user already saved", async () => {
+    // The single most important failure-path guarantee: a provider hiccup
+    // must never cost someone their configuration.
+    mockFetchOptionsSource.mockImplementation(
+      async (source: string, args?: { deps?: Record<string, string> }) => {
+        if (source === "google-sheets:columns") {
+          return {
+            ok: false as const,
+            source,
+            code: "PROVIDER_ERROR",
+            message: "Couldn't read the sheet's columns. Try again.",
+          };
+        }
+        return optionsFor(source, args?.deps);
+      },
+    );
+
+    render(
+      <WorkflowBuilder
+        workflow={workflowWith([configured])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await openLastNodeOfKind("action");
+    await screen.findByTestId("spreadsheet-rows-values-columns-error");
+
+    const node = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === "n-configured")!;
+    expect(node.config.values).toEqual(["kept-value", "", "also-kept"]);
+    expect(node.config.sheetName).toBe(TAB);
+  });
+
+  it("says honestly when a sheet genuinely has no header row", async () => {
+    mockFetchOptionsSource.mockImplementation(
+      async (source: string, args?: { deps?: Record<string, string> }) => {
+        if (source === "google-sheets:columns") {
+          return { ok: true as const, source, items: [], hasMore: false };
+        }
+        return optionsFor(source, args?.deps);
+      },
+    );
+
+    render(
+      <WorkflowBuilder
+        workflow={workflowWith([configured])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    await openLastNodeOfKind("action");
+
+    const notice = await screen.findByTestId(
+      "spreadsheet-rows-values-no-columns",
+    );
+    expect(notice).toHaveTextContent(/couldn.t detect any column names/i);
+    // …and the user is not blocked: manual entry remains.
+    expect(
+      screen.getByTestId("spreadsheet-single-row-values"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("name-matched suggestions", () => {
+  it("proposes a mapping, shows where it came from, and writes nothing until accepted", async () => {
+    const user = userEvent.setup();
+    const gmailTrigger: TriggerMeta = {
+      key: "native:manual.run",
+      provider: "native",
+      type: "manual.run",
+      displayName: "Manual",
+      description: "Fired manually.",
+      category: "logic",
+      activation: "manual",
+      requiresIntegration: false,
+      fields: [],
+      // An output whose name matches a destination column exactly.
+      payloadShape: [{ name: "Subject", type: "string" }],
+      displayOrder: 10,
+    };
+    mockListNativeTriggers.mockResolvedValue([gmailTrigger]);
+
+    render(
+      <WorkflowBuilder
+        workflow={emptyWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
+    const action = await addAppendRowAndOpen(user);
+
+    await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /^tab$/i })).toBeInTheDocument(),
+    );
+    await pickComboboxOption(user, /^tab$/i, TAB);
+
+    // Move to the mapping step — the accordion opens on the destination.
+    await user.click(screen.getByTestId("guided-next-mapping"));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("textbox", { name: /^subject$/i }),
+      ).toBeInTheDocument(),
+    );
+
+    const panel = await screen.findByTestId("spreadsheet-suggestions-values");
+    // The proposal names the step and the output BEFORE it is used.
+    expect(panel).toHaveTextContent(/Subject/);
+    expect(panel).toHaveTextContent(/nothing is filled in until you choose/i);
+    // Nothing has been written.
+    expect(
+      useConfigSlice.getState().drafts[action.id]?.values.values,
+    ).toBeUndefined();
+
+    await user.click(
+      screen.getByTestId("spreadsheet-suggestion-accept-values-2"),
+    );
+    await waitFor(() => {
+      const committed = useConfigSlice.getState().drafts[action.id]!.values
+        .values as unknown[];
+      // Accepted suggestions become ordinary variable tokens.
+      expect(committed[2]).toMatch(/^\{\{.+\}\}$/);
+    });
+  });
+});
+
 describe("actions without a guided adapter are unaffected", () => {
   it("Read Rows still renders the ordinary form", async () => {
     const user = userEvent.setup();

@@ -52,9 +52,43 @@ const excelAddRowAdapter: ReadinessAdapter = ({ values }) => [
   },
 ];
 
+/**
+ * Google Sheets `append_row` (SHEETS-GUIDED-CONFIG-1) — mirrors the
+ * three guided questions so the banner and the accordion never disagree
+ * about what is outstanding.
+ *
+ * The distinction that matters most here: a destination COLUMN left
+ * deliberately blank is a finished state, not missing configuration.
+ * Only "no values at all" is outstanding, because that is the one case
+ * the runtime schema rejects. Blocking on individually empty columns
+ * would force people to invent data to satisfy the UI.
+ *
+ * `valueInputOption` earns its own line because it is a Q11 field with
+ * no default: nothing answers it on the user's behalf, so the banner
+ * must name it rather than leaving the user hunting for what is
+ * incomplete.
+ */
+const googleSheetsAppendRowAdapter: ReadinessAdapter = ({ values }) => [
+  {
+    label: "Choose a spreadsheet and tab",
+    done:
+      isFilledString(values["spreadsheetId"]) &&
+      isFilledString(values["sheetName"]),
+  },
+  {
+    label: "Fill in at least one column",
+    done: isNonEmptyArray(values["values"]),
+  },
+  {
+    label: "Say how the values should be written",
+    done: isFilledString(values["valueInputOption"]),
+  },
+];
+
 const READINESS_ADAPTERS: Readonly<Record<string, ReadinessAdapter>> =
   Object.freeze({
     "microsoft-excel:add_row": excelAddRowAdapter,
+    "google-sheets:append_row": googleSheetsAppendRowAdapter,
   });
 
 export function getReadinessAdapter(

@@ -16,6 +16,13 @@ import { SpreadsheetRowModeToggle, type SpreadsheetRowMode } from "./Spreadsheet
 import { SpreadsheetSingleRowEditor } from "./SpreadsheetSingleRowEditor";
 import { SpreadsheetBatchRowsEditor } from "./SpreadsheetBatchRowsEditor";
 import { SpreadsheetPreview } from "./SpreadsheetPreview";
+import { SpreadsheetSuggestions } from "./SpreadsheetSuggestions";
+import { SpreadsheetHonestPreview } from "./SpreadsheetHonestPreview";
+import { buildRowPreview } from "../../guided/rowPreviewModel";
+import {
+  suggestMappings,
+  type MappingSuggestion,
+} from "../../guided/mappingSuggestions";
 import {
   batchRowsToGrid,
   cellsToPositionalValues,
@@ -165,6 +172,42 @@ function SpreadsheetRowsBody({
     commitCells(next);
   }
 
+  // ── Name-matched suggestions (SHEETS-GUIDED-CONFIG-1, D3) ─────────────────
+  // Candidates only. Nothing is written until the user accepts one, and a
+  // column that already holds a value is never proposed for.
+  const suggestions = React.useMemo(
+    () =>
+      columnNames.length > 0
+        ? suggestMappings({ columns: columnNames, cells, sources })
+        : [],
+    [columnNames, cells, sources],
+  );
+
+  function acceptSuggestion(suggestion: MappingSuggestion): void {
+    const next = [...cells];
+    next[suggestion.columnIndex] = suggestion.token;
+    commitCells(next);
+  }
+  function acceptAllSuggestions(): void {
+    const next = [...cells];
+    for (const suggestion of suggestions) {
+      next[suggestion.columnIndex] = suggestion.token;
+    }
+    commitCells(next);
+  }
+
+  // ── Honest row preview (D6) — resolves ONLY from captured run data ────────
+  const rowPreview = React.useMemo(
+    () =>
+      buildRowPreview({
+        columns: columnNames,
+        cells,
+        sources,
+        latestValuesBySource,
+      }),
+    [columnNames, cells, sources, latestValuesBySource],
+  );
+
   // ── Several-rows mode (local grid; committed value mirrors it) ─────────────
   // Local state so an added-but-still-blank row stays visible (blank rows
   // are omitted from the committed shape). Hydrated once per destination
@@ -311,6 +354,16 @@ function SpreadsheetRowsBody({
         </div>
       ) : null}
 
+      {columnsLoading || mode !== "one" ? null : (
+        <SpreadsheetSuggestions
+          fieldName={field.name}
+          suggestions={suggestions}
+          onAccept={acceptSuggestion}
+          onAcceptAll={acceptAllSuggestions}
+          disabled={disabled}
+        />
+      )}
+
       {columnsLoading ? null : mode === "one" ? (
         <SpreadsheetSingleRowEditor
           fieldName={field.name}
@@ -349,11 +402,9 @@ function SpreadsheetRowsBody({
       )}
 
       {columnsLoading ? null : mode === "one" ? (
-        <SpreadsheetPreview
+        <SpreadsheetHonestPreview
           fieldName={field.name}
-          columns={columns}
-          rows={[cells]}
-          mode="one"
+          preview={rowPreview}
         />
       ) : columnsDetected ? (
         <SpreadsheetPreview

@@ -105,6 +105,48 @@ describe("guided spreadsheet components stay presentational", () => {
   });
 });
 
+describe("the guided panel is one responsive DOM", () => {
+  /**
+   * The guided panel lives inside the builder's node-configuration surface,
+   * which `builderLayoutPolicy` already presents as a panel at `wide` and an
+   * overlay sheet below it. The panel's INTERNALS therefore have no business
+   * making their own breakpoint decisions — and critically, must never hide a
+   * control at a width, because then one of the three steps (or the Advanced
+   * escape hatch) would be unreachable on a phone with nothing in its place.
+   *
+   * That is the marketing-nav defect the responsive rule was written around,
+   * and geometry cannot see it. Here it is prevented structurally: the same
+   * element tree renders at every width, so "all three steps are reachable at
+   * 360px" is true by construction rather than by measurement.
+   */
+  const BREAKPOINT_CLASS = /\b(sm|md|lg|xl|2xl):(hidden|block|flex|grid|inline)/;
+
+  it.each(guidedFiles())(
+    "%s hides nothing at a breakpoint",
+    (file) => {
+      expect(readGuided(file)).not.toMatch(BREAKPOINT_CLASS);
+    },
+  );
+
+  it.each(guidedFiles())("%s asks the browser nothing about width", (file) => {
+    const source = readGuided(file);
+    // Width lives in one place for the whole builder.
+    expect(source).not.toMatch(/window\.innerWidth|matchMedia|addEventListener\(\s*["'`]resize/);
+  });
+
+  it.each(guidedFiles())(
+    "%s lets long values shrink instead of pushing the panel wider",
+    (file) => {
+      const source = readGuided(file);
+      // Any element that renders a user-supplied value (a sheet name, a
+      // pasted link, a resolved preview cell) must be allowed to shrink;
+      // `min-width:auto` is what turns a long value into panel overflow.
+      if (!/truncate|font-mono/.test(source)) return;
+      expect(source).toMatch(/min-w-0/);
+    },
+  );
+});
+
 describe("the guided branch is a delegation, not a fork of the config panel", () => {
   it("the Setup body chooses guided-vs-generic in exactly one place", () => {
     const source = stripComments(readFileSync(SHELL_BODY, "utf8"));

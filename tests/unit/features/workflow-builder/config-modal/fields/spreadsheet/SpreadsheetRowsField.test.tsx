@@ -136,7 +136,10 @@ describe("SpreadsheetRowsField — one row (columns detected)", () => {
     expect(() => AddRowConfigSchema.parse(fullConfig())).not.toThrow();
   });
 
-  it("shows a preview of how the row will look", async () => {
+  it("previews the row and says the values are exactly what was typed", async () => {
+    // SHEETS-GUIDED-CONFIG-1 (D6): the preview must always state where its
+    // values came from. With no variables in the row there is nothing to
+    // resolve, so it must NOT imply test data was involved.
     const user = userEvent.setup();
     render(<Harness />);
     await waitFor(() =>
@@ -144,9 +147,11 @@ describe("SpreadsheetRowsField — one row (columns detected)", () => {
     );
     await user.type(screen.getByLabelText("Name"), "Ada");
     const preview = screen.getByTestId("spreadsheet-preview-values");
-    expect(preview.textContent).toContain("How your row will look");
+    expect(preview.textContent).toContain("The row we");
     expect(preview.textContent).toContain("Name");
     expect(preview.textContent).toContain("Ada");
+    expect(preview).toHaveAttribute("data-provenance", "literal-only");
+    expect(preview.textContent).not.toMatch(/last test/i);
   });
 
   it("variable insertion into a cell persists the {{...}} token in the saved config", async () => {

@@ -24,10 +24,9 @@
  *   - Q11 holds: `valueInputOption` has no default and the author must
  *     choose.
  *
- * Range DERIVATION (writing the range from the chosen tab) belongs to
- * the guided destination step and is covered by the guided suites; here
- * the range is set through Advanced, which also proves it stays
- * reachable and required.
+ * Range DERIVATION is asserted here too: picking the tab writes the
+ * range, and the Advanced field still accepts a deliberate override —
+ * which is what keeps the power case reachable.
  */
 
 const mockUpdateWorkflow = jest.fn();
@@ -316,7 +315,8 @@ it("a user picks a spreadsheet and a tab, fills the sheet's real columns by name
     TAB,
   );
 
-  // 5. The row editor now shows the sheet's REAL column names.
+  // 5. Move to the column-matching step; it shows the sheet's REAL columns.
+  await user.click(screen.getByTestId("guided-next-mapping"));
   for (const column of COLUMNS) {
     await waitFor(() => {
       expect(
@@ -346,20 +346,28 @@ it("a user picks a spreadsheet and a tab, fills the sheet's real columns by name
   });
 
   // 7. Explicit write behavior (Q11 — nothing was pre-chosen).
-  await selectFieldOption(
-    user,
-    /how should numbers, dates and formulas be treated\?/i,
-    "Like something you typed in",
+  await user.click(screen.getByTestId("guided-next-write"));
+  await user.click(
+    await screen.findByRole("radio", { name: /like something you typed in/i }),
   );
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.valueInputOption,
   ).toBe("USER_ENTERED");
 
-  // 8. The raw range remains reachable for the power case — in Advanced.
+  // 8. The cell range was DERIVED from the tab — the user never wrote it.
+  await waitFor(() => {
+    expect(useConfigSlice.getState().drafts[action.id]!.values.range).toBe(
+      "'Email log'!A:Z",
+    );
+  });
+
+  // …and the power case still works: Advanced holds the real field, and a
+  // value typed there is what gets saved.
   await user.click(screen.getByRole("tab", { name: /advanced/i }));
   const rangeInput = await screen.findByRole("textbox", {
     name: /^cell range$/i,
   });
+  await user.clear(rangeInput);
   await user.type(rangeInput, "'Email log'!A:C");
   await user.click(screen.getByRole("tab", { name: /setup/i }));
 
@@ -396,9 +404,9 @@ it("a user picks a spreadsheet and a tab, fills the sheet's real columns by name
     "Invoice 4471",
   ]);
   expect(persistedAction.config.sheetName).toBe(TAB);
-});
+}, 30000);
 
-it("cannot ask for columns before a tab is chosen, and changing the spreadsheet drops the stale tab", async () => {
+it("never asks the provider for columns before a tab is chosen", async () => {
   const user = userEvent.setup();
   render(
     <WorkflowBuilder
@@ -419,9 +427,6 @@ it("cannot ask for columns before a tab is chosen, and changing the spreadsheet 
     expect(screen.getByText("Append Row")).toBeInTheDocument(),
   );
   await user.click(screen.getByText("Append Row"));
-  const action = useGraphSlice
-    .getState()
-    .pendingNodes.find((n) => n.kind === "action")!;
 
   await openLastNodeOfKind("action");
   await waitFor(() => {
@@ -431,31 +436,66 @@ it("cannot ask for columns before a tab is chosen, and changing the spreadsheet 
   });
 
   // With no tab chosen, the editor says which choice is missing rather than
-  // rendering an empty column list that looks like "this sheet has none".
+  // rendering an empty column list that would read as "this sheet has none".
+  await user.click(screen.getByTestId("guided-next-mapping"));
   expect(
     screen.getByTestId("spreadsheet-rows-values-parent-missing"),
   ).toBeInTheDocument();
-  // …and no columns request was made with an incomplete dependency set.
+  // A request with an incomplete dependency set would 400 at the route and
+  // teach the user nothing, so it must never be made.
   expect(
     mockFetchOptionsSource.mock.calls.filter(
       ([source]) => source === "google-sheets:columns",
     ),
   ).toHaveLength(0);
+}, 30000);
 
-  await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
-  await pickComboboxOption(user, /^tab$/i, TAB);
+it("drops a stale tab when the spreadsheet changes", async () => {
+  // A tab name from the previous file may not exist in the new one; leaving
+  // it selected would address a tab that is not there.
+  const user = userEvent.setup();
+  const configured = {
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [
+        {
+          id: "n-sheets",
+          kind: "action",
+          provider: "google-sheets",
+          type: "append_row",
+          config: {
+            spreadsheetId: SPREADSHEET_ID,
+            sheetName: TAB,
+            range: "'Email log'!A:Z",
+            values: ["x"],
+            valueInputOption: "RAW",
+          },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    },
+  } as WorkflowDetail;
+
+  render(
+    <WorkflowBuilder
+      workflow={configured}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+    />,
+  );
+  await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("textbox", { name: /^timestamp$/i }),
+      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
 
-  // Changing the spreadsheet must not leave a tab from the previous file
-  // selected — it would address a tab that may not exist in the new one.
   await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+
   await waitFor(() => {
     expect(
-      useConfigSlice.getState().drafts[action.id]!.values.sheetName,
+      useConfigSlice.getState().drafts["n-sheets"]!.values.sheetName,
     ).toBeUndefined();
   });
-});
+}, 30000);
