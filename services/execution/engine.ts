@@ -117,7 +117,12 @@ export class WorkflowEngine {
     const startedAt = new Date().toISOString();
     // SEC-2: capture both provenance fields up-front so they thread into
     // every exit path uniformly. Defaults match the SQL column defaults.
-    const isTest = input.testMode === true;
+    //
+    // WORKFLOW-LIVE-TEST-3 §11 — `isTest` is the LABEL, `input.testMode` is the GATE, and they
+    // are only allowed to diverge in one direction: a live test (recordAsTest:true,
+    // testMode:false) runs real handlers while staying a test run for history. Everything with
+    // security or billing consequences below keys off `input.testMode`, never off this label.
+    const isTest = input.recordAsTest ?? input.testMode === true;
     const triggeredBy: RunTriggerSource = input.triggeredBy ?? "unknown";
     const log = (event: string, extra: Record<string, unknown> = {}) =>
       console.info(
@@ -158,7 +163,11 @@ export class WorkflowEngine {
     // revision (with the safe draft fallback for null / dangling pointers);
     // draft → the mutable draft. Resolution lives in
     // services/workflows/activeRevision.ts.
-    const mode = input.executionDefinitionMode ?? (isTest ? "draft" : "live");
+    // Mode derivation keys off the GATE (testMode), not the label: a safe test previews the
+    // draft; a real run executes the live revision. The live-test dispatcher passes an explicit
+    // "draft" (the consent was reviewed against the saved draft), so it never reaches this
+    // fallback with its divergent label.
+    const mode = input.executionDefinitionMode ?? (input.testMode === true ? "draft" : "live");
     const resolved = await getDefinitionForExecution(workflow, mode);
     const def = resolved.definition;
     const triggerNode = def.nodes.find((n) => n.id === input.triggerNodeId);
@@ -382,7 +391,10 @@ export class WorkflowEngine {
     // A structurally-invalid or unconfigured workflow fails the run with a
     // standardized friendly message instead of silently skipping orphans or
     // surfacing a raw handler Zod dump.
-    if (!isTest) {
+    // Gate-keyed, not label-keyed (WORKFLOW-LIVE-TEST-3 §11): a live test runs REAL handlers,
+    // so it gets the same readiness backstop a real run gets; only gated safe tests skip it
+    // (their handlers are blocked anyway).
+    if (input.testMode !== true) {
       const readinessError = checkWorkflowReadiness(def);
       if (readinessError) {
         log("execution.run.fatal", {
@@ -403,7 +415,9 @@ export class WorkflowEngine {
     // `gateOutcome` is only set in flat mode (the shadow block reads its
     // counters); `reservationActive` tracks whether a hold was placed so the
     // post-execution block reconciles it.
-    const reserveReconcileMode = !isTest && isReserveReconcileEnabled();
+    // Gate-keyed (§11): a live test bills like any real run, in whichever billing mode is
+    // active — its is_test LABEL never selects a different (or free) billing path.
+    const reserveReconcileMode = input.testMode !== true && isReserveReconcileEnabled();
     let gateOutcome: BillingGateOutcome | null = null;
     let reservationActive = false;
 
@@ -457,7 +471,10 @@ export class WorkflowEngine {
       // Flat path (Slice 1N) — unchanged. Test/dry-run runs return a skipped
       // outcome without touching the balance (COST-2A).
       gateOutcome = await executionBillingGate(workflow.accountId, {
-        testMode: isTest,
+        // GATING flag, not the label: a live test (isTest label true, testMode false) performs
+        // real provider work and bills exactly like a normal run — being recorded as a test run
+        // never grants a free execution (WORKFLOW-LIVE-TEST-3 §15).
+        testMode: input.testMode === true,
       });
       if (!gateOutcome.ok) {
         log("execution.run.fatal", {
@@ -797,7 +814,9 @@ export class WorkflowEngine {
     // UNCHANGED — the flat 1/run gate above already charged. Test/dry-run
     // runs record nothing (usage = null). Recording is fail-open: a ledger
     // failure must never break execution.
-    const usage: RunTaskUsage | null = isTest
+    // Gate-keyed (§11): a live test performed real billable work, so its actuals are recorded
+    // in the cost ledger like any real run. Only gated safe tests (no real work) record null.
+    const usage: RunTaskUsage | null = input.testMode === true
       ? null
       : computeRunTaskUsage(def, steps);
 

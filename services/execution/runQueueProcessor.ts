@@ -1,4 +1,5 @@
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
+import * as liveTestSessionsRepo from "@/repositories/liveTest/workflowLiveTestSessions";
 import type { QueuedRunDispatch } from "@/repositories/workflowRuns";
 import { resolveStrict } from "@/workflow-engine/variables/resolveValue";
 import { humanizeActionError } from "@/core/errors/humanizeActionError";
@@ -45,21 +46,67 @@ export interface ProcessQueuedRunsOutcome {
  * finalizes it failed (race-safe: only acts while still queued).
  */
 async function executeQueuedRun(dispatch: QueuedRunDispatch): Promise<void> {
+  // WORKFLOW-LIVE-TEST-3 §12/§13 — the narrow inactive-workflow capability. A dispatch labeled
+  // is_test MAY be a CONSENTED LIVE TEST: the proof is a CONSUMED workflow_live_test_sessions
+  // row naming THIS run id — a row only `authorize_live_test_run` (service-role RPC, one
+  // transaction with the run insert) can mint. No client field is consulted: forging the
+  // elevation requires writing a service-role-only table. Lookup failures FAIL CLOSED to the
+  // ordinary safe-test dispatch (handlers blocked) — degraded, never dangerous.
+  let liveTestSessionId: string | null = null;
+  if (dispatch.isTest) {
+    try {
+      const session = await liveTestSessionsRepo.getConsumedSessionByRunId(dispatch.runId);
+      if (session) liveTestSessionId = session.id;
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          event: "execution.queue.live_test_lookup_failed",
+          runId: dispatch.runId,
+          error: (err as Error).message,
+        }),
+      );
+    }
+  }
+  const isLiveTest = liveTestSessionId !== null;
+
   const engine = new WorkflowEngine({ resolveStrict });
   const result: RunResult = await engine.runWorkflow({
     runId: dispatch.runId,
     workflowId: dispatch.workflowId,
     triggerNodeId: dispatch.triggerNodeId,
     triggerEvent: dispatch.triggerEvent,
-    testMode: dispatch.isTest,
+    // Live test: REAL handlers (gate off) + test LABEL (recordAsTest) + the DRAFT definition —
+    // the consent was reviewed against the saved draft, and an inactive workflow has no live
+    // revision to execute. Every other dispatch is byte-for-byte the pre-existing envelope.
+    testMode: isLiveTest ? false : dispatch.isTest,
+    ...(isLiveTest ? { recordAsTest: true, executionDefinitionMode: "draft" as const } : {}),
     triggeredBy: dispatch.triggeredBy,
     triggeredByUserId: dispatch.triggeredByUserId,
     triggeredByApiKeyId: dispatch.triggeredByApiKeyId,
     triggeredByApiKeyPrefix: dispatch.triggeredByApiKeyPrefix,
-    // executionDefinitionMode omitted → the engine derives it from testMode
+    // executionDefinitionMode omitted (non-live-test) → the engine derives it from testMode
     // (test → draft, real → live), reproducing exactly what every dispatcher
     // passed before durability (run-now used the same testMode-derived value).
   });
+
+  // Close the session's lifecycle from the run outcome. Guarded on status='running', so a
+  // repeat (cron + inline drain racing) is a no-op and a terminal session never reopens.
+  if (isLiveTest) {
+    try {
+      await liveTestSessionsRepo.completeSessionForRun({
+        runId: dispatch.runId,
+        succeeded: result.status === "succeeded",
+      });
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          event: "execution.queue.live_test_complete_failed",
+          runId: dispatch.runId,
+          error: (err as Error).message,
+        }),
+      );
+    }
+  }
 
   if (result.status === "failed" && result.fatalError) {
     // No-op unless the engine never claimed the row (still 'queued'): a row the
