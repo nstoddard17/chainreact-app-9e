@@ -542,11 +542,32 @@ export function PricingPage() {
           </section>
 
           {/* 5. Comparison table */}
-          <section className="pr-section pr-compare" id="compare">
+          {/*
+            RESPONSIVE-MARKETING-9 — this is the one place on the public funnel
+            where a contained horizontal scroller is the RIGHT answer: five plans
+            across ~30 features is genuinely two-dimensional, and stacking it
+            would repeat the plan headings for every row and destroy the
+            comparison the section exists to make. So the matrix keeps its 720px
+            floor and scrolls INSIDE its card.
+
+            The SECTION, however, must never pan — that is what this declaration
+            asserts, and it is what stops the scroller from being used as an
+            excuse to let the whole section widen the page. No feature row is
+            hidden at any width; the narrow-screen visitor scrolls the matrix
+            rather than losing data.
+          */}
+          <section
+            className="pr-section pr-compare"
+            id="compare"
+            data-no-pan-below="1600"
+          >
             <div className="pr-section-head">
               <h2 className="pr-section-title">Compare every plan</h2>
               <p className="pr-section-sub">The full picture, line by line.</p>
             </div>
+            <p className="pr-cmp-hint" data-testid="pricing-compare-hint">
+              Scroll the table sideways to see every plan.
+            </p>
             <div
               className="pr-cmp-scroll"
               role="region"
@@ -770,7 +791,14 @@ export function PricingPage() {
         .pr-meter-note { font-size: 13px; line-height: 1.65; color: var(--mk-muted); margin: 18px auto 0; max-width: 760px; text-align: center; text-wrap: pretty; }
 
         /* Comparison table */
-        .pr-cmp-scroll { border: 1px solid var(--mk-border); border-radius: 16px; overflow-x: auto; }
+        /* max-width:100% is what stops the 720px table from sizing its own card
+           and widening the section (RESPONSIVE-MARKETING-9). */
+        .pr-cmp-scroll { border: 1px solid var(--mk-border); border-radius: 16px; overflow-x: auto; max-width: 100%; min-width: 0; }
+        /* An undiscoverable scroller is its own defect, so the cue is shown at the
+           widths where the matrix actually needs scrolling and hidden once every
+           column fits without it. */
+        .pr-cmp-hint { display: none; font-size: 12.5px; color: var(--mk-muted); margin: 0 0 10px; text-align: center; }
+        @media (max-width: 860px) { .pr-cmp-hint { display: block; } }
         .pr-cmp-scroll:focus-visible { outline: 2px solid var(--mk-accent); outline-offset: 2px; }
         .pr-cmp { width: 100%; min-width: 720px; border-collapse: collapse; }
         .pr-cmp th, .pr-cmp td { padding: 13px 16px; font-size: 13px; font-weight: 400; text-align: center; vertical-align: middle; }

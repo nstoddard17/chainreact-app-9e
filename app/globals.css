@@ -1027,6 +1027,25 @@
     color: var(--mk-text);
     font-feature-settings: "ss01", "cv11";
   }
+
+  /* RESPONSIVE-MARKETING-9 — targeted token breaking for public prose.
+     Public pages carry the two value classes that reliably have no break
+     opportunity: a long compound headline word, and a bare documentation URL in
+     a help article or legal clause. Measured pre-fix at 360px: the hero headline
+     and lead paragraph pushed the DOCUMENT wide and burst `.mk-hero-h` across
+     360–472px.
+
+     Scoped to PROSE ELEMENTS inside the marketing surface — headings, paragraphs,
+     list items, quotes, definition text — not a blanket `*`, and not the nav,
+     buttons, badges or table cells whose widths are deliberate.
+
+     `overflow-wrap: anywhere` and NOT `word-break: break-all`: it breaks a word
+     only when that word would otherwise overflow, so ordinary marketing copy
+     keeps normal word wrapping and the headline still breaks at spaces first.
+     docs/rules/responsive-layout-and-validation.md §4. */
+  [data-marketing-surface] :is(h1, h2, h3, h4, p, li, dd, blockquote, figcaption) {
+    overflow-wrap: anywhere;
+  }
   [data-marketing-surface][data-marketing-theme="light"] {
     --mk-bg: #fafaf9;
     --mk-bg-2: #f5f5f4;

@@ -18,6 +18,11 @@ artifacts/
 
 # next.js
 .next
+# Next build output under a custom distDir. Parallel/e2e runs build into their own
+# directory (e.g. `.next-analytics-e2e`) so they don't corrupt the running dev
+# server's `.next`; plain `.next` does not match those. Scoped to the `.next-`
+# prefix so it covers only Next build output, nothing else. (RESPONSIVE-MARKETING-9)
+.next-*/
 out
 next-env.d.ts
 

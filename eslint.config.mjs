@@ -24,6 +24,12 @@ export default [
   {
     ignores: [
       ".next/**",
+      // Next build output under a custom distDir (parallel/e2e builds that must
+      // not corrupt the running dev server's `.next`). `.next/**` does not match
+      // those, so a stray `.next-analytics-e2e/` was contributing 812 lint errors
+      // from compiled webpack bundles — a false baseline that buried real ones.
+      // Scoped to the `.next-` prefix: Next build output only. (RESPONSIVE-MARKETING-9)
+      ".next-*/**",
       "node_modules/**",
       "dist/**",
       "**/dist/**",
