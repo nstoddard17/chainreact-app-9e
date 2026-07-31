@@ -388,7 +388,7 @@ describe("integration — automated workflows expose only the test surface (Slic
     });
   }
 
-  it("scheduled-trigger workflow does NOT expose Run Manually and renders Test Workflow disabled", () => {
+  it("scheduled-trigger workflow does NOT expose Run Manually and renders Test Workflow enabled", () => {
     bootWithScheduledTrigger();
     render(<HeaderRunControls />);
     // Automated panel is rendered, manual panel is not.
@@ -402,11 +402,11 @@ describe("integration — automated workflows expose only the test surface (Slic
     expect(
       screen.queryByTestId("run-controls-run-manually-button"),
     ).not.toBeInTheDocument();
-    // Test Workflow rendered but disabled (backend currently only
-    // accepts manual-trigger workflows; POSTSEC-6B docs this as a
-    // follow-up wiring task).
+    // WORKFLOW-LIVE-TEST-2 — Test Workflow is now ENABLED on automated workflows and explains
+    // itself on click (a safe dry run cannot fabricate a provider event). It still never
+    // dispatches, so the run-now route is never called with a workflow it would reject.
     const testButton = screen.getByTestId("run-controls-test-button");
-    expect(testButton).toBeDisabled();
+    expect(testButton).toBeEnabled();
     expect(testButton).toHaveTextContent(/test workflow/i);
   });
 
@@ -421,7 +421,7 @@ describe("integration — automated workflows expose only the test surface (Slic
     ).toBeInTheDocument();
   });
 
-  it("automated panel never fires runNowWorkflow (the test button is disabled)", async () => {
+  it("automated panel never fires runNowWorkflow (safe test explains instead of dispatching)", async () => {
     bootWithScheduledTrigger();
     const user = userEvent.setup();
     render(<HeaderRunControls />);

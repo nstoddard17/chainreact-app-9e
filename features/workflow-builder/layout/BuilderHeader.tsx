@@ -13,6 +13,7 @@ import {
   countBuilderValidationIssues,
   type RequiredFieldsByType,
 } from "../validation/collectBuilderValidationIssues";
+import { evaluateTestPreflight, type TestPreflightResult } from "../validation/testPreflight";
 import {
   BuilderIconButton,
   ChevronLeftIcon,
@@ -152,15 +153,19 @@ export function BuilderHeader({
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const router = useRouter();
 
-  const validationCounts = validation
-    ? countBuilderValidationIssues(
-        collectBuilderValidationIssues({
-          pendingNodes,
-          pendingEdges,
-          requiredFieldsByType,
-        }),
-      )
+  // WORKFLOW-LIVE-TEST-2 §2 — ONE issue list feeds the header pill, the issues rail, and the
+  // testing pre-flight, so the Ready indicator and the test button can never disagree.
+  const validationIssues = validation
+    ? collectBuilderValidationIssues({
+        pendingNodes,
+        pendingEdges,
+        requiredFieldsByType,
+      })
     : null;
+  const validationCounts = validationIssues
+    ? countBuilderValidationIssues(validationIssues)
+    : null;
+  const testPreflight = validationIssues ? evaluateTestPreflight(validationIssues) : undefined;
 
   const handleSave = useCallback(async () => {
     if (!isDirty || isSaving) return;
@@ -235,6 +240,7 @@ export function BuilderHeader({
             onOpenTemplates={() => setTemplatesOpen(true)}
             validation={validation}
             validationCounts={validationCounts}
+            testPreflight={testPreflight}
             lifecycle={lifecycle}
             runEditBlocked={runEditBlocked}
             focusPulse={focusPulse}
@@ -352,6 +358,7 @@ function HeaderRight({
   onOpenTemplates,
   validation,
   validationCounts,
+  testPreflight,
   lifecycle,
   runEditBlocked,
   focusPulse = null,
@@ -366,6 +373,8 @@ function HeaderRight({
   onOpenTemplates: () => void;
   validation?: { onOpen: () => void };
   validationCounts: ReturnType<typeof countBuilderValidationIssues> | null;
+  /** WORKFLOW-LIVE-TEST-2 §2 — canonical pre-flight verdict, derived from the SAME issue list. */
+  testPreflight?: TestPreflightResult;
   lifecycle?: {
     workflowId: string;
     state: WorkflowState;
@@ -498,6 +507,8 @@ function HeaderRight({
         <HeaderRunControls
           blockingIssueCount={blockingIssueCount}
           runEditBlocked={runEditBlocked}
+          {...(testPreflight ? { preflight: testPreflight } : {})}
+          {...(validation ? { onOpenValidation: validation.onOpen } : {})}
         />
       </FocusPulseWrap>
       <button

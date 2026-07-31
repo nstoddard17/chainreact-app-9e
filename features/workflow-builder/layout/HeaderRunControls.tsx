@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRunControls } from "../hooks/useRunControls";
 import { DestructiveActionConfirmationModal } from "../panels/DestructiveActionConfirmationModal";
+import type { TestPreflightResult } from "../validation/testPreflight";
 
 /**
  * Header-mounted run/test controls (Slice 4.BUILDER-RUN-PANEL-1).
@@ -43,6 +45,20 @@ import { DestructiveActionConfirmationModal } from "../panels/DestructiveActionC
 export interface HeaderRunControlsProps {
   blockingIssueCount?: number;
   /**
+   * WORKFLOW-LIVE-TEST-2 §2 — the canonical pre-flight verdict. Testing ALWAYS consults this
+   * first: a blocked pre-flight opens the setup summary and dispatches nothing (no provider call,
+   * no run, no trigger polling). Absent → treated as ok, preserving behavior for callers/tests
+   * that don't thread validation.
+   */
+  preflight?: TestPreflightResult;
+  /**
+   * Opens the issues rail (the existing ValidationSummary drawer) so the user can select a
+   * blocking item and jump straight into that step's configuration. Threaded from BuilderHeader's
+   * existing `validation.onOpen` — this reuses the readiness surface rather than inventing a
+   * second one.
+   */
+  onOpenValidation?: () => void;
+  /**
    * WF-RUNPERM follow-up — true when the viewer may NOT run/edit this workflow
    * because it runs under the creator's private OAuth connection (server-derived
    * `viewerCanRunEdit === false`). When set, Test + Run controls are disabled and
@@ -59,12 +75,22 @@ export interface HeaderRunControlsProps {
  * detail — only the duplicate-to-fix path (matches the list-row badge copy and
  * the server 403 message).
  */
+/**
+ * WORKFLOW-LIVE-TEST-2 §4 — what Safe Test means for an app-triggered workflow. A safe dry run
+ * needs trigger data it cannot invent for a provider event, so Safe Test explains that and points
+ * at the live path rather than silently doing nothing.
+ */
+export const AUTOMATED_SAFE_TEST_COPY =
+  "Safe Test can't invent a provider event for this trigger. Use Run Live Test to capture a real one.";
+
 export const PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY =
   "This workflow runs with the creator’s private connection. Duplicate it to use your own connection.";
 
 export function HeaderRunControls({
   blockingIssueCount = 0,
   runEditBlocked = false,
+  preflight,
+  onOpenValidation,
 }: HeaderRunControlsProps = {}) {
   const {
     workflowId,
@@ -82,6 +108,32 @@ export function HeaderRunControls({
     handleCancelConfirm,
   } = useRunControls();
   const runBlocked = blockingIssueCount > 0;
+  // WORKFLOW-LIVE-TEST-2 §2 — validation-first for EVERY testing entry point. When the pre-flight
+  // blocks, the click opens the setup summary instead of dispatching; the button stays enabled so
+  // it is never an inert control whose only explanation is a tooltip.
+  const preflightBlocked = preflight !== undefined && preflight.ok === false;
+  const preflightSummary = preflight && preflight.ok === false ? preflight.summary : null;
+
+  // WORKFLOW-LIVE-TEST-2 §4 — Safe Test is only DISPATCHABLE when the trigger contract can supply
+  // trigger data without touching a provider. Today that is the manual trigger. For an app trigger
+  // there is no legitimate safe sample, so Safe Test explains itself and points at the live path
+  // instead of dispatching to a route that would reject it — the button is never inert, and it
+  // never fires a request that cannot succeed.
+  const safeTestDispatchable = triggerKind === "manual";
+  const [safeTestNotice, setSafeTestNotice] = useState<string | null>(null);
+
+  async function onTestClick(): Promise<void> {
+    setSafeTestNotice(null);
+    if (preflightBlocked) {
+      onOpenValidation?.();
+      return;
+    }
+    if (!safeTestDispatchable) {
+      setSafeTestNotice(AUTOMATED_SAFE_TEST_COPY);
+      return;
+    }
+    await handleTestWorkflow();
+  }
 
   // Hidden when there is no trigger yet OR the workflow hasn't
   // hydrated. Mirrors the old RunNowPanel guard.
@@ -101,17 +153,43 @@ export function HeaderRunControls({
           type="button"
           size="sm"
           variant="default"
-          disabled
+          onClick={onTestClick}
+          disabled={anyRunning || runEditBlocked}
           data-testid="run-controls-test-button"
           className="h-8 text-[12px]"
           title={
             runEditBlocked
               ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
-              : "Test runs for automated workflows are in development."
+              : preflightSummary ?? AUTOMATED_SAFE_TEST_COPY
           }
         >
-          Test Workflow
+          {runningMode === "test" ? "Testing…" : "Test Workflow"}
         </Button>
+        {/* WORKFLOW-LIVE-TEST-2 §2 — a blocked pre-flight is explained in the surface itself,
+            never only in a tooltip. Selecting it opens the issues rail, where each item jumps
+            into the step that needs setup. */}
+        {preflightSummary ? (
+          <button
+            type="button"
+            onClick={onOpenValidation}
+            role="status"
+            data-testid="run-controls-preflight-blocked"
+            className="mt-1 text-left text-[11px] leading-tight underline-offset-2 hover:underline"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            {preflightSummary}
+          </button>
+        ) : null}
+        {safeTestNotice ? (
+          <p
+            role="status"
+            data-testid="run-controls-safe-test-notice"
+            className="mt-1 max-w-[260px] text-[11px] leading-tight"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            {safeTestNotice}
+          </p>
+        ) : null}
         {runEditBlocked ? (
           <p
             role="status"
@@ -159,13 +237,14 @@ export function HeaderRunControls({
           type="button"
           size="sm"
           variant="outline"
-          onClick={handleTestWorkflow}
+          onClick={onTestClick}
           disabled={anyRunning || runEditBlocked}
           data-testid="run-controls-test-button"
           title={
             runEditBlocked
               ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
-              : "Runs safely without calling connected provider APIs. External actions are skipped with test-mode outputs."
+              : preflightSummary ??
+                "Runs safely without calling connected provider APIs. External actions are skipped with test-mode outputs."
           }
           className="builder-mono inline-flex h-8 items-center gap-1.5 px-2.5 text-[12px]"
         >
@@ -203,6 +282,18 @@ export function HeaderRunControls({
         >
           {PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY}
         </p>
+      ) : null}
+      {preflightSummary ? (
+        <button
+          type="button"
+          onClick={onOpenValidation}
+          role="status"
+          data-testid="run-controls-preflight-blocked"
+          className="mt-1 text-left text-[11px] leading-tight underline-offset-2 hover:underline"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {preflightSummary}
+        </button>
       ) : null}
       {runBlocked ? (
         <p
