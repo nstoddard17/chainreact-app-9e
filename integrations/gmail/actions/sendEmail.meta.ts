@@ -68,10 +68,14 @@ export const sendEmailMeta: ActionMeta = {
       label: "Subject",
       description: "Email subject line. May be empty.",
       type: "text",
-      required: false,
-      // The schema requires `subject` to be PRESENT (may be empty, Slice 2d).
-      // Seed "" so the builder's deriveDefaultConfig writes the key — otherwise
-      // an untouched optional field is omitted and the node fails at runtime.
+      // WORKFLOW-TEST-RUNTIME-1 — `required: true` because `SendEmailConfigSchema` requires the
+      // key to be PRESENT (it may be an empty string, Slice 2d). Declaring it optional made the
+      // metadata disagree with the runtime contract, so a config built outside the builder (AI
+      // planner, template import, API) could omit `subject`, read as Ready, and then fail at
+      // dispatch. `defaultValue: ""` is retained, which means `hasDefault` is true and readiness
+      // still never reports it as a setup gap — the builder's `deriveDefaultConfig` writes the
+      // key and the handler accepts it. Honest metadata, unchanged UX.
+      required: true,
       defaultValue: "",
       placeholder: "Re: project update",
     },
