@@ -140,6 +140,37 @@ function isCanonicalDefinition(d) {
   return Boolean(d) && typeof d === "object" && Array.isArray(d.nodes) && Array.isArray(d.edges);
 }
 
+/**
+ * Synthetic accounts are POST-ONBOARDING fixtures
+ * (V2-DEV-ONBOARDING-FIXTURE-1): a fresh account renders the first-run
+ * onboarding checklist over the workflows dashboard, which makes automated
+ * builder smoke non-deterministic (the deployed lane's builder suite failed on
+ * exactly this). Dismissing via the same column the app's own Dismiss button
+ * writes (`user_onboarding_states.dismissed_at`) keeps the fixture honest —
+ * completed_at stays server-latched and untouched. Idempotent.
+ */
+async function ensureOnboardingDismissed(userId, accountId) {
+  const { data, error } = await admin
+    .from("user_onboarding_states")
+    .select("dismissed_at")
+    .eq("user_id", userId)
+    .eq("account_id", accountId)
+    .limit(1);
+  if (error) throw new Error(`onboarding state lookup failed: ${error.message}`);
+  if (data?.length && data[0].dismissed_at) {
+    console.log(`  = onboarding (already dismissed)`);
+    return;
+  }
+  const { error: upErr } = await admin
+    .from("user_onboarding_states")
+    .upsert(
+      { user_id: userId, account_id: accountId, dismissed_at: new Date().toISOString() },
+      { onConflict: "user_id,account_id" },
+    );
+  if (upErr) throw new Error(`onboarding dismiss failed: ${upErr.message}`);
+  console.log(`  + onboarding dismissed (post-onboarding fixture)`);
+}
+
 async function ensureSampleWorkflow(accountId, userId) {
   const NAME = "Dev Sample — Welcome (synthetic)";
   const { data, error } = await admin
@@ -178,11 +209,14 @@ async function ensureSampleWorkflow(accountId, userId) {
 
 console.log("Users:");
 const ownerId = await ensureUser(USERS[0]);
-await ensureUser(USERS[1]);
-await ensureUser(USERS[2]);
+const memberId = await ensureUser(USERS[1]);
+const outsiderId = await ensureUser(USERS[2]);
 
 console.log("Account wiring:");
 const accountId = await ownedAccountId(ownerId);
 await ensureSampleWorkflow(accountId, ownerId);
+for (const uid of [ownerId, memberId, outsiderId]) {
+  await ensureOnboardingDismissed(uid, await ownedAccountId(uid));
+}
 
 console.log("✅ dev bootstrap complete (synthetic data only; no values printed).");
