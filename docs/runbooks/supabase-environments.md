@@ -10,7 +10,21 @@ Design rationale and audit trail:
 
 ## The three environments
 
-> **Status 2026-08-01 (SUPABASE-HOSTED-DEV-CERT-1):** `chainreact-dev` is LIVE —
+> **Status 2026-08-01 (V2-DEV-REST-ALIAS-FIX-1): the v2-dev lane is LIVE and
+> certified end-to-end.** Run 30711097469 @ `7afed3335`: db-ci gate green
+> (CI clean reset + RLS suites), dev migration "Remote database is up to
+> date" via the Session pooler (identity guard confirmed the dev ref; the
+> direct `db.<ref>` host is IPv6-only and unreachable from Actions runners —
+> always use the pooler URL in `SUPABASE_DEV_DB_URL`), Vercel deploy
+> (`chainreact-cblwpckpw`), **REST alias** bound `dev.chainreact.app` →
+> `dpl_6WG5eKeaR95FhFeX2Z7yWcpKuX9u` (HTTP 200; the CLI `alias` command
+> cannot use team-scoped tokens — REST is the sanctioned path), bypass
+> readiness 200, public smoke 14/14, certification artifact
+> `dev-certification-<sha>` uploaded. **Open items:** authenticated smoke
+> self-skipped — the `development` env has `DEV_SMOKE_EMAIL` but no
+> `DEV_SMOKE_PASSWORD`; recovery-email delivery still open (Phase B).
+>
+> Prior status (SUPABASE-HOSTED-DEV-CERT-1): `chainreact-dev` is LIVE —
 > ref `syvnzqzctnywakgyykmz`, Chain React Org, us-east-1. All 125 migrations
 > applied and history-verified; synthetic bootstrap done; `workflow-files`
 > bucket created (private); RLS certification subset green. The CLI uses the

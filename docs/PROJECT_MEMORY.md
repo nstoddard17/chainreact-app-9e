@@ -5,7 +5,16 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-08-01 @ Phase A COMPLETE + v2-dev lane planned (dev Auth
+> Last curated: 2026-08-01 @ V2-DEV LANE LIVE + CERTIFIED (run 30711097469 @
+> `7afed3335` on v2-dev: db-ci → pooler migration "up to date" → Vercel deploy
+> → REST alias (CLI alias can't use team tokens; SUPABASE_DEV_DB_URL must be
+> the SESSION POOLER — direct host is IPv6-only, unreachable from Actions) →
+> bypass readiness 200 → public smoke 14/14 → certification artifact;
+> dev.chainreact.app serves the current app behind Vercel Auth;
+> origin/v2-main untouched at f9b0135c4; OPEN: DEV_SMOKE_PASSWORD missing in
+> the development env (authenticated smoke self-skipped), recovery-email
+> delivery (Phase B), v2-main push approval for the 18-commit chain).
+> Prior: 2026-08-01 @ Phase A COMPLETE + v2-dev lane planned (dev Auth
 > Phase A owner-certified: signup/8-digit OTP/sign-in/sign-out/protected-route/
 > synthetic-workflow-visible/MFA-enroll/MFA-challenge/reset-request ALL PASSED;
 > recovery-email delivery OPEN (not observed; built-in SMTP constraint; retry
