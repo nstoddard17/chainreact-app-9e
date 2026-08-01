@@ -51,6 +51,12 @@ const childEnv = {
 delete childEnv.SUPABASE_ACCESS_TOKEN;
 delete childEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY; // dev posture: widget hidden
 
+// localhost:3000 carries BOTH projects' chunked Supabase auth cookies when
+// switching between prod-targeting (.env.local) and dev-targeting runs —
+// enough to blow Node's 16KB default header limit (observed as HTTP 431 in
+// Phase A certification). Dev-only accommodation; production runs on Vercel.
+childEnv.NODE_OPTIONS = `${childEnv.NODE_OPTIONS ?? ""} --max-http-header-size=65536`.trim();
+
 const child = spawn("npm", ["run", "dev"], {
   stdio: "inherit",
   shell: process.platform === "win32",

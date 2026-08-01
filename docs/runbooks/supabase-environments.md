@@ -229,12 +229,22 @@ says "6-digit"). TOTP authenticator flows stay exactly 6 (RFC 6238) on the
 unchanged `AuthCodeInput`. **Signup confirmation remains NOT passed** until
 the owner's browser retest with the real 8-digit code succeeds.
 
-Owner-assisted browser layer — **PENDING Marcus** (exact steps in the
-SUPABASE-HOSTED-DEV-AUTH-CERT-1 Owner Report; summary: sign-in/sign-out/MFA
-tests use `dev-owner@chainreact.test` + `DEV_BOOTSTRAP_PASSWORD` from
-`.env.development.local`; signup/reset-email tests must use a **Supabase
-org-member email** — the built-in SMTP only delivers to project team members,
-a few per hour).
+**Owner retest 2026-08-01 — signup confirmation PASSED**: real 8-digit hosted
+OTP fully enterable, explicit submit, confirmed, redirected to `/workflows`.
+One environmental snag: **HTTP 431 after redirect** — localhost:3000 held BOTH
+projects' chunked Supabase auth cookies (prod ref from normal `.env.local`
+dev + dev ref from this lane), exceeding Node's 16KB default header limit.
+Resolved by clearing localhost cookies; `dev:devdb` now raises the dev
+server's header limit (`--max-http-header-size=65536`) so lane-switching
+can't retrigger it. Password **sign-in also verified** (post-cookie-clear).
+
+Owner-assisted browser layer — remaining **PENDING Marcus**: sign-out,
+protected-route-after-sign-out, MFA enrollment, `/auth/mfa` step-up,
+reset-request email arrival + link-host check (sign-in/MFA tests can use
+`dev-owner@chainreact.test` + `DEV_BOOTSTRAP_PASSWORD` from
+`.env.development.local`; reset-email test must use a **Supabase org-member
+email** — built-in SMTP delivers only to project team members, a few per
+hour).
 
 **Phase A — checklist** (local `next dev` pointed at the dev
 project — `npm run dev:devdb`; do not repoint `.env.local`):
