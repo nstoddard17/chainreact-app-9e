@@ -70,6 +70,32 @@ describe("computeViewerCanRunEditBatch — flag OFF (conservative WF-RUNPERM, no
     expect(map.get("other")).toBe(false); // conservative: private + non-creator
     expect(mockPlansBatch).not.toHaveBeenCalled();
   });
+
+  // HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1 — a single row whose persisted
+  // definition bypassed normalization (the historical `{}` shape) crashed the
+  // ENTIRE dashboard batch. The malformed record must not throw, and the valid
+  // records around it must keep their correct decisions.
+  it("one malformed definition never crashes the batch; valid neighbors keep correct permissions", async () => {
+    const recs = [
+      recordWith({ id: "broken", draftDefinition: {} as never }),
+      recordWith({ id: "broken-2", draftDefinition: { nodes: "junk" } as never }),
+      recordWith({
+        id: "mine-private",
+        createdByUserId: "me",
+        draftDefinition: { nodes: [node("gmail")], edges: [] } as never,
+      }),
+      recordWith({
+        id: "theirs-private",
+        createdByUserId: "someone",
+        draftDefinition: { nodes: [node("gmail")], edges: [] } as never,
+      }),
+    ];
+    const map = await computeViewerCanRunEditBatch(recs, "me");
+    expect(map.get("broken")).toBe(true); // no detectable private credential
+    expect(map.get("broken-2")).toBe(true);
+    expect(map.get("mine-private")).toBe(true); // creator
+    expect(map.get("theirs-private")).toBe(false); // conservative block intact
+  });
 });
 
 describe("computeViewerCanRunEditBatch — flag ON (accurate, batched)", () => {

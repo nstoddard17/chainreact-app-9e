@@ -42,8 +42,18 @@ export function isPrivateCredentialProvider(provider: string | undefined | null)
  * credential. Account/service providers (slack, stripe, …) and native nodes do
  * NOT make a workflow private. Unknown providers classify `personal` (fail-safe),
  * so an unclassified real provider DOES make it private — but `native` never does.
+ *
+ * Crash-proof by contract (HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1): persisted
+ * definitions are normalized at the repository boundary
+ * (`normalizePersistedWorkflowDefinition`), which is where malformed data is
+ * SURFACED; this last-resort guard only keeps a stray null/malformed value
+ * from throwing inside a dashboard batch. No nodes ⇒ no private credential,
+ * which is also the correct answer for the safe-empty fallback.
  */
-export function workflowUsesPrivateCredential(definition: WorkflowDefinition): boolean {
+export function workflowUsesPrivateCredential(
+  definition: WorkflowDefinition | null | undefined,
+): boolean {
+  if (!definition || !Array.isArray(definition.nodes)) return false;
   return definition.nodes.some((node) => isPrivateCredentialProvider(node.provider));
 }
 

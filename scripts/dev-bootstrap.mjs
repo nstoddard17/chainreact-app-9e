@@ -126,22 +126,52 @@ async function ownedAccountId(userId) {
   return data[0].account_id;
 }
 
+/**
+ * The canonical EMPTY definition shape (contracts/workflowDefinition.ts
+ * EMPTY_WORKFLOW_DEFINITION — duplicated here because this .mjs script cannot
+ * import the TS contract; tests/unit/pipeline/dev-bootstrap-definition.test.ts
+ * pins the two to the same shape). A raw `{}` is NOT canonical: the app's
+ * repository default is `{ nodes: [], edges: [] }`, and the original `{}`
+ * insert crashed the dashboard (HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1).
+ */
+const CANONICAL_EMPTY_DEFINITION = { nodes: [], edges: [] };
+
+function isCanonicalDefinition(d) {
+  return Boolean(d) && typeof d === "object" && Array.isArray(d.nodes) && Array.isArray(d.edges);
+}
+
 async function ensureSampleWorkflow(accountId, userId) {
   const NAME = "Dev Sample — Welcome (synthetic)";
   const { data, error } = await admin
     .from("workflows")
-    .select("id")
+    .select("id, draft_definition")
     .eq("account_id", accountId)
     .eq("name", NAME)
     .limit(1);
   if (error) throw new Error(`workflow lookup failed: ${error.message}`);
   if (data?.length) {
-    console.log(`  = sample workflow (exists)`);
+    const row = data[0];
+    if (isCanonicalDefinition(row.draft_definition)) {
+      console.log(`  = sample workflow (exists, canonical)`);
+      return;
+    }
+    // Repair path: ONLY this synthetic row (matched by exact name inside the
+    // synthetic owner's account) is ever rewritten — never a user-created
+    // workflow. Idempotent: once canonical, reruns take the branch above.
+    const { error: updErr } = await admin
+      .from("workflows")
+      .update({ draft_definition: CANONICAL_EMPTY_DEFINITION })
+      .eq("id", row.id);
+    if (updErr) throw new Error(`workflow repair failed: ${updErr.message}`);
+    console.log(`  ~ sample workflow repaired to the canonical definition shape`);
     return;
   }
-  const { error: insErr } = await admin
-    .from("workflows")
-    .insert({ account_id: accountId, created_by_user_id: userId, name: NAME, draft_definition: {} });
+  const { error: insErr } = await admin.from("workflows").insert({
+    account_id: accountId,
+    created_by_user_id: userId,
+    name: NAME,
+    draft_definition: CANONICAL_EMPTY_DEFINITION,
+  });
   if (insErr) throw new Error(`workflow insert failed: ${insErr.message}`);
   console.log(`  + sample draft workflow`);
 }

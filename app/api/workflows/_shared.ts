@@ -335,6 +335,8 @@ export function toWorkflowSummary(record: WorkflowRecord): WorkflowSummary {
     deletedAt: record.deletedAt,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    // Only ever present as `true` — corruption is surfaced, never implied absent.
+    ...(record.draftDefinitionInvalid ? { definitionInvalid: true as const } : {}),
   };
 }
 

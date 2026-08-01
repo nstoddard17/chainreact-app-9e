@@ -3,6 +3,7 @@ import {
   WorkflowDefinitionSchema,
   WorkflowEdgeSchema,
   WorkflowNodeSchema,
+  normalizePersistedWorkflowDefinition,
 } from "@/contracts/workflowDefinition";
 
 describe("WorkflowNodeSchema", () => {
@@ -340,5 +341,56 @@ describe("WorkflowDefinitionSchema", () => {
         ).toBe(true);
       }
     });
+  });
+});
+
+describe("normalizePersistedWorkflowDefinition — the repository read boundary (HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1)", () => {
+  it("normalizes legacy `{}` and null to a VALID canonical empty definition (not corruption)", () => {
+    for (const raw of [{}, null, undefined]) {
+      const out = normalizePersistedWorkflowDefinition(raw);
+      expect(out.invalid).toBe(false);
+      expect(out.definition.nodes).toEqual([]);
+      expect(out.definition.edges).toEqual([]);
+    }
+  });
+
+  it("passes a valid populated definition through with content intact", () => {
+    const raw = {
+      nodes: [
+        {
+          id: "t1",
+          kind: "trigger",
+          provider: "native",
+          type: "manual",
+          config: {},
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [],
+    };
+    const out = normalizePersistedWorkflowDefinition(raw);
+    expect(out.invalid).toBe(false);
+    expect(out.definition.nodes).toHaveLength(1);
+    expect(out.definition.nodes[0]!.provider).toBe("native");
+  });
+
+  it("flags schema-invalid JSON instead of silently classifying it as valid, and serves the safe empty fallback", () => {
+    for (const raw of [
+      { nodes: "junk" },
+      { nodes: [{ id: 1 }] },
+      { nodes: [], edges: "nope" },
+      "a string",
+      42,
+    ]) {
+      const out = normalizePersistedWorkflowDefinition(raw);
+      expect(out.invalid).toBe(true);
+      expect(out.definition).toEqual(EMPTY_WORKFLOW_DEFINITION);
+    }
+  });
+
+  it("never throws, whatever the input shape", () => {
+    for (const raw of [[], () => {}, Symbol("x"), { nodes: [null] }]) {
+      expect(() => normalizePersistedWorkflowDefinition(raw)).not.toThrow();
+    }
   });
 });

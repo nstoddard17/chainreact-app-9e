@@ -58,6 +58,14 @@ export const WorkflowSummarySchema = z.object({
   deletedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /**
+   * Present (true) only when the persisted definition failed schema validation
+   * and the server substituted a safe empty definition — lets clients label
+   * the workflow invalid instead of showing corruption as a valid empty
+   * workflow (HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1). Optional for wire
+   * compatibility; absent means valid.
+   */
+  definitionInvalid: z.literal(true).optional(),
 });
 export type WorkflowSummary = z.infer<typeof WorkflowSummarySchema>;
 

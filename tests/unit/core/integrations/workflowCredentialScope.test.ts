@@ -66,6 +66,19 @@ describe("workflowUsesPrivateCredential", () => {
   it("unknown provider counts as private (fail-safe)", () => {
     expect(workflowUsesPrivateCredential(def(["native", "totally-new"]))).toBe(true);
   });
+
+  // HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1 — a persisted `{}` definition (raw
+  // insert that bypassed the repository default) reached this predicate and
+  // threw `Cannot read properties of undefined (reading 'some')`, taking down
+  // the whole /workflows dashboard. The repository normalization boundary is
+  // the honest fix; this guard is last-resort crash-proofing.
+  it("never throws on null / undefined / malformed definitions — classifies them as no-private", () => {
+    expect(workflowUsesPrivateCredential(null)).toBe(false);
+    expect(workflowUsesPrivateCredential(undefined)).toBe(false);
+    expect(workflowUsesPrivateCredential({} as never)).toBe(false);
+    expect(workflowUsesPrivateCredential({ nodes: "junk" } as never)).toBe(false);
+    expect(workflowUsesPrivateCredential({ edges: [] } as never)).toBe(false);
+  });
 });
 
 describe("viewerMayRunEdit", () => {

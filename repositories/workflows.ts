@@ -5,6 +5,7 @@ import type {
   WorkflowDisabledReason,
   WorkflowDefinition,
 } from "@/contracts/workflow";
+import { normalizePersistedWorkflowDefinition } from "@/contracts/workflowDefinition";
 
 /**
  * Repository for workflows + workflow_revisions.
@@ -45,6 +46,14 @@ export interface WorkflowRecord {
   disabledContext: string | null;
   activeRevisionId: string | null;
   draftDefinition: WorkflowDefinition;
+  /**
+   * True when the persisted draft_definition JSON failed schema validation and
+   * draftDefinition is the safe EMPTY fallback (HOSTED-DEV-WORKFLOW-
+   * DEFINITION-CRASH-1). Surfaced so callers can present an invalid state
+   * instead of treating corruption as a valid empty workflow. Optional:
+   * absent ⇒ valid (rowToRecord always sets it; hand-built fixtures need not).
+   */
+  draftDefinitionInvalid?: boolean;
   deletedAt: string | null;
   /** 4.WORKFLOW-FOLDERS — optional folder membership; null = uncategorized. */
   folderId: string | null;
@@ -61,6 +70,8 @@ export interface WorkflowRevisionRecord {
   id: string;
   workflowId: string;
   definition: WorkflowDefinition;
+  /** Same contract as WorkflowRecord.draftDefinitionInvalid. */
+  definitionInvalid?: boolean;
   createdAt: string;
 }
 
@@ -92,6 +103,16 @@ interface WorkflowRevisionsRow {
 }
 
 export function rowToRecord(row: WorkflowsRow): WorkflowRecord {
+  // Normalization boundary: NEVER cast persisted JSON. Schema-valid input
+  // (including legacy `{}`) parses to canonical shape; invalid input becomes a
+  // safe EMPTY definition with the invalid flag set — one corrupt row must not
+  // crash every dashboard consumer downstream.
+  const draft = normalizePersistedWorkflowDefinition(row.draft_definition);
+  if (draft.invalid) {
+    console.warn(
+      `[workflows] draft_definition for workflow ${row.id} failed schema validation — serving safe empty definition (draftDefinitionInvalid=true).`,
+    );
+  }
   return {
     id: row.id,
     accountId: row.account_id,
@@ -101,7 +122,8 @@ export function rowToRecord(row: WorkflowsRow): WorkflowRecord {
     disabledReason: row.disabled_reason,
     disabledContext: row.disabled_context,
     activeRevisionId: row.active_revision_id,
-    draftDefinition: (row.draft_definition ?? {}) as WorkflowDefinition,
+    draftDefinition: draft.definition,
+    draftDefinitionInvalid: draft.invalid,
     deletedAt: row.deleted_at,
     folderId: row.folder_id,
     deletedByUserId: row.deleted_by_user_id,
@@ -114,10 +136,17 @@ export function rowToRecord(row: WorkflowsRow): WorkflowRecord {
 }
 
 function revisionRowToRecord(row: WorkflowRevisionsRow): WorkflowRevisionRecord {
+  const parsed = normalizePersistedWorkflowDefinition(row.definition);
+  if (parsed.invalid) {
+    console.warn(
+      `[workflows] revision ${row.id} definition failed schema validation — serving safe empty definition (definitionInvalid=true).`,
+    );
+  }
   return {
     id: row.id,
     workflowId: row.workflow_id,
-    definition: (row.definition ?? {}) as WorkflowDefinition,
+    definition: parsed.definition,
+    definitionInvalid: parsed.invalid,
     createdAt: row.created_at,
   };
 }

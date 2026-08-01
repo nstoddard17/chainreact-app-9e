@@ -199,3 +199,31 @@ export const EMPTY_WORKFLOW_DEFINITION: WorkflowDefinition = {
   nodes: [],
   edges: [],
 };
+
+/**
+ * The single normalization boundary for PERSISTED definition JSON
+ * (HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1).
+ *
+ * Every definition read from the database passes through here before any pure
+ * helper sees it — the repository used to CAST (`as WorkflowDefinition`), so a
+ * row whose JSON wasn't canonical (e.g. `{}` from a raw insert that bypassed
+ * the repository default) reached `definition.nodes.some(...)` with no array
+ * and took down the whole workflows dashboard.
+ *
+ * Semantics are deliberately two-tier, not "optional-chain everything":
+ *   - schema-VALID input (including legacy `{}` / missing arrays — the schema
+ *     defaults them) → the parsed canonical definition, `invalid: false`.
+ *     A valid empty workflow is a real state, not corruption.
+ *   - schema-INVALID input (wrong types, structural violations, junk) → a safe
+ *     EMPTY definition for display plus `invalid: true`, so callers surface
+ *     the corruption honestly instead of classifying garbage as a valid
+ *     workflow. One malformed row must never crash the list for the rest.
+ */
+export function normalizePersistedWorkflowDefinition(raw: unknown): {
+  definition: WorkflowDefinition;
+  invalid: boolean;
+} {
+  const parsed = WorkflowDefinitionSchema.safeParse(raw ?? {});
+  if (parsed.success) return { definition: parsed.data, invalid: false };
+  return { definition: EMPTY_WORKFLOW_DEFINITION, invalid: true };
+}

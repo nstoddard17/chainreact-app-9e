@@ -238,13 +238,32 @@ Resolved by clearing localhost cookies; `dev:devdb` now raises the dev
 server's header limit (`--max-http-header-size=65536`) so lane-switching
 can't retrigger it. Password **sign-in also verified** (post-cookie-clear).
 
-Owner-assisted browser layer — remaining **PENDING Marcus**: sign-out,
-protected-route-after-sign-out, MFA enrollment, `/auth/mfa` step-up,
-reset-request email arrival + link-host check (sign-in/MFA tests can use
-`dev-owner@chainreact.test` + `DEV_BOOTSTRAP_PASSWORD` from
-`.env.development.local`; reset-email test must use a **Supabase org-member
-email** — built-in SMTP delivers only to project team members, a few per
-hour).
+**Second defect found by owner testing (HOSTED-DEV-WORKFLOW-DEFINITION-CRASH-1,
+2026-08-01):** after successful sign-in, `/workflows` crashed
+(`definition.nodes.some` TypeError). Auth was NOT the failure. Root cause was
+two-layer: the dev bootstrap had inserted the synthetic workflow with
+`draft_definition: {}` (bypassing the repository's canonical
+`{ nodes: [], edges: [] }` default), and the repository READ path cast
+persisted JSON (`as WorkflowDefinition`) instead of validating, so the
+malformed row reached pure helpers and one bad row killed the whole
+dashboard. Fixed: persisted definitions now pass through
+`normalizePersistedWorkflowDefinition` (schema-valid input — including legacy
+`{}` — normalizes canonically; schema-invalid input serves a safe EMPTY
+definition with a `draftDefinitionInvalid` flag surfaced to the summary DTO,
+never silently classified valid); `workflowUsesPrivateCredential` is
+crash-proof as last-resort; the bootstrap writes the canonical shape and
+idempotently repairs its own synthetic row (never user-created rows). The
+hosted dev row was repaired via the guarded bootstrap and an authenticated
+server-side probe as dev-owner confirmed `/workflows` renders (200, synthetic
+workflow visible, no error markers). **Passed so far:** hosted signup +
+8-digit OTP ✅ · sign-in ✅ · sign-out ✅ · protected-route redirect ✅.
+
+Owner-assisted browser layer — remaining **PENDING Marcus**: `/workflows`
+visual confirmation, MFA enrollment, `/auth/mfa` step-up, reset-request email
+arrival + link-host check (MFA tests use `dev-owner@chainreact.test` +
+`DEV_BOOTSTRAP_PASSWORD` from `.env.development.local`; reset-email test must
+use a **Supabase org-member email** — built-in SMTP delivers only to project
+team members, a few per hour).
 
 **Phase A — checklist** (local `next dev` pointed at the dev
 project — `npm run dev:devdb`; do not repoint `.env.local`):
