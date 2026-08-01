@@ -4,9 +4,19 @@ import { useId, useRef, useState, type ClipboardEvent, type ReactNode, type RefO
 
 export const CODE_LENGTH = 6;
 
-/** Strip everything that isn't a digit and clamp to the code length. */
-export function sanitizeCode(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, CODE_LENGTH);
+/**
+ * Supabase email OTP length is project-configurable (6–10 digits) and NOT
+ * guaranteed to match across environments — production sends 6 today while
+ * chainreact-dev sends 8 (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1). The email
+ * confirmation flow therefore accepts the whole range instead of assuming 6.
+ * TOTP authenticator codes remain exactly 6 (RFC 6238) and keep CODE_LENGTH.
+ */
+export const EMAIL_OTP_MIN_LENGTH = 6;
+export const EMAIL_OTP_MAX_LENGTH = 10;
+
+/** Strip everything that isn't a digit and clamp to the given length. */
+export function sanitizeCode(raw: string, maxLength: number = CODE_LENGTH): string {
+  return raw.replace(/\D/g, "").slice(0, maxLength);
 }
 
 /**
@@ -33,6 +43,75 @@ export function sanitizeCode(raw: string): string {
  * Numeric-only is enforced on the VALUE (not just the keyboard), so a pasted or
  * IME-composed non-digit can never reach the form.
  */
+/**
+ * Variable-length email OTP entry (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1).
+ *
+ * ONE robust input, no fixed slots: the emailed code's length depends on the
+ * Supabase project (6–10 digits), so presentational cells would either lie
+ * about the expected length or reflow mid-typing. The value is kept as a
+ * STRING throughout — leading zeroes survive — and sanitized to digits with a
+ * hard clamp at {@link EMAIL_OTP_MAX_LENGTH}. No `maxLength` attribute: the
+ * browser would truncate a formatted paste ("12 34 56 78") BEFORE our
+ * sanitizer strips the separators; sanitizing in onChange loses nothing.
+ * Paste therefore needs no special handling — the native insert fires
+ * onChange and gets sanitized like typed input. Submission gating (6–10,
+ * explicit button, no auto-submit) is the caller's job. The code is never
+ * logged and never leaves the form except as the form field value.
+ */
+export function AuthOtpField({
+  value,
+  onChange,
+  disabled = false,
+  invalid = false,
+  name = "code",
+  label = "Verification code",
+  hint,
+  inputRef,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled?: boolean;
+  invalid?: boolean;
+  name?: string;
+  label?: string;
+  hint?: ReactNode;
+  /** Lets the parent re-focus the field after a rejected code. */
+  inputRef?: RefObject<HTMLInputElement | null>;
+}) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+
+  return (
+    <div className="au-fld">
+      <label className="au-fld-l" htmlFor={id}>
+        {label}
+      </label>
+      <div className="au-inp au-otp" data-legible-min="220" data-legible-what="verification code entry">
+        <input
+          ref={inputRef}
+          id={id}
+          name={name}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]*"
+          placeholder="••••••"
+          value={value}
+          disabled={disabled}
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={hint ? hintId : undefined}
+          onChange={(e) => onChange(sanitizeCode(e.target.value, EMAIL_OTP_MAX_LENGTH))}
+        />
+      </div>
+      {hint ? (
+        <span className="au-fld-hint" id={hintId}>
+          {hint}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function AuthCodeInput({
   value,
   onChange,

@@ -212,6 +212,23 @@ sanctioned way to run this lane — `.env.local` untouched):
 | Turnstile UI | ✅ absent (site key unset) |
 | `next` sanitizer | ✅ via unit tests (13 suites / 132 tests green) — success-path redirect needs a valid token, covered again in the browser layer |
 
+**Defect found by the first owner browser test (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1,
+2026-08-01):** the real `chainreact-dev` confirmation email carried an
+**8-digit** `{{ .Token }}` while the confirmation UI hardcoded six digits
+(fixed 6-slot input, `length === 6` submit gate, `/^\d{6}$/` server
+validation, "6-digit" copy). The automated layer had not caught it — no
+automated check ever redeemed a REAL hosted OTP, and the unit fixtures assumed
+6. Supabase email OTP length is project-configurable (6–10) and environments
+legitimately differ (production 6 today, dev 8), so the flow is now
+length-agnostic: single robust `AuthOtpField` (digits-only, string-preserved
+leading zeroes, clamp at 10, no auto-submit, submit enabled 6–10), server
+regex `/^\d{6,10}$/`, neutral copy. Regression-tested (6/8/10 entry + submit,
+<6 blocked, >10 truncated, leading zeroes, 8-digit paste with separators,
+non-numeric stripped, full token to `verifyOtp`, no OTP in logs, copy never
+says "6-digit"). TOTP authenticator flows stay exactly 6 (RFC 6238) on the
+unchanged `AuthCodeInput`. **Signup confirmation remains NOT passed** until
+the owner's browser retest with the real 8-digit code succeeds.
+
 Owner-assisted browser layer — **PENDING Marcus** (exact steps in the
 SUPABASE-HOSTED-DEV-AUTH-CERT-1 Owner Report; summary: sign-in/sign-out/MFA
 tests use `dev-owner@chainreact.test` + `DEV_BOOTSTRAP_PASSWORD` from

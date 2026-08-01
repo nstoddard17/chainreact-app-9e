@@ -79,6 +79,14 @@ export function AuthSurfaceStyles() {
       .au-submit:active:not(:disabled) { transform: translateY(1px); }
       .au-submit:disabled { opacity: .55; cursor: not-allowed; }
 
+      /* ---------- variable-length email OTP (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1)
+         One robust field, no slots: the emailed code is 6–10 digits depending on
+         the Supabase project, so slot count would lie. Mono + spaced digits keep
+         it scannable; the browser paints its own caret. */
+      .au-otp input { font-family: var(--font-mono), ui-monospace, monospace; font-size: 20px; font-weight: 600; letter-spacing: .35em; text-align: center; padding: 12px 10px; }
+      .au-otp input::placeholder { letter-spacing: .35em; color: var(--au-muted-2); }
+      .au-otp input[aria-invalid="true"] { border-color: var(--au-danger); }
+
       /* ---------- 6-digit verification code (AUTH-EMAIL-OTP-1) ----------
          The design draws six boxes; we paint six presentational cells and lay
          ONE real input across them (see AuthCodeInput.tsx). The input keeps its

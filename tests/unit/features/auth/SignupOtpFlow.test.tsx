@@ -32,7 +32,12 @@ jest.mock("@/utils/supabase/client", () => ({
 
 import { SignUpFlow } from "@/features/auth/SignUpFlow";
 import { VerifyEmailForm } from "@/features/auth/VerifyEmailForm";
-import { AuthCodeInput, sanitizeCode } from "@/features/auth/AuthCodeInput";
+import {
+  AuthCodeInput,
+  AuthOtpField,
+  EMAIL_OTP_MAX_LENGTH,
+  sanitizeCode,
+} from "@/features/auth/AuthCodeInput";
 import { signUp } from "@/app/auth/actions";
 
 const CONFIRMATION = { ok: true as const, confirmationRequired: true };
@@ -59,7 +64,7 @@ describe("signup → verification screen", () => {
 
     await signUpTo(user, "new@example.test");
 
-    expect(screen.getByText(/we sent a 6-digit code to/i)).toHaveTextContent("new@example.test");
+    expect(screen.getByText(/we sent a verification code to/i)).toHaveTextContent("new@example.test");
     expect(screen.getByLabelText(/verification code/i)).toBeInTheDocument();
     // The signup form is gone — no stale password field left mounted.
     expect(screen.queryByLabelText("Password")).toBeNull();
@@ -132,10 +137,16 @@ describe("code input behaviour", () => {
     expect(input).toHaveValue("123");
   });
 
-  it("8b. sanitizeCode strips non-digits and clamps to six", () => {
+  it("8b. sanitizeCode strips non-digits and clamps to six by default (TOTP)", () => {
     expect(sanitizeCode("12-34 56")).toBe("123456");
     expect(sanitizeCode("1234567890")).toBe("123456");
     expect(sanitizeCode("abc")).toBe("");
+  });
+
+  it("8c. sanitizeCode honors the email-OTP max length and preserves leading zeroes", () => {
+    expect(sanitizeCode("0123456789", EMAIL_OTP_MAX_LENGTH)).toBe("0123456789");
+    expect(sanitizeCode("12345678901234", EMAIL_OTP_MAX_LENGTH)).toBe("1234567890");
+    expect(sanitizeCode("04 82 91 35", EMAIL_OTP_MAX_LENGTH)).toBe("04829135");
   });
 
   it("7. pasting six digits populates the whole input", async () => {
@@ -187,6 +198,56 @@ describe("code input behaviour", () => {
   });
 });
 
+describe("AuthOtpField — variable-length email OTP (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1)", () => {
+  function OtpHarness() {
+    const [v, setV] = useState("");
+    return <AuthOtpField value={v} onChange={setV} />;
+  }
+
+  it("accepts 6, 8 and 10 digit codes as typed", async () => {
+    const user = userEvent.setup();
+    render(<OtpHarness />);
+    const input = screen.getByLabelText(/verification code/i);
+    await user.type(input, "0482913570");
+    expect(input).toHaveValue("0482913570"); // 10 digits, leading zero intact
+  });
+
+  it("truncates anything beyond ten digits safely", async () => {
+    const user = userEvent.setup();
+    render(<OtpHarness />);
+    const input = screen.getByLabelText(/verification code/i);
+    await user.type(input, "123456789012");
+    expect(input).toHaveValue("1234567890");
+  });
+
+  it("a pasted eight-digit code (even with separators) lands intact", async () => {
+    const user = userEvent.setup();
+    render(<OtpHarness />);
+    const input = screen.getByLabelText(/verification code/i);
+    input.focus();
+    await user.paste("04 82 91 35");
+    expect(input).toHaveValue("04829135");
+  });
+
+  it("rejects non-numeric characters", async () => {
+    const user = userEvent.setup();
+    render(<OtpHarness />);
+    const input = screen.getByLabelText(/verification code/i);
+    await user.type(input, "1a2b3c4d");
+    expect(input).toHaveValue("1234");
+  });
+
+  it("uses a numeric mobile keyboard, one-time-code autofill, and no truncating maxlength", () => {
+    render(<OtpHarness />);
+    const input = screen.getByLabelText(/verification code/i);
+    expect(input).toHaveAttribute("inputmode", "numeric");
+    expect(input).toHaveAttribute("autocomplete", "one-time-code");
+    // No maxLength attribute: the browser would clip a separator-formatted
+    // paste BEFORE sanitize; the onChange sanitizer owns the clamp instead.
+    expect(input).not.toHaveAttribute("maxlength");
+  });
+});
+
 describe("verification submit", () => {
   const props = {
     email: "new@example.test",
@@ -208,16 +269,41 @@ describe("verification submit", () => {
     expect(formData.get("returnTo")).toBe("/start/continue");
   });
 
-  it("submit stays disabled until all six digits are present", async () => {
+  it("submit enables at six digits and stays enabled through eight and ten — never auto-submitting", async () => {
     const user = userEvent.setup();
     render(<VerifyEmailForm {...props} />);
     const submit = screen.getByTestId("verify-submit");
+    const input = screen.getByLabelText(/verification code/i);
 
     expect(submit).toBeDisabled();
-    await user.type(screen.getByLabelText(/verification code/i), "48291");
-    expect(submit).toBeDisabled();
-    await user.type(screen.getByLabelText(/verification code/i), "3");
-    expect(submit).toBeEnabled();
+    await user.type(input, "48291");
+    expect(submit).toBeDisabled(); // five digits — below the minimum
+    await user.type(input, "3");
+    expect(submit).toBeEnabled(); // six
+    expect(mockVerify).not.toHaveBeenCalled(); // enabled ≠ submitted
+    await user.type(input, "57");
+    expect(submit).toBeEnabled(); // eight (chainreact-dev's real length)
+    await user.type(input, "04");
+    expect(submit).toBeEnabled(); // ten — the platform maximum
+    expect(mockVerify).not.toHaveBeenCalled();
+  });
+
+  it("an eight-digit code with a leading zero reaches the action intact", async () => {
+    mockVerify.mockResolvedValueOnce({ ok: true });
+    const user = userEvent.setup();
+    render(<VerifyEmailForm {...props} />);
+
+    await user.type(screen.getByLabelText(/verification code/i), "04829135");
+    await user.click(screen.getByTestId("verify-submit"));
+
+    await waitFor(() => expect(mockVerify).toHaveBeenCalledTimes(1));
+    const formData = mockVerify.mock.calls[0]![1] as FormData;
+    expect(formData.get("code")).toBe("04829135");
+  });
+
+  it("user-facing copy never claims the code is six digits", () => {
+    render(<VerifyEmailForm {...props} />);
+    expect(document.body.textContent).not.toMatch(/6-digit|six-digit|six digit/i);
   });
 
   it("10. blocks duplicate verification submissions while one is pending", async () => {
@@ -252,7 +338,7 @@ describe("verification submit", () => {
     const err = await screen.findByTestId("verify-error", {}, { timeout: 5000 });
     expect(err).toHaveTextContent(/that code is incorrect/i);
     // The pending address survives so the user isn't dumped back to signup.
-    expect(screen.getByText(/we sent a 6-digit code to/i)).toHaveTextContent("new@example.test");
+    expect(screen.getByText(/we sent a verification code to/i)).toHaveTextContent("new@example.test");
     // Field is marked invalid and refocused for an immediate retry.
     await waitFor(() =>
       expect(screen.getByLabelText(/verification code/i)).toHaveAttribute("aria-invalid", "true"),
@@ -401,7 +487,7 @@ describe("accessibility of the verification screen", () => {
     const input = screen.getByLabelText(/verification code/i);
     const describedBy = input.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)?.textContent).toMatch(/6-digit code/i);
+    expect(document.getElementById(describedBy!)?.textContent).toMatch(/code from your email/i);
   });
 
   it("gives the back and resend controls real accessible names", () => {

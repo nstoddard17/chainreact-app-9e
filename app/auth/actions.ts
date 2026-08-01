@@ -229,12 +229,18 @@ export async function updatePassword(
  * Signup email verification by 6-digit code (Slice AUTH-EMAIL-OTP-1)
  * ------------------------------------------------------------------ */
 
-/** Read + normalize the 6-digit signup code (spaces stripped, digits only). */
+/**
+ * Read + normalize the signup code (spaces stripped, digits only). Supabase
+ * email OTP length is project-configurable: 6 in production today, 8 on
+ * chainreact-dev — accept the platform's full 6–10 range rather than pinning
+ * one environment's setting (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1). Kept as a
+ * STRING end-to-end so leading zeroes survive; never logged.
+ */
 function readSignupCode(formData: FormData): string | null {
   const raw = formData.get("code");
   if (typeof raw !== "string") return null;
   const code = raw.replace(/\s+/g, "");
-  return /^\d{6}$/.test(code) ? code : null;
+  return /^\d{6,10}$/.test(code) ? code : null;
 }
 
 /** Read the pending signup address. Never logged, never echoed into an error. */
@@ -275,7 +281,7 @@ function mapOtpError(code: string | undefined, message: string): {
 }
 
 /**
- * Verify the 6-digit signup code and establish the session.
+ * Verify the emailed signup code (6–10 digits) and establish the session.
  *
  * `verifyOtp({ type: "signup" })` is Supabase's supported confirmation path — it
  * is the SAME confirmation the emailed link performs, just redeemed by token
@@ -301,7 +307,7 @@ export async function verifySignupOtp(
   }
   const code = readSignupCode(formData);
   if (!code) {
-    return { ok: false, error: "Enter the 6-digit code from your email." };
+    return { ok: false, error: "Enter the code from your email." };
   }
   const returnTo = safeReturnPath(
     typeof formData.get("returnTo") === "string" ? (formData.get("returnTo") as string) : null,

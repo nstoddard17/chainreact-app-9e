@@ -9,7 +9,7 @@ import {
 import { TurnstileWidget } from "./TurnstileWidget";
 import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
 import { AuthHeading } from "./AuthShell";
-import { AuthCodeInput, CODE_LENGTH } from "./AuthCodeInput";
+import { AuthOtpField, EMAIL_OTP_MIN_LENGTH, EMAIL_OTP_MAX_LENGTH } from "./AuthCodeInput";
 import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";
 import { ChevronLeftGlyph, MailGlyph } from "./AuthGlyphs";
 
@@ -17,7 +17,9 @@ import { ChevronLeftGlyph, MailGlyph } from "./AuthGlyphs";
 export const RESEND_COOLDOWN_SECONDS = 60;
 
 /**
- * Signup email verification by 6-digit code (Slice AUTH-EMAIL-OTP-1).
+ * Signup email verification by emailed code (Slice AUTH-EMAIL-OTP-1; made
+ * length-agnostic in SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1 — Supabase projects
+ * send 6–10 digit codes, and environments differ, so the UI never claims 6).
  *
  * Rendered by {@link SignUpFlow} once `signUp` reports `confirmationRequired`,
  * replacing the old "check your email and click the link" message. Ported from
@@ -95,7 +97,9 @@ export function VerifyEmailForm({
     }
   }, [verifyState, verifyFailed]);
 
-  const complete = code.length === CODE_LENGTH;
+  // 6–10 digits, explicit submit only — never auto-submit at any length (the
+  // sanitizer already clamps above the max, but the gate stays double-ended).
+  const complete = code.length >= EMAIL_OTP_MIN_LENGTH && code.length <= EMAIL_OTP_MAX_LENGTH;
   const resendBlocked = resending || cooldown > 0 || (captchaConfigured && !captchaToken);
 
   return (
@@ -110,21 +114,21 @@ export function VerifyEmailForm({
       </div>
 
       <AuthHeading eyebrow="Verify your email" title="Enter the code">
-        We sent a 6-digit code to <b className="au-em">{email}</b>. Enter it below to activate
-        your account.
+        We sent a verification code to <b className="au-em">{email}</b>. Enter it below to
+        activate your account.
       </AuthHeading>
 
       <form action={verifyAction} className="au-fields">
         <input type="hidden" name="email" value={email} />
         {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
 
-        <AuthCodeInput
+        <AuthOtpField
           value={code}
           onChange={setCode}
           disabled={verifying}
           invalid={verifyFailed}
           inputRef={codeRef}
-          hint="Enter the 6-digit code from your email. You can paste it."
+          hint="Enter the code from your email. You can paste it."
         />
 
         {verifyState && !verifyState.ok && (

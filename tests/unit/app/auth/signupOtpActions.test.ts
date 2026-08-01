@@ -102,12 +102,63 @@ describe("verifySignupOtp", () => {
     expect(to).toBe("/workflows");
   });
 
-  it("rejects a malformed code before calling Supabase", async () => {
-    for (const code of ["12345", "1234567", "abcdef", "12 34 5", ""]) {
+  it("rejects a malformed code before calling Supabase (below 6, above 10, non-numeric)", async () => {
+    for (const code of ["12345", "12345678901", "abcdef", "12 34 5", ""]) {
       const result = await verifySignupOtp(null, form({ email: "new@example.test", code }));
-      expect(result).toEqual({ ok: false, error: "Enter the 6-digit code from your email." });
+      expect(result).toEqual({ ok: false, error: "Enter the code from your email." });
     }
     expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("accepts every Supabase-supported email OTP length (6–10) and sends the full token", async () => {
+    // Environments legitimately differ: production is 6 today, chainreact-dev
+    // is 8 (SUPABASE-HOSTED-DEV-AUTH-OTP-LENGTH-1). One UI must serve both.
+    for (const code of ["482913", "4829135", "04829135", "0482913570"]) {
+      mockVerifyOtp.mockResolvedValueOnce({
+        data: { session: { access_token: "x" } },
+        error: null,
+      });
+      await captureRedirect(() =>
+        verifySignupOtp(null, form({ email: "new@example.test", code })),
+      );
+      expect(mockVerifyOtp).toHaveBeenLastCalledWith(
+        expect.objectContaining({ token: code, type: "signup" }),
+      );
+    }
+  });
+
+  it("preserves leading zeroes end-to-end (the token stays a string)", async () => {
+    mockVerifyOtp.mockResolvedValueOnce({ data: { session: { access_token: "x" } }, error: null });
+    await captureRedirect(() =>
+      verifySignupOtp(null, form({ email: "new@example.test", code: "00482913" })),
+    );
+    expect(mockVerifyOtp).toHaveBeenCalledWith(expect.objectContaining({ token: "00482913" }));
+  });
+
+  it("never logs the OTP value on failure", async () => {
+    const spies = (["log", "info", "warn", "error"] as const).map((m) =>
+      jest.spyOn(console, m).mockImplementation(() => {}),
+    );
+    try {
+      mockVerifyOtp.mockResolvedValueOnce({
+        data: {},
+        error: { code: "otp_expired", message: "Token has expired" },
+      });
+      await verifySignupOtp(null, form({ email: "new@example.test", code: "04829135" }));
+      for (const spy of spies) {
+        for (const call of spy.mock.calls) {
+          expect(JSON.stringify(call)).not.toContain("04829135");
+        }
+      }
+    } finally {
+      spies.forEach((s) => s.mockRestore());
+    }
+  });
+
+  it("error copy never claims the code is six digits", async () => {
+    const result = await verifySignupOtp(null, form({ email: "new@example.test", code: "123" }));
+    expect(result.ok).toBe(false);
+    expect(String((result as { error: string }).error)).not.toMatch(/6-digit|six/i);
   });
 
   it("accepts a code with incidental whitespace", async () => {
