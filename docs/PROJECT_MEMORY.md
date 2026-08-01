@@ -5,7 +5,20 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-08-01 @ SUPABASE-HOSTED-DEV-AUTH-CERT-1 (dev Auth Phase A
+> Last curated: 2026-08-01 @ Phase A COMPLETE + v2-dev lane planned (dev Auth
+> Phase A owner-certified: signup/8-digit OTP/sign-in/sign-out/protected-route/
+> synthetic-workflow-visible/MFA-enroll/MFA-challenge/reset-request ALL PASSED;
+> recovery-email delivery OPEN (not observed; built-in SMTP constraint; retry
+> once after cooldown or certify in Phase B — never spam resets); two hosted
+> defects found+fixed by owner testing: OTP length (f63ed4785) and the
+> workflow-definition crash (b5aad2217 — normalization boundary
+> normalizePersistedWorkflowDefinition + draftDefinitionInvalid flag +
+> bootstrap repair, /workflows proven 200 authenticated); deploy-development
+> now pins VERCEL_GIT_COMMIT_REF=v2-dev (detached-HEAD CLI deploys otherwise
+> lose branch-scoped env); activation plan:
+> docs/slices/phase-5/supabase-env-pipeline/v2-dev-lane-activation-plan.md —
+> owner dashboards first, push only on explicit authorization; LOCAL/UNPUSHED).
+> Prior: 2026-08-01 @ SUPABASE-HOSTED-DEV-AUTH-CERT-1 (dev Auth Phase A
 > automated layer CERTIFIED on localhost against chainreact-dev — dashboard
 > URL config + both templates ENTERED by owner; new `npm run dev:devdb` runs
 > next dev with the Supabase trio overridden to dev (guarded, .env.local

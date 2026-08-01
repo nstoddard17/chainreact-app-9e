@@ -258,12 +258,26 @@ server-side probe as dev-owner confirmed `/workflows` renders (200, synthetic
 workflow visible, no error markers). **Passed so far:** hosted signup +
 8-digit OTP ✅ · sign-in ✅ · sign-out ✅ · protected-route redirect ✅.
 
-Owner-assisted browser layer — remaining **PENDING Marcus**: `/workflows`
-visual confirmation, MFA enrollment, `/auth/mfa` step-up, reset-request email
-arrival + link-host check (MFA tests use `dev-owner@chainreact.test` +
-`DEV_BOOTSTRAP_PASSWORD` from `.env.development.local`; reset-email test must
-use a **Supabase org-member email** — built-in SMTP delivers only to project
-team members, a few per hour).
+**Phase A owner results (final, 2026-08-01): COMPLETE except one open item.**
+
+| Owner browser test | Result |
+|---|---|
+| Hosted signup email arrival | ✅ |
+| 8-digit signup OTP accepted + confirmation | ✅ |
+| Sign-in / sign-out | ✅ |
+| Protected `/workflows` redirect | ✅ |
+| Synthetic workflow visible on `/workflows` | ✅ (post CRASH-1 fix) |
+| MFA enrollment | ✅ |
+| `/auth/mfa` challenge on next login + code accepted | ✅ |
+| Password-reset request submitted | ✅ |
+| **Development recovery email delivered** | ⏳ **OPEN — not observed** |
+
+**Open certification item — dev recovery-email delivery:** the request
+succeeded but no email was observed; most likely the `chainreact-dev`
+built-in-SMTP delivery/rate constraint. Production recovery delivery works,
+but that is NOT evidence for dev. Policy (owner-set): retry **once** after the
+built-in email cooldown; otherwise certify during Phase B on the hosted
+`v2-dev` lane with its final email configuration. Do not spam resets.
 
 **Phase A — checklist** (local `next dev` pointed at the dev
 project — `npm run dev:devdb`; do not repoint `.env.local`):

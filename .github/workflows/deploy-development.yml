@@ -156,6 +156,13 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          # The checkout is an exact SHA (detached HEAD), so the CLI cannot
+          # infer a branch. Without this, Vercel would NOT attach the Preview
+          # env vars scoped to branch v2-dev and the app would boot with no
+          # Supabase config. Declaring the ref pins the deployment to the
+          # v2-dev environment lane.
+          VERCEL_GIT_COMMIT_REF: v2-dev
+          VERCEL_GIT_COMMIT_SHA: ${{ needs.resolve.outputs.sha }}
         run: |
           set -euo pipefail
           URL=$(npx --yes vercel@latest deploy --yes --token "$VERCEL_TOKEN" 2>vercel-err.log) || {
