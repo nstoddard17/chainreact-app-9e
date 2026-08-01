@@ -8,6 +8,7 @@ import {
   hasSlackSmokeConfig,
   smokeSlackChannelName,
   uniqueWorkflowName,
+  vercelBypassHeaders,
 } from "./helpers/env";
 
 /**
@@ -105,9 +106,12 @@ test.describe.serial("Slack action smoke", () => {
     if (!hasSlackSmokeConfig()) return;
     // Own context (not the per-test `page` fixture) so the same in-memory
     // builder graph carries across the serial steps.
+    // Manual contexts don't inherit use.extraHTTPHeaders — re-attach the
+    // Vercel protection bypass (V2-DEV-BRANCH-ATTRIBUTION-FIX-2).
     const context = await browser.newContext({
       baseURL: baseUrl(),
       storageState: STORAGE_STATE,
+      extraHTTPHeaders: vercelBypassHeaders(),
     });
     page = await context.newPage();
   });

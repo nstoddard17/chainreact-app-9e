@@ -7,6 +7,7 @@ import {
   baseUrl,
   hasSmokeCredentials,
   uniqueWorkflowName,
+  vercelBypassHeaders,
 } from "./helpers/env";
 
 /**
@@ -45,9 +46,13 @@ test.describe.serial("Workflow builder smoke", () => {
     if (!hasSmokeCredentials()) return;
     // Own context (not the per-test `page` fixture) so the same page — and thus
     // the same in-memory builder graph — carries across the serial steps.
+    // Manually-created contexts do NOT inherit the config's use.extraHTTPHeaders,
+    // so the Vercel protection-bypass header must be re-attached here or every
+    // request on a protected preview 401s (V2-DEV-BRANCH-ATTRIBUTION-FIX-2).
     const context = await browser.newContext({
       baseURL: baseUrl(),
       storageState: STORAGE_STATE,
+      extraHTTPHeaders: vercelBypassHeaders(),
     });
     page = await context.newPage();
   });
