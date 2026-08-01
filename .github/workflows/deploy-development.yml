@@ -177,11 +177,28 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        # --scope is REQUIRED here: unlike `deploy`, the CLI's `alias` command
-        # does not read VERCEL_ORG_ID, and a team-scoped token without an
-        # explicit scope fails with "User not found" (observed on the first
-        # v2-dev run). The org id is accepted as a scope value.
-        run: npx --yes vercel@latest alias set "${{ steps.deploy.outputs.url }}" "${{ vars.DEV_APP_HOSTNAME }}" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+        # REST, not `vercel alias`: the CLI's alias command insists on loading
+        # the USER behind the token and 404s ("User not found") on TEAM-scoped
+        # tokens — observed on both first v2-dev runs, with and without
+        # --scope. The REST API accepts team tokens directly, so the alias
+        # binds without widening the token's privilege. Deployment id is
+        # resolved from the deploy step's URL first.
+        run: |
+          set -euo pipefail
+          HOSTNAME_URL="${{ steps.deploy.outputs.url }}"
+          DEP_HOST="${HOSTNAME_URL#https://}"
+          DEP_ID=$(curl -sf "https://api.vercel.com/v13/deployments/$DEP_HOST?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d);if(!j.id){console.error('no deployment id');process.exit(1);}console.log(j.id);})")
+          echo "Aliasing deployment $DEP_ID -> ${{ vars.DEV_APP_HOSTNAME }}"
+          RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://api.vercel.com/v2/deployments/$DEP_ID/aliases?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"alias\":\"${{ vars.DEV_APP_HOSTNAME }}\"}")
+          if [ "$RESP" != "200" ] && [ "$RESP" != "201" ]; then
+            echo "ABORT — alias API returned HTTP $RESP"
+            exit 1
+          fi
+          echo "Alias bound (HTTP $RESP)."
 
   smoke:
     name: development smoke
