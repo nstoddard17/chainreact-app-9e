@@ -5,7 +5,18 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-08-01 @ SUPABASE-HOSTED-DEV-AUTH-1 (dev Auth config
+> Last curated: 2026-08-01 @ SUPABASE-HOSTED-DEV-AUTH-CERT-1 (dev Auth Phase A
+> automated layer CERTIFIED on localhost against chainreact-dev — dashboard
+> URL config + both templates ENTERED by owner; new `npm run dev:devdb` runs
+> next dev with the Supabase trio overridden to dev (guarded, .env.local
+> untouched); proofs: dev ref inlined in compiled chunks + prod ref in none,
+> live server→dev verifyOtp round trip, type allowlist live, all error
+> redirects safe + localhost-only, Turnstile UI absent; owner browser tests
+> PENDING (bootstrap creds for sign-in/MFA; signup/reset emails need a
+> Supabase org-member address — built-in SMTP team-member-only); Phase B
+> deferred to the v2-dev lane; runbook §2a/§2b carries the status; production
+> untouched; LOCAL/UNPUSHED).
+> Prior: 2026-08-01 @ SUPABASE-HOSTED-DEV-AUTH-1 (dev Auth config
 > AUDITED + owner checklist ready — every URL derived from code (callback
 > token_hash flow, type allowlist email|recovery, Google signInWithOAuth uses
 > window.origin/auth/callback); authoritative checklist + certification plan:

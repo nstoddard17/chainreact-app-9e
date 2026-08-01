@@ -118,7 +118,12 @@ form; percent-encode the password).
   (SUPABASE-HOSTED-DEV-AUTH-1 audit; every value derived from the code, not
   guessed). Pending until you enter it and confirm.
 
-### 2a. Dev Auth configuration (owner checklist — PENDING)
+### 2a. Dev Auth configuration (✅ ENTERED by owner 2026-08-01)
+
+Owner confirmed (SUPABASE-HOSTED-DEV-AUTH-CERT-1): Site URL + all four
+redirect allowlist entries saved; both dev templates pasted; Turnstile still
+OFF; no production settings touched. The value derivations below remain the
+reference for future changes.
 
 All in the `chainreact-dev` dashboard (`syvnzqzctnywakgyykmz`) → Authentication.
 Derivations: `app/auth/callback/route.ts` (token_hash `verifyOtp`, `type`
@@ -186,10 +191,36 @@ and a bad push would overwrite dashboard state. Candidate follow-up:
 SUPABASE-CONFIG-AS-CODE-1, trialed against dev only. The Management API
 route was rejected for this batch (needs raw PAT handling).
 
-### 2b. Dev Auth certification plan (run after §2a is entered)
+### 2b. Dev Auth certification plan + status
 
-**Phase A — now, no deployment needed** (local `next dev` pointed at the dev
-project via per-command env overrides — do not repoint `.env.local`):
+**Phase A status (2026-08-01, SUPABASE-HOSTED-DEV-AUTH-CERT-1):**
+
+Automated layer — **CERTIFIED** against `npm run dev:devdb` (localhost app with
+the Supabase trio overridden to `chainreact-dev`; the new guarded script is the
+sanctioned way to run this lane — `.env.local` untouched):
+
+| Check | Result |
+|---|---|
+| Browser-facing target | ✅ dev ref inlined in compiled auth chunk; prod ref in NO chunk; prod hostname absent from served HTML |
+| Server-facing target | ✅ bogus `token_hash` probes return GoTrue's "Email link is invalid or has expired" — a live server→dev-project `verifyOtp` round trip |
+| Callback type allowlist | ✅ `email_change` and `magiclink` → `invalid_confirmation`; only `email`/`recovery` proceed |
+| Missing params | ✅ `/auth/callback` bare → `?error=oauth_missing_code` |
+| Bogus email/recovery tokens | ✅ safe error redirect, token never in the target URL |
+| `/auth/reset-password` no session | ✅ 307 → `/auth/forgot-password?error=…` |
+| Protected route signed out | ✅ `/workflows` → 307 → `/auth/sign-in` |
+| All redirect hosts | ✅ `localhost:3000` only — never `chainreact.app` |
+| Turnstile UI | ✅ absent (site key unset) |
+| `next` sanitizer | ✅ via unit tests (13 suites / 132 tests green) — success-path redirect needs a valid token, covered again in the browser layer |
+
+Owner-assisted browser layer — **PENDING Marcus** (exact steps in the
+SUPABASE-HOSTED-DEV-AUTH-CERT-1 Owner Report; summary: sign-in/sign-out/MFA
+tests use `dev-owner@chainreact.test` + `DEV_BOOTSTRAP_PASSWORD` from
+`.env.development.local`; signup/reset-email tests must use a **Supabase
+org-member email** — the built-in SMTP only delivers to project team members,
+a few per hour).
+
+**Phase A — checklist** (local `next dev` pointed at the dev
+project — `npm run dev:devdb`; do not repoint `.env.local`):
 
 1. Signup with a fresh `…@chainreact.test` email → confirmation email arrives
    (dev-labeled) → enter the **6-digit code** on the verify screen → account
@@ -202,7 +233,13 @@ project via per-command env overrides — do not repoint `.env.local`):
 5. Negative: expired/garbage `token_hash` → `/auth/sign-in?error=…`, no crash,
    no token in URL; disallowed `type=email_change` → `invalid_confirmation`.
 
-**Phase B — requires the deployed `v2-dev` lane + `dev.chainreact.app`:**
+**Phase B — DEFERRED: requires the deployed `v2-dev` lane + `dev.chainreact.app`**
+(blockers per test: email-link click-through + full recovery + hosted AAL2
+step-up → links target `https://dev.chainreact.app`, which has no DNS/app yet;
+Google sign-in → provider not yet enabled in the dev project + needs the dev
+host to prove the allowlist; hosted logout/protected-route + final
+no-crossover proof → need the deployed lane itself. Next arc after Phase A
+completes: **the GitHub/Vercel `v2-dev` lane setup** — runbook §3–§5.)
 
 1. Confirmation email **link** click-through (mobile + desktop) → `/auth/confirmed`.
 2. Full recovery: request → email link → `/auth/reset-password` → (with TOTP
