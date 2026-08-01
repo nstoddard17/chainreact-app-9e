@@ -104,6 +104,25 @@ describe("deploy-development.yml — DB gate before app, dev environment only", 
     expect(text).toContain("CHAINREACT_DB_TARGET: development");
   });
 
+  // V2-DEV-BRANCH-ATTRIBUTION-1 — the CLI derives the branch from git and
+  // ignores VERCEL_GIT_COMMIT_REF when git metadata exists; without a real
+  // v2-dev branch in the runner clone, the branch-scoped Preview env (dev
+  // Supabase trio!) silently fails to attach and the app builds with the
+  // generic (production) values.
+  it("materializes the v2-dev branch before deploying and verifies attribution after", () => {
+    expect(text).toContain("git checkout -B v2-dev");
+    expect(text).toMatch(/Verify branch attribution/);
+    expect(text).toMatch(/githubCommitRef[\s\S]{0,400}?!= "v2-dev"[\s\S]{0,400}?exit 1/);
+    // The attribution gate must sit between deploy and alias so a mis-scoped
+    // build is never aliased to the stable dev hostname.
+    const deployIdx = text.indexOf("Deploy to Vercel");
+    const verifyIdx = text.indexOf("Verify branch attribution");
+    const aliasIdx = text.indexOf("Alias stable dev hostname");
+    expect(deployIdx).toBeGreaterThan(-1);
+    expect(verifyIdx).toBeGreaterThan(deployIdx);
+    expect(aliasIdx).toBeGreaterThan(verifyIdx);
+  });
+
   it("verifies the requested SHA is a real full commit", () => {
     expect(text).toContain("git cat-file -e");
     expect(text).toMatch(/\[0-9a-f\]\{40\}/);

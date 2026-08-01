@@ -10,8 +10,23 @@ Design rationale and audit trail:
 
 ## The three environments
 
+> **CORRECTION 2026-08-01 (V2-DEV-BRANCH-ATTRIBUTION-1): the app-env half of
+> the lane certification below is RETRACTED.** The Vercel CLI derives the
+> branch from git metadata and ignores `VERCEL_GIT_COMMIT_REF`; every CLI
+> deployment from the detached-HEAD checkout was attributed to branch `HEAD`,
+> so the v2-dev-scoped Preview env (dev Supabase trio, empty Turnstile
+> override) never attached — the deployed app was built with the GENERIC
+> preview env, i.e. **production values**, behind Vercel Authentication.
+> Authenticated smoke's disabled sign-in button (generic Turnstile key)
+> means no auth request was ever sent; production data untouched. Database
+> migration/identity certification (GitHub-secret path) is unaffected and
+> stands. Fix staged locally: the deploy job materializes a real `v2-dev`
+> branch in the runner clone and a fail-closed attribution gate sits between
+> deploy and alias. **Do not sign in at dev.chainreact.app until a
+> post-fix deployment replaces the current one.**
+>
 > **Status 2026-08-01 (V2-DEV-REST-ALIAS-FIX-1): the v2-dev lane is LIVE and
-> certified end-to-end.** Run 30711097469 @ `7afed3335`: db-ci gate green
+> certified end-to-end** (app-env claims retracted above; database claims stand): Run 30711097469 @ `7afed3335`: db-ci gate green
 > (CI clean reset + RLS suites), dev migration "Remote database is up to
 > date" via the Session pooler (identity guard confirmed the dev ref; the
 > direct `db.<ref>` host is IPv6-only and unreachable from Actions runners —

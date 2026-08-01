@@ -150,17 +150,25 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
+      - name: Materialize the v2-dev branch in the runner clone
+        # BRANCH ATTRIBUTION IS LOAD-BEARING (V2-DEV-BRANCH-ATTRIBUTION-1):
+        # when the checkout has git metadata, the Vercel CLI derives the branch
+        # from git and IGNORES VERCEL_GIT_COMMIT_REF. A detached-HEAD checkout
+        # therefore produced deployments with gitBranch "HEAD", and the
+        # v2-dev-scoped Preview env (Supabase trio, empty Turnstile key, app
+        # URLs) never attached — the app built with the GENERIC preview env
+        # instead (production values). Observed on the first three lane runs.
+        # A real local branch named v2-dev at the exact SHA fixes attribution
+        # at the source. Local to the runner clone; nothing is pushed.
+        run: git checkout -B v2-dev ${{ needs.resolve.outputs.sha }}
+
       - name: Deploy to Vercel (preview lane pinned to v2-dev env)
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          # The checkout is an exact SHA (detached HEAD), so the CLI cannot
-          # infer a branch. Without this, Vercel would NOT attach the Preview
-          # env vars scoped to branch v2-dev and the app would boot with no
-          # Supabase config. Declaring the ref pins the deployment to the
-          # v2-dev environment lane.
+          # Belt-and-braces alongside the materialized branch above.
           VERCEL_GIT_COMMIT_REF: v2-dev
           VERCEL_GIT_COMMIT_SHA: ${{ needs.resolve.outputs.sha }}
         run: |
@@ -170,6 +178,24 @@ jobs:
           }
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed: $URL"
+
+      - name: Verify branch attribution (fail closed — env scoping depends on it)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          HOST="${DEPLOY_URL#https://}"
+          REF=$(curl -sf "https://api.vercel.com/v13/deployments/$HOST?teamId=$VERCEL_ORG_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{console.log(JSON.parse(d).meta?.githubCommitRef ?? '(none)');})")
+          echo "Deployment branch attribution: $REF"
+          if [ "$REF" != "v2-dev" ]; then
+            echo "ABORT — deployment is attributed to '$REF', not v2-dev. The branch-scoped"
+            echo "Preview env (dev Supabase trio, Turnstile override) did NOT attach; the app"
+            echo "would be built with the generic preview env. Refusing to alias or smoke it."
+            exit 1
+          fi
 
       - name: Alias stable dev hostname (when configured)
         if: ${{ vars.DEV_APP_HOSTNAME != '' }}
