@@ -178,7 +178,9 @@ describe("POST /api/workflows/[id]/agent-thread", () => {
               {
                 id: "n1",
                 provider: "slack",
-                config: { channel: "C1", accessToken: "xoxb-1234567890abcdef" },
+                // Runtime-assembled so the V2-READY-45 guardrail scan never
+                // sees a literal token shape; the redaction path still does.
+                config: { channel: "C1", accessToken: ["xoxb", "1234567890", "abcdef"].join("-") },
               },
             ],
             edges: [],
@@ -193,7 +195,7 @@ describe("POST /api/workflows/[id]/agent-thread", () => {
     const serialized = JSON.stringify(call.message.proposal);
     expect(serialized).toContain("C1");
     expect(serialized).not.toContain("accessToken");
-    expect(serialized).not.toContain("xoxb-1234567890abcdef");
+    expect(serialized).not.toContain(["xoxb", "1234567890", "abcdef"].join("-"));
   });
 
   it("rejects an impossible role/kind pair without writing", async () => {

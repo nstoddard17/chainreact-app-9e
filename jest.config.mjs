@@ -2,6 +2,16 @@
 const config = {
   preset: "ts-jest",
   testEnvironment: "jsdom",
+  // BASELINE-TEST-GREEN-1 — bound parallelism to PHYSICAL cores, not logical
+  // threads. Jest's default (logical CPUs − 1) oversubscribes hyperthreaded
+  // machines: 15 jsdom workers on 8 physical cores starved heavy builder
+  // integration suites past their 5s budgets, failing a churning ~5–25 suites
+  // per full run (each passing in isolation). Measured on a 16-thread/8-core
+  // box: default workers → 8 and 5 flaky suites across two runs; 50% (=8
+  // workers) → 2679/2679 suites green. Coverage is unchanged — this caps
+  // concurrency only; CI runners with ≤ this many cores are unaffected
+  // (Jest already picks the smaller value there).
+  maxWorkers: "50%",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   // Last-resort sweep of leaked @chainreact.test fixtures. Per-suite afterAll is
   // the primary mechanism; this only catches suites whose worker died before it

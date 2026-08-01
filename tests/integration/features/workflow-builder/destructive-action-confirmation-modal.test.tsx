@@ -28,6 +28,22 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
+// LIVE-TEST-HEADER-UX-1 — the automated surface's single primary testing action is
+// Run Live Test, whose journey starts at the typed prepare endpoint. Mocked at the
+// same typed-API boundary as lib/api/workflows above; the full live-test journey is
+// covered in tests/unit/features/workflow-builder/live-test/liveTestJourney.test.tsx.
+const mockPrepareLiveTest = jest.fn();
+jest.mock("@/lib/api/liveTest", () => {
+  const actual = jest.requireActual("@/lib/api/liveTest");
+  return {
+    ...actual,
+    prepareLiveTest: (...args: unknown[]) => mockPrepareLiveTest(...args),
+    getLiveTestStatus: jest.fn(),
+    startLiveTest: jest.fn(),
+    cancelLiveTest: jest.fn(),
+  };
+});
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh }),
 }));
@@ -68,6 +84,16 @@ beforeEach(() => {
   mockActivateWorkflow.mockReset();
   mockRunNowWorkflow.mockReset();
   mockRefresh.mockReset();
+  // LIVE-TEST-HEADER-UX-1 — prepare answers with the typed unsupported refusal so a
+  // Run Live Test click settles deterministically without a live-capture session.
+  const { LiveTestApiError } = jest.requireActual("@/lib/api/liveTest");
+  mockPrepareLiveTest.mockReset().mockRejectedValue(
+    new LiveTestApiError({
+      message: "Live trigger capture is not yet supported for this trigger.",
+      code: "trigger_capture_unsupported",
+      status: 422,
+    }),
+  );
   useGraphSlice.getState().reset();
 });
 
@@ -388,7 +414,7 @@ describe("integration — automated workflows expose only the test surface (Slic
     });
   }
 
-  it("scheduled-trigger workflow does NOT expose Run Manually and renders Test Workflow enabled", () => {
+  it("scheduled-trigger workflow does NOT expose Run Manually and renders Run Live Test enabled", () => {
     bootWithScheduledTrigger();
     render(<HeaderRunControls />);
     // Automated panel is rendered, manual panel is not.
@@ -402,12 +428,16 @@ describe("integration — automated workflows expose only the test surface (Slic
     expect(
       screen.queryByTestId("run-controls-run-manually-button"),
     ).not.toBeInTheDocument();
-    // WORKFLOW-LIVE-TEST-2 — Test Workflow is now ENABLED on automated workflows and explains
-    // itself on click (a safe dry run cannot fabricate a provider event). It still never
-    // dispatches, so the run-now route is never called with a workflow it would reject.
-    const testButton = screen.getByTestId("run-controls-test-button");
-    expect(testButton).toBeEnabled();
-    expect(testButton).toHaveTextContent(/test workflow/i);
+    // LIVE-TEST-HEADER-UX-1 — the automated surface offers ONE primary testing action:
+    // Run Live Test. Safe Test is no longer a button here (a safe dry run cannot
+    // fabricate a provider event, WORKFLOW-LIVE-TEST-2 §4); its unavailability is
+    // explained in the attached testing-options popover instead.
+    expect(
+      screen.queryByTestId("run-controls-test-button"),
+    ).not.toBeInTheDocument();
+    const liveTestButton = screen.getByTestId("run-controls-live-test-button");
+    expect(liveTestButton).toBeEnabled();
+    expect(liveTestButton).toHaveTextContent(/run live test/i);
   });
 
   it("provider-event-trigger workflow does NOT expose Run Manually", () => {
@@ -421,11 +451,15 @@ describe("integration — automated workflows expose only the test surface (Slic
     ).toBeInTheDocument();
   });
 
-  it("automated panel never fires runNowWorkflow (safe test explains instead of dispatching)", async () => {
+  it("automated panel never fires runNowWorkflow (Run Live Test opens the live-test journey instead)", async () => {
     bootWithScheduledTrigger();
     const user = userEvent.setup();
     render(<HeaderRunControls />);
-    await user.click(screen.getByTestId("run-controls-test-button"));
+    // LIVE-TEST-HEADER-UX-1 / WORKFLOW-LIVE-TEST-4 — the click routes into the live-test
+    // prepare endpoint (disclosure-first; nothing runs until the user starts listening),
+    // and never into the run-now route the automated surface would reject.
+    await user.click(screen.getByTestId("run-controls-live-test-button"));
+    expect(mockPrepareLiveTest).toHaveBeenCalledTimes(1);
     expect(mockRunNowWorkflow).not.toHaveBeenCalled();
   });
 

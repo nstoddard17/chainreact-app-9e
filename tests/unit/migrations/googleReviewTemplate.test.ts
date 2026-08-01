@@ -441,7 +441,15 @@ describe("Google reviewer templates — reviewer setup experience", () => {
   it("surfaces normal Setup Needed states on the main template", () => {
     expect(missingFor(main, "trigger")).toEqual([]);
     expect(missingFor(main, "a1")).toEqual([]);
-    expect(missingFor(main, "a2")).toEqual(["range", "spreadsheetId", "valueInputOption"]);
+    // SHEETS-GUIDED-CONFIG-1 (guided-Sheets arc): append_row's builder-required
+    // Tab picker (`sheetName`) is a normal Setup Needed state alongside the
+    // spreadsheet — the reviewer picks both and the guided path derives `range`.
+    expect(missingFor(main, "a2")).toEqual([
+      "range",
+      "sheetName",
+      "spreadsheetId",
+      "valueInputOption",
+    ]);
     // Calendar now flags the TIMED date-time pair as well as the Q11 guest choices.
     expect(missingFor(main, "a3")).toEqual([
       "endDateTime",

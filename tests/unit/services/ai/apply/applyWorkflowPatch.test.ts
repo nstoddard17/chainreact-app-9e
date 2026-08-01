@@ -49,8 +49,14 @@ function node(
   return { id, kind, provider, type, config, position: { x: 0, y: 0 } };
 }
 
+// WORKFLOW-TEST-RUNTIME-1 — gmail:send_email now declares `subject` required (the runtime
+// schema requires the key to be present), so the fixture carries it: a patch that touches
+// a1's config is re-validated against ActionMeta and must not fail on a stale fixture.
 const baseDef = (): WorkflowDefinition => ({
-  nodes: [node("t", "trigger", "gmail", "new_email"), node("a1", "action", "gmail", "send_email", { to: "x@y.com" })],
+  nodes: [
+    node("t", "trigger", "gmail", "new_email"),
+    node("a1", "action", "gmail", "send_email", { to: "x@y.com", subject: "Hello" }),
+  ],
   edges: [{ id: "e1", from: "t", to: "a1" }],
 });
 

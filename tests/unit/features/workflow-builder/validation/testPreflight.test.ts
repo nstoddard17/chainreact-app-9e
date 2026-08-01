@@ -137,10 +137,12 @@ describe("evaluateTestPreflight — against a REAL incomplete Google Review Test
     const result = preflightFor(nodes);
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
-    // Sheets (file, range, value-input), Calendar (start, end, 3 guest choices),
-    // Gmail label (the label), Gmail send (the recipient).
-    expect(result.issueCount).toBe(10);
-    expect(result.summary).toBe("Finish 10 setup items before testing this workflow.");
+    // Sheets (file, tab, range, value-input — SHEETS-GUIDED-CONFIG-1 added the
+    // builder-required Tab picker; the advanced `range` stays runtime-required),
+    // Calendar (start, end, 3 guest choices), Gmail label (the label),
+    // Gmail send (the recipient).
+    expect(result.issueCount).toBe(11);
+    expect(result.summary).toBe("Finish 11 setup items before testing this workflow.");
     expect(new Set(result.items.map((i) => i.nodeId))).toEqual(new Set(["a2", "a3", "a4", "a6"]));
     // Every blocking item points at a step the user can open.
     expect(result.items.every((i) => i.nodeId !== undefined)).toBe(true);
@@ -148,7 +150,10 @@ describe("evaluateTestPreflight — against a REAL incomplete Google Review Test
 
   it("passes once every reviewer-selected value is filled in", () => {
     const complete = nodes.map((n) => {
-      if (n.id === "a2") return { ...n, config: { ...n.config, spreadsheetId: "s", range: "Sheet1!A:Z", valueInputOption: "USER_ENTERED" } };
+      // sheetName: the guided-Sheets arc (SHEETS-GUIDED-CONFIG-1) made the Tab
+      // a builder-required selection on append_row, so a complete config now
+      // carries it alongside the derived range.
+      if (n.id === "a2") return { ...n, config: { ...n.config, spreadsheetId: "s", sheetName: "Sheet1", range: "Sheet1!A:Z", valueInputOption: "USER_ENTERED" } };
       if (n.id === "a3") return { ...n, config: { ...n.config, startDateTime: "2026-08-01T10:00:00Z", endDateTime: "2026-08-01T10:30:00Z", sendNotifications: "none", guestsCanInviteOthers: false, guestsCanSeeOtherGuests: false } };
       if (n.id === "a4") return { ...n, config: { ...n.config, labelIds: ["Label_1"] } };
       if (n.id === "a6") return { ...n, config: { ...n.config, to: ["someone"] } };

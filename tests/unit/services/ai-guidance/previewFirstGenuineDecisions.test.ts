@@ -75,12 +75,24 @@ describe("genuine decisions — required by a real action contract", () => {
     expect(required).toContain("email");
   });
 
-  it("Gmail: only the recipient is required — the body is optional, so the agent can write it", () => {
+  it("Gmail: the recipient is the only genuine setup decision — subject is required-by-key with a safe default, and the body is optional, so the agent can write both", () => {
+    const meta = getActionMeta(GMAIL_SEND)!;
     const required = requiredActionFields(GMAIL_SEND);
     expect(required).toContain("to");
-    expect(required).not.toContain("subject");
+    // WORKFLOW-TEST-RUNTIME-1 — `subject` is now declared required because the runtime
+    // schema requires the KEY to be present (it may be an empty string). Its
+    // defaultValue "" means readiness never surfaces it as a setup gap, so it is
+    // still NOT a genuine user decision — the agent writes it, it never asks for it.
+    expect(required).toContain("subject");
+    const subject = meta.fields.find((f) => f.name === "subject")!;
+    expect(subject.defaultValue).toBe("");
+    // Bodies stay per-field optional; the "at least one body" rule is the CROSS-FIELD
+    // requiredAnyOf (WORKFLOW-LIVE-TEST-2) — again content the agent can write itself.
     expect(required).not.toContain("textBody");
     expect(required).not.toContain("htmlBody");
+    expect(meta.requiredAnyOf).toEqual([
+      expect.objectContaining({ fields: ["textBody", "htmlBody"] }),
+    ]);
   });
 });
 

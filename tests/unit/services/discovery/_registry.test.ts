@@ -3984,7 +3984,7 @@ describe("per-provider accessors", () => {
       expect(create.fields.find((x) => x.name === "spreadsheetId")).toBeUndefined();
     });
 
-    it("every sheetName field uses the `google-sheets:sheets` resolver with dependsOn=spreadsheetId (5 actions across the 12-action surface)", () => {
+    it("every sheetName field uses the `google-sheets:sheets` resolver with dependsOn=spreadsheetId (6 actions across the 12-action surface)", () => {
       const expectSheetField = [
         "google-sheets:get_cell_value",
         "google-sheets:find_row",
@@ -3993,6 +3993,10 @@ describe("per-provider accessors", () => {
         // handler; format_range receives bare A1 + sheetName separately.
         "google-sheets:delete_row",
         "google-sheets:format_range",
+        // SHEETS-GUIDED-CONFIG-1 (guided-Sheets arc): append_row gained a
+        // real Tab picker so the columns resolver has a dependsOn parent
+        // and the normal path derives `range` instead of asking for A1.
+        "google-sheets:append_row",
       ];
       for (const key of expectSheetField) {
         const meta = gsheetsActionMetas().find((m) => m.key === key)!;
@@ -4005,9 +4009,13 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("append_row / update_row / clear_range / batch_update do NOT expose a sheetName field — schemas accept `range` only (slice rule: use exact runtime field names)", () => {
+    it("update_row / clear_range / batch_update do NOT expose a sheetName field — schemas accept `range` only; append_row is the guided exception (SHEETS-GUIDED-CONFIG-1)", () => {
+      // SHEETS-EXCEL-GUIDED-CONFIG / guided-Sheets arc: append_row now DOES
+      // expose sheetName (builder-required Tab picker; runtime-optional in the
+      // schema) — it is pinned in the sheetName-resolver test above and in the
+      // append_row write-surface tests below. The remaining range-only writes
+      // stay sheetName-free.
       for (const key of [
-        "google-sheets:append_row",
         "google-sheets:update_row",
         // GSHEETS-4: clear_range schema is { spreadsheetId, range };
         // batch_update schema is { spreadsheetId, valueInputOption,
@@ -4019,11 +4027,10 @@ describe("per-provider accessors", () => {
         const meta = gsheetsActionMetas().find((m) => m.key === key)!;
         expect(meta.fields.map((f) => f.name)).not.toContain("sheetName");
       }
-      // append_row / update_row / clear_range each expose `range` as
-      // required text. batch_update is the exception — `updates` is a
-      // textarea paste-JSON containing the per-update ranges.
+      // update_row / clear_range each expose `range` as required text on the
+      // Setup path. batch_update is the exception — `updates` is a textarea
+      // paste-JSON containing the per-update ranges.
       for (const key of [
-        "google-sheets:append_row",
         "google-sheets:update_row",
         "google-sheets:clear_range",
       ]) {
@@ -4032,7 +4039,18 @@ describe("per-provider accessors", () => {
         expect(range).toBeDefined();
         expect(range!.type).toBe("text");
         expect(range!.required).toBe(true);
+        expect(range!.advanced).toBeUndefined();
       }
+      // append_row's range moved to ADVANCED (SHEETS-GUIDED-CONFIG-1): still
+      // required at runtime (it is the only value the API receives; the guided
+      // path derives it from the selected tab), but no longer a Setup field.
+      const appendRange = gsheetsActionMetas()
+        .find((m) => m.key === "google-sheets:append_row")!
+        .fields.find((f) => f.name === "range");
+      expect(appendRange).toBeDefined();
+      expect(appendRange!.type).toBe("text");
+      expect(appendRange!.required).toBe(true);
+      expect(appendRange!.advanced).toBe(true);
       const batch = gsheetsActionMetas().find(
         (m) => m.key === "google-sheets:batch_update",
       )!;
@@ -4212,17 +4230,26 @@ describe("per-provider accessors", () => {
     });
 
     describe("append_row / update_row write surface", () => {
-      it("append_row exposes spreadsheetId / range / values / valueInputOption / insertDataOption", () => {
+      it("append_row exposes spreadsheetId / sheetName / values / valueInputOption / insertDataOption / range (SHEETS-GUIDED-CONFIG-1 guided order — range last, advanced)", () => {
         const meta = gsheetsActionMetas().find(
           (m) => m.key === "google-sheets:append_row",
         )!;
         expect(meta.fields.map((f) => f.name)).toEqual([
           "spreadsheetId",
-          "range",
+          "sheetName",
           "values",
           "valueInputOption",
           "insertDataOption",
+          "range",
         ]);
+        // sheetName is builder-REQUIRED (it is the dependsOn parent the
+        // columns resolver needs and the input the derived range comes from)
+        // while staying OPTIONAL in the runtime schema so pre-slice saved
+        // configs keep validating. Manual entry stays available for tabs the
+        // resolver cannot list.
+        const sheetName = meta.fields.find((f) => f.name === "sheetName")!;
+        expect(sheetName.required).toBe(true);
+        expect(sheetName.allowManualEntry).toBe(true);
       });
 
       it("update_row exposes spreadsheetId / range / values / valueInputOption (no insertDataOption — schema omits it)", () => {
@@ -4237,16 +4264,28 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("values is a required string-array chip editor on both write actions (CONFIG-UX-AUDIT-1 — writes a REAL array, never a JSON string)", () => {
-        for (const key of [
-          "google-sheets:append_row",
-          "google-sheets:update_row",
-        ]) {
-          const meta = gsheetsActionMetas().find((m) => m.key === key)!;
-          const f = meta.fields.find((x) => x.name === "values")!;
-          expect(f.type).toBe("string-array");
-          expect(f.required).toBe(true);
-        }
+      it("values editors: append_row is the column-aware spreadsheet-rows editor (SHEETS-GUIDED-CONFIG-1); update_row stays a string-array chip editor — both write a REAL array, never a JSON string", () => {
+        // Guided-Sheets arc: append_row renders row values through the
+        // column-aware editor reading REAL headers from
+        // `google-sheets:columns`, dependent on spreadsheet + tab. The SAVED
+        // shape is still the same positional array — header names label
+        // cells, they are not a new save format.
+        const append = gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:append_row",
+        )!;
+        const appendValues = append.fields.find((x) => x.name === "values")!;
+        expect(appendValues.type).toBe("spreadsheet-rows");
+        expect(appendValues.required).toBe(true);
+        expect(appendValues.optionsSource).toBe("google-sheets:columns");
+        expect(appendValues.dependsOn).toEqual(["spreadsheetId", "sheetName"]);
+        // update_row keeps the CONFIG-UX-AUDIT-1 chip editor (no tab field to
+        // hang a columns resolver on — its target is a hand-written range).
+        const update = gsheetsActionMetas().find(
+          (m) => m.key === "google-sheets:update_row",
+        )!;
+        const updateValues = update.fields.find((x) => x.name === "values")!;
+        expect(updateValues.type).toBe("string-array");
+        expect(updateValues.required).toBe(true);
       });
 
       it("valueInputOption is a required select with NO defaultValue (Q11 — no hidden destructive defaults)", () => {
