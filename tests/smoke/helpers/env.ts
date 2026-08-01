@@ -31,6 +31,37 @@ export function baseUrl(): string {
   return process.env.PRODUCTION_SMOKE_BASE_URL?.trim() || DEFAULT_BASE_URL;
 }
 
+/**
+ * Vercel "Protection Bypass for Automation" secret
+ * (V2-DEV-SMOKE-PROTECTION-BYPASS-1). The dev Preview lane keeps Vercel
+ * Authentication ENABLED; automated smoke passes it with the supported
+ * `x-vercel-protection-bypass` header. The value comes ONLY from the
+ * environment (GitHub `development` environment secret) — never committed,
+ * never logged, never in artifacts (the smoke config disables tracing when a
+ * bypass is active, because traces record request headers).
+ */
+export function vercelProtectionBypass(): string | undefined {
+  return process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() || undefined;
+}
+
+/**
+ * Context-level headers that carry the bypass on EVERY request Playwright
+ * makes (initial navigation, redirects, XHR/fetch, storage-state reuse).
+ * `x-vercel-set-bypass-cookie` additionally sets Vercel's bypass cookie on
+ * first response, covering any request path that might not inherit context
+ * headers. Returns undefined when no bypass is configured (e.g. production
+ * smoke against the unprotected public origin) so behavior there is
+ * byte-identical to before.
+ */
+export function vercelBypassHeaders(): Record<string, string> | undefined {
+  const secret = vercelProtectionBypass();
+  if (!secret) return undefined;
+  return {
+    "x-vercel-protection-bypass": secret,
+    "x-vercel-set-bypass-cookie": "true",
+  };
+}
+
 export function smokeEmail(): string | undefined {
   return process.env.PRODUCTION_SMOKE_EMAIL?.trim() || undefined;
 }

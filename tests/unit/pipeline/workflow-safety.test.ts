@@ -113,6 +113,30 @@ describe("deploy-development.yml — DB gate before app, dev environment only", 
     expect(text).not.toContain("--include-seed");
   });
 
+  // V2-DEV-SMOKE-PROTECTION-BYPASS-1 — the Preview lane keeps Vercel
+  // Authentication enabled; smoke passes it via the environment-scoped
+  // Protection Bypass secret, failing closed when it is absent.
+  it("smoke reads the bypass ONLY from the environment-scoped secret", () => {
+    expect(text).toContain("VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}");
+    // Both consuming steps live in the smoke job, which is environment-gated.
+    const smokeJob = text.slice(text.indexOf("\n  smoke:"), text.indexOf("\n  certify:"));
+    expect(smokeJob).toContain("environment: development");
+    expect(smokeJob.match(/VERCEL_AUTOMATION_BYPASS_SECRET/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("readiness probe sends the supported bypass header and fails closed without the secret", () => {
+    expect(text).toContain('-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"');
+    expect(text).toMatch(/if \[ -z "\$VERCEL_AUTOMATION_BYPASS_SECRET" \]; then[\s\S]{0,800}?exit 1/);
+  });
+
+  it("never echoes the bypass secret", () => {
+    for (const line of text.split("\n")) {
+      if (/\becho\b/.test(line)) {
+        expect(line).not.toContain("$VERCEL_AUTOMATION_BYPASS_SECRET");
+      }
+    }
+  });
+
   it("never echoes a secret expression", () => {
     for (const line of text.split("\n")) {
       if (/\becho\b/.test(line)) {

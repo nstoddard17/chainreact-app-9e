@@ -202,11 +202,47 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Protection-bypass gate + readiness probe (fail closed)
+        env:
+          # The dev Preview lane keeps Vercel Authentication ENABLED; automated
+          # access uses the supported Protection Bypass for Automation secret,
+          # stored ONLY in the GitHub `development` environment. GitHub masks
+          # the value in logs; it is passed by env, never echoed.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SMOKE_BASE: ${{ vars.DEV_APP_HOSTNAME != '' && format('https://{0}', vars.DEV_APP_HOSTNAME) || needs.deploy-app.outputs.url }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo "ABORT — VERCEL_AUTOMATION_BYPASS_SECRET is not configured in the development environment."
+            echo "The Preview deployment is protected by Vercel Authentication (by design); smoke cannot"
+            echo "reach it without the Protection Bypass for Automation secret. Refusing to run a smoke"
+            echo "that would only prove a 401."
+            exit 1
+          fi
+          # Readiness: alias/TLS/DNS can lag the first deployment. Probe with
+          # the bypass header until the app answers 200, then hand Playwright a
+          # ready origin. 401/403 here means the bypass is wrong — fail closed.
+          for i in $(seq 1 24); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              --max-time 15 "$SMOKE_BASE/auth/sign-in" || echo 000)
+            if [ "$CODE" = "200" ]; then echo "Ready ($SMOKE_BASE answered 200)."; exit 0; fi
+            echo "not ready yet (HTTP $CODE) — attempt $i/24"
+            sleep 5
+          done
+          echo "ABORT — $SMOKE_BASE never answered 200 with the bypass header (last HTTP $CODE)."
+          echo "401/403 = bypass secret rejected; 000/404 = DNS, TLS, or alias not ready."
+          exit 1
+
       - name: Smoke against the dev deployment
         env:
           PRODUCTION_SMOKE_BASE_URL: ${{ vars.DEV_APP_HOSTNAME != '' && format('https://{0}', vars.DEV_APP_HOSTNAME) || needs.deploy-app.outputs.url }}
           PRODUCTION_SMOKE_EMAIL: ${{ secrets.DEV_SMOKE_EMAIL }}
           PRODUCTION_SMOKE_PASSWORD: ${{ secrets.DEV_SMOKE_PASSWORD }}
+          # Read by tests/smoke/helpers/env.ts → Playwright context headers.
+          # The smoke config also forces traces OFF when this is set, so the
+          # value can never appear in trace/report artifacts.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run smoke:prod
 
   certify:

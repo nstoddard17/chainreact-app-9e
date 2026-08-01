@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { baseUrl, STORAGE_STATE } from "./tests/smoke/helpers/env";
+import { baseUrl, STORAGE_STATE, vercelBypassHeaders, vercelProtectionBypass } from "./tests/smoke/helpers/env";
 
 /**
  * Production smoke configuration — DISTINCT from the local e2e config
@@ -41,7 +41,14 @@ export default defineConfig({
   ],
   use: {
     baseURL: baseUrl(),
-    trace: "retain-on-failure",
+    // Protected-preview smoke (V2-DEV-SMOKE-PROTECTION-BYPASS-1): the bypass
+    // header rides on every context request so Vercel Authentication passes
+    // without being disabled. Traces record REQUEST HEADERS, so tracing is
+    // forced OFF whenever a bypass secret is active — the secret must never
+    // reach trace files, reports, or uploaded artifacts. Unprotected runs
+    // (no secret in env) keep the original retain-on-failure behavior.
+    extraHTTPHeaders: vercelBypassHeaders(),
+    trace: vercelProtectionBypass() ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
   },
