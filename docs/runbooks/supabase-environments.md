@@ -10,6 +10,15 @@ Design rationale and audit trail:
 
 ## The three environments
 
+> **Status 2026-08-01 (SUPABASE-HOSTED-DEV-CERT-1):** `chainreact-dev` is LIVE —
+> ref `syvnzqzctnywakgyykmz`, Chain React Org, us-east-1. All 125 migrations
+> applied and history-verified; synthetic bootstrap done; `workflow-files`
+> bucket created (private); RLS certification subset green. The CLI uses the
+> **securely stored login** (`supabase login`, Windows Credential Manager) —
+> never set `SUPABASE_ACCESS_TOKEN` in env files or commands. One-time steps 1
+> and the bucket part of step 2 are complete; Auth URL config, email templates,
+> GitHub Environments, and the Vercel `v2-dev` lane remain.
+
 | | Local | Development | Production |
 |---|---|---|---|
 | What | Docker stack on loopback | hosted `chainreact-dev` project (us-east-1) | live project (`chainreact.app`) |
@@ -33,10 +42,17 @@ npm run db:types                # regenerate types/database.types.ts from the lo
 npm run db:types:check          # drift gate (also runs in db-ci)
 
 # Development project (all fail closed without explicit target + dev ref)
-CHAINREACT_DB_TARGET=development npm run db:push:dev            # dry-run + apply pending migrations
+CHAINREACT_DB_TARGET=development npm run db:push:dev -- --linked   # PREFERRED: dry-run + apply via the
+                                                                   # CLI's securely stored login; verifies
+                                                                   # supabase/.temp/project-ref == dev ref
+CHAINREACT_DB_TARGET=development npm run db:push:dev               # URL mode (needs SUPABASE_DEV_DB_URL)
 CHAINREACT_DB_TARGET=development DEV_RESET_CONFIRM=<devref> npm run dev:reset
 CHAINREACT_DB_TARGET=development npm run dev:bootstrap
 ```
+
+The linked flow needs a one-time `npx supabase link --project-ref <devref>`
+after `npx supabase login` (token pasted interactively; stored in the OS
+credential store — never in env files, argv, or logs).
 
 Development credentials live in `.env.development.local` (gitignored) or CI
 secrets — variable names are documented at the end of `.env.example`. The

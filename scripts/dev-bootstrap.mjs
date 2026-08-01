@@ -41,7 +41,12 @@ const fileEnvPath = resolve(
   process.cwd(),
   target === "development" ? ".env.development.local" : ".env.test.local",
 );
-const fileEnv = existsSync(fileEnvPath) ? loadEnvFile(readFileSync, fileEnvPath) : {};
+// CHAINREACT_ENV_FILE=none skips the gitignored env file — used by the guard
+// tests to stay hermetic on machines where real dev credentials exist.
+const fileEnv =
+  process.env.CHAINREACT_ENV_FILE !== "none" && existsSync(fileEnvPath)
+    ? loadEnvFile(readFileSync, fileEnvPath)
+    : {};
 const env = { ...fileEnv, ...process.env };
 
 const expectedTarget = target === "development" ? "development" : "local";

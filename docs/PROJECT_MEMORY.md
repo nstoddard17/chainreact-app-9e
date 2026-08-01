@@ -5,7 +5,18 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-07-31 @ SUPABASE-ENV-PIPELINE-1 (local→dev→prod database
+> Last curated: 2026-08-01 @ SUPABASE-HOSTED-DEV-CERT-1 (hosted dev database
+> LIVE + CERTIFIED — `chainreact-dev` ref `syvnzqzctnywakgyykmz`, Chain React
+> Org, us-east-1, created by Marcus; CLI reauthed with ChainReact-owned PAT via
+> securely stored login (credential store — NEVER an env token; old third-party
+> env token retired); all 125 migrations applied via `db push --linked`,
+> history 125/125 matched zero one-sided; synthetic bootstrap live; private
+> `workflow-files` bucket created; hosted RLS subset 6 suites/36 tests green;
+> `db:push:dev --linked` mode added (linked-ref guard, token-stripped child
+> env); REMAINING: dev Auth URL config + email templates (dashboard), GitHub
+> Environments + secrets, Vercel v2-dev lane; production untouched, all work
+> LOCAL/UNPUSHED).
+> Prior: 2026-07-31 @ SUPABASE-ENV-PIPELINE-1 (local→dev→prod database
 > pipeline BUILT, LOCAL/UNPUSHED — clean local reset of all 125 migrations
 > CERTIFIED (40/40 RLS suites, 270 tests, serial); canonical
 > `types/database.types.ts` + drift gate NEW; guarded dev commands

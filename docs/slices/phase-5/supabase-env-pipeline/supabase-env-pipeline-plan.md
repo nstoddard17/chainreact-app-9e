@@ -162,10 +162,13 @@ no prod access was authorized beyond what already existed locally.
   unless explicitly pointed at the dev project).
 - Safe to reset at any time. Never linked, never pushed to.
 
-### Development (repo-side complete; project creation = owner step, §11)
+### Development (LIVE as of 2026-08-01 — SUPABASE-HOSTED-DEV-CERT-1)
 
-- Permanent hosted Supabase project **`chainreact-dev`**, AWS **us-east-1** (same
-  region as prod), in **Marcus's own org** (not the Vercel-integration org — see §1).
+- Hosted project **`chainreact-dev`**, ref **`syvnzqzctnywakgyykmz`**, in
+  **Chain React Org** (`kcdbfqivxlmyfmzhmesk` — the org that also owns
+  production), East US (us-east-1), created by Marcus 2026-08-01. The machine's
+  Supabase CLI is reauthenticated with a ChainReact-owned PAT via the securely
+  stored login (Windows Credential Manager; never an env var or file).
 - Own project ref, DB password, API keys, JWT config, and a **distinct
   `TOKEN_ENCRYPTION_KEY`** — a dev leak can never decrypt prod rows, and encrypted
   prod rows are useless in dev.
@@ -371,7 +374,48 @@ setup"; summary:
 - **`dev:bootstrap`: verified live** against the local stack — creates the 3
   synthetic users (trigger provisions accounts/billing), a sample workflow,
   and is idempotent on re-run.
-- **Guard tests: 49/49 PASS** (`tests/unit/pipeline/` — fail-closed target
-  matrix, real-script refusals, workflow text bans, seed safety).
-- Hosted dev project: **not created** (ownership blocker, §1); repo side
-  complete, owner steps in §11 / the runbook.
+- **Guard tests: 50/50 PASS** (`tests/unit/pipeline/` — fail-closed target
+  matrix, real-script refusals incl. the `--linked` linked-ref guard, workflow
+  text bans, seed safety).
+
+### Hosted development certification (2026-08-01, SUPABASE-HOSTED-DEV-CERT-1)
+
+The ownership blocker was resolved by the owner: `chainreact-dev`
+(`syvnzqzctnywakgyykmz`) now exists in Chain React Org, and the CLI's securely
+stored login authenticates as a ChainReact-owned account. Certification, all
+via the stored login (`SUPABASE_ACCESS_TOKEN` stripped from every command; the
+legacy machine env token was never used):
+
+- **Identity verified** before any change: org Chain React Org; dev ref
+  visible; linked ref written to `supabase/.temp/project-ref` and re-read
+  before the apply.
+- **Migration dry-run then apply: all 125 migrations applied cleanly** to the
+  dev project via `db push --linked` (no DB password needed — the CLI
+  authenticates through the stored PAT). `seeds:[]` — push never seeds.
+- **History verified:** `migration list --linked` shows **125/125 rows with
+  matching local + remote versions, zero one-sided rows** — dev history is
+  exactly the repository.
+- **Bootstrap live on hosted dev:** 3 synthetic users created through
+  `dev:bootstrap` (guarded, target-confirmed `syvnzqzctnywakgyykmz`), the
+  `handle_new_user` chain auto-provisioned profiles/accounts/memberships/
+  billing, sample workflow inserted; idempotency confirmed.
+- **RLS certification subset vs hosted dev: 6/6 suites, 36/36 tests PASS**
+  (accounts, memberships, billing, workflows-account, integrations,
+  official-templates-seed; serial, hosted auth rate limits respected). The
+  clean-schema grant semantics (no legacy default privileges) hold on the
+  hosted project, as expected for a post-2026 project.
+- **`workflow-files` storage bucket created (private) and verified** via the
+  service key (never printed).
+- **`db:push:dev` gained a `--linked` mode** so the sanctioned guarded script
+  covers the stored-login flow: it validates `supabase/.temp/project-ref`
+  against the declared dev ref (production/foreign refs refuse) and strips
+  `SUPABASE_ACCESS_TOKEN` from the child env. Guard-tested.
+- Dev credentials live in `.env.development.local` (gitignored, verified via
+  `git check-ignore`); keys were captured from `supabase projects api-keys`
+  directly into the file without ever being displayed.
+- **Production untouched throughout** — the only linked ref at any point was
+  the dev ref, re-verified immediately before the apply.
+
+Remaining out-of-band items (owner dashboard, unchanged from §11): Auth Site
+URL + redirect allowlist + email templates for the dev project; GitHub
+Environments + secrets; Vercel `v2-dev` branch env/domain/Ignored Build Step.

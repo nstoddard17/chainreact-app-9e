@@ -32,7 +32,7 @@ function resolveTarget(
     cwd: REPO,
     encoding: "utf8",
     // Strip repo-level env leakage so each case controls its own world.
-    env: { PATH: process.env.PATH ?? "", NODE_ENV: "test", ...env },
+    env: { PATH: process.env.PATH ?? "", NODE_ENV: "test", CHAINREACT_ENV_FILE: "none", ...env },
   });
   const line = out.stdout.split(/\r?\n/).find((l) => l.startsWith("RESULT:"));
   if (!line) throw new Error(`no RESULT line; stderr=${out.stderr}`);
@@ -44,7 +44,7 @@ function runScript(script: string, env: Record<string, string>): { status: numbe
   const out = spawnSync(process.execPath, [script], {
     cwd: REPO,
     encoding: "utf8",
-    env: { PATH: process.env.PATH ?? "", NODE_ENV: "test", ...env },
+    env: { PATH: process.env.PATH ?? "", NODE_ENV: "test", CHAINREACT_ENV_FILE: "none", ...env },
     timeout: 30_000,
   });
   return { status: out.status, output: `${out.stdout}\n${out.stderr}` };
@@ -239,6 +239,26 @@ describe("real script guards (spawned, no DB touched)", () => {
     });
     expect(status).toBe(1);
     expect(output).toContain("SUPABASE_DEV_DB_URL");
+  });
+
+  it("db:push:dev --linked refuses when the linked project is not the declared dev ref", () => {
+    // Environment-independent: whether supabase/.temp/project-ref is absent
+    // (not linked) or holds any real project ref, it can never equal this
+    // synthetic dev ref — the linked-ref guard must refuse either way.
+    const out = spawnSync(process.execPath, ["scripts/db-push-dev.mjs", "--linked"], {
+      cwd: REPO,
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH ?? "",
+        NODE_ENV: "test",
+        CHAINREACT_ENV_FILE: "none",
+        CHAINREACT_DB_TARGET: "development",
+        SUPABASE_DEV_PROJECT_REF: DEV_REF,
+      },
+      timeout: 30_000,
+    });
+    expect(out.status).toBe(1);
+    expect(`${out.stdout}\n${out.stderr}`).toContain("linked-ref guard");
   });
 
   it("dev:bootstrap refuses a non-loopback local target", () => {
