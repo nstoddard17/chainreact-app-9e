@@ -10,6 +10,17 @@ Design rationale and audit trail:
 
 ## The three environments
 
+> **Status 2026-08-01 FINAL (V2-DEV-ONBOARDING-FIXTURE-CLOSEOUT-1): the v2-dev
+> lane is FULLY CERTIFIED.** Run 30717312345 @ `1567acb13`: all six jobs
+> green — db-ci, pooler migration, deploy with attribution `v2-dev` proven by
+> the fail-closed gate, REST alias, bypass readiness 200, smoke OVERALL
+> PASSED (auth-setup 1/1, public 14/14, authenticated shell 6/6, builder 4/4,
+> cleanup 1/1; accepted optional skips: manual-run — execution opt-in gate —
+> and Slack — no dev Slack config), certification artifact
+> `dev-certification-1567acb13…` uploaded. Synthetic accounts are
+> post-onboarding fixtures (bootstrap dismisses the checklist). dev-owner
+> sign-in proves dev-Supabase wiring. Production untouched throughout.
+>
 > **CORRECTION 2026-08-01 (V2-DEV-BRANCH-ATTRIBUTION-1): the app-env half of
 > the lane certification below is RETRACTED.** The Vercel CLI derives the
 > branch from git metadata and ignores `VERCEL_GIT_COMMIT_REF`; every CLI

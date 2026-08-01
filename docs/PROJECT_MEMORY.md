@@ -5,7 +5,16 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-08-01 @ V2-DEV LANE LIVE + CERTIFIED (run 30711097469 @
+> Last curated: 2026-08-01 @ V2-DEV-ONBOARDING-FIXTURE-CLOSEOUT-1 (v2-dev lane
+> FULLY CERTIFIED end-to-end — run 30717312345 @ 1567acb13, smoke OVERALL
+> PASSED 26/26 required (builder 4/4 after post-onboarding fixture; optional
+> skips: manual-run execution gate, Slack unconfigured); HEAD-attribution
+> defect fixed via runner branch materialization + fail-closed gate; dev app
+> proven dev-Supabase-wired via dev-owner sign-in; earlier interim
+> certification wording superseded; OPEN: Phase B auth items on the live lane
+> (recovery email + link click-through, AAL2 recovery, optional Google),
+> v2-main push approval pending for the local chain).
+> Prior interim: 2026-08-01 @ V2-DEV LANE LIVE + CERTIFIED (run 30711097469 @
 > `7afed3335` on v2-dev: db-ci → pooler migration "up to date" → Vercel deploy
 > → REST alias (CLI alias can't use team tokens; SUPABASE_DEV_DB_URL must be
 > the SESSION POOLER — direct host is IPv6-only, unreachable from Actions) →
