@@ -5,7 +5,19 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-08-01 @ SUPABASE-HOSTED-DEV-CERT-1 (hosted dev database
+> Last curated: 2026-08-01 @ SUPABASE-HOSTED-DEV-AUTH-1 (dev Auth config
+> AUDITED + owner checklist ready — every URL derived from code (callback
+> token_hash flow, type allowlist email|recovery, Google signInWithOAuth uses
+> window.origin/auth/callback); authoritative checklist + certification plan:
+> docs/runbooks/supabase-environments.md §2a/§2b; dev-labeled email templates
+> committed at supabase/templates/dev/ (byte-identical link format to prod,
+> confirmation adds {{ .Token }} code path — the only localhost-safe signup
+> confirm); Turnstile stays OFF in dev (widget auto-hides);
+> NEXT_PUBLIC_SITE_URL documented in .env.example (auth-email fallback only);
+> config-push/[remotes.dev] noted as unverified candidate (SUPABASE-CONFIG-AS-
+> CODE-1) — dashboard remains the path; DASHBOARD ENTRY PENDING owner; no
+> changes applied to any hosted project this batch; LOCAL/UNPUSHED).
+> Prior: 2026-08-01 @ SUPABASE-HOSTED-DEV-CERT-1 (hosted dev database
 > LIVE + CERTIFIED — `chainreact-dev` ref `syvnzqzctnywakgyykmz`, Chain React
 > Org, us-east-1, created by Marcus; CLI reauthed with ChainReact-owned PAT via
 > securely stored login (credential store — NEVER an env token; old third-party

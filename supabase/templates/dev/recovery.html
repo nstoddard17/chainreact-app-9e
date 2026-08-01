@@ -1,0 +1,52 @@
+<!-- ChainReact DEVELOPMENT — Supabase Auth "Reset password" template (SUPABASE-HOSTED-DEV-AUTH-1).
+     Paste into: chainreact-dev dashboard → Auth → Emails → Reset password (body).
+     Suggested subject: [DEV] Reset your ChainReact password
+
+     Link contract (must match app/auth/callback/route.ts — verifyOtp token_hash flow;
+     lands on /auth/reset-password, which enforces the MFA/AAL2 step-up before
+     updateUser({ password }) when a verified TOTP factor exists):
+       {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/auth/reset-password
+     Same format as production (docs/slices/phase-4/v2-go-live-status.md:84).
+     Recovery is link-only in the app (no code entry screen) — no {{ .Token }} here.
+     No external images/assets (tracking-free); real <a> anchor for mobile clients. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:24px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;padding:32px;font-family:Arial,Helvetica,sans-serif;color:#1a1a2e;">
+        <tr>
+          <td style="padding-bottom:8px;">
+            <span style="display:inline-block;background-color:#fef3c7;color:#92400e;font-size:12px;font-weight:bold;letter-spacing:1px;padding:4px 10px;border-radius:4px;">CHAINREACT DEVELOPMENT</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:20px;font-weight:bold;padding-bottom:12px;">Reset your password</td>
+        </tr>
+        <tr>
+          <td style="font-size:14px;line-height:22px;padding-bottom:20px;">
+            A password reset was requested for your account in the ChainReact
+            <strong>development environment</strong>. If this wasn't you, ignore this
+            email — your password stays unchanged.
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-bottom:20px;">
+            <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/auth/reset-password"
+               style="display:inline-block;background-color:#4f46e5;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:6px;">
+              Choose a new password
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:12px;line-height:18px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:16px;">
+            Or copy this link into your browser:<br>
+            {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/auth/reset-password<br><br>
+            If two-factor authentication is enabled, you'll be asked for your
+            authenticator code before the password can change. This is the ChainReact
+            <strong>development</strong> environment — not production (chainreact.app).
+            The link expires; request a new one from the "Forgot password" screen if needed.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
