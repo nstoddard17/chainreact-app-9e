@@ -13,6 +13,11 @@ and M1 — see §24/§25; (2) the workflow-failure push recipient policy is fina
 see §12; (3) `@chainreact/mobile-contracts` distributes via **GitHub Packages**
 (immutable semver, pinned consumer versions) — see §9. M0 itself shipped the
 contracts package with **zero runtime behavior**.
+**S0 status 2026-08-02 (MOBILE-COMPANION-S0-HOSTED-DEVELOPMENT-CERTIFICATION-1):
+ACHIEVED at level S0-C** — the certified hosted development environment
+(`dev.chainreact.app` + `chainreact-dev`, certification artifact for the exact
+deployed SHA) satisfies the S0 prerequisite; §24 has the evidence. **M1's entry
+condition is met**; M1 still starts only on Marcus's explicit authorization.
 
 ---
 
@@ -782,8 +787,8 @@ ChainReactMobile/
 | | Development | Preview (internal testing) | Production |
 |---|---|---|---|
 | Bundle/app id | `app.chainreact.mobile.dev` | `app.chainreact.mobile.preview` | `app.chainreact.mobile` |
-| API base | dev tunnel/localhost → **currently prod backend (risk, §25)** | staging URL **(blocked until staging exists)** | `https://chainreact.app` |
-| Supabase | the single project today (**blocker for external testers**) | staging project (to be created) | production project |
+| API base | localhost / `https://dev.chainreact.app` (hosted dev lane — S0 ✅) | `https://dev.chainreact.app` (until a separate staging tier is ever needed) | `https://chainreact.app` |
+| Supabase | `chainreact-dev` (`syvnzqzctnywakgyykmz`) — production ref denylisted in tooling | `chainreact-dev` (same hosted dev project) | production project (`qcepijemjlkssfkvzlio`) |
 | Push credentials | dev APNs key / FCM dev app | separate app ids | production APNs key + FCM |
 | EAS profile / channel | `development` / `development` | `preview` / `preview` | `production` / `production` |
 | Sentry env | `development` | `preview` | `production` |
@@ -823,9 +828,10 @@ CI, the four static gates + focused suites cover the new namespace as usual.
    SDK product usage; `[auth.third_party.firebase]` stays disabled).
 5. **Sentry** (or chosen equivalent) org + project for crash reporting.
 6. **GitHub repo `ChainReactMobile`** in the org.
-7. **S0: staging Supabase project + staging deployment** — DECIDED 2026-07-31:
-   now a hard prerequisite before M1 (§24, §25), not merely before external
-   testers.
+7. ~~S0: staging Supabase project + staging deployment~~ — **DONE 2026-08-02**
+   as the certified hosted development environment (`dev.chainreact.app` +
+   `chainreact-dev`); see §24 S0 entry and
+   [`docs/runbooks/supabase-environments.md`](../../../runbooks/supabase-environments.md).
 8. Supabase dashboard: register the `chainreact://auth/callback` redirect for Google
    OAuth on mobile.
 9. ~~Product sign-off: failed-run push recipient model~~ — DECIDED 2026-07-31;
@@ -881,15 +887,28 @@ pushed/applied without Marcus's per-batch approval.
   and package-boundary structure locks + parity/denylist/fixture suites; the
   `vehicleSuggestions` impurity corrected via `contracts/linkHealth.ts`. No
   behavior change. *Reversal: delete folder.*
-- **S0 — Dedicated ChainReact staging environment (LOCKED prerequisite,
-  2026-07-31).** A separate staging Supabase project + staging application
-  deployment, established and documented, before any M1 work. Rationale: mobile
-  bearer authentication, rate limiting, and account-isolation testing must not
-  be developed primarily against production data (§2.7's single-project posture).
-  **Stop condition: M1 does not begin until S0 exists and is documented.** S0 is
-  its own owner-approved batch — not part of M0, and deliberately not designed
-  here.
-- **M1 — Mobile auth gate + first reads (after S0 only).** `_shared.ts` bearer gate (+ flag + rate
+- **S0 — Dedicated ChainReact non-production environment. ✅ ACHIEVED 2026-08-02
+  as the CERTIFIED HOSTED DEVELOPMENT environment** (not the "abstract staging
+  project" originally sketched — the concrete implementation supersedes the
+  sketch). Delivered by the SUPABASE-ENV-PIPELINE-1 → DEV-TO-PRODUCTION-FLOW-1
+  arc: hosted `chainreact-dev` Supabase project (ref `syvnzqzctnywakgyykmz`),
+  the `v2-dev` Vercel lane at `https://dev.chainreact.app` (Vercel
+  Authentication on; automation via the protection-bypass secret), guarded
+  fail-closed dev DB commands with the production ref denylisted in code, and
+  the 11-step `deploy-development.yml` certification workflow (exact-SHA →
+  db-ci → guarded pooler migration → `v2-dev` branch-attribution gate → REST
+  alias → bypass readiness → public + authenticated smoke → certification
+  artifact). Certified for the exact current HEAD: run `30753461661` @
+  `787433280`, artifact `dev-certification-787433280a…` (2026-08-02); prior
+  full-lane certification run `30717312345` @ `1567acb13` (2026-08-01).
+  Operator truth: [`docs/runbooks/supabase-environments.md`](../../../runbooks/supabase-environments.md)
+  + the CLAUDE.md release-flow section. **The M1 stop condition is satisfied.**
+- **M1 — Mobile auth gate + first reads (entry condition NOW MET — requires the
+  certified hosted development environment, per S0 above).** All M1 development,
+  bearer-auth testing, rate limiting, and account-isolation testing happen
+  against the hosted dev lane (`dev.chainreact.app` + `chainreact-dev`), never
+  primarily against production; M1 migrations (none expected before M3) apply
+  to hosted dev via the guarded flow in the same batch. `_shared.ts` bearer gate (+ flag + rate
   limiter) + `app-config`, `session`, workflows list/light-detail, runs
   list/per-workflow/detail (incl. non-terminal detail read model) + egress parse +
   no-leak suites. *Reversal: flag off (already dark).*
@@ -921,7 +940,7 @@ pushed/applied without Marcus's per-batch approval.
 
 | # | Risk/blocker | Severity | Handling |
 |---|---|---|---|
-| 1 | **Single Supabase project (prod-as-dev).** Device-token migrations hit prod; external testers would touch real data. | **Blocking — S0 is now a hard prerequisite (locked 2026-07-31)** | **Stop condition (tightened):** M1 (bearer auth, rate limiting, account-isolation testing) does not begin until the S0 staging Supabase project + staging deployment exist and are documented. M0 was allowed against the current checkout because it changes no runtime behavior. External-tester distribution additionally waits for S0. |
+| 1 | ~~Single Supabase project (prod-as-dev)~~ | **RESOLVED 2026-08-02 (S0 ✅)** | The certified hosted development environment exists (`chainreact-dev` + `dev.chainreact.app`, §24 S0). Mobile development, migrations, and testing target the dev lane through the guarded fail-closed tooling (production ref denylisted); production deployment stays behind the separately-gated promotion workflow. Residual note: external-tester store distribution still follows the release-engineering plan (§19–§21), but is no longer blocked on environment isolation. |
 | 2 | Failed-run recipient = creator only; push amplifies it on team accounts. | Resolved (policy) | Recipient policy LOCKED 2026-07-31 (§12); M3 implements it via a dedicated recipient-resolution service with focused tests. |
 | 3 | No rate limiting on session-shaped auth today; a polling client is unbounded. | High | Limiter ships **in M1 with the gate**, not later. |
 | 4 | Push delivery currently would sit on engine finalization path. | High | M3's queued drain is a hard requirement — a push outage must never block a run. |
