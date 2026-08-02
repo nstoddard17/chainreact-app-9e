@@ -59,6 +59,7 @@ import { GuidedConfigLayout } from "@/features/workflow-builder/config-modal/gui
 import { getGuidedSpreadsheetAdapter } from "@/features/workflow-builder/config-modal/guided/guidedSpreadsheetAdapters";
 import { googleSheetsAppendRowMeta } from "@/integrations/google-sheets/actions/appendRow.meta";
 import { microsoftExcelAddRowMeta } from "@/integrations/microsoft-excel/actions/addRow.meta";
+import { microsoftExcelUpdateRowMeta } from "@/integrations/microsoft-excel/actions/updateRow.meta";
 import type { ActionMeta } from "@/contracts/actionMeta";
 
 const OUT = join(process.cwd(), "owner-review", "html");
@@ -263,6 +264,24 @@ function emit(name: string, container: HTMLElement): void {
 }
 
 /**
+ * Open a step, whichever one the panel decided to open by itself.
+ *
+ * `GuidedConfigLayout` opens the first INCOMPLETE step on mount, so a
+ * blind click is a toggle: it opens the step in one fixture and closes it
+ * in the next. Asking for the state rather than the action keeps each
+ * fixture describing what it wants to measure.
+ */
+async function openStep(
+  user: ReturnType<typeof userEvent.setup>,
+  step: "destination" | "mapping" | "write",
+): Promise<void> {
+  const header = screen.getByTestId(`guided-step-${step}-header`);
+  if (header.getAttribute("aria-expanded") !== "true") {
+    await user.click(header);
+  }
+}
+
+/**
  * The control-presence assertion geometry cannot make (rule §D). Every state
  * this harness emits must still offer all three steps and their headers — a
  * step that stopped rendering would measure perfectly and be unreachable.
@@ -323,7 +342,7 @@ describe("guided configuration panel — emitted responsive states", () => {
         }}
       />,
     );
-    await user.click(screen.getByTestId("guided-step-mapping-header"));
+    await openStep(user, "mapping");
     await waitFor(() =>
       expect(screen.getByLabelText("Customer")).toBeInTheDocument(),
     );
@@ -352,7 +371,7 @@ describe("guided configuration panel — emitted responsive states", () => {
         }}
       />,
     );
-    await user.click(screen.getByTestId("guided-step-mapping-header"));
+    await openStep(user, "mapping");
     await waitFor(() =>
       expect(screen.getByLabelText(WIDE_COLUMNS[0]!)).toBeInTheDocument(),
     );
@@ -379,7 +398,7 @@ describe("guided configuration panel — emitted responsive states", () => {
         }}
       />,
     );
-    await user.click(screen.getByTestId("guided-step-write-header"));
+    await openStep(user, "write");
     await waitFor(() =>
       expect(
         screen.getByTestId("guided-write-insertDataOption-danger"),
@@ -407,7 +426,7 @@ describe("guided configuration panel — emitted responsive states", () => {
         }}
       />,
     );
-    await user.click(screen.getByTestId("guided-step-write-header"));
+    await openStep(user, "write");
     await waitFor(() =>
       expect(screen.getByTestId("guided-write-empty")).toBeInTheDocument(),
     );
@@ -424,7 +443,7 @@ describe("guided configuration panel — emitted responsive states", () => {
         initial={{ workbookId: "wb-1", worksheetName: LONG_WORKSHEET }}
       />,
     );
-    await user.click(screen.getByTestId("guided-step-mapping-header"));
+    await openStep(user, "mapping");
     await waitFor(() =>
       expect(
         screen.getByTestId("spreadsheet-rows-values-columns-error"),
@@ -440,6 +459,122 @@ describe("guided configuration panel — emitted responsive states", () => {
     emit("bcfg-06-excel-columns-error", container);
   });
 
+  // ── Update Row: the three-state editor (SPREADSHEET-GUIDED-CONFIG-S3) ──
+  //
+  // This is what the fixture was built for. Twenty columns each become a
+  // three-radio group with a revealed value input, stacked in a 331px
+  // overlay sheet — the widest guided content the builder produces.
+
+  it("bcfg-08 — update row: step 1 with the row number", async () => {
+    const { container } = render(
+      <Panel
+        meta={microsoftExcelUpdateRowMeta}
+        initial={{ workbookId: "wb-1", worksheetName: LONG_WORKSHEET, rowNumber: 4182 }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Row number/i)).toBeInTheDocument(),
+    );
+    expectAllThreeStepsReachable();
+    emit("bcfg-08-update-step1", container);
+  });
+
+  it("bcfg-09 — update row: step 2 across TWENTY columns in all three states", async () => {
+    respondWith(WIDE_COLUMNS);
+    const user = userEvent.setup();
+    const { container } = render(
+      <Panel
+        meta={microsoftExcelUpdateRowMeta}
+        initial={{
+          workbookId: "wb-1",
+          worksheetName: LONG_WORKSHEET,
+          rowNumber: 4182,
+          values: {
+            // A revealed value input holding a long variable token…
+            [WIDE_COLUMNS[8]!]: "{{trigger.total}}",
+            [WIDE_COLUMNS[1]!]: "{{trigger.customer}}",
+            // …a clear…
+            [WIDE_COLUMNS[19]!]: "",
+            // …and a column that is no longer in the worksheet.
+            "Retired column from an earlier version of this tracker": "x",
+          },
+        }}
+      />,
+    );
+    await openStep(user, "mapping");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("radio", { name: `${WIDE_COLUMNS[0]} — Leave unchanged` }),
+      ).toBeInTheDocument(),
+    );
+    // Every column offers all three choices at every width.
+    for (const column of WIDE_COLUMNS) {
+      for (const choice of ["Leave unchanged", "Set to blank", "Set to a value"]) {
+        expect(
+          screen.getByRole("radio", { name: `${column} — ${choice}` }),
+        ).toBeInTheDocument();
+      }
+    }
+    // The revealed inputs, the stale-key group and the preview are all here.
+    expect(screen.getByLabelText(`${WIDE_COLUMNS[8]} — new value`)).toBeInTheDocument();
+    expect(screen.getByTestId("spreadsheet-update-values-stale")).toBeInTheDocument();
+    expect(screen.getByTestId("spreadsheet-preview-values")).toBeInTheDocument();
+    expectAllThreeStepsReachable();
+    emit("bcfg-09-update-step2-wide", container);
+  });
+
+  it("bcfg-10 — update row: duplicate headings and an unfinished choice", async () => {
+    respondWith([
+      "Customer account name as recorded in the billing system",
+      "Status",
+      "Customer account name as recorded in the billing system",
+      "Notes from the collections review meeting",
+    ]);
+    const user = userEvent.setup();
+    const { container } = render(
+      <Panel
+        meta={microsoftExcelUpdateRowMeta}
+        initial={{ workbookId: "wb-1", worksheetName: LONG_WORKSHEET, rowNumber: 4182 }}
+      />,
+    );
+    await openStep(user, "mapping");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("radio", { name: "Status — Set to a value" }),
+      ).toBeInTheDocument(),
+    );
+    // Leave one choice half-finished so the inline alert is measured too.
+    await user.click(screen.getByRole("radio", { name: "Status — Set to a value" }));
+    expect(
+      screen.getByTestId("spreadsheet-update-values-incomplete"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("spreadsheet-update-values-ambiguous-0"),
+    ).toBeInTheDocument();
+    expectAllThreeStepsReachable();
+    emit("bcfg-10-update-ambiguous", container);
+  });
+
+  it("bcfg-11 — update row: step 3, the merge-and-write explanation", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <Panel
+        meta={microsoftExcelUpdateRowMeta}
+        initial={{
+          workbookId: "wb-1",
+          worksheetName: LONG_WORKSHEET,
+          rowNumber: 4182,
+          values: { Status: "Paid" },
+        }}
+      />,
+    );
+    await openStep(user, "write");
+    const step3 = await screen.findByTestId("guided-write-empty");
+    expect(step3.textContent).toMatch(/can be overwritten/i);
+    expectAllThreeStepsReachable();
+    emit("bcfg-11-update-step3", container);
+  });
+
   it("bcfg-07 — no column names in the sheet; honest fallback, no invented columns", async () => {
     respondWith("empty");
     const user = userEvent.setup();
@@ -449,7 +584,7 @@ describe("guided configuration panel — emitted responsive states", () => {
         initial={{ workbookId: "wb-1", worksheetName: "Sheet1" }}
       />,
     );
-    await user.click(screen.getByTestId("guided-step-mapping-header"));
+    await openStep(user, "mapping");
     await waitFor(() =>
       expect(
         screen.getByTestId("spreadsheet-rows-values-no-columns"),

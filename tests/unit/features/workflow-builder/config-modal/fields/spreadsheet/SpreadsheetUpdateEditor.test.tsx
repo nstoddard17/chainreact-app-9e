@@ -304,7 +304,7 @@ describe("stale saved columns are preserved and explained", () => {
     const user = userEvent.setup();
     render(<Harness initial={{ Name: "Ada", Phone: "555" }} />);
     expect(committed).toEqual([]);
-    await user.click(screen.getByRole("button", { name: /Remove “Phone”/ }));
+    await user.click(screen.getByRole("button", { name: "Remove Phone" }));
     expect(committed.at(-1)).toEqual({ Name: "Ada" });
   });
 

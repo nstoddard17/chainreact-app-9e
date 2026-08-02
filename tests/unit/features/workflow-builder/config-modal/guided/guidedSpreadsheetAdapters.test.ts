@@ -24,12 +24,14 @@ import {
 import { googleSheetsAppendRowMeta } from "@/integrations/google-sheets/actions/appendRow.meta";
 import { microsoftExcelAddRowMeta } from "@/integrations/microsoft-excel/actions/addRow.meta";
 import { microsoftExcelAddTableRowMeta } from "@/integrations/microsoft-excel/actions/addTableRow.meta";
+import { microsoftExcelUpdateRowMeta } from "@/integrations/microsoft-excel/actions/updateRow.meta";
 import type { ActionMeta } from "@/contracts/actionMeta";
 
 const META_BY_KEY: Readonly<Record<string, ActionMeta>> = {
   "google-sheets:append_row": googleSheetsAppendRowMeta,
   "microsoft-excel:add_row": microsoftExcelAddRowMeta,
   "microsoft-excel:add_table_row": microsoftExcelAddTableRowMeta,
+  "microsoft-excel:update_row": microsoftExcelUpdateRowMeta,
 };
 
 describe("registered adapters agree with the live action metadata", () => {
@@ -43,21 +45,81 @@ describe("registered adapters agree with the live action metadata", () => {
     }
   });
 
-  it("covers exactly the row-adding actions shipped so far (S1 + S2)", () => {
+  it("covers exactly the spreadsheet actions shipped so far (S1 + S2 + S3)", () => {
     expect(listGuidedSpreadsheetAdapters().map((a) => a.actionKey)).toEqual([
       "google-sheets:append_row",
       "microsoft-excel:add_row",
       "microsoft-excel:add_table_row",
+      "microsoft-excel:update_row",
     ]);
   });
 
   it("an unregistered action falls back to the generic form", () => {
+    // Google Sheets `update_row` is deliberately NOT adopted: its `range`
+    // is still free-text with no tab field, and its `values` is a
+    // POSITIONAL array — the opposite representation to Excel's record.
+    // Mixing the two provider models in one slice would put two
+    // incompatible editors behind one experience.
     expect(getGuidedSpreadsheetAdapter("google-sheets:update_row")).toBeUndefined();
-    // S3 work — deliberately NOT adopted yet, because its record-shaped
-    // `values` needs editor support this slice did not build.
-    expect(getGuidedSpreadsheetAdapter("microsoft-excel:update_row")).toBeUndefined();
     expect(getGuidedSpreadsheetAdapter("slack:send_channel_message")).toBeUndefined();
     expect(getGuidedSpreadsheetAdapter(undefined)).toBeUndefined();
+  });
+});
+
+describe("Excel update_row is guided as an UPDATE, not as an append", () => {
+  const adapter = getGuidedSpreadsheetAdapter("microsoft-excel:update_row")!;
+
+  it("puts the row number in step 1, with the workbook and worksheet", () => {
+    // All three together are what say WHICH CELLS get written, so they are
+    // one question. Splitting the row number into step 2 would make that
+    // step answer two unrelated things.
+    expect(adapter.destinationFields).toEqual([
+      "workbookId",
+      "worksheetName",
+      "rowNumber",
+    ]);
+  });
+
+  it("offers no write-behavior controls, because Graph's range PATCH has none", () => {
+    expect(adapter.writeBehaviorFields).toEqual([]);
+    expect(adapter.recommendedValues).toBeUndefined();
+    expect(adapter.dangerValues).toBeUndefined();
+  });
+
+  it("has no derived range — Excel names a worksheet directly", () => {
+    expect(adapter.derivedRange).toBeUndefined();
+    expect(adapter.parseResourceLink).toBeUndefined();
+  });
+
+  it("titles its steps as an edit rather than an addition", () => {
+    expect(adapter.copy?.destinationTitle).toBe("Pick the row");
+    expect(adapter.copy?.mappingTitle).toBe("Choose what to update");
+    expect(adapter.copy?.writeTitle).toBe("Confirm how it's saved");
+  });
+
+  it("states the read-merge-write behavior and the lost-update risk in plain words", () => {
+    const step3 = adapter.copy?.writeEmpty ?? "";
+    expect(step3).toMatch(/reads the row first/i);
+    expect(step3).toMatch(/writes the whole row back/i);
+    expect(step3).toMatch(/can be overwritten/i);
+  });
+
+  it("claims no guarantee the handler does not provide", () => {
+    // Verified against `updateRow.ts`: `worksheetRangePatch` sends no
+    // If-Match / ETag, so the write is unconditional. Any of these words
+    // would be a promise the code cannot keep.
+    const step3 = (adapter.copy?.writeEmpty ?? "").toLowerCase();
+    for (const overclaim of [
+      "atomic",
+      "transaction",
+      "isolat",
+      "conflict",
+      "lock",
+      "safely preserv",
+      "guarantee",
+    ]) {
+      expect(step3).not.toContain(overclaim);
+    }
   });
 });
 

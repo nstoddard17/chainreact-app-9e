@@ -110,12 +110,55 @@ describe("microsoftExcelWorksheetColumnsResolver — mapping", () => {
     ]);
   });
 
-  it("skips blank / non-string header cells and dedupes repeated header names (first wins)", async () => {
+  it("skips blank / non-string header cells", async () => {
     mockRefreshAndRetry.mockResolvedValueOnce(
-      usedRange([["Name", "", 42, "Name", "Email"]]),
+      usedRange([["Name", "", 42, "Email"]]),
     );
     const result = await microsoftExcelWorksheetColumnsResolver.resolve(ctx());
     expect(result.items.map((i) => i.value)).toEqual(["Name", "Email"]);
+  });
+
+  it("emits EVERY repeated heading and says which ones are duplicated", async () => {
+    // SPREADSHEET-GUIDED-CONFIG-S3 changed this deliberately. Keeping only
+    // the first occurrence hid one of the customer's real columns AND
+    // disagreed with the handler, whose header map last-wins — so the
+    // picker's column letter could point at a different column than the
+    // one that got written. Emitting both lets a consumer see the
+    // ambiguity and refuse to guess.
+    mockRefreshAndRetry.mockResolvedValueOnce(
+      usedRange([["Name", "Email", "Name"]]),
+    );
+    const result = await microsoftExcelWorksheetColumnsResolver.resolve(ctx());
+    expect(result.items.map((i) => i.value)).toEqual(["Name", "Email", "Name"]);
+    expect(result.items.map((i) => i.description)).toEqual([
+      "Column A · duplicate heading",
+      "Column B",
+      "Column C · duplicate heading",
+    ]);
+  });
+
+  it("offers the RAW heading as the value and the trimmed text as the label", async () => {
+    // The handler matches the raw cell. A picker that tidied `"Name "` into
+    // `"Name"` authored a key the handler threw on at run time — the one
+    // failure mode a column picker exists to remove.
+    mockRefreshAndRetry.mockResolvedValueOnce(
+      usedRange([[" Name ", "Email\t"]]),
+    );
+    const result = await microsoftExcelWorksheetColumnsResolver.resolve(ctx());
+    expect(result.items.map((i) => i.value)).toEqual([" Name ", "Email\t"]);
+    expect(result.items.map((i) => i.label)).toEqual(["Name", "Email"]);
+  });
+
+  it("does not treat headings that merely LOOK alike as duplicates", async () => {
+    // `"Name"` and `"Name "` are two distinct handler keys, so each is
+    // individually targetable. Whether a human can tell them apart is a
+    // presentation question, answered by the editor rather than here.
+    mockRefreshAndRetry.mockResolvedValueOnce(usedRange([["Name", "Name "]]));
+    const result = await microsoftExcelWorksheetColumnsResolver.resolve(ctx());
+    expect(result.items.map((i) => i.description)).toEqual([
+      "Column A",
+      "Column B",
+    ]);
   });
 
   it("returns empty items for an empty worksheet / all-blank header row (honest 'no columns detected')", async () => {

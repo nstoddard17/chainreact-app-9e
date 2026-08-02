@@ -124,10 +124,53 @@ const excelAddTableRowAdapter: ReadinessAdapter = ({ values }) => [
   },
 ];
 
+/**
+ * Microsoft Excel `update_row` (SPREADSHEET-GUIDED-CONFIG-S3).
+ *
+ * Three lines, matching the three guided steps, so the banner and the
+ * accordion can never disagree about what is outstanding.
+ *
+ * The row-number line is stricter than "has a value", because the two ways
+ * to get it wrong both end in a failed run on live data: row 1 is the
+ * heading row (updating it renames the user's columns), and a non-integer
+ * or a fraction is rejected by the runtime schema. A `{{...}}` variable is
+ * accepted here — its type is checked where the upstream metadata is
+ * available, and runtime validation stays authoritative.
+ *
+ * The "what changes" line asks only for AT LEAST ONE change, because that
+ * is the one thing the runtime schema rejects (`values` must be non-empty).
+ * A column deliberately left unchanged is a finished state, not a gap —
+ * blocking on it would force people to touch columns they meant to leave
+ * alone.
+ */
+const excelUpdateRowAdapter: ReadinessAdapter = ({ values }) => {
+  const row = values["rowNumber"];
+  const rowIsUsableLiteral =
+    typeof row === "number" && Number.isInteger(row) && row >= 2;
+  // A variable is a legitimate answer to "which row" — Find Row's output is
+  // the intended source — so its presence counts as answered here.
+  const rowIsReference = typeof row === "string" && row.includes("{{");
+
+  return [
+    {
+      label: "Pick a workbook, worksheet and row",
+      done:
+        isFilledString(values["workbookId"]) &&
+        isFilledString(values["worksheetName"]) &&
+        (rowIsUsableLiteral || rowIsReference),
+    },
+    {
+      label: "Choose at least one column to update",
+      done: isNonEmptyRecord(values["values"]),
+    },
+  ];
+};
+
 const READINESS_ADAPTERS: Readonly<Record<string, ReadinessAdapter>> =
   Object.freeze({
     "microsoft-excel:add_row": excelAddRowAdapter,
     "microsoft-excel:add_table_row": excelAddTableRowAdapter,
+    "microsoft-excel:update_row": excelUpdateRowAdapter,
     "google-sheets:append_row": googleSheetsAppendRowAdapter,
   });
 

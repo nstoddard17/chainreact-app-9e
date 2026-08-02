@@ -180,6 +180,41 @@ const ADAPTERS: readonly GuidedSpreadsheetAdapter[] = [
         "ChainReact adds the values as a new row in the selected Excel table, following that table's column order. There is nothing else to decide.",
     },
   },
+  {
+    // SPREADSHEET-GUIDED-CONFIG-S3. The first UPDATE action to be guided,
+    // and the first whose step 1 names a row: workbook + worksheet + row
+    // number together are what say WHICH CELLS get written, so they belong
+    // in one step. Splitting the row number into step 2 would make step 2
+    // answer two unrelated questions ("which row?" and "what changes?").
+    //
+    // `writeBehaviorFields` is empty for the same reason as the other two
+    // Excel actions — Graph's range PATCH has no write-mode options — but
+    // step 3 is NOT "nothing to decide" here. There is something the user
+    // genuinely needs told, and it is a limitation rather than a choice,
+    // so it is stated as fact with no control attached.
+    actionKey: "microsoft-excel:update_row",
+    destinationFields: ["workbookId", "worksheetName", "rowNumber"],
+    mappingField: "values",
+    writeBehaviorFields: [],
+    copy: {
+      destinationTitle: "Pick the row",
+      destinationHint:
+        "The workbook, the worksheet and the row number together say exactly which cells this step writes to.",
+      mappingTitle: "Choose what to update",
+      mappingHint:
+        "Columns set to “Leave unchanged” keep whatever is already in them — nothing is written to those cells.",
+      writeTitle: "Confirm how it's saved",
+      // Verified line by line against `updateRow.ts`: it reads the used
+      // range, merges the chosen changes over that row's existing values,
+      // and PATCHes the FULL row in one call. `worksheetRangePatch` sends
+      // no If-Match / ETag, so the write is unconditional — which means a
+      // lost update is genuinely possible, not theoretical. Said plainly.
+      // It claims no atomicity, no isolation and no conflict detection,
+      // because there is none.
+      writeEmpty:
+        "ChainReact reads the row first, applies the changes you chose, and writes the whole row back to Excel. Columns you left unchanged are written back exactly as they were found, so the rest of the row is kept. One thing to know: if somebody edits that same row in Excel during the moment between the read and the write, their change can be overwritten. There is nothing else to decide for this step.",
+    },
+  },
 ];
 
 const BY_KEY: ReadonlyMap<string, GuidedSpreadsheetAdapter> = new Map(

@@ -1,12 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Link2 } from "lucide-react";
+import { AlertTriangle, Link2 } from "lucide-react";
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { Button } from "@/components/ui/button";
 import { SchemaForm } from "../SchemaForm";
 import type { GuidedSpreadsheetAdapter } from "./guidedSpreadsheetAdapters";
 import { legacyDestinationHint } from "./guidedStepModel";
+import {
+  checkNumberFieldCompatibility,
+  isNumberFieldProblem,
+  type NumberFieldProblem,
+} from "./numberFieldCompatibility";
+import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
 
 /**
  * Step 1 — "Pick the sheet" (SHEETS-GUIDED-CONFIG-1).
@@ -58,6 +64,40 @@ export function GuidedDestinationStep({
 
   const legacy = legacyDestinationHint({ adapter, values });
 
+  /*
+    SPREADSHEET-GUIDED-CONFIG-S3 — a NUMBER destination field wired to an
+    upstream value that cannot produce a number.
+
+    This is a real sharp edge, not a hypothetical: the config resolver
+    preserves the type of a single-reference template, so a variable from
+    an output declared `string` arrives as `"5"` and the runtime schema
+    rejects it — mid-run, on live data, with a schema error the author had
+    no way to foresee. Checked here because this is the step that owns the
+    field, and generically (any number field, any provider) rather than by
+    naming an action.
+
+    Deliberately graded: only a DECLARED non-numeric type blocks. A missing
+    declaration warns, because refusing a configuration for want of
+    metadata punishes the user for a gap that is ours.
+  */
+  const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
+  const numberFieldNotices = adapter.destinationFields
+    .map((name) => fields.find((f) => f.name === name))
+    .filter((f): f is FieldMeta => f !== undefined && f.type === "number")
+    .map((f) => ({
+      field: f,
+      result: checkNumberFieldCompatibility({
+        value: values[f.name],
+        fieldLabel: f.label,
+        sources,
+        latestValuesBySource,
+      }),
+    }))
+    .filter(
+      (entry): entry is { field: FieldMeta; result: NumberFieldProblem } =>
+        isNumberFieldProblem(entry.result),
+    );
+
   function applyLink(): void {
     const parsed = adapter.parseResourceLink?.(linkText) ?? null;
     if (!parsed) {
@@ -85,6 +125,24 @@ export function GuidedDestinationStep({
           {...(disabled !== undefined && { disabled })}
           {...(highlightFieldName ? { highlightFieldName } : {})}
         />
+      ))}
+
+      {numberFieldNotices.map(({ field, result }) => (
+        <p
+          key={field.name}
+          role={result.kind === "unverified" ? "status" : "alert"}
+          aria-live="polite"
+          data-testid={`guided-number-check-${field.name}`}
+          data-check={result.kind}
+          className={`flex min-w-0 items-start gap-1.5 break-words rounded-md border p-2.5 text-xs ${
+            result.kind === "unverified"
+              ? "border-input text-muted-foreground"
+              : "border-destructive/40 bg-destructive/10 text-destructive"
+          }`}
+        >
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="min-w-0 break-words">{result.message}</span>
+        </p>
       ))}
 
       {adapter.parseResourceLink ? (

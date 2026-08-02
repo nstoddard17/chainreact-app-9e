@@ -25,11 +25,41 @@ import { UpdateRowConfigSchema } from "./updateRow.schema";
  *      (V1 issued one PATCH per cell — N HTTP calls per row update;
  *      V2 does 2 round-trips total).
  *
- * "No silent no-op if target is missing": the handler throws if the
- * supplied row is beyond the worksheet's used range AND the user is
- * updating a header-named column (we have no headers to resolve
- * against). If the row IS in range but the column key doesn't match
- * any header, we throw — no silent skip.
+ * TWO FAIL-CLOSED GUARDS (SPREADSHEET-GUIDED-CONFIG-S3). Both run before
+ * any PATCH is issued, because the failure they prevent is a write to a
+ * customer's live spreadsheet:
+ *
+ *   - **The heading row is never a target.** Row 1 of the used range is
+ *     what every column name is resolved against, so updating it renames
+ *     the user's columns and breaks every workflow pointed at that sheet.
+ *     The schema's minimum stops the ordinary path; this check stops
+ *     anything that reaches the handler another way.
+ *   - **The row must already exist.** This handler's own comment used to
+ *     claim it threw for a row beyond the used range. It did not: the
+ *     merge fell back to an empty row, every unconfigured column became
+ *     `null`, and the PATCH wrote that. So "update row 500" on a
+ *     four-row sheet silently CREATED a null-filled row 500. Update Row
+ *     must not quietly become Add Row, so an out-of-range target is now
+ *     an error and no PATCH is issued.
+ *
+ * If the row IS in range but a column key doesn't match any header, we
+ * throw — no silent skip, no silent create.
+ *
+ * ROW INDEXING. Graph returns the used range's absolute address
+ * (`"Sheet1!A3:D9"`), and it does NOT have to start at row 1. The row
+ * offset is therefore computed from that address rather than assumed to
+ * be `rowNumber - 1`. For the ordinary sheet that starts at row 1 the
+ * arithmetic is identical; for one that starts lower, the previous
+ * assumption read a DIFFERENT row's values into the merge and wrote them
+ * to the target.
+ *
+ * KNOWN LIMITATION, unchanged here: the merged row is written from column
+ * A, while the header indices come from the used range, which may start
+ * at a later column. A worksheet whose content starts at column B is
+ * therefore still written one or more columns to the left. That is
+ * pre-existing behavior with its own migration question (it changes where
+ * live workflows write), and it is deliberately out of scope for this
+ * slice rather than half-fixed here.
  *
  * Output: `{ workbookId, worksheetName, rowNumber, address,
  * columnsUpdated, updatedColumns }` — `address` is the A1 range
@@ -87,15 +117,28 @@ export const updateRow: ActionHandler = async (input) => {
   }
 
   const columnCount = headerRow.length;
-  // Read the existing row (1-based row number → 0-based index).
-  // When the target row is beyond the used range, treat it as a row
-  // of nulls — we'll write the supplied updates at their column
-  // positions and pad the rest with null (which preserves Excel's
-  // empty-cell semantics).
-  const existingRow =
-    config.rowNumber - 1 < rows.length
-      ? (rows[config.rowNumber - 1] ?? [])
-      : [];
+
+  // ── Fail-closed guards, both BEFORE any write ──────────────────────────
+  // The used range's first row is the heading row, wherever that range
+  // actually starts.
+  const startRow = usedRangeStartRow(used.address ?? "");
+  const headingRowNumber = startRow;
+
+  if (config.rowNumber <= headingRowNumber) {
+    throw new Error(
+      `update_row: row ${config.rowNumber} is the heading row of worksheet '${config.worksheetName}' — it holds the column names this step matches against, so updating it would rename your columns. Choose a row from ${headingRowNumber + 1} onwards.`,
+    );
+  }
+
+  const rowIndex = config.rowNumber - startRow;
+  if (rowIndex < 0 || rowIndex >= rows.length) {
+    const lastRow = startRow + rows.length - 1;
+    throw new Error(
+      `update_row: row ${config.rowNumber} does not exist in worksheet '${config.worksheetName}' — it currently has data through row ${lastRow}. Update Row only changes a row that is already there; it never creates one. Check the row number, or add the row first.`,
+    );
+  }
+
+  const existingRow = rows[rowIndex] ?? [];
 
   const merged: unknown[] = [];
   for (let i = 0; i < columnCount; i++) {
@@ -136,6 +179,23 @@ export const updateRow: ActionHandler = async (input) => {
     },
   };
 };
+
+/**
+ * 1-based row number of the used range's FIRST row, parsed from its A1
+ * address (`"Sheet1!B3:D9"` → 3). Unparseable → 1 (assume the sheet starts
+ * at the top), which is the arithmetic this handler always used and keeps
+ * the ordinary case byte-identical.
+ */
+function usedRangeStartRow(address: string): number {
+  const local = address.includes("!")
+    ? address.slice(address.lastIndexOf("!") + 1)
+    : address;
+  const start = local.includes(":") ? local.slice(0, local.indexOf(":")) : local;
+  const match = /^[A-Za-z]+(\d+)$/.exec(start);
+  if (!match) return 1;
+  const parsed = Number.parseInt(match[1]!, 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
 
 function columnLetter(n: number): string {
   if (n < 1) return "A";

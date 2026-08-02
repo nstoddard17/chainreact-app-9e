@@ -27,14 +27,24 @@ import { worksheetUsedRange } from "@/integrations/microsoft-excel/api/worksheet
  * picker offers" and "what the handler validates batch keys against"
  * the same list by construction.
  *
- *   - `value` / `label` = the header CELL TEXT (batch rows are keyed by
- *     header name; the handler's header→column map uses the same text).
+ *   - `value` = the RAW header cell text, exactly as Excel holds it. This
+ *     is the identity: the handler's header→column map keys on the raw
+ *     cell, so anything else would be a key it rejects.
+ *   - `label` = the TRIMMED header text — what a person should read.
+ *     SPREADSHEET-GUIDED-CONFIG-S3 split the two. Before that both were
+ *     the trimmed text, which was a silent trap: a heading typed as
+ *     `"Name "` was offered as `"Name"`, and picking it produced a config
+ *     the handler threw on at run time. Presentation may tidy; identity
+ *     may not.
  *   - `description` = the ABSOLUTE column letter ("Column B"), computed
  *     from the used range's start column so labels stay honest even when
- *     content doesn't start at A.
- *   - Blank header cells are skipped; duplicate header names keep the
- *     FIRST occurrence only (the handler's header map would silently
- *     last-win on duplicates — offering one avoids ambiguous keys).
+ *     content doesn't start at A — plus an explicit note when the heading
+ *     is DUPLICATED.
+ *   - Blank header cells are skipped. Duplicates are NOT: every header
+ *     column is emitted, including repeats. Keeping only the first hid one
+ *     of the customer's columns and quietly disagreed with the handler,
+ *     whose map last-wins. Emitting both lets a consumer see the ambiguity
+ *     and refuse to guess (which is what the update editor does).
  *   - Empty worksheet / all-blank row 1 → empty `items` (honest
  *     "no columns detected", NOT an error).
  *
@@ -116,20 +126,36 @@ export const microsoftExcelWorksheetColumnsResolver: OptionsResolver = {
     const headerRow = used.values?.[0] ?? [];
     const startColumn = startColumnNumber(used.address ?? "");
 
-    const seen = new Set<string>();
+    // Count RAW headers first so a duplicate can be described honestly.
+    // Blank / non-string cells are not headers at all and are skipped, so
+    // they never count as a duplicate of each other.
+    const rawCounts = new Map<string, number>();
+    for (const cell of headerRow) {
+      if (typeof cell !== "string" || cell.trim().length === 0) continue;
+      rawCounts.set(cell, (rawCounts.get(cell) ?? 0) + 1);
+    }
+
     const items: Array<{ value: string; label: string; description: string }> =
       [];
     for (let i = 0; i < headerRow.length; i++) {
       const cell = headerRow[i];
       if (typeof cell !== "string") continue;
-      const header = cell.trim();
-      if (header.length === 0) continue;
-      if (seen.has(header)) continue;
-      seen.add(header);
+      const label = cell.trim();
+      if (label.length === 0) continue;
+      const position = `Column ${columnLetter(startColumn + i)}`;
       items.push({
-        value: header,
-        label: header,
-        description: `Column ${columnLetter(startColumn + i)}`,
+        // SPREADSHEET-GUIDED-CONFIG-S3 — the VALUE is the RAW header,
+        // untrimmed. It used to be the trimmed text, which was a silent
+        // trap: the runtime handler matches the raw cell, so a picker that
+        // tidied `"Name "` into `"Name"` authored a key the handler then
+        // threw on. The trimmed text stays the LABEL, because that is what
+        // the user should read.
+        value: cell,
+        label,
+        description:
+          (rawCounts.get(cell) ?? 0) > 1
+            ? `${position} · duplicate heading`
+            : position,
       });
     }
 

@@ -308,13 +308,21 @@ export function SpreadsheetUpdateEditor({
                 data-testid={`spreadsheet-update-${fieldName}-stale-${key}`}
               >
                 <span className="min-w-0 break-words font-medium">{key}</span>
+                {/* The VISIBLE label stays short and the column name lives
+                    in the accessible name instead. A worksheet heading can
+                    be a whole sentence, and a `shrink-0` button carrying
+                    one burst out of this row at every width from 360 to
+                    1600 — measured by the guided panel's responsive sweep.
+                    A screen reader still hears which column it removes,
+                    and the name is right beside the button visually. */}
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={() => handleRemoveStaleKey(key)}
+                  aria-label={`Remove ${key}`}
                   className="shrink-0 rounded border border-input px-2 py-1 text-[11px] hover:bg-muted/40"
                 >
-                  Remove &ldquo;{key}&rdquo;
+                  Remove
                 </button>
               </li>
             ))}
