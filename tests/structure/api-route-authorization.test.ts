@@ -77,6 +77,7 @@ const SERVICE_ROLE_RE =
  */
 const AUTH_TOKENS: RegExp[] = [
   /\brequireUser\b/,
+  /\brequireMobileUser\b/, // mobile v1 bearer gate (app/api/mobile/v1/_shared)
   /\brequireUserWithAccount\b/, // session + active-account resolver (workflows/folders/ai)
   /\brequireAuthedUserId\b/, // session uid resolver (account/profile, accounts, templates)
   /\brequireAccount\b/, // analytics: auth.getUser() + resolveActiveAccount (app/api/analytics/_shared)

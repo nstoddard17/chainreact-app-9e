@@ -903,12 +903,52 @@ pushed/applied without Marcus's per-batch approval.
   full-lane certification run `30717312345` @ `1567acb13` (2026-08-01).
   Operator truth: [`docs/runbooks/supabase-environments.md`](../../../runbooks/supabase-environments.md)
   + the CLAUDE.md release-flow section. **The M1 stop condition is satisfied.**
-- **M1 — Mobile auth gate + first reads (entry condition NOW MET — requires the
-  certified hosted development environment, per S0 above).** All M1 development,
-  bearer-auth testing, rate limiting, and account-isolation testing happen
-  against the hosted dev lane (`dev.chainreact.app` + `chainreact-dev`), never
-  primarily against production; M1 migrations (none expected before M3) apply
-  to hosted dev via the guarded flow in the same batch. `_shared.ts` bearer gate (+ flag + rate
+- **M1 — Mobile auth gate + first reads. ✅ IMPLEMENTED LOCALLY 2026-08-02
+  (MOBILE-COMPANION-M1-MOBILE-READ-API-1); hosted-dev certification pending
+  Marcus's SHA authorization.** What shipped (all read-only, all behind
+  `ENABLE_MOBILE_API` default-OFF → bare 404):
+  - **Endpoints:** `GET /api/mobile/v1/app-config` (public, cached 60s) ·
+    `session` · `accounts/{accountId}/workflows` (+ `{workflowId}` light
+    detail) · `accounts/{accountId}/runs` ·
+    `…/workflows/{workflowId}/runs` (+ `/{runId}` detail).
+  - **Gate:** `app/api/mobile/v1/_shared.ts` — the ONE mobile gate. Supabase
+    user bearer only, verified server-side via `auth.getUser(token)`; no
+    cookie fallback (structurally: the namespace never imports the SSR
+    client), no service-role identity, `crk_`/`crmcp_` rejected pre-Supabase;
+    stable token-free 401s. Web gates untouched.
+  - **Account scope:** `{accountId}` in every scoped path; membership via
+    service-role reads keyed by the verified user; frozen → 403; non-member =
+    nonexistent = 404; the web `active_account_id` is read ONLY as the
+    session's `defaultAccountId` suggestion and never written; no personal
+    fallback.
+  - **Rate limiting (ships with the namespace):** mobile-owned policy
+    (`core/mobile/rateLimitPolicy.ts`, per-user 120/min authoritative +
+    optional hashed per-device 240/min + hashed per-IP 60/min for public
+    app-config) over the existing durable bucket-counter storage (zero new
+    migrations); 429 + `Retry-After`; documented outage policy: FAIL OPEN for
+    this read-only namespace (revisit fail-closed before any M2 write).
+  - **Cursor contract:** one opaque versioned keyset cursor
+    (`core/mobile/cursor.ts`, base64url `v1.<sortIso>.<id>`, bounded ≤512,
+    strict decode → stable 400 `INVALID_CURSOR`); workflows order
+    `(updated_at, id) DESC`, runs `(started_at, id) DESC` — id tie-breaker
+    keeps queued runs' colliding placeholder timestamps stable. No offsets.
+  - **Non-terminal run detail (signature-journey fix):** dedicated mobile run
+    readers (`repositories/workflowRunsMobile.ts`) serve ANY status — a
+    run-now id is fetchable while queued/running.
+  - **Redaction guarantees (stricter than web):** `trigger_event`/`fatal_error`
+    are never SELECTed on the mobile path; step `output`/error `details` are
+    dropped at the repository row boundary; DTOs are allow-list mappers; every
+    response is `.parse()`d against `@chainreact/mobile-contracts` (v0.2.0)
+    before send — step outputs never appear, not even the author's own test
+    runs.
+  - **Assumption changes after code audit:** none — all eight recorded
+    current-state findings still held; rate limiting reuses generic counter
+    storage rather than new tables.
+  - Enablement var documented in `.env.example`; dev enablement = Vercel
+    Preview variable scoped to branch `v2-dev` (owner action, not this batch).
+  All M1 hosted testing happens against the certified dev lane
+  (`dev.chainreact.app` + `chainreact-dev`), never primarily against
+  production. Original scope sketch (superseded by the above): `_shared.ts` bearer gate (+ flag + rate
   limiter) + `app-config`, `session`, workflows list/light-detail, runs
   list/per-workflow/detail (incl. non-terminal detail read model) + egress parse +
   no-leak suites. *Reversal: flag off (already dark).*
