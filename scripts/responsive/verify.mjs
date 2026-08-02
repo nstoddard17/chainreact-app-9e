@@ -50,6 +50,11 @@ const EMITTERS = [
   "teamScreens",
   "dataSurfaceScreens",
   "builderRunsScreens",
+  // SPREADSHEET-GUIDED-CONFIG-S3 — the guided node-configuration panel. The
+  // first guided surface with unbounded content (a twenty-column worksheet
+  // inside a 331px overlay sheet), so it is measured before the editor that
+  // makes it unbounded ships.
+  "builderConfigScreens",
   "authScreens",
   "marketingScreens",
 ];

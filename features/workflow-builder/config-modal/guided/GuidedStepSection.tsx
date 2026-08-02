@@ -58,7 +58,7 @@ export const GuidedStepSection = React.forwardRef<
 
   return (
     <section
-      className={`overflow-hidden rounded-lg border ${
+      className={`min-w-0 overflow-hidden rounded-lg border ${
         open ? "border-input shadow-sm" : "border-input/70"
       } ${complete && !open ? "bg-muted/30" : "bg-card"}`}
       data-testid={`guided-step-${stepId}`}
@@ -109,12 +109,18 @@ export const GuidedStepSection = React.forwardRef<
           />
         </button>
       </h3>
+      {/* SPREADSHEET-GUIDED-CONFIG-S3 — `min-w-0` on the step body. The
+          section above carries `overflow-hidden` for its rounded corners,
+          which CLIPS a burst instead of showing it: without this the panel
+          measured a scroll overflow at every swept width while looking
+          merely "cut off" on screen. Every field inside is now free to
+          shrink to the width it was actually allocated. */}
       <div
         id={bodyId}
         role="region"
         aria-labelledby={headerId}
         hidden={!open}
-        className="flex flex-col gap-3 border-t p-3"
+        className="flex min-w-0 flex-col gap-3 border-t p-3"
       >
         {children}
         {footer}

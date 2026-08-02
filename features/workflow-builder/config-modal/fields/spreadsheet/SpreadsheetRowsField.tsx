@@ -316,7 +316,10 @@ function SpreadsheetRowsBody({
     columnsState.status === "owner-must-connect";
 
   return (
-    <div className="flex flex-col gap-3" data-testid={`spreadsheet-rows-${field.name}`}>
+    <div
+      className="flex min-w-0 flex-col gap-3"
+      data-testid={`spreadsheet-rows-${field.name}`}
+    >
       {batchFieldName ? (
         <div className="flex flex-col gap-1.5">
           <p className="text-xs font-medium">What are you adding?</p>

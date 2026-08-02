@@ -403,7 +403,15 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
       description={field.description}
       error={error}
     >
-      <div className="flex items-start gap-2">
+      {/* SPREADSHEET-GUIDED-CONFIG-S3 — `min-w-0` on both the row and the
+          trigger. A flex item's default `min-width: auto` is its CONTENT
+          width, so a combobox showing a long workbook name refused to shrink
+          and pushed the variable-picker button out of this row inside the
+          builder's 331px overlay config sheet. The first responsive sweep of
+          the guided panel measured that escape at every width from 360 to
+          1600. `flex-1` allocates the space; `min-w-0` is what lets the
+          allocation actually apply. The trigger already truncates its label. */}
+      <div className="flex min-w-0 items-start gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -414,9 +422,9 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
             aria-expanded={open}
             aria-invalid={error ? true : undefined}
             disabled={disabled}
-            className="flex-1 justify-between font-normal"
+            className="min-w-0 flex-1 justify-between font-normal"
           >
-            {triggerLabel}
+            <span className="min-w-0 truncate">{triggerLabel}</span>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>

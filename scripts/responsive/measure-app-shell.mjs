@@ -215,12 +215,41 @@ const REGIONS = [
   '[data-testid^="step-node-"]',
   '[data-testid="run-id"]',
   '[data-testid="builder-runs-toast"]',
+  // SPREADSHEET-GUIDED-CONFIG-S3 — the guided node-configuration panel inside
+  // the builder's right drawer. Every step section, every step BODY and every
+  // spreadsheet editor sub-surface is measured individually, for the same
+  // reason Account Settings is: a configuration panel fails as a long column
+  // name or a revealed value input bursting out of the small box that is
+  // supposed to hold it, not as one page-level burst. The prefixed selectors
+  // match per-field ids (`spreadsheet-rows-values`, `-cell-3`, …).
+  '[data-testid="config-setup-body"]',
+  '[data-testid="guided-config-layout"]',
+  // The three step SECTIONS and their headers, named individually rather than
+  // by a `guided-step-` prefix. The prefix also matched each header's
+  // collapsed SUMMARY — a `truncate` span, whose `scrollWidth > clientWidth`
+  // is precisely what truncation MEANS, not a containment failure. Measuring
+  // it reported 344 false failures on a panel that was rendering correctly.
+  // The summary is still under assertion: it is a descendant, so the
+  // escapes-its-parent walk covers it, and truncation is the declared
+  // out-of-space behavior for an identifier of unbounded length.
+  '[data-testid="guided-step-destination"]',
+  '[data-testid="guided-step-mapping"]',
+  '[data-testid="guided-step-write"]',
+  '[data-testid="guided-step-destination-header"]',
+  '[data-testid="guided-step-mapping-header"]',
+  '[data-testid="guided-step-write-header"]',
+  '[data-testid^="guided-write-"]',
+  '[data-testid="guided-paste-link-open"]',
+  '[data-testid^="spreadsheet-rows-"]',
+  '[data-testid^="spreadsheet-single-row-"]',
+  '[data-testid^="spreadsheet-update-"]',
+  '[data-testid^="spreadsheet-preview-"]',
 ];
 
 const fragments = readdirSync(HTML_DIR)
   .filter(
     (f) =>
-      /^(templates|workflows|consumers|account|team|wflist|runlist|brun)-/.test(f) &&
+      /^(templates|workflows|consumers|account|team|wflist|runlist|brun|bcfg)-/.test(f) &&
       f.endsWith(".html"),
   )
   .sort();
@@ -236,6 +265,7 @@ function labelFor(name) {
   if (name.startsWith("wflist-")) return "Workflows";
   if (name.startsWith("runlist-")) return "Runs";
   if (name.startsWith("brun-")) return "Workflow builder";
+  if (name.startsWith("bcfg-")) return "Workflow builder";
   if (name.startsWith("workflows-")) return "Workflows";
   if (name.startsWith("consumers-01")) return "Runs";
   if (name.startsWith("consumers-02")) return "Apps";

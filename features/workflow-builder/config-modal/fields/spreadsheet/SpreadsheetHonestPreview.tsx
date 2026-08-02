@@ -56,13 +56,29 @@ export function SpreadsheetHonestPreview({
           cell.state === "blank" ? null : (
             <div
               key={i}
-              className="flex min-w-0 items-baseline gap-2 text-xs"
+              /* SPREADSHEET-GUIDED-CONFIG-S3 — the name/value pair WRAPS
+                 rather than sitting on one line. Side by side, a
+                 sentence-length column name and its value cannot both fit in
+                 the 331px overlay config sheet. Deliberately no breakpoint
+                 class: this panel's width is the drawer's, not the
+                 viewport's (responsive rule §2), so `flex-wrap` — which
+                 reacts to the space actually available — is the only correct
+                 instrument here. */
+              className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
               data-testid={`spreadsheet-preview-${fieldName}-cell-${i}`}
               data-cell-state={cell.state}
             >
-              <dt className="shrink-0 font-medium">{cell.columnName}</dt>
+              {/* Was `shrink-0`, which meant a long worksheet column name
+                  burst straight out of the preview card — measured at every
+                  width from 360 to 1600 by the guided panel's first sweep.
+                  The name wraps instead; it is never abbreviated away,
+                  because it is what tells the user which cell they are
+                  looking at. */}
+              <dt className="min-w-0 break-words font-medium">
+                {cell.columnName}
+              </dt>
               <dd
-                className={`min-w-0 truncate font-mono ${
+                className={`min-w-0 break-all font-mono ${
                   cell.state === "broken"
                     ? "text-destructive"
                     : cell.state === "untested"

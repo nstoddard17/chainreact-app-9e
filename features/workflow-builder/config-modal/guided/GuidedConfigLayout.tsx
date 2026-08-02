@@ -156,7 +156,24 @@ export function GuidedConfigLayout({
   const write = byId.get("write")!;
 
   return (
-    <div className="flex flex-col gap-2" data-testid="guided-config-layout">
+    <div
+      className="flex min-w-0 flex-col gap-2"
+      data-testid="guided-config-layout"
+      /*
+        SPREADSHEET-GUIDED-CONFIG-S3 — panning policy
+        (docs/rules/responsive-layout-and-validation.md §C). Node
+        configuration is a FORM, and a form is on the rule's
+        panning-is-disallowed list: no user should have to drag a settings
+        panel sideways to reach the field they are filling in. The floor is
+        1600 rather than a viewport breakpoint because this panel lives
+        inside the canvas, not inside the page container — viewport width is
+        not its content width. Declared here rather than left implicit
+        because the drawer that hosts it scrolls, and an unannotated region
+        inside a scroller is exempt from the containment check: without this
+        line a panel could look green while being unusable.
+      */
+      data-no-pan-below="1600"
+    >
       <GuidedStepSection
         ref={setHeaderRef("destination")}
         stepId="destination"

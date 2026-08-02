@@ -54,19 +54,30 @@ export function SpreadsheetCellInput({
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
+      {/* A worksheet column name can be a sentence ("Total amount including
+          all applicable taxes and adjustments"), and this label sits in a
+          331px overlay sheet. It WRAPS rather than truncating: the column
+          name is the only thing identifying which cell the input writes to,
+          so hiding half of it would be worse than two lines. `break-words`
+          covers a single unbroken token. */}
       <label
         htmlFor={id}
-        className="flex items-baseline gap-1.5 text-xs font-medium"
+        className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 break-words text-xs font-medium"
       >
-        <span>{label}</span>
+        <span className="min-w-0 break-words">{label}</span>
         {hint ? (
           <span className="text-[10px] font-normal text-muted-foreground">
             {hint}
           </span>
         ) : null}
       </label>
-      <div className="flex items-start gap-2">
+      {/* SPREADSHEET-GUIDED-CONFIG-S3 — `min-w-0` on the row and the input.
+          Without it the input's default `min-width: auto` (its content size)
+          kept it from shrinking and pushed the variable-picker button clean
+          out of the row; the guided panel's first responsive sweep measured
+          that escape at every width from 360 to 1600. */}
+      <div className="flex min-w-0 items-start gap-2">
         <Input
           ref={inputRef}
           id={id}
@@ -74,7 +85,7 @@ export function SpreadsheetCellInput({
           disabled={disabled}
           aria-label={ariaLabel ?? label}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         <VariablePickerButton
           sources={sources}
