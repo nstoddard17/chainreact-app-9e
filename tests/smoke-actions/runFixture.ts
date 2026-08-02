@@ -114,13 +114,39 @@ export async function runFixture(
     return { ...base, outcome: "skip", reason: `missing env: ${missing.join(", ")}`, runId: null, missingEnv: missing };
   }
 
-  // 3. Handler lookup (real registry).
+  // 3. LIVE-DISPATCH GATE (CI-GATE-COLLECTION-FIX-1). Everything below calls the
+  // REAL registered handler through the REAL provider boundary. Declaring
+  // `requiredEnv` is what makes a fixture provider-connected, so having those
+  // credentials present in the ambient environment must NOT be sufficient to
+  // place a real provider call: an operator machine that exports SMOKE_* vars
+  // would otherwise turn a plain `npm test` into live provider traffic. Real
+  // dispatch therefore requires the same explicit opt-in the live suites use
+  // (`ALLOW_LIVE_PROVIDER_SMOKE`, per the liveRisk contract in ./contract.ts).
+  //
+  // Deliberately NARROW, so no coverage is lost:
+  //   * fixtures with no requiredEnv are pure local logic (native transform /
+  //     delay / condition / router) and still genuinely EXECUTE — that is what
+  //     proves this path is real rather than all-skips;
+  //   * an INJECTED provider boundary (unit tests supplying a fake `invoke`) is
+  //     never gated — only the real default seam is.
+  const realDispatch = deps.invoke === defaultSmokeDeps.invoke;
+  const providerConnected = (fixture.requiredEnv ?? []).length > 0;
+  if (realDispatch && providerConnected && deps.envLookup("ALLOW_LIVE_PROVIDER_SMOKE") !== "true") {
+    return {
+      ...base,
+      outcome: "skip",
+      reason: "live provider dispatch requires ALLOW_LIVE_PROVIDER_SMOKE=true",
+      runId: null,
+    };
+  }
+
+  // 4. Handler lookup (real registry).
   const handler = deps.getHandler(fixture.provider, fixture.action);
   if (!handler) {
     return { ...base, outcome: "fail", reason: "no registered handler for this action", runId: null };
   }
 
-  // 4. Strict pre-resolution of config (the Q2 engine contract). Env-config
+  // 5. Strict pre-resolution of config (the Q2 engine contract). Env-config
   // overlay first, so a config field sourced from env (e.g. a channel id) is in
   // place before resolution.
   const triggerEvent = buildTriggerEvent(fixture);
@@ -139,7 +165,7 @@ export async function runFixture(
     return { ...base, outcome: "fail", reason, runId: null };
   }
 
-  // 5. Dispatch through the (injected) provider boundary + classify vs expectation.
+  // 6. Dispatch through the (injected) provider boundary + classify vs expectation.
   const runId = deps.newRunId();
   const input: ActionHandlerInput = {
     workflowId: SMOKE_WORKFLOW_ID,
