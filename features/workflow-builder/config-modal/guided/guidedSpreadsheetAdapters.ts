@@ -136,6 +136,50 @@ const ADAPTERS: readonly GuidedSpreadsheetAdapter[] = [
         "We read the header row of this tab to work out the columns — no cell ranges to type.",
     },
   },
+  {
+    // EXCEL-GUIDED-CONFIG-2. Excel addresses a worksheet by NAME, so there
+    // is no range string to derive — hence no `derivedRange`.
+    //
+    // `writeBehaviorFields` is deliberately EMPTY. Excel's Graph range
+    // PATCH has no analogue of Sheets' RAW/USER_ENTERED or
+    // INSERT_ROWS/OVERWRITE, so inventing radios here would be offering a
+    // choice that changes nothing. Step 3 states what the handler
+    // actually does instead.
+    actionKey: "microsoft-excel:add_row",
+    destinationFields: ["workbookId", "worksheetName"],
+    mappingField: "values",
+    writeBehaviorFields: [],
+    copy: {
+      destinationTitle: "Pick the worksheet",
+      destinationHint:
+        "We read the first row of this worksheet to work out the columns.",
+      // Verified against `addRow.ts`: single mode anchors at
+      // `lastUsedRow + 1` and pads/truncates to the used range's column
+      // count; batch mode matches each row's keys against the real
+      // first-row headers and fails loudly on an unknown column name.
+      writeEmpty:
+        "ChainReact adds the values below the worksheet's last used row. A single row follows the worksheet's column order, and several rows are matched to the column names shown above. There is nothing else to decide.",
+    },
+  },
+  {
+    // Excel tables carry their own column schema, which is authoritative —
+    // no header-row heuristic needed. No range to derive, and no write
+    // options for the same reason as add_row.
+    actionKey: "microsoft-excel:add_table_row",
+    destinationFields: ["workbookId", "tableName"],
+    mappingField: "values",
+    writeBehaviorFields: [],
+    copy: {
+      destinationTitle: "Pick the table",
+      destinationHint:
+        "The table's own columns are used, so there is no header row to guess at.",
+      // Verified against `addTableRow.ts`: it POSTs one row to
+      // `/tables/{name}/rows`; a positional array is sent verbatim, and a
+      // column-keyed record is aligned to the table's column order.
+      writeEmpty:
+        "ChainReact adds the values as a new row in the selected Excel table, following that table's column order. There is nothing else to decide.",
+    },
+  },
 ];
 
 const BY_KEY: ReadonlyMap<string, GuidedSpreadsheetAdapter> = new Map(

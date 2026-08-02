@@ -37,6 +37,20 @@ function isNonEmptyArray(value: unknown): boolean {
 }
 
 /**
+ * A column-keyed row value — the second representation Excel's
+ * `add_table_row` accepts. Counted as filled in so readiness treats both
+ * valid shapes alike.
+ */
+function isNonEmptyRecord(value: unknown): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value as Record<string, unknown>).length > 0
+  );
+}
+
+/**
  * Microsoft Excel `add_row` — destination (workbook + worksheet) plus
  * "at least one row value" across the two either-or save shapes the
  * spreadsheet editor manages (one-row values XOR batch rows).
@@ -85,9 +99,35 @@ const googleSheetsAppendRowAdapter: ReadinessAdapter = ({ values }) => [
   },
 ];
 
+/**
+ * Microsoft Excel `add_table_row` (EXCEL-GUIDED-CONFIG-2) — destination
+ * (workbook + table) plus at least one mapped value.
+ *
+ * `values` is the one field whose emptiness the runtime schema actually
+ * rejects, and it accepts EITHER representation the action allows: a
+ * positional array or a column-keyed record. Both count as filled in, so
+ * readiness must not quietly demand the positional one.
+ *
+ * A column left deliberately blank is a finished state, not a gap — the
+ * handler writes `null` for it — so only "nothing at all" blocks.
+ */
+const excelAddTableRowAdapter: ReadinessAdapter = ({ values }) => [
+  {
+    label: "Pick a workbook and table",
+    done:
+      isFilledString(values["workbookId"]) &&
+      isFilledString(values["tableName"]),
+  },
+  {
+    label: "Fill in at least one column",
+    done: isNonEmptyArray(values["values"]) || isNonEmptyRecord(values["values"]),
+  },
+];
+
 const READINESS_ADAPTERS: Readonly<Record<string, ReadinessAdapter>> =
   Object.freeze({
     "microsoft-excel:add_row": excelAddRowAdapter,
+    "microsoft-excel:add_table_row": excelAddTableRowAdapter,
     "google-sheets:append_row": googleSheetsAppendRowAdapter,
   });
 

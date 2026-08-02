@@ -1,14 +1,25 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
 
 /**
- * Builder-facing metadata for `microsoft-excel:add_table_row` — Slice 4.EXCEL-META-3.
- * Mirrors `addTableRow.schema.ts`. `values` is a `string-array` — one chip
- * per cell in the table's column order (the schema's positional-array
- * branch; the header-keyed record branch stays available to variable
- * wiring and API-authored configs). `tableName` → tables picker
- * (dependsOn workbookId). `valuesWritten` output carries cell data →
- * sensitive. CONFIG-UX-AUDIT-1 replaced the previous paste-JSON textarea,
- * which stored a literal string the runtime schema rejected.
+ * Builder-facing metadata for `microsoft-excel:add_table_row`.
+ *
+ * EXCEL-GUIDED-CONFIG-2 replaced the blind positional chip list with the
+ * shared column-aware editor. The Excel table's own columns are the
+ * authoritative destination schema — better than the row-1 heuristic a
+ * worksheet needs — and `microsoft-excel:table_columns` already existed
+ * (built for `find_row.lookupColumn`) but had never been wired here.
+ *
+ * BOTH saved representations stay valid and are round-tripped unchanged
+ * (see `addTableRow.schema.ts`):
+ *   - a POSITIONAL array, written verbatim by the handler, and
+ *   - a record KEYED BY COLUMN NAME, which the handler aligns by name.
+ * The editor never converts one into the other: the handler treats them
+ * differently, so a conversion could change which column a value lands
+ * in. New configurations keep the positional default this action has
+ * always used.
+ *
+ * `tableName` → tables picker (dependsOn workbookId). `valuesWritten`
+ * output carries cell data → sensitive.
  */
 export const microsoftExcelAddTableRowMeta: ActionMeta = {
   key: "microsoft-excel:add_table_row",
@@ -16,7 +27,7 @@ export const microsoftExcelAddTableRowMeta: ActionMeta = {
   type: "add_table_row",
   displayName: "Add Table Row",
   description:
-    "Append a row to an Excel table. Add one value per column in the table's column order; the row lands at the bottom of the table with a stable Graph-assigned row id.",
+    "Add a new row to an Excel table, filling in each column by name. The row lands at the bottom of the table with a stable row id.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -43,10 +54,11 @@ export const microsoftExcelAddTableRowMeta: ActionMeta = {
       name: "values",
       label: "Row values",
       description:
-        "Add one value per column, in the table's column order. The row is appended to the bottom of the table.",
-      type: "string-array",
+        "What goes in each column of the new row. Columns come from the table you picked. Leave a column blank to keep that cell empty.",
+      type: "spreadsheet-rows",
       required: true,
-      placeholder: "Type a cell value and press Enter",
+      optionsSource: "microsoft-excel:table_columns",
+      dependsOn: ["workbookId", "tableName"],
     },
   ],
   outputs: [

@@ -22,10 +22,14 @@ import {
   type GuidedSpreadsheetAdapter,
 } from "@/features/workflow-builder/config-modal/guided/guidedSpreadsheetAdapters";
 import { googleSheetsAppendRowMeta } from "@/integrations/google-sheets/actions/appendRow.meta";
+import { microsoftExcelAddRowMeta } from "@/integrations/microsoft-excel/actions/addRow.meta";
+import { microsoftExcelAddTableRowMeta } from "@/integrations/microsoft-excel/actions/addTableRow.meta";
 import type { ActionMeta } from "@/contracts/actionMeta";
 
 const META_BY_KEY: Readonly<Record<string, ActionMeta>> = {
   "google-sheets:append_row": googleSheetsAppendRowMeta,
+  "microsoft-excel:add_row": microsoftExcelAddRowMeta,
+  "microsoft-excel:add_table_row": microsoftExcelAddTableRowMeta,
 };
 
 describe("registered adapters agree with the live action metadata", () => {
@@ -39,16 +43,85 @@ describe("registered adapters agree with the live action metadata", () => {
     }
   });
 
-  it("covers exactly the actions S1 shipped", () => {
+  it("covers exactly the row-adding actions shipped so far (S1 + S2)", () => {
     expect(listGuidedSpreadsheetAdapters().map((a) => a.actionKey)).toEqual([
       "google-sheets:append_row",
+      "microsoft-excel:add_row",
+      "microsoft-excel:add_table_row",
     ]);
   });
 
   it("an unregistered action falls back to the generic form", () => {
     expect(getGuidedSpreadsheetAdapter("google-sheets:update_row")).toBeUndefined();
+    // S3 work — deliberately NOT adopted yet, because its record-shaped
+    // `values` needs editor support this slice did not build.
+    expect(getGuidedSpreadsheetAdapter("microsoft-excel:update_row")).toBeUndefined();
     expect(getGuidedSpreadsheetAdapter("slack:send_channel_message")).toBeUndefined();
     expect(getGuidedSpreadsheetAdapter(undefined)).toBeUndefined();
+  });
+});
+
+describe("Excel adopts the shared framework without inventing capabilities", () => {
+  it.each([
+    ["microsoft-excel:add_row", ["workbookId", "worksheetName"]],
+    ["microsoft-excel:add_table_row", ["workbookId", "tableName"]],
+  ] as const)(
+    "%s asks for its own destination shape",
+    (actionKey, expectedDestination) => {
+      const adapter = getGuidedSpreadsheetAdapter(actionKey)!;
+      expect(adapter.destinationFields).toEqual(expectedDestination);
+      expect(adapter.mappingField).toBe("values");
+    },
+  );
+
+  it.each([
+    ["microsoft-excel:add_row"],
+    ["microsoft-excel:add_table_row"],
+  ] as const)(
+    "%s offers NO write-behavior choices — Excel has no RAW/USER_ENTERED or insert mode",
+    (actionKey) => {
+      const adapter = getGuidedSpreadsheetAdapter(actionKey)!;
+      // Offering radios here would be a choice that changes nothing.
+      expect(adapter.writeBehaviorFields).toEqual([]);
+      expect(adapter.recommendedValues).toBeUndefined();
+      expect(adapter.dangerValues).toBeUndefined();
+      // …and step 3 must still say something factual instead.
+      expect(adapter.copy?.writeEmpty ?? "").not.toBe("");
+    },
+  );
+
+  it.each([
+    ["microsoft-excel:add_row"],
+    ["microsoft-excel:add_table_row"],
+  ] as const)(
+    "%s derives no cell range — Excel addresses its destination by name",
+    (actionKey) => {
+      expect(getGuidedSpreadsheetAdapter(actionKey)!.derivedRange).toBeUndefined();
+    },
+  );
+
+  it("does not offer link pasting for Excel, where a share link is not a workbook id", () => {
+    // A OneDrive share URL does not carry the driveItem id the picker uses,
+    // so a "paste a link" affordance could not honour its promise.
+    expect(
+      getGuidedSpreadsheetAdapter("microsoft-excel:add_row")!.parseResourceLink,
+    ).toBeUndefined();
+    expect(
+      getGuidedSpreadsheetAdapter("microsoft-excel:add_table_row")!
+        .parseResourceLink,
+    ).toBeUndefined();
+  });
+
+  it("keeps Sheets' write behavior untouched by the Excel adoption", () => {
+    const sheets = getGuidedSpreadsheetAdapter("google-sheets:append_row")!;
+    expect(sheets.writeBehaviorFields).toEqual([
+      "valueInputOption",
+      "insertDataOption",
+    ]);
+    expect(sheets.derivedRange).toEqual({
+      fromField: "sheetName",
+      intoField: "range",
+    });
   });
 });
 

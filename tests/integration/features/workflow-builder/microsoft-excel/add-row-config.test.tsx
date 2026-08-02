@@ -59,7 +59,7 @@ jest.mock("@/lib/api/workflowConnectionReadiness", () => ({
     mockGetConnectionReadiness(...args),
 }));
 
-import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
+import { openLastNodeOfKind } from "../helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -74,7 +74,7 @@ import { microsoftExcelAddRowMeta } from "@/integrations/microsoft-excel/actions
 import { AddRowConfigSchema } from "@/integrations/microsoft-excel/actions/addRow.schema";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
-import { pickComboboxOption } from "./helpers/comboboxField";
+import { pickComboboxOption } from "../helpers/comboboxField";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -289,7 +289,9 @@ it(
       expect(bannerText()).toContain("One thing left to fill in");
     });
 
-    // Column inputs from the REAL resolver response render.
+    // Column inputs from the REAL resolver response render, once the user
+    // advances to guided step 2 (EXCEL-GUIDED-CONFIG-2).
+    await user.click(screen.getByTestId("guided-next-mapping"));
     await waitFor(() => {
       expect(screen.getByLabelText("Name")).toBeInTheDocument();
     });
@@ -357,6 +359,10 @@ it(
 
     await pickComboboxOption(user, /^workbook$/i, "Sales.xlsx");
     await pickComboboxOption(user, /^worksheet$/i, WORKSHEET);
+
+    // EXCEL-GUIDED-CONFIG-2 — the column editor lives in guided step 2, so
+    // a user reaches it by advancing from the destination step.
+    await user.click(screen.getByTestId("guided-next-mapping"));
     await waitFor(() => {
       expect(screen.getByLabelText("Name")).toBeInTheDocument();
     });

@@ -7,7 +7,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * the runtime schema literally — a free-text A1 `range` box and a blind
  * positional chip list — because the schema had no tab field to hang a
  * column resolver on. That was recorded as a deferred product decision
- * in `docs/slices/phase-5/spreadsheet-config-redesign-closeout.md`
+ * in `docs/slices/phase-5/spreadsheet-guided-config/spreadsheet-config-redesign-closeout.md`
  * §"Secondary targets"; the guided-config plan
  * (`docs/slices/phase-5/spreadsheet-guided-config/plan.md` §10, D1)
  * resolved it: the schema gained an OPTIONAL `sheetName`, so the normal

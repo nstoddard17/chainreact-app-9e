@@ -26,9 +26,12 @@ import {
 import {
   batchRowsToGrid,
   cellsToPositionalValues,
+  cellsToRecordValues,
   dropEmptyBatchRecords,
   gridToBatchRows,
+  isRecordRowValue,
   positionalValuesToCells,
+  recordValuesToCells,
 } from "./_serialize";
 
 /**
@@ -145,7 +148,16 @@ function SpreadsheetRowsBody({
     Array.isArray(batchValue) && batchValue.length > 0 ? "several" : "one",
   );
 
-  // ── One-row mode (controlled from the committed positional value) ──────────
+  // ── One-row mode ───────────────────────────────────────────────────────────
+  // The saved value may use either representation the action's schema
+  // accepts: a POSITIONAL array, or a record KEYED BY COLUMN NAME (Excel
+  // add_table_row allows both, and the handler treats them differently —
+  // positional is written verbatim, a record is aligned by name). The
+  // editor therefore round-trips whichever one it was given, and never
+  // converts between them. Converting would change which column each
+  // value lands in.
+  const valueIsRecord = isRecordRowValue(value);
+
   // Manual mode keeps an explicit cell count so "Add a value" can show a
   // new blank input (the committed shape trims trailing blanks).
   const hydratedCells = Array.isArray(value) ? value.length : 0;
@@ -153,10 +165,22 @@ function SpreadsheetRowsBody({
     Math.max(1, hydratedCells),
   );
   const cellCount = columns.length > 0 ? columns.length : manualCellCount;
-  const cells = positionalValuesToCells(value, cellCount);
+
+  // A record can only be laid out against known column names. Until they
+  // load, rendering positional blanks would hide real saved values behind
+  // empty inputs — and the next keystroke would commit over them.
+  const recordNeedsColumns = valueIsRecord && columns.length === 0;
+
+  const cells = valueIsRecord
+    ? recordValuesToCells(value, columnNames)
+    : positionalValuesToCells(value, cellCount);
 
   function commitCells(next: readonly string[]): void {
-    onChange(cellsToPositionalValues(next));
+    onChange(
+      valueIsRecord
+        ? cellsToRecordValues(next, columnNames)
+        : cellsToPositionalValues(next),
+    );
   }
   function handleCellChange(index: number, nextCell: string): void {
     const next = [...cells];
@@ -354,7 +378,19 @@ function SpreadsheetRowsBody({
         </div>
       ) : null}
 
-      {columnsLoading || mode !== "one" ? null : (
+      {recordNeedsColumns && !columnsLoading ? (
+        <p
+          role="status"
+          data-testid={`spreadsheet-rows-${field.name}-record-needs-columns`}
+          className="rounded-md border border-dashed p-3 text-xs text-muted-foreground"
+        >
+          This step already has values saved against your column names. We
+          can&rsquo;t show them until the column list loads, so nothing is
+          editable here yet — your saved values are untouched.
+        </p>
+      ) : null}
+
+      {columnsLoading || mode !== "one" || recordNeedsColumns ? null : (
         <SpreadsheetSuggestions
           fieldName={field.name}
           suggestions={suggestions}
@@ -364,7 +400,7 @@ function SpreadsheetRowsBody({
         />
       )}
 
-      {columnsLoading ? null : mode === "one" ? (
+      {columnsLoading || recordNeedsColumns ? null : mode === "one" ? (
         <SpreadsheetSingleRowEditor
           fieldName={field.name}
           columns={columns}
@@ -401,7 +437,7 @@ function SpreadsheetRowsBody({
         />
       )}
 
-      {columnsLoading ? null : mode === "one" ? (
+      {columnsLoading || recordNeedsColumns ? null : mode === "one" ? (
         <SpreadsheetHonestPreview
           fieldName={field.name}
           preview={rowPreview}

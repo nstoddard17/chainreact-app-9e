@@ -23,6 +23,70 @@
  * unit-testable without rendering.
  */
 
+/**
+ * True when a saved single-row value uses the COLUMN-KEYED representation
+ * rather than the positional one (EXCEL-GUIDED-CONFIG-2).
+ *
+ * `microsoft-excel:add_table_row` accepts either. The two are not
+ * interchangeable at run time: a positional array is written verbatim,
+ * while a record is aligned by NAME against the table's columns. Turning
+ * one into the other would change which column each value lands in, so
+ * the editor has to know which one it is holding and give it back
+ * unchanged.
+ */
+export function isRecordRowValue(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    value !== null && typeof value === "object" && !Array.isArray(value)
+  );
+}
+
+/**
+ * Hydrate the one-row editor's cells from a COLUMN-KEYED record, using
+ * the detected column names as the mapping. A column the record does not
+ * mention is an empty cell — not a missing one, which is exactly how the
+ * handler treats it (it writes `null` for unnamed columns).
+ */
+export function recordValuesToCells(
+  value: Readonly<Record<string, unknown>>,
+  columnNames: readonly string[],
+): string[] {
+  return columnNames.map((name) => {
+    const cell = Object.prototype.hasOwnProperty.call(value, name)
+      ? value[name]
+      : undefined;
+    return typeof cell === "string"
+      ? cell
+      : typeof cell === "number" || typeof cell === "boolean"
+        ? String(cell)
+        : "";
+  });
+}
+
+/**
+ * Commit the one-row editor's cells back as a COLUMN-KEYED record —
+ * the same representation they were hydrated from. Blank cells are
+ * omitted (the handler fills unnamed columns with `null`), so a column
+ * deliberately left empty stays empty without inventing a value for it.
+ *
+ * Returns `undefined` when nothing is filled in, so an all-blank row
+ * drops the key entirely rather than committing `{}`, which the runtime
+ * schema would reject.
+ */
+export function cellsToRecordValues(
+  cells: readonly string[],
+  columnNames: readonly string[],
+): Record<string, string> | undefined {
+  const record: Record<string, string> = {};
+  for (let i = 0; i < columnNames.length; i++) {
+    const cell = cells[i] ?? "";
+    if (cell.trim().length === 0) continue;
+    record[columnNames[i]!] = cell;
+  }
+  return Object.keys(record).length === 0 ? undefined : record;
+}
+
 /** Hydrate the one-row editor's cells from a saved positional value. */
 export function positionalValuesToCells(
   value: unknown,
