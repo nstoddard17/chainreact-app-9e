@@ -414,3 +414,27 @@ export async function clearDeletionServiceRole(
   }
   return rowToRecord(data);
 }
+
+/**
+ * MOBILE-COMPANION-M1 — sessionless account fetch for the bearer-authed mobile
+ * namespace (no cookie session ⇒ RLS cannot scope reads). NON-AUTHORIZING: the
+ * caller (the mobile gate / session service) supplies ids it has ALREADY tied
+ * to the verified user via membership rows; the explicit `id IN` predicate is
+ * the scope. Same columns/mapper as the session reads — nothing extra leaves.
+ */
+export async function listByIdsServiceRole(
+  accountIds: readonly string[],
+): Promise<readonly AccountRecord[]> {
+  if (accountIds.length === 0) return [];
+  const supabase = getServiceRoleClient(
+    `accounts: listByIdsServiceRole (${accountIds.length} ids, mobile v1)`,
+  );
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("*")
+    .in("id", accountIds as string[]);
+  if (error) {
+    throw new Error(`accounts.listByIdsServiceRole failed: ${error.message}`);
+  }
+  return ((data ?? []) as AccountsRow[]).map(rowToRecord);
+}

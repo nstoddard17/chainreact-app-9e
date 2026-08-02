@@ -236,3 +236,28 @@ export async function clearActiveAccountIfMatchesServiceRole(
     );
   }
 }
+
+/**
+ * MOBILE-COMPANION-M1 — sessionless READ of the stored active-account pointer,
+ * used only to SUGGEST a default account to the mobile session endpoint.
+ * `userId` MUST be the verified bearer identity. Read-only: mobile never
+ * writes this column (the web switcher owns it).
+ */
+export async function getActiveAccountIdServiceRole(
+  userId: string,
+): Promise<string | null> {
+  const supabase = getServiceRoleClient(
+    "user_profiles: getActiveAccountIdServiceRole (mobile v1)",
+  );
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("active_account_id")
+    .eq("id", userId)
+    .maybeSingle<{ active_account_id: string | null }>();
+  if (error) {
+    throw new Error(
+      `user_profiles.getActiveAccountIdServiceRole failed: ${error.message}`,
+    );
+  }
+  return data?.active_account_id ?? null;
+}

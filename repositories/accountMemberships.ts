@@ -309,3 +309,27 @@ export async function getRole(
   }
   return data?.role ?? null;
 }
+
+/**
+ * MOBILE-COMPANION-M1 — sessionless membership list for the bearer-authed
+ * mobile namespace. NON-AUTHORIZING on its own: `userId` MUST be the verified
+ * bearer identity (the mobile gate's contract) — the explicit predicate is the
+ * scope, mirroring the session `listByUser` exactly.
+ */
+export async function listByUserServiceRole(
+  userId: string,
+): Promise<readonly AccountMembershipRecord[]> {
+  const supabase = getServiceRoleClient(
+    `account_memberships: listByUserServiceRole (mobile v1)`,
+  );
+  const { data, error } = await supabase
+    .from("account_memberships")
+    .select("*")
+    .eq("user_id", userId);
+  if (error) {
+    throw new Error(
+      `account_memberships.listByUserServiceRole failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).map((r) => rowToRecord(r as AccountMembershipsRow));
+}
