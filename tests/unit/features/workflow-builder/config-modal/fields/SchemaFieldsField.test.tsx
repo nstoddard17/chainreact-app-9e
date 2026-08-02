@@ -141,21 +141,11 @@ describe("SchemaFieldsField", () => {
     );
   });
 
-  it("shows the row count, and caps adding at the maximum", async () => {
-    const user = userEvent.setup();
-    const many = {
-      fields: Array.from({ length: 200 }, (_, i) => ({
-        name: `f_${i}`,
-        type: "string" as const,
-      })),
-    };
-    const { onChange } = renderField(many);
-    expect(screen.getByText(/Maximum 200 fields\./i)).toBeInTheDocument();
-    const addButton = screen.getByRole("button", { name: /add field/i });
-    expect(addButton).toBeDisabled();
-    await user.click(addButton);
-    expect(onChange).not.toHaveBeenCalled();
-  });
+  // The 200-row count/cap behavior lives in SchemaFieldsField.capacity.test.tsx
+  // (SCHEMA-FIELDS-TEST-PERFORMANCE-FIX-1): mounting 200 REAL rows cost ~1.3s
+  // and tripped the 5s default on the 2-core CI runner, while the capacity
+  // logic under test never reads row internals. That file stubs only the row;
+  // THIS file keeps every real-row behavior test.
 
   it("round-trips: what it renders from is what it commits back", async () => {
     const user = userEvent.setup();
