@@ -101,6 +101,51 @@ describe("smoke artifact sanitizer (pure)", () => {
     expect(rec.attachmentBasenames.sort()).toEqual(["test-failed-1.png", "trace.zip"]);
     expect(artifact.totals.failed).toBe(1);
   });
+
+  it("attachment basenames are host-OS-independent — Windows, Unix, and mixed hostile paths all reduce", () => {
+    // The sanitizer may run on ANY OS against paths produced on ANY OS
+    // (a Linux CI runner sanitizing a Windows-produced path leaked the whole
+    // path through path.basename). Every shape must reduce to a bare filename.
+    const artifact = buildSmokeArtifact(
+      [
+        {
+          ...HOSTILE,
+          attachmentPaths: [
+            "C:\\Users\\marcu\\source\\repos\\ChainReactV2\\test-results\\a\\win.zip",
+            "/home/runner/work/chainreact/test-results/b/unix.png",
+            "C:\\Users\\marcu/mixed\\separators/deep\\mixed.webm",
+            "\\\\fileserver\\share\\users\\marcu\\unc.txt",
+            "C:\\Users\\marcu\\trailing\\", // trailing separator → parent must not leak
+            "C:", // bare drive designator is a location, not a filename
+          ],
+        },
+      ],
+      "2026-06-11T00:00:00.000Z",
+    );
+    const rec = artifact.records[0]!;
+    expect(rec.attachmentBasenames.sort()).toEqual([
+      "mixed.webm",
+      "trailing",
+      "unc.txt",
+      "unix.png",
+      "win.zip",
+    ]);
+
+    const blob = JSON.stringify(artifact);
+    // Usernames, parents, drive letters, absolute roots — none may survive.
+    for (const leak of [
+      "marcu",
+      "C:",
+      "C\\\\", // escaped backslash form a drive prefix would take in JSON
+      "/home/runner",
+      "fileserver",
+      "test-results",
+      "source",
+      "repos",
+    ]) {
+      expect(blob).not.toContain(leak);
+    }
+  });
 });
 
 describe("smoke MCP tools read only the sanitized artifact via the allowed seam", () => {

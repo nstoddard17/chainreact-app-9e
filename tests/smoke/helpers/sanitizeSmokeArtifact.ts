@@ -1,4 +1,3 @@
-import { basename } from "node:path";
 
 /**
  * Pure sanitizer for the MCP smoke-result artifact (CS-1, Stage 2A).
@@ -108,9 +107,23 @@ export function classifyError(
   return "Error";
 }
 
+/**
+ * Platform-agnostic basename (CI-TIMEOUT-CAPACITY-FIX-1 follow-up): the host's
+ * `path.basename` only splits on the host's separator, so on a Linux runner a
+ * Windows-style path ("C:\\Users\\<name>\\...\\trace.zip") contains no "/" and
+ * leaked WHOLE into the artifact — username, drive letter, parents and all.
+ * Artifacts must never carry local paths regardless of which OS produced the
+ * path or which OS sanitizes it, so strip on BOTH separators explicitly.
+ */
+function crossPlatformBasename(p: string): string {
+  const tail = p.split(/[\\/]/).filter(Boolean).pop() ?? "";
+  // A bare drive designator ("C:") is a location, not a filename — drop it.
+  return /^[A-Za-z]:$/.test(tail) ? "" : tail;
+}
+
 function sanitizeRecord(raw: RawSmokeInput): SanitizedSmokeRecord {
   const basenames = Array.from(
-    new Set((raw.attachmentPaths ?? []).map((p) => basename(p)).filter(Boolean)),
+    new Set((raw.attachmentPaths ?? []).map((p) => crossPlatformBasename(p)).filter(Boolean)),
   );
   return {
     category: scrubFreeText(raw.category),
