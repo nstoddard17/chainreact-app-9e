@@ -1,6 +1,6 @@
 # Audit E — Microsoft group (excel, onedrive, teams, onenote, outlook-calendar)
 
-Ground truth verified against `integrations/<provider>/actions/*.meta.ts` + `*.schema.ts`, `services/options/_registry.ts`, and `docs/slices/phase-5/spreadsheet-config-redesign-closeout.md`. 55 nodes / 172 fields audited.
+Ground truth verified against `integrations/<provider>/actions/*.meta.ts` + `*.schema.ts`, `services/options/_registry.ts`, and `docs/slices/phase-5/spreadsheet-guided-config/spreadsheet-config-redesign-closeout.md`. 55 nodes / 172 fields audited.
 
 ## Systemic patterns
 

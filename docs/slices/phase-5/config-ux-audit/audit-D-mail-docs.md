@@ -1,6 +1,6 @@
 # Config UX Audit — Group D: gmail, microsoft-outlook, google-docs, google-sheets
 
-Ground truth verified against `integrations/<provider>/actions/*.meta.ts`, `triggers/**/*.meta.ts`, schemas, `services/options/_registry.ts`, and `docs/slices/phase-5/spreadsheet-config-redesign-closeout.md` §Secondary targets (Sheets `range` history honored — no range redesign proposed here).
+Ground truth verified against `integrations/<provider>/actions/*.meta.ts`, `triggers/**/*.meta.ts`, schemas, `services/options/_registry.ts`, and `docs/slices/phase-5/spreadsheet-guided-config/spreadsheet-config-redesign-closeout.md` §Secondary targets (Sheets `range` history honored — no range redesign proposed here).
 
 ## Systemic patterns
 
@@ -331,7 +331,7 @@ spreadsheetId, sheetName, headerRow: OK.
 25. `integrations/microsoft-outlook/actions/fetchEmails.meta.ts` — `startDate`/`endDate`: candidate `datetime-utc` type IF the renderer commits an ISO-8601 UTC string (verify committed shape first; otherwise keep text).
 26. `integrations/google-sheets/actions/findRow.meta.ts` — `operator` desc → "How to compare. Currently 'equals' (exact match)." (drop roadmap-speak). Follow-up: new-resolver `google-sheets:columns` (header row of the selected sheet, existing scope) for `column` + Find Row/keyColumn reuse.
 27. `integrations/google-sheets/actions/formatRange.meta.ts` — `numberFormat`: convert json → `object` structured editor ({type: select of 8 enums, pattern: optional text}) when the `object` type lands; keep advanced; commit shape identical.
-28. Deferred (recorded, not proposed): Sheets `range` free-text on read_rows/append_row/update_row/clear_range and positional `values` on append/update — blocked on the sheet-picker + derived-range product decision per `docs/slices/phase-5/spreadsheet-config-redesign-closeout.md` §Secondary targets; Format Range's sheet-picker + bare-A1 pattern is the model.
+28. Deferred (recorded, not proposed): Sheets `range` free-text on read_rows/append_row/update_row/clear_range and positional `values` on append/update — blocked on the sheet-picker + derived-range product decision per `docs/slices/phase-5/spreadsheet-guided-config/spreadsheet-config-redesign-closeout.md` §Secondary targets; Format Range's sheet-picker + bare-A1 pattern is the model.
 
 ## Counts
 
