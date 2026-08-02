@@ -32,7 +32,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runMailchimpPollingSmoke,
@@ -81,14 +81,19 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: Mailchimp polling family (real dev DB + real Mailchimp, marker seeds)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const deps = makeRealMailchimpPollingSmokeDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
-    pinnedAudienceId: process.env.SMOKE_MAILCHIMP_AUDIENCE_ID ?? null,
+  let supabase: SupabaseClient;
+  let deps: ReturnType<typeof makeRealMailchimpPollingSmokeDeps>;
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    deps = makeRealMailchimpPollingSmokeDeps({
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+      pinnedAudienceId: process.env.SMOKE_MAILCHIMP_AUDIENCE_ID ?? null,
+    });
   });
 
   for (const spec of ALL_MAILCHIMP_POLLING_SPECS) {

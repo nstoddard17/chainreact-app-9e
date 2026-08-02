@@ -32,7 +32,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runSlackWebhookSmoke,
@@ -81,14 +81,15 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: Slack webhook family (real dev DB, synthetic webhook receipt)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  let supabase: SupabaseClient;
   // Provisioned in beforeAll so nothing is created under a real account.
   const fixtures = createFixtureTracker();
   let deps: ReturnType<typeof makeRealSlackWebhookSmokeDeps>;
 
   beforeAll(async () => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
     deps = makeRealSlackWebhookSmokeDeps({ supabase, accountId, userId });
   });

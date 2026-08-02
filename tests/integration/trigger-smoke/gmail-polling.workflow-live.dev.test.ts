@@ -30,7 +30,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runGmailPollingSmoke,
@@ -79,13 +79,18 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: Gmail polling family (real dev DB + real Gmail, marker seeds)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const deps = makeRealGmailPollingSmokeDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
+  let supabase: SupabaseClient;
+  let deps: ReturnType<typeof makeRealGmailPollingSmokeDeps>;
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    deps = makeRealGmailPollingSmokeDeps({
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+    });
   });
 
   for (const spec of ALL_GMAIL_POLLING_SPECS) {

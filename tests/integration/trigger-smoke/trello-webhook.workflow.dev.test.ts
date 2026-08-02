@@ -42,7 +42,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runTrelloWebhookSmoke,
@@ -91,14 +91,15 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: trello:new_card (real dev DB, direct-seeded synthetic webhook)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  let supabase: SupabaseClient;
   // Provisioned in beforeAll so nothing is created under a real account.
   const fixtures = createFixtureTracker();
   let deps: ReturnType<typeof makeRealTrelloWebhookSmokeDeps>;
 
   beforeAll(async () => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
     deps = makeRealTrelloWebhookSmokeDeps({ supabase, accountId, userId });
   });

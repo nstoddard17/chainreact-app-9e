@@ -30,7 +30,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { ALL_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
 import { runActionSmokeWorkflowMode } from "@/tests/smoke-actions/harness";
@@ -76,14 +76,15 @@ if (!RUN) {
 }
 
 describeDb("action smoke: full workflow-run mode (real dev DB)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  let supabase: SupabaseClient;
   // Provisioned in beforeAll so nothing is created under a real account.
   const fixtures = createFixtureTracker();
   let deps: ReturnType<typeof makeRealWorkflowRunDeps>;
 
   beforeAll(async () => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
     deps = makeRealWorkflowRunDeps({
       supabase,

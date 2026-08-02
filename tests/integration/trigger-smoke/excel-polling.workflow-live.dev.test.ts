@@ -29,7 +29,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runExcelPollingSmoke,
@@ -91,13 +91,18 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: microsoft-excel create-polling family (real dev DB + Graph)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const deps = makeRealExcelPollingSmokeDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
+  let supabase: SupabaseClient;
+  let deps: ReturnType<typeof makeRealExcelPollingSmokeDeps>;
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    deps = makeRealExcelPollingSmokeDeps({
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+    });
   });
 
   const specs: ExcelPollingTriggerSpec[] = [

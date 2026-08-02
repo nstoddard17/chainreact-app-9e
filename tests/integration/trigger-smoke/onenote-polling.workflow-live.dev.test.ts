@@ -28,7 +28,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runOneNotePollingSmoke,
@@ -85,13 +85,18 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: microsoft-onenote note-polling family (real dev DB + Graph)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const deps = makeRealOneNotePollingSmokeDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
+  let supabase: SupabaseClient;
+  let deps: ReturnType<typeof makeRealOneNotePollingSmokeDeps>;
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    deps = makeRealOneNotePollingSmokeDeps({
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+    });
   });
 
   // Only new_note is live-certifiable. updated_note is BLOCKED (probe-proven): the

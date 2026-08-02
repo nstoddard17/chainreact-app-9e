@@ -98,9 +98,7 @@ if (!RUN) {
 const minutesAgo = (nowMs: number, m: number): string => new Date(nowMs - m * 60_000).toISOString();
 
 describeLive("ops-alerts evaluator: end-to-end fire -> deliver -> dedupe -> resolve (real schema, direct-seed)", () => {
-  const admin: SupabaseClient = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  let admin: SupabaseClient;
   // Provisioned in beforeAll so nothing is seeded under a real account.
   const fixtures = createFixtureTracker();
   let account = "";
@@ -196,6 +194,9 @@ describeLive("ops-alerts evaluator: end-to-end fire -> deliver -> dedupe -> reso
   }
 
   beforeAll(async () => {
+    admin = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     // Throwaway account FIRST — every seed below is scoped to it.
     ({ accountId: account, userId: user } = await provisionDisposableSmokeAccount(admin, fixtures));
 

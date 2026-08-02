@@ -28,7 +28,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   runDirectSeedWebhookSmoke,
@@ -102,14 +102,19 @@ function assertPass(r: DirectSeedWebhookSmokeResult, expectedEventType: string):
 }
 
 describeLive("trigger smoke: Facebook Page webhook family (real dev DB + real dispatch)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  let supabase: SupabaseClient;
+  let config: { supabase: SupabaseClient; accountId: string; userId: string };
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    config = {
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+    };
   });
-  const config = {
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
-  };
 
   it("GET hub.challenge with a wrong verify token is rejected 403 and never echoed", async () => {
     const probe = await probeFacebookVerifyHandshakeRejects();

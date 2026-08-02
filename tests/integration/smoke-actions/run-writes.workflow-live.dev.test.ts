@@ -34,7 +34,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { WRITE_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
 import { runActionSmokeWriteMode } from "@/tests/smoke-actions/writeRunner";
@@ -117,14 +117,19 @@ if (!RUN) {
 }
 
 describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const deps = makeRealWriteHarnessDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
-    newUuid: randomUUID,
+  let supabase: SupabaseClient;
+  let deps: ReturnType<typeof makeRealWriteHarnessDeps>;
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    deps = makeRealWriteHarnessDeps({
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+      newUuid: randomUUID,
+    });
   });
 
   it("classifies the provider, then creates/verifies/cleans up exactly one smoke-owned resource", async () => {

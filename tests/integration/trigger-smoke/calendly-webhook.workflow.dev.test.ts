@@ -41,7 +41,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   CALENDLY_SMOKE_SPECS,
@@ -91,14 +91,15 @@ if (!RUN) {
 }
 
 describeLive("trigger smoke: calendly webhook lifecycle (real dev DB, direct-seeded synthetic webhooks)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  let supabase: SupabaseClient;
   // Provisioned in beforeAll so nothing is created under a real account.
   const fixtures = createFixtureTracker();
   let deps: ReturnType<typeof makeRealCalendlyWebhookSmokeDeps>;
 
   beforeAll(async () => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
     deps = makeRealCalendlyWebhookSmokeDeps({ supabase, accountId, userId });
   });

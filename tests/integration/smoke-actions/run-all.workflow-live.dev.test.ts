@@ -49,7 +49,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { ALL_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
 import { runActionSmokeWorkflowMode } from "@/tests/smoke-actions/harness";
@@ -111,14 +111,19 @@ if (!RUN) {
 }
 
 describeLive("action smoke: LIVE-connected workflow mode (real dev DB + providers)", () => {
-  const supabase = createClient(URL as string, SERVICE_KEY as string, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const deps = makeRealWorkflowRunDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
-    newUuid: randomUUID,
+  let supabase: SupabaseClient;
+  let deps: ReturnType<typeof makeRealWorkflowRunDeps>;
+
+  beforeAll(() => {
+    supabase = createClient(URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    deps = makeRealWorkflowRunDeps({
+      supabase,
+      accountId: ACCOUNT_ID as string,
+      userId: USER_ID as string,
+      newUuid: randomUUID,
+    });
   });
 
   it("runs liveSafe fixtures live and reaches terminal persisted state with no FAIL", async () => {
