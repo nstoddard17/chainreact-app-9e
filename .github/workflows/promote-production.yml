@@ -93,7 +93,10 @@ jobs:
     name: repository verification gates
     needs: verify-certification
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # CI-TIMEOUT-CAPACITY-FIX-1: full `npm test` (~2,700 suites) runs serially
+    # on the 2-core runner and needs well over the old 20 minutes. Capacity
+    # only; identical gates.
+    timeout-minutes: 120
     steps:
       - name: Checkout exact commit
         uses: actions/checkout@v4

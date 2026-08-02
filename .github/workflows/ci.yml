@@ -44,7 +44,11 @@ jobs:
   ci:
     name: typecheck + lint + jest
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # CI-TIMEOUT-CAPACITY-FIX-1: the jest inventory grew from ~91 suites/811
+    # tests (when this was 10) to ~2,700 suites/32k tests — a serial run on the
+    # 2-core runner cannot finish in 10 minutes and was being killed mid-jest
+    # (reported as "cancelled"). Capacity only; the gate itself is unchanged.
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
