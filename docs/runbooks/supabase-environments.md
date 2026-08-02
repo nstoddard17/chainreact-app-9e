@@ -102,20 +102,55 @@ guarded commands read process env first, then that file.
 use.** It still exists for emergency owner-driven use with `.env.local`, but the
 sanctioned path to production is the promote-production workflow.
 
-## Promotion flow (after one-time setup)
+## Release flow (DEV-TO-PRODUCTION-FLOW-1 — the certified default)
 
-1. Work lands on local `v2-main`; local gates pass.
-2. Marcus approves an exact SHA for development → push that SHA to `v2-dev`.
-3. `deploy-development` runs automatically: db-ci → dev migration (dry-run,
-   apply, history verification) → Vercel dev deploy → smoke → uploads
-   `dev-certification-<sha>`.
-4. Marcus tests at `dev.chainreact.app` and accepts.
-5. Marcus dispatches `promote-production` with that **same SHA** + the
-   certification run id, and approves the `production` environment gate when
-   the run pauses.
-6. The workflow re-verifies everything, dry-runs, applies forward migrations,
-   verifies history, only then deploys the app, smokes, and uploads a
-   promotion report. A SHA without a matching dev certification is refused.
+1. Claude develops on the local `v2-main` checkout; local gates pass; commits
+   stay local. Nothing is ever pushed automatically.
+2. Marcus reviews the Owner Report and authorizes a **specific SHA** for
+   development.
+3. Claude pushes exactly that SHA to `refs/heads/v2-dev` (fast-forward, never
+   force; standard pre-push checks: fetch, clean tree, expected refs,
+   ancestry, outgoing-range review).
+4. `deploy-development.yml` certifies: exact-SHA verification → database CI
+   (loopback, zero secrets) → guarded dev migration (identity guard proves
+   `syvnzqzctnywakgyykmz`; production ref denylisted in code; **Session
+   pooler** URL — the direct `db.<ref>` host is IPv6-only and unreachable
+   from Actions runners) → Vercel CLI deploy (runner materializes a real
+   local `v2-dev` branch; **fail-closed attribution gate** requires
+   `meta.githubCommitRef = v2-dev` before aliasing) → REST alias to
+   `dev.chainreact.app` (the CLI `alias` command cannot use team-scoped
+   tokens) → protection-bypass readiness probe → public + authenticated
+   smoke → uploads `dev-certification-<sha>`.
+5. Marcus tests at `https://dev.chainreact.app` (Vercel Authentication stays
+   on; synthetic post-onboarding fixtures via `dev:bootstrap`).
+6. On Marcus's approval, Claude pushes the **same certified SHA** to
+   `v2-main`. **This does not deploy** — the Vercel Ignored Build Step skips
+   Git-triggered builds for `v2-main` and `v2-dev` (the push shows up in
+   Vercel as a CANCELED record, which is the skip working). Claude verifies
+   no automatic production deployment was created and that `ci.yml` is green.
+7. Claude dispatches `promote-production.yml` from ref `v2-main` with inputs:
+   the exact SHA and the matching `dev-certification` run ID — then **stops**.
+8. **Marcus approves the Production gate**: GitHub → **Actions** → the running
+   production promotion workflow → **Review deployments** → check
+   **Production** → **Approve and deploy**. Claude never clicks this.
+9. Post-approval, the workflow enforces database-before-application ordering:
+   production target verification (refs only) → migration history divergence
+   check → destructive-migration `backup_confirmed` gate → dry-run → apply
+   forward migrations → post-apply verification → **only then**
+   `vercel deploy --prod` → production smoke → promotion report (365-day
+   artifact). A SHA without a matching dev certification is refused; seeding,
+   resets, and `migration repair` are textually banned and guard-tested.
+10. Claude verifies production health and reports completion.
+
+**Owner shorthand** — "Dev looks good. Promote this exact tested version to
+production and stop when GitHub needs my approval." means: identify the
+certified SHA → push only it to `v2-main` → verify no auto-deploy →
+dispatch `promote-production.yml` → stop at the gate with the click path
+above → resume monitoring after approval.
+
+**Failure posture:** never rerun blindly, never auto-push a fix, never touch
+production during diagnosis; preserve logs, name the exact failing stage,
+propose the smallest correction, and wait for authorization.
 
 Rollback: the **application** rolls back by promoting/aliasing a previous known
 -good deployment; the **database** never rolls back — correct forward with a new

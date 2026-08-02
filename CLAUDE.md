@@ -18,15 +18,14 @@ ChainReactV2 is the ChainReact app/codebase — build all work here.
 `v2-main` branch. Authoritative status, including current verification state:
 [`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md).
 
-**Push posture (updated 2026-06-12):** local work stays **push-gated** — commit
-locally, do not push by default. **But when Marcus explicitly approves a verified
-batch, pushing to `v2-main` IS allowed and DOES deploy to production** — that is the
-intended path at this stage (there is no separate staging environment yet). The old
-"do not deploy to prod" caution is retired. Still: never push, deploy, open PRs, or
-change public launch posture **without** Marcus's explicit approval; approval is
-per-batch and does not carry over. A proper dev/staging environment will be added
-later, before broad user rollout + taking payments. "Don't push this branch by
-default" does not mean "V2 isn't live" — both facts can be true at once.
+**Push posture (updated 2026-08-02 — DEV-TO-PRODUCTION-FLOW-1):** local work stays
+**push-gated** — commit locally, do not push by default. **A push to `v2-main` no
+longer deploys production**: Vercel's Git integration is configured to skip builds
+for both `v2-main` and `v2-dev`, and the ONLY production deployment authority is the
+approval-gated `promote-production.yml` workflow. The full certified release flow is
+in **"Development → production release flow"** below. Never push, deploy, open PRs,
+or change launch posture without Marcus's explicit approval; approval is per-batch,
+per-SHA, and does not carry over.
 
 ## Project Purpose
 
@@ -45,8 +44,9 @@ then verify against the provider's official docs and live behavior.
 - Work in meaningful local batches.
 - Do not over-slice into tiny PRs.
 - Local commits are allowed after gates pass.
-- **Do not push unless Marcus explicitly says to push.** When he does approve a
-  verified batch, pushing to `v2-main` is allowed and deploys to prod (intended).
+- **Do not push unless Marcus explicitly says to push.** Approved work ships
+  through the certified release flow (v2-dev certification → same-SHA `v2-main`
+  push, which does NOT deploy → approval-gated `promote-production`).
 - Do not open PRs unless Marcus explicitly says to.
 - Before major/shared-infrastructure work, write a short plan first.
 - For provider work, audit existing V2 provider patterns before coding.
@@ -59,8 +59,61 @@ Most V2 work is local-only for now.
 Do not assume work should be pushed after each provider or slice.
 
 Use local branches/commits to keep progress organized, but wait for Marcus before
-pushing. When he approves a verified batch, the push goes to `v2-main` and deploys
-to production — that is the intended ship path until a dev/staging env exists.
+pushing. Approved work ships through the certified release flow below — never by
+a direct production deployment.
+
+### Development → production release flow (DEV-TO-PRODUCTION-FLOW-1, 2026-08-02 — THE default process)
+
+1. Claude develops locally on the existing `v2-main` checkout and commits
+   locally; nothing is pushed automatically.
+2. Marcus reviews the Owner Report and authorizes a **specific SHA** for
+   development.
+3. Claude pushes that exact SHA **only** to `refs/heads/v2-dev`.
+4. `deploy-development.yml` certifies it end-to-end: exact-SHA verification →
+   database CI → guarded dev migrations → Vercel deploy → **fail-closed
+   `v2-dev` branch-attribution check** → alias to `dev.chainreact.app` →
+   protected-preview readiness → public + authenticated smoke → a
+   certification artifact tied to that exact SHA.
+5. Marcus tests at `https://dev.chainreact.app`.
+6. On Marcus's approval, Claude pushes the **same certified SHA** to `v2-main`.
+   This does **not** deploy: Vercel's Ignored Build Step skips Git builds for
+   `v2-main` and `v2-dev`. Claude verifies no automatic deployment occurred.
+7. Claude dispatches `promote-production.yml` with the exact SHA + the matching
+   development-certification run ID, and **stops at the Production approval
+   gate**, telling Marcus exactly where to click (GitHub → Actions → the
+   running promotion workflow → Review deployments → Production → Approve and
+   deploy). Claude never approves the gate.
+8. After approval the workflow enforces database-before-application ordering
+   (target verify → dry-run → history check → apply → verify → only then the
+   app deploy → production smoke → promotion report). Claude monitors,
+   verifies production health, and reports completion.
+
+**Owner shorthand:** when Marcus says
+*"Dev looks good. Promote this exact tested version to production and stop when
+GitHub needs my approval."* — Claude: identifies the exact certified SHA →
+pushes only that SHA to `v2-main` → verifies Vercel did not auto-deploy →
+dispatches `promote-production.yml` → stops at the Production gate with exact
+click instructions → resumes monitoring after Marcus approves.
+
+**Permanent safety rules:**
+
+- Never click or recommend VS Code "Sync Changes" for any push or promotion.
+- Never push `v2-main` without Marcus's explicit authorization.
+- Never promote a SHA lacking a matching successful development-certification
+  artifact; never deploy a different SHA than the one Marcus tested.
+- Never bypass or approve the Production environment gate.
+- Never allow application deployment before the database migration succeeds.
+- Never use Vercel Git integration as a production deployment authority.
+- Never push fixes automatically after a failed deployment — preserve logs,
+  report the exact failing stage, propose the smallest fix, and wait.
+- Development Supabase (`chainreact-dev`) never contacts production Supabase.
+
+**Any new or resumed ChainReact chat must:** read `CLAUDE.md` and
+`docs/PROJECT_MEMORY.md`; inspect current Git state before acting; determine
+whether work is local-only, deployed to `v2-dev`, or production-approved;
+never assume a local commit may be pushed; and report the exact SHA awaiting
+Marcus's authorization. Operational detail lives in
+[`docs/runbooks/supabase-environments.md`](./docs/runbooks/supabase-environments.md).
 
 ### Concurrent-session rule (V2-MAIN-RECONCILE-1, 2026-07-25)
 
@@ -82,10 +135,11 @@ reconciliation repaired it. To keep it repaired:
 
 ### Database environments & promotion pipeline (SUPABASE-ENV-PIPELINE-1, 2026-07-31)
 
-Local → development → production is designed and implemented repo-side; the
-hosted `chainreact-dev` project awaits a one-time owner setup (see
+Local → development → production is **ACTIVE and fully certified** — hosted
+`chainreact-dev` live, the `v2-dev` lane certified end-to-end, and
+`promote-production` is the sole production authority (see
 [`docs/runbooks/supabase-environments.md`](./docs/runbooks/supabase-environments.md)).
-Durable rules once active:
+Durable rules:
 
 - **`v2-dev` is a deployment-marker branch**, not a working branch — it receives
   only Marcus-approved exact SHAs; `deploy-development` certifies them; only a
@@ -182,8 +236,9 @@ Use the updated provider-addition skill —
 certification pass keeps its established **"Phase 13"** alias; existing outcome docs
 that say "Phase 13" remain correct.)
 
-Do not push after each batch unless Marcus explicitly says to. On his explicit
-approval, the batch pushes to `v2-main` and deploys to prod (intended at this stage).
+Do not push after each batch unless Marcus explicitly says to. Approved batches
+ship only through the certified release flow (see "Development → production
+release flow") — a `v2-main` push never deploys production by itself.
 
 ---
 
@@ -446,6 +501,7 @@ specific home.
 
 ## Reminders
 
-- **Do not push unless Marcus explicitly says to push.** His approval of a verified
-  batch authorizes a `v2-main` push, which deploys to prod (no staging env yet).
+- **Do not push unless Marcus explicitly says to push.** Ship only through the
+  certified release flow — `v2-dev` certification, same-SHA `v2-main` push (which
+  never deploys by itself), then the approval-gated `promote-production` workflow.
 - **Build providers from current V2 patterns, official provider docs, and live provider evidence.**

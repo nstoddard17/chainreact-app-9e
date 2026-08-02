@@ -5,7 +5,26 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-08-01 @ V2-DEV-ONBOARDING-FIXTURE-CLOSEOUT-1 (v2-dev lane
+> Last curated: 2026-08-02 @ DEV-TO-PRODUCTION-FLOW-1 (the certified release
+> flow is now THE default, documented in CLAUDE.md §"Development → production
+> release flow" + runbooks/supabase-environments.md §"Release flow": local
+> commit → Marcus authorizes exact SHA → push to v2-dev only →
+> deploy-development certifies (db-ci, guarded migration, attribution gate,
+> REST alias, bypass readiness, smoke, exact-SHA artifact) → Marcus tests
+> dev.chainreact.app → same SHA to v2-main (DOES NOT deploy — Vercel Ignored
+> Build Step skips v2-main+v2-dev git builds; verify no auto-deploy) →
+> dispatch promote-production w/ SHA + cert run id → STOP at the Production
+> gate (Marcus clicks Actions → Review deployments → Production → Approve);
+> DB-before-app enforced; never bypass the gate, never promote an
+> uncertified/different SHA, never auto-push fixes on failure. CURRENT EXACT
+> STATE: origin/v2-main = v2-dev = 3d1b20545 (dev-certified, run 30751851209;
+> baseline npm test green 2679 suites); ci.yml on v2-main RED at lint:structure
+> — docs/slices/phase-5 has 51 direct files (limit 50), pre-existing; proposed
+> two-doc git mv into topic subdirs AWAITING authorization; promote NOT
+> dispatched; production untouched, still serving f9b0135c4-era build. OPEN:
+> docs-move fix → re-ladder (v2-dev cert → v2-main → promote), Phase B auth
+> items, DEV_SMOKE optional Slack config).
+> Prior: 2026-08-01 @ V2-DEV-ONBOARDING-FIXTURE-CLOSEOUT-1 (v2-dev lane
 > FULLY CERTIFIED end-to-end — run 30717312345 @ 1567acb13, smoke OVERALL
 > PASSED 26/26 required (builder 4/4 after post-onboarding fixture; optional
 > skips: manual-run execution gate, Slack unconfigured); HEAD-attribution
