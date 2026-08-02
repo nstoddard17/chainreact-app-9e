@@ -139,9 +139,15 @@ describe("microsoft-excel discovery — field hygiene + resolver wiring", () => 
     ).toBe("text");
   });
 
-  it("update_row.values is a keyvalue field (column → value map)", () => {
+  it("update_row.values is the guided spreadsheet-rows editor committing a column → value map", () => {
     const f = getActionMeta("microsoft-excel:update_row")!.fields.find((x) => x.name === "values")!;
-    expect(f.type).toBe("keyvalue");
+    // SPREADSHEET-GUIDED-CONFIG s3 upgraded the WIDGET (keyvalue -> the
+    // column-aware guided editor) without changing the persisted shape:
+    // `values` is and stays Record<string, unknown>. `valueShape: "record"`
+    // is what now carries that column → value map guarantee, so it is pinned
+    // explicitly here rather than left implied by the old widget type.
+    expect(f.type).toBe("spreadsheet-rows");
+    expect(f.valueShape).toBe("record");
     expect(f.required).toBe(true);
   });
 
