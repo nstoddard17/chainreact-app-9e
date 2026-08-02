@@ -32,3 +32,6 @@ export const MobilePageInfoSchema = z.object({
   hasMore: z.boolean(),
 });
 export type MobilePageInfo = z.infer<typeof MobilePageInfoSchema>;
+
+/** Bounded transport size for incoming cursors — decoders reject longer input. */
+export const MOBILE_CURSOR_MAX_LENGTH = 512;

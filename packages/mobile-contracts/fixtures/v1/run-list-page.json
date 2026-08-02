@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000c1",
+      "workflowId": "00000000-0000-4000-8000-0000000000b1",
+      "workflowName": "Example lead follow-up",
+      "status": "running",
+      "isTest": false,
+      "triggeredBy": "webhook",
+      "startedAt": "2026-07-31T10:06:00.000Z",
+      "finishedAt": null,
+      "durationMs": null,
+      "errorClassification": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c2",
+      "workflowId": "00000000-0000-4000-8000-0000000000b1",
+      "workflowName": "Example lead follow-up",
+      "status": "failed",
+      "isTest": false,
+      "triggeredBy": "webhook",
+      "startedAt": "2026-07-31T10:05:00.000Z",
+      "finishedAt": "2026-07-31T10:05:04.000Z",
+      "durationMs": 4000,
+      "errorClassification": {
+        "title": "Example Chat connection needs attention",
+        "description": "ChainReact could no longer authenticate with Example Chat, so this step could not run.",
+        "action": "reconnect",
+        "severity": "error"
+      }
+    }
+  ],
+  "pageInfo": {
+    "nextCursor": null,
+    "hasMore": false
+  }
+}

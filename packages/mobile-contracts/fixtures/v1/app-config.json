@@ -1,6 +1,11 @@
 {
   "apiVersion": "v1",
+  "contractsSchemaVersion": 1,
   "minSupportedVersion": "0.1.0",
   "latestVersion": "0.1.0",
-  "forceUpdate": false
+  "forceUpdate": false,
+  "maintenance": {
+    "active": false,
+    "message": null
+  }
 }

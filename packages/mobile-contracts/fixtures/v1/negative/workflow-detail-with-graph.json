@@ -1,0 +1,34 @@
+{
+  "id": "00000000-0000-4000-8000-0000000000b1",
+  "name": "Example lead follow-up",
+  "state": "active",
+  "disabledReason": null,
+  "providers": [],
+  "triggerCount": 1,
+  "actionCount": 2,
+  "runStats": {
+    "total": 42,
+    "succeeded": 40,
+    "successRate": 0.9523809523809523,
+    "lastRunAt": "2026-07-30T09:15:00.000Z",
+    "lastRunStatus": "succeeded"
+  },
+  "updatedAt": "2026-07-29T18:00:00.000Z",
+  "nodes": [
+    {
+      "nodeId": "node-2",
+      "kind": "action",
+      "capability": "example-chat:send_channel_message",
+      "provider": "example-chat",
+      "displayName": null,
+      "config": {
+        "channel": "FAKE-CHANNEL-ID",
+        "recipientEmail": "fake-person@example.test"
+      }
+    }
+  ],
+  "draftDefinition": {
+    "nodes": [],
+    "edges": [{ "from": "node-1", "to": "node-2" }]
+  }
+}

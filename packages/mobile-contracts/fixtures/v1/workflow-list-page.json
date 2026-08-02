@@ -1,0 +1,44 @@
+{
+  "workflows": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000b1",
+      "name": "Example lead follow-up",
+      "state": "active",
+      "disabledReason": null,
+      "providers": [
+        { "id": "example-chat", "label": "Example Chat", "iconUrl": null }
+      ],
+      "triggerCount": 1,
+      "actionCount": 2,
+      "runStats": {
+        "total": 42,
+        "succeeded": 40,
+        "successRate": 0.9523809523809523,
+        "lastRunAt": "2026-07-30T09:15:00.000Z",
+        "lastRunStatus": "succeeded"
+      },
+      "updatedAt": "2026-07-29T18:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000b2",
+      "name": "Example weekly report",
+      "state": "disabled",
+      "disabledReason": "repeated_failure",
+      "providers": [],
+      "triggerCount": 1,
+      "actionCount": 1,
+      "runStats": {
+        "total": 5,
+        "succeeded": 1,
+        "successRate": 0.2,
+        "lastRunAt": "2026-07-28T09:00:00.000Z",
+        "lastRunStatus": "failed"
+      },
+      "updatedAt": "2026-07-28T10:00:00.000Z"
+    }
+  ],
+  "pageInfo": {
+    "nextCursor": "djEuMjAyNi0wNy0yOFQxMDowMDowMC4wMDBaLjAwMDAwMDAwLWZha2U",
+    "hasMore": true
+  }
+}

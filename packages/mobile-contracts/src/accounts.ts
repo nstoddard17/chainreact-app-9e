@@ -20,6 +20,20 @@ export type MobileMembershipRole = z.infer<typeof MobileMembershipRoleSchema>;
 export const MobileAccountIdSchema = z.string().uuid();
 export type MobileAccountId = z.infer<typeof MobileAccountIdSchema>;
 
+/**
+ * Server-computed capability booleans — the SERVER's authorization rules
+ * projected for rendering. Mobile never re-derives these from `role`.
+ */
+export const MobileAccountCapabilitiesSchema = z
+  .object({
+    /** Owner/admin per the server's account-management authorization rule. */
+    canManageAccount: z.boolean(),
+  })
+  .strict();
+export type MobileAccountCapabilities = z.infer<
+  typeof MobileAccountCapabilitiesSchema
+>;
+
 export const MobileAccountSummarySchema = z.object({
   id: MobileAccountIdSchema,
   name: z.string(),
@@ -28,6 +42,11 @@ export const MobileAccountSummarySchema = z.object({
   role: MobileMembershipRoleSchema,
   /** Pending deletion — render read-only, controls disabled. */
   isFrozen: z.boolean(),
+  /**
+   * Always populated by the server (M1+); `.optional()` only so M0-shaped
+   * fixtures/consumers keep parsing — the web contracts' back-compat idiom.
+   */
+  capabilities: MobileAccountCapabilitiesSchema.optional(),
 });
 export type MobileAccountSummary = z.infer<typeof MobileAccountSummarySchema>;
 

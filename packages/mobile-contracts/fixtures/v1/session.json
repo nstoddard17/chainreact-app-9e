@@ -7,14 +7,16 @@
       "name": "Example Person",
       "type": "personal",
       "role": "owner",
-      "isFrozen": false
+      "isFrozen": false,
+      "capabilities": { "canManageAccount": true }
     },
     {
       "id": "00000000-0000-4000-8000-0000000000a2",
       "name": "Example Team",
       "type": "team",
       "role": "member",
-      "isFrozen": false
+      "isFrozen": false,
+      "capabilities": { "canManageAccount": false }
     }
   ],
   "defaultAccountId": "00000000-0000-4000-8000-0000000000a2"

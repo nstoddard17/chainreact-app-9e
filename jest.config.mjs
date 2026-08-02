@@ -19,6 +19,10 @@ const config = {
   globalTeardown: "<rootDir>/tests/globalTeardown.ts",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    // MOBILE-COMPANION-M1 — resolve the mobile contracts by their published
+    // name so server code imports the same specifier the Expo app will.
+    "^@chainreact/mobile-contracts$":
+      "<rootDir>/packages/mobile-contracts/src/index.ts",
     "\\.(css|less|scss|sass)$": "<rootDir>/tests/__mocks__/styleMock.js",
   },
   testMatch: [

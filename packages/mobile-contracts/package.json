@@ -1,6 +1,6 @@
 {
   "name": "@chainreact/mobile-contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The only public transport contract between the ChainReactV2 backend (/api/mobile/v1) and the ChainReactMobile app. Zod schemas + inferred types for mobile-safe requests, responses, errors, deep links, and push payloads. Contains no server code and no secrets.",
   "license": "UNLICENSED",
   "main": "./dist/index.js",

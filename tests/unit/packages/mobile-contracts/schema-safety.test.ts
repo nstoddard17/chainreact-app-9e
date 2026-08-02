@@ -21,8 +21,14 @@ import {
   MobilePushDataSchema,
   MobileDeepLinkTargetSchema,
   MobileAppConfigSchema,
+  MobileMaintenanceSchema,
   MobileConfirmationRequiredDetailSchema,
   MobileIntegrationHealthItemSchema,
+  MobileWorkflowDetailSchema,
+  MobileWorkflowNodeSummarySchema,
+  MobileWorkflowListResponseSchema,
+  MobileRunListResponseSchema,
+  MobileAccountCapabilitiesSchema,
 } from "../../../../packages/mobile-contracts/src/index";
 
 const FORBIDDEN_KEY = new RegExp(
@@ -113,6 +119,12 @@ describe("mobile-contracts schema safety", () => {
       ["MobileAppConfigSchema", MobileAppConfigSchema],
       ["MobileConfirmationRequiredDetailSchema", MobileConfirmationRequiredDetailSchema],
       ["MobileIntegrationHealthItemSchema", MobileIntegrationHealthItemSchema],
+      ["MobileMaintenanceSchema", MobileMaintenanceSchema],
+      ["MobileWorkflowDetailSchema", MobileWorkflowDetailSchema],
+      ["MobileWorkflowNodeSummarySchema", MobileWorkflowNodeSummarySchema],
+      ["MobileWorkflowListResponseSchema", MobileWorkflowListResponseSchema],
+      ["MobileRunListResponseSchema", MobileRunListResponseSchema],
+      ["MobileAccountCapabilitiesSchema", MobileAccountCapabilitiesSchema],
     ];
     for (const [name, schema] of strictObjects) {
       expect(`${name}:${schema._def.unknownKeys}`).toBe(`${name}:strict`);
@@ -147,6 +159,18 @@ describe("mobile-contracts schema safety", () => {
       "workflowId",
       "workflowName",
     ]);
+  });
+
+  it("the workflow node summary is exactly labeling data (config structurally impossible)", () => {
+    expect(Object.keys(MobileWorkflowNodeSummarySchema.shape).sort()).toEqual([
+      "capability",
+      "displayName",
+      "kind",
+      "nodeId",
+      "provider",
+    ]);
+    expect(Object.keys(MobileWorkflowDetailSchema.shape)).not.toContain("draftDefinition");
+    expect(Object.keys(MobileWorkflowDetailSchema.shape)).not.toContain("edges");
   });
 
   it("the push payload carries only ids, the type tag, and the schema generation", () => {

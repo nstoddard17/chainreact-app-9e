@@ -63,3 +63,44 @@ export const MobileWorkflowSummarySchema = z.object({
   updatedAt: z.string(),
 });
 export type MobileWorkflowSummary = z.infer<typeof MobileWorkflowSummarySchema>;
+
+/**
+ * One node reduced to labeling data — exactly what run-step display needs.
+ * `.strict()`: node CONFIGURATION (values, credentials, variable references)
+ * is structurally rejected; only identity + naming cross.
+ */
+export const MobileWorkflowNodeSummarySchema = z
+  .object({
+    nodeId: z.string(),
+    kind: z.string(),
+    /** Capability string like `slack:send_channel_message`; null for logic nodes. */
+    capability: z.string().nullable(),
+    provider: z.string().nullable(),
+    /** User-set display name; null when the user never renamed the node. */
+    displayName: z.string().nullable(),
+  })
+  .strict();
+export type MobileWorkflowNodeSummary = z.infer<
+  typeof MobileWorkflowNodeSummarySchema
+>;
+
+/**
+ * Lightweight workflow detail — deliberately NOT the web detail: no
+ * `draftDefinition`, no edges, no node config, no readiness internals.
+ * `.strict()` so a graph can never ride along.
+ */
+export const MobileWorkflowDetailSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string(),
+    state: MobileWorkflowStateSchema,
+    disabledReason: MobileWorkflowDisabledReasonSchema.nullable(),
+    providers: z.array(MobileProviderChipSchema),
+    triggerCount: z.number().int().nonnegative(),
+    actionCount: z.number().int().nonnegative(),
+    runStats: MobileWorkflowRunStatsSchema,
+    updatedAt: z.string(),
+    nodes: z.array(MobileWorkflowNodeSummarySchema),
+  })
+  .strict();
+export type MobileWorkflowDetail = z.infer<typeof MobileWorkflowDetailSchema>;

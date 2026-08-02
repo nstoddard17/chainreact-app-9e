@@ -22,6 +22,7 @@ export * from "./accounts";
 export * from "./workflows";
 export * from "./humanizedError";
 export * from "./runs";
+export * from "./responses";
 export * from "./integrationHealth";
 export * from "./usage";
 export * from "./deepLink";

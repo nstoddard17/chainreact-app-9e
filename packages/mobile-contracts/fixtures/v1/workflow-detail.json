@@ -1,0 +1,43 @@
+{
+  "id": "00000000-0000-4000-8000-0000000000b1",
+  "name": "Example lead follow-up",
+  "state": "active",
+  "disabledReason": null,
+  "providers": [
+    { "id": "example-chat", "label": "Example Chat", "iconUrl": null },
+    { "id": "example-sheets", "label": "Example Sheets", "iconUrl": "/integrations/example-sheets.svg" }
+  ],
+  "triggerCount": 1,
+  "actionCount": 2,
+  "runStats": {
+    "total": 42,
+    "succeeded": 40,
+    "successRate": 0.9523809523809523,
+    "lastRunAt": "2026-07-30T09:15:00.000Z",
+    "lastRunStatus": "succeeded"
+  },
+  "updatedAt": "2026-07-29T18:00:00.000Z",
+  "nodes": [
+    {
+      "nodeId": "node-1",
+      "kind": "trigger",
+      "capability": "example-sheets:new_row",
+      "provider": "example-sheets",
+      "displayName": "New row added"
+    },
+    {
+      "nodeId": "node-2",
+      "kind": "action",
+      "capability": "example-chat:send_channel_message",
+      "provider": "example-chat",
+      "displayName": null
+    },
+    {
+      "nodeId": "node-3",
+      "kind": "action",
+      "capability": "example-sheets:append_row",
+      "provider": "example-sheets",
+      "displayName": "Append row"
+    }
+  ]
+}

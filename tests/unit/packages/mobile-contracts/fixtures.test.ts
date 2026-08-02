@@ -14,9 +14,12 @@ import {
   MobileAppConfigSchema,
   MobileSessionSchema,
   MobileWorkflowSummarySchema,
+  MobileWorkflowDetailSchema,
+  MobileWorkflowListResponseSchema,
   MobileRunSummarySchema,
   MobileRunDetailSchema,
   MobileRunStepSchema,
+  MobileRunListResponseSchema,
   MobileHumanizedErrorSchema,
   MobileIntegrationHealthSummarySchema,
   MobileUsageSummarySchema,
@@ -39,6 +42,9 @@ describe("mobile-contracts fixtures — positive (must parse)", () => {
     ["app-config.json", MobileAppConfigSchema],
     ["session.json", MobileSessionSchema],
     ["workflow-summary.json", MobileWorkflowSummarySchema],
+    ["workflow-detail.json", MobileWorkflowDetailSchema],
+    ["workflow-list-page.json", MobileWorkflowListResponseSchema],
+    ["run-list-page.json", MobileRunListResponseSchema],
     ["run-summary-queued.json", MobileRunSummarySchema],
     ["run-summary-failed.json", MobileRunSummarySchema],
     ["run-detail-failed.json", MobileRunDetailSchema],
@@ -85,11 +91,32 @@ describe("mobile-contracts fixtures — negative (must be rejected)", () => {
     ["negative/run-step-error-with-details.json", MobileRunStepSchema],
     ["negative/push-with-token.json", MobilePushDataSchema],
     ["negative/integration-health-with-oauth.json", MobileIntegrationHealthSummarySchema],
+    ["negative/workflow-detail-with-graph.json", MobileWorkflowDetailSchema],
   ];
 
   it.each(cases)("%s is rejected", (name, schema) => {
     const result = schema.safeParse(loadFixture(name));
     expect(result.success).toBe(false);
+  });
+});
+
+describe("mobile-contracts — M0-shaped payloads stay compatible (additive evolution)", () => {
+  it("an M0 session account WITHOUT capabilities still parses (optional-but-populated idiom)", () => {
+    const m0Shaped = {
+      userId: "00000000-0000-4000-8000-000000000001",
+      email: null,
+      accounts: [
+        {
+          id: "00000000-0000-4000-8000-0000000000a1",
+          name: "Example Person",
+          type: "personal",
+          role: "owner",
+          isFrozen: false,
+        },
+      ],
+      defaultAccountId: null,
+    };
+    expect(MobileSessionSchema.safeParse(m0Shaped).success).toBe(true);
   });
 });
 
