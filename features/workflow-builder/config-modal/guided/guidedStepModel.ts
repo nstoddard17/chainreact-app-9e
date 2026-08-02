@@ -56,6 +56,37 @@ function readString(value: unknown): string {
 }
 
 /**
+ * Render a destination field's value for the collapsed step summary.
+ *
+ * SPREADSHEET-GUIDED-CONFIG-S3: this used to be `readString`, which
+ * answered `""` for anything that was not a string — so a NUMBER
+ * destination field contributed nothing and vanished from the summary. A
+ * row number is part of what names the destination ("which cells will be
+ * written"), and a collapsed step reading "Invoices.xlsx · Sheet1" while
+ * the user had also chosen row 42 hides a decision they made. Numbers and
+ * booleans are formatted; anything else (an object, a null) still answers
+ * empty, because there is no honest one-line form for it.
+ */
+function summaryText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return "";
+}
+
+/**
+ * How many columns a RECORD-shaped mapping will change. Every key present
+ * is a change: an omitted key is what "leave this column alone" means, so
+ * a key that IS there — even one holding `""` — is a deliberate write.
+ */
+function countRecordChanges(value: unknown): number {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return 0;
+  }
+  return Object.keys(value as Record<string, unknown>).length;
+}
+
+/**
  * A required field counts as answered when it holds a value. Reuses the
  * shared readiness rule rather than restating "what counts as empty" —
  * the guided header and the readiness banner must never disagree about
@@ -114,19 +145,33 @@ export function buildGuidedSteps(input: GuidedModelInput): readonly GuidedStepSt
     .filter((f) => f.required === true)
     .every((f) => isAnswered(f, values));
   const chosen = destinationFields
-    .map((f) => readString(values[f.name]))
+    .map((f) => summaryText(values[f.name]))
     .filter((v) => v.length > 0);
   const destinationSummary = chosen.length > 0 ? chosen.join(" · ") : "";
 
   // ── Step 2: mapping ────────────────────────────────────────────────────
   const mappingField = fieldByName(fields, adapter.mappingField);
-  const filled = countFilledCells(values[adapter.mappingField]);
   const mappingComplete =
     mappingField?.required === true
       ? !isRequiredValueMissing(values[adapter.mappingField])
       : true;
-  const mappingSummary =
-    columnCount !== undefined && columnCount > 0
+
+  // A record-shaped mapping counts CHANGES, not filled cells, and says so:
+  // "2 of 12 columns will change" answers the question an update step asks,
+  // where "2 of 12 columns filled in" would suggest the other ten are
+  // unfinished when leaving them alone is the whole point. Driven by the
+  // field's declared shape, never by an action key.
+  const isRecordMapping = mappingField?.valueShape === "record";
+  const changed = countRecordChanges(values[adapter.mappingField]);
+  const filled = countFilledCells(values[adapter.mappingField]);
+
+  const mappingSummary = isRecordMapping
+    ? columnCount !== undefined && columnCount > 0
+      ? `${changed} of ${columnCount} column${columnCount === 1 ? "" : "s"} will change`
+      : changed > 0
+        ? `${changed} column${changed === 1 ? "" : "s"} will change`
+        : ""
+    : columnCount !== undefined && columnCount > 0
       ? `${filled} of ${columnCount} column${columnCount === 1 ? "" : "s"} filled in`
       : filled > 0
         ? `${filled} value${filled === 1 ? "" : "s"} set`

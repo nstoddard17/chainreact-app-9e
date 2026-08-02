@@ -60,11 +60,14 @@ export function SpreadsheetPreview({
         >
           {row.map((cell, i) => {
             if (cell.trim().length === 0) return null;
-            const label = columns[i]?.name ?? `Column ${i + 1}`;
+            const label = columns[i]?.label ?? `Column ${i + 1}`;
             return (
-              <div key={i} className="flex items-baseline gap-2 text-xs">
-                <dt className="shrink-0 font-medium">{label}</dt>
-                <dd className="truncate font-mono text-muted-foreground">
+              <div
+                key={i}
+                className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
+              >
+                <dt className="min-w-0 break-words font-medium">{label}</dt>
+                <dd className="min-w-0 break-all font-mono text-muted-foreground">
                   {cell}
                 </dd>
               </div>

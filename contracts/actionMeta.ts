@@ -888,6 +888,32 @@ export const FieldMetaSchema = z
      */
     batchRowsField: z.string().min(1).max(128).optional(),
     /**
+     * SPREADSHEET-GUIDED-CONFIG-S3 — for a `spreadsheet-rows` field, which
+     * SAVE SHAPE the composite editor must commit.
+     *
+     *   - `"preserve"` (the DEFAULT when omitted) — give back whichever
+     *     representation the saved value already used: an array stays an
+     *     array, a column-keyed record stays a record. This is exactly what
+     *     shipped for Sheets `append_row` and Excel `add_row` /
+     *     `add_table_row`, so those three metas need no change and their
+     *     behavior is unaltered.
+     *   - `"record"` — always hydrate and commit `Record<column, value>`,
+     *     even when the field currently has no value. Excel `update_row`
+     *     needs this: its runtime schema has no positional branch at all, so
+     *     an editor that "preserved" an absent value by inventing an array
+     *     would author a config the schema rejects.
+     *   - `"positional"` — always commit the positional array. No shipped
+     *     action declares it (append-style actions get the same result from
+     *     `preserve`); it exists so a future action that is array-ONLY can
+     *     say so declaratively rather than by omission.
+     *
+     * Deliberately metadata rather than a branch in the editor: without it
+     * `SpreadsheetRowsField` would have to name an action key to know which
+     * shape to commit, which is the coupling the guided adapter contract
+     * exists to prevent.
+     */
+    valueShape: z.enum(["positional", "record", "preserve"]).optional(),
+    /**
      * SPREADSHEET-CONFIG-REDESIGN-1 — marks a field whose value is
      * committed by ANOTHER field's composite editor (named here). The
      * SchemaForm skips this field's standalone renderer; the field stays
@@ -1018,6 +1044,24 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["batchRowsField"],
         message: "`batchRowsField` is only valid on `spreadsheet-rows` fields.",
+      });
+    }
+    if (field.valueShape && field.type !== "spreadsheet-rows") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["valueShape"],
+        message: "`valueShape` is only valid on `spreadsheet-rows` fields.",
+      });
+    }
+    // A record-only field has no second save shape to switch to, so naming a
+    // batch sibling would promise a "Several rows" mode the runtime schema
+    // cannot accept.
+    if (field.valueShape === "record" && field.batchRowsField) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["batchRowsField"],
+        message:
+          "A `record` valueShape field cannot also declare `batchRowsField` — there is no positional shape to switch to.",
       });
     }
     if (field.batchRowsField === field.name) {

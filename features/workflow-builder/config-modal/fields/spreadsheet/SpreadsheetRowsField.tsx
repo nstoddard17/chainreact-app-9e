@@ -18,6 +18,7 @@ import { SpreadsheetBatchRowsEditor } from "./SpreadsheetBatchRowsEditor";
 import { SpreadsheetPreview } from "./SpreadsheetPreview";
 import { SpreadsheetSuggestions } from "./SpreadsheetSuggestions";
 import { SpreadsheetHonestPreview } from "./SpreadsheetHonestPreview";
+import { SpreadsheetUpdateBody } from "./SpreadsheetUpdateBody";
 import { buildRowPreview } from "../../guided/rowPreviewModel";
 import {
   suggestMappings,
@@ -62,9 +63,22 @@ import {
  * leak across destinations.
  */
 
-/** One detected column: real header name + honest position hint. */
+/**
+ * One detected column.
+ *
+ * SPREADSHEET-GUIDED-CONFIG-S3 split identity from presentation. `name` is
+ * the RAW header text and is the only thing that may be saved into a config
+ * or matched against a column: it is exactly what the runtime handler's
+ * header map keys on. `label` is what the user reads, and a resolver is
+ * free to tidy it (trimming surrounding whitespace, for instance). Before
+ * the split there was one field doing both jobs, which meant a picker that
+ * trimmed a heading for display would author a key the handler then
+ * rejected at run time.
+ */
 export interface SpreadsheetColumn {
   readonly name: string;
+  /** Display text. Defaults to `name` when a resolver offers no distinct label. */
+  readonly label: string;
   /** e.g. "Column B" — from the resolver's description. */
   readonly hint?: string | undefined;
 }
@@ -98,6 +112,16 @@ export const SpreadsheetRowsField: React.FC<FieldRendererProps> = (props) => {
         >
           {`Select ${parentLabel ?? dependsOnNames.join(", ")} first.`}
         </p>
+      ) : field.valueShape === "record" ? (
+        /*
+          SPREADSHEET-GUIDED-CONFIG-S3 — the UPDATE editor. Chosen by the
+          field's declared `valueShape`, never by an action key: an update
+          action's runtime schema has no positional branch, so its editor
+          must always hydrate and commit a column-keyed record. The two
+          bodies are separate components rather than a branch inside one so
+          each keeps its own hooks.
+        */
+        <SpreadsheetUpdateBody key={destinationKey} {...props} />
       ) : (
         <SpreadsheetRowsBody key={destinationKey} {...props} />
       )}
@@ -132,7 +156,12 @@ function SpreadsheetRowsBody({
     () =>
       columnsState.status === "ready"
         ? columnsState.items.map((item) => ({
-            name: item.label,
+            // Identity is the option VALUE — the raw header the handler
+            // matches. It used to be the label, which meant any resolver
+            // that tidied a heading for display silently changed the key
+            // that got saved.
+            name: item.value,
+            label: item.label,
             hint: item.description,
           }))
         : [],
@@ -156,7 +185,14 @@ function SpreadsheetRowsBody({
   // editor therefore round-trips whichever one it was given, and never
   // converts between them. Converting would change which column each
   // value lands in.
-  const valueIsRecord = isRecordRowValue(value);
+  // SPREADSHEET-GUIDED-CONFIG-S3 — `valueShape` decides which shape this
+  // editor commits. Omitted means `"preserve"`, which is exactly the
+  // behavior that shipped: give back whichever representation was saved.
+  // `"positional"` pins the array shape for an action whose schema has no
+  // record branch. (`"record"` never reaches here — it renders the update
+  // editor instead.)
+  const valueIsRecord =
+    field.valueShape === "positional" ? false : isRecordRowValue(value);
 
   // Manual mode keeps an explicit cell count so "Add a value" can show a
   // new blank input (the committed shape trims trailing blanks).
@@ -171,9 +207,13 @@ function SpreadsheetRowsBody({
   // empty inputs — and the next keystroke would commit over them.
   const recordNeedsColumns = valueIsRecord && columns.length === 0;
 
-  const cells = valueIsRecord
-    ? recordValuesToCells(value, columnNames)
-    : positionalValuesToCells(value, cellCount);
+  // The second call re-narrows `value` for the compiler; `valueIsRecord`
+  // now also carries the `valueShape` decision, so it is no longer a type
+  // predicate on its own.
+  const cells =
+    valueIsRecord && isRecordRowValue(value)
+      ? recordValuesToCells(value, columnNames)
+      : positionalValuesToCells(value, cellCount);
 
   function commitCells(next: readonly string[]): void {
     onChange(

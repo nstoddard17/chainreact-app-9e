@@ -82,14 +82,14 @@ export function SpreadsheetBatchRowsEditor({
             <SpreadsheetCellInput
               key={`${columnIndex}-${column.name}`}
               id={`field-${fieldName}-row-${rowIndex}-cell-${columnIndex}`}
-              label={column.name}
+              label={column.label}
               hint={column.hint}
               value={row[columnIndex] ?? ""}
               onChange={(next) => onCellChange(rowIndex, columnIndex, next)}
               disabled={disabled}
               sources={sources}
               latestValuesBySource={latestValuesBySource}
-              ariaLabel={`Row ${rowIndex + 1} ${column.name}`}
+              ariaLabel={`Row ${rowIndex + 1} ${column.label}`}
             />
           ))}
         </div>

@@ -109,7 +109,8 @@ export function SpreadsheetSingleRowEditor({
           <SpreadsheetCellInput
             key={`${i}-${column.name}`}
             id={`field-${fieldName}-cell-${i}`}
-            label={column.name}
+            /* Display text; the raw `name` stays the saved identity. */
+            label={column.label}
             hint={column.hint}
             value={cells[i] ?? ""}
             onChange={(next) => onCellChange(i, next)}
