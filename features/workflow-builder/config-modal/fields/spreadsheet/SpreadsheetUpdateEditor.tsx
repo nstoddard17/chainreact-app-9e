@@ -8,6 +8,7 @@ import { buildUpdatePreview } from "../../guided/updatePreviewModel";
 import {
   classifyColumns,
   incompleteValueColumns,
+  isLegacyPreservedNull,
   recordToUpdateCells,
   staleRecordEntries,
   updateCellsToRecord,
@@ -247,6 +248,7 @@ export function SpreadsheetUpdateEditor({
             column={column}
             state={cell?.state ?? "unchanged"}
             value={cell?.value ?? ""}
+            legacyPreserved={cell !== undefined && isLegacyPreservedNull(cell)}
             onStateChange={(next) => handleStateChange(index, next)}
             onValueChange={(next) => handleValueChange(index, next)}
             disabled={disabled}

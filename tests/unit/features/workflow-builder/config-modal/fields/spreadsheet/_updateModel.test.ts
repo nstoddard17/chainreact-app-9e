@@ -11,6 +11,7 @@
  */
 import {
   ambiguousConfiguredColumns,
+  isLegacyPreservedNull,
   changedColumns,
   classifyColumns,
   incompleteValueColumns,
@@ -50,9 +51,27 @@ describe("hydration — a saved record becomes three-state cells", () => {
     expect(cells[0]).toMatchObject({ state: "value", value: "26", saved: 26 });
   });
 
-  it("a legacy null reads as 'set to blank' — which is what the handler does with it", () => {
+  it("a legacy null reads as UNCHANGED — Excel treats null as 'skip this cell'", () => {
+    // S3 read this as "set to blank", believing the handler wrote null
+    // through as a clear. The S4 audit found Microsoft documents the
+    // opposite: "No update takes place to the intended target (cell) when
+    // null input is sent". So a node saved with null has never cleared
+    // anything, and the editor was telling its author it would.
     const cells = recordToUpdateCells({ Notes: null }, COLUMNS);
-    expect(cells[2]).toMatchObject({ state: "blank", saved: null });
+    expect(cells[2]).toMatchObject({ state: "unchanged", saved: null });
+  });
+
+  it("keeps the legacy key rather than dropping it", () => {
+    // Preserved, not normalized: deleting a key the user has not been asked
+    // about would edit their saved node just for opening it.
+    const cells = recordToUpdateCells({ Notes: null }, COLUMNS);
+    expect("saved" in cells[2]!).toBe(true);
+    expect(isLegacyPreservedNull(cells[2]!)).toBe(true);
+  });
+
+  it("does not mistake an ordinary unchanged column for a legacy value", () => {
+    const cells = recordToUpdateCells({}, COLUMNS);
+    expect(isLegacyPreservedNull(cells[0]!)).toBe(false);
   });
 
   it("a non-record value hydrates to all-unchanged rather than throwing", () => {

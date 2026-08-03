@@ -10,20 +10,62 @@ import { UpdateRowConfigSchema } from "./updateRow.schema";
  * Microsoft Excel parity Commit 1. Updates specific cells in a known
  * row of a worksheet, addressing columns by header name. Algorithm:
  *
- *   1. GET worksheet usedRange (values only) — gives us both the
- *      header row (row 1) and any existing values for the target row.
- *      One Graph round-trip serves both purposes (P-X1 accepted
+ *   1. GET worksheet usedRange (values only) — gives us the header row,
+ *      the used range's real start row, and whether the target row
+ *      exists. One Graph round-trip serves all three (P-X1 accepted
  *      handler-internal header read).
  *   2. Build a header→columnIndex map from row 1. Validate every
  *      `values` key is in the map; fail loudly on unknown column
  *      (no silent skip — Marcus acceptance).
- *   3. Merge: start with the existing row's values (preserves
- *      untouched cells); overlay the supplied updates at their
- *      resolved column indices.
- *   4. PATCH the full row range with the merged values. Single
- *      Graph round-trip regardless of how many columns are updated
- *      (V1 issued one PATCH per cell — N HTTP calls per row update;
- *      V2 does 2 round-trips total).
+ *   3. Build a SPARSE row: every position `null`, then the chosen
+ *      columns filled in at their resolved indices.
+ *   4. PATCH the row range once. Two Graph round-trips total,
+ *      regardless of how many columns change (V1 issued one PATCH per
+ *      cell — N HTTP calls per row update).
+ *
+ * SPARSE WRITE (EXCEL-UPDATE-ROW-CONCURRENCY-4). Step 3 used to seed the
+ * payload with the values read in step 1 and overlay the changes on top.
+ * That is what made this action able to destroy other people's work: the
+ * row it wrote was a faithful copy of a snapshot that could already be
+ * stale, so an edit made by a colleague between the read and the write was
+ * silently reverted. There is no fix for that at the request level —
+ * Microsoft documents no ETag, no If-Match and no conditional header for
+ * this endpoint, and workbook sessions are persistence and performance, not
+ * locking (see docs/slices/phase-5/spreadsheet-guided-config/
+ * s4-excel-concurrency-plan.md).
+ *
+ * The fix is to stop sending those cells at all. Microsoft documents that a
+ * `null` inside the values array is an instruction to leave the cell alone:
+ *
+ *     "null input inside a two-dimensional array (for values,
+ *      number-format, formula) is ignored in the Range and Table
+ *      resources. No update takes place to the intended target (cell)
+ *      when null input is sent."
+ *     — https://learn.microsoft.com/en-us/graph/api/resources/excel
+ *
+ * and that a blank string is an instruction to clear it ("For `values`, the
+ * range value is cleared out"). Those two rules map exactly onto the three
+ * states the guided editor already saves:
+ *
+ *     key absent   → `null`  → cell untouched
+ *     key = ""     → `""`    → cell cleared
+ *     key = value  → value   → cell written
+ *
+ * So ChainReact now writes only what the user asked it to write. A
+ * concurrent edit to any other column of that row cannot be overwritten,
+ * because those cells are not in the request. The read is still required —
+ * for the header map, the heading-row guard and the row-existence guard —
+ * but it no longer feeds the payload, so its staleness stops mattering.
+ *
+ * This also stops a quieter kind of damage. `valuesOnly: true` returns
+ * CALCULATED values, so the old merge read a formula cell back as its
+ * result and rewrote it as a literal — destroying the formula in any column
+ * the user had not selected. Sending `null` leaves it intact.
+ *
+ * Two writers changing the SAME column still resolve last-writer-wins.
+ * Graph exposes no conditional token for this endpoint, so that case is not
+ * detectable; step 3 of the guided configuration says so plainly rather
+ * than implying protection that does not exist.
  *
  * TWO FAIL-CLOSED GUARDS (SPREADSHEET-GUIDED-CONFIG-S3). Both run before
  * any PATCH is issued, because the failure they prevent is a write to a
@@ -66,9 +108,10 @@ import { UpdateRowConfigSchema } from "./updateRow.schema";
  * actually written; `updatedColumns` is the list of header names
  * resolved (in source order from `values`).
  *
- * `address` always covers `A{row}:{lastHeaderCol}{row}` so the FULL
- * row gets re-PATCHed with merged values — guarantees no cells get
- * blanked out by a partial range PATCH.
+ * `address` always covers `A{row}:{lastHeaderCol}{row}`. The ADDRESS still
+ * spans the whole row — the payload is what is sparse. Addressing the full
+ * span keeps the array indices aligned with the header indices, which is
+ * what lets non-contiguous columns be written in one request.
  */
 export const updateRow: ActionHandler = async (input) => {
   const config = UpdateRowConfigSchema.parse(input.config);
@@ -138,16 +181,20 @@ export const updateRow: ActionHandler = async (input) => {
     );
   }
 
-  const existingRow = rows[rowIndex] ?? [];
-
-  const merged: unknown[] = [];
-  for (let i = 0; i < columnCount; i++) {
-    merged.push(i < existingRow.length ? (existingRow[i] ?? null) : null);
-  }
+  // ── The write payload (EXCEL-UPDATE-ROW-CONCURRENCY-4) ─────────────────
+  // Every position starts as `null`, which Microsoft documents as an
+  // instruction to SKIP that cell — "No update takes place to the intended
+  // target (cell) when null input is sent". Only the columns the user chose
+  // are then filled in. See the block comment above for why this replaces
+  // the read-back-and-rewrite merge.
+  const cells: unknown[] = new Array<unknown>(columnCount).fill(null);
   for (const [columnName, value] of Object.entries(config.values)) {
     const idx = headerIndex.get(columnName);
     if (idx === undefined) continue; // already caught above; defensive.
-    merged[idx] = value;
+    // Written verbatim: `""` clears the cell, a value writes it, and a
+    // legacy `null` authored before S4 lands back on `null`, which is a
+    // skip — the same thing it has always actually done at the provider.
+    cells[idx] = value;
   }
 
   const startCol = "A";
@@ -164,7 +211,7 @@ export const updateRow: ActionHandler = async (input) => {
         workbookId: config.workbookId,
         worksheetName: config.worksheetName,
         address,
-        values: [merged],
+        values: [cells],
       }),
   });
 

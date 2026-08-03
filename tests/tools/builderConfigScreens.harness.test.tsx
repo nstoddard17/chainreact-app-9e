@@ -555,6 +555,43 @@ describe("guided configuration panel — emitted responsive states", () => {
     emit("bcfg-10-update-ambiguous", container);
   });
 
+  it("bcfg-12 — update row: a legacy value preserved, with its explanation", async () => {
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 added an explanatory note to columns
+    // saved before the `null` semantics were corrected. It is prose inside
+    // an already-dense control group in a 331px sheet, so it is measured.
+    respondWith(WIDE_COLUMNS);
+    const user = userEvent.setup();
+    const { container } = render(
+      <Panel
+        meta={microsoftExcelUpdateRowMeta}
+        initial={{
+          workbookId: "wb-1",
+          worksheetName: LONG_WORKSHEET,
+          rowNumber: 4182,
+          values: {
+            [WIDE_COLUMNS[8]!]: null,
+            [WIDE_COLUMNS[19]!]: null,
+            [WIDE_COLUMNS[1]!]: "{{trigger.customer}}",
+          },
+        }}
+      />,
+    );
+    await openStep(user, "mapping");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("radio", { name: `${WIDE_COLUMNS[8]} — Leave unchanged` }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("radio", { name: `${WIDE_COLUMNS[8]} — Leave unchanged` }),
+    ).toBeChecked();
+    expect(
+      screen.getByTestId("spreadsheet-update-values-legacy-8"),
+    ).toBeInTheDocument();
+    expectAllThreeStepsReachable();
+    emit("bcfg-12-update-legacy-null", container);
+  });
+
   it("bcfg-11 — update row: step 3, the merge-and-write explanation", async () => {
     const user = userEvent.setup();
     const { container } = render(
@@ -570,7 +607,10 @@ describe("guided configuration panel — emitted responsive states", () => {
     );
     await openStep(user, "write");
     const step3 = await screen.findByTestId("guided-write-empty");
-    expect(step3.textContent).toMatch(/can be overwritten/i);
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 — the step no longer rewrites the
+    // whole row, so the copy changed with the behavior.
+    expect(step3.textContent).toMatch(/only the columns you chose/i);
+    expect(step3.textContent).toMatch(/same column at the same moment/i);
     expectAllThreeStepsReachable();
     emit("bcfg-11-update-step3", container);
   });

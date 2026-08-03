@@ -340,16 +340,21 @@ describe("the three guided steps", () => {
     }
   });
 
-  it("step 3 states the read-merge-write behavior and the lost-update risk", async () => {
+  it("step 3 says only the chosen columns are written, and states the honest limit", async () => {
     const user = userEvent.setup();
     render(<WorkflowBuilder workflow={baseWorkflow} triggerProviders={triggerProviders} actionProviders={actionProviders} />);
     await buildToOpenConfig(user);
     await user.click(screen.getByTestId("guided-step-write-header"));
 
     const step3 = await screen.findByTestId("guided-write-empty");
-    expect(step3.textContent).toMatch(/reads the row first/i);
-    expect(step3.textContent).toMatch(/writes the whole row back/i);
-    expect(step3.textContent).toMatch(/can be overwritten/i);
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 — the step no longer writes the whole
+    // row back, so the old copy became untrue and was replaced.
+    expect(step3.textContent).toMatch(/only the columns you chose/i);
+    expect(step3.textContent).toMatch(/left out of the update/i);
+    expect(step3.textContent).not.toMatch(/whole row back/i);
+    // The remaining risk is stated rather than buried: an edit to a column
+    // this step IS setting can still lose.
+    expect(step3.textContent).toMatch(/same column at the same moment/i);
     // No invented write-mode controls: Graph's range PATCH has none.
     expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
   });
@@ -560,17 +565,29 @@ describe("a node saved before the guided editor existed", () => {
     expect(draftIsDirty("action-1")).toBe(false);
   });
 
-  it("shows a legacy null as 'set to blank', which is what the handler does with it", async () => {
+  it("shows a legacy null as UNCHANGED, and explains why", async () => {
     const user = userEvent.setup();
     render(<WorkflowBuilder workflow={workflowWithLegacyNode()} triggerProviders={triggerProviders} actionProviders={actionProviders} />);
     await openLastNodeOfKind("action");
     await user.click(screen.getByTestId("guided-step-mapping-header"));
     await waitFor(() =>
       expect(
-        screen.getByRole("radio", { name: "Notes — Set to blank" }),
+        screen.getByRole("radio", { name: "Notes — Leave unchanged" }),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByRole("radio", { name: "Notes — Set to blank" })).toBeChecked();
+    // S3 showed this as "Set to blank", believing the handler wrote null
+    // through as a clear. Microsoft documents the opposite — null is a skip
+    // — so the label now matches what has always actually happened.
+    expect(
+      screen.getByRole("radio", { name: "Notes — Leave unchanged" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Notes — Set to blank" }),
+    ).not.toBeChecked();
+    // …and the correction is explained rather than silently applied.
+    expect(
+      screen.getByTestId("spreadsheet-update-values-legacy-2").textContent,
+    ).toMatch(/always left the cell as it is/i);
   });
 
   it("keeps the legacy null AND a stale key through an unrelated edit", async () => {

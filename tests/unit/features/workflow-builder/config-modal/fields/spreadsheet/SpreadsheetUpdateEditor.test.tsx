@@ -361,3 +361,81 @@ describe("the preview is honest about a change it cannot see the other side of",
     ).toMatch(/2 other columns keep whatever is already in them/);
   });
 });
+
+/**
+ * EXCEL-UPDATE-ROW-CONCURRENCY-4 — a saved `null`, corrected.
+ *
+ * S3 hydrated a saved `null` into "Set to blank", believing the handler
+ * wrote it through as a clear. Microsoft documents the opposite: a null
+ * inside a values array is an instruction to skip the cell. So those nodes
+ * have never cleared anything, and the editor was telling their authors
+ * they would.
+ *
+ * The correction is to the LABEL, not to the data. The key stays, the
+ * runtime behavior is identical, and the change is explained rather than
+ * silently applied.
+ */
+describe("a legacy null is shown honestly and left alone", () => {
+  it("selects 'Leave unchanged', not 'Set to blank'", () => {
+    render(<Harness initial={{ Notes: null }} />);
+    expect(
+      screen.getByRole("radio", { name: "Notes — Leave unchanged" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Notes — Set to blank" }),
+    ).not.toBeChecked();
+  });
+
+  it("explains the correction instead of applying it silently", () => {
+    render(<Harness initial={{ Notes: null }} />);
+    const note = screen.getByTestId("spreadsheet-update-values-legacy-2");
+    expect(note.textContent).toMatch(/always left the cell as it is/i);
+    // Plain language — the user does not need to know what null is.
+    expect(note.textContent?.toLowerCase()).not.toContain("null");
+  });
+
+  it("shows no such note for an ordinary unchanged column", () => {
+    render(<Harness initial={{ Notes: null }} />);
+    expect(
+      screen.queryByTestId("spreadsheet-update-values-legacy-0"),
+    ).toBeNull();
+  });
+
+  it("opening writes nothing at all", () => {
+    render(<Harness initial={{ Name: "Ada", Notes: null }} />);
+    expect(committed).toEqual([]);
+  });
+
+  it("keeps the key through an edit to a different column", async () => {
+    // The value is preserved rather than normalized: dropping a key the
+    // user was never asked about would edit their saved node for them.
+    const user = userEvent.setup();
+    render(<Harness initial={{ Notes: null }} />);
+    await user.click(screen.getByRole("radio", { name: "Name — Set to blank" }));
+    expect(committed.at(-1)).toEqual({ Notes: null, Name: "" });
+  });
+
+  it("converts to a real blank only when the user deliberately chooses it", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={{ Notes: null }} />);
+    await user.click(screen.getByRole("radio", { name: "Notes — Set to blank" }));
+    expect(committed.at(-1)).toEqual({ Notes: "" });
+  });
+
+  it("converts to a value when the user chooses one", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={{ Notes: null }} />);
+    await user.click(screen.getByRole("radio", { name: "Notes — Set to a value" }));
+    await user.type(screen.getByLabelText("Notes — new value"), "checked");
+    expect(committed.at(-1)).toEqual({ Notes: "checked" });
+  });
+
+  it("is counted as unchanged in the preview, not as a column to be emptied", () => {
+    render(<Harness initial={{ Name: "Ada", Notes: null }} />);
+    const preview = screen.getByTestId("spreadsheet-preview-values");
+    expect(preview.textContent).not.toContain("will be emptied");
+    expect(
+      screen.getByTestId("spreadsheet-preview-values-unchanged").textContent,
+    ).toMatch(/2 other columns/);
+  });
+});

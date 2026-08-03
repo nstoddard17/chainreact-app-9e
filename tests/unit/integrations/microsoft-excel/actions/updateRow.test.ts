@@ -4,7 +4,8 @@
  * Tests for the Excel `update_row` action handler. Covers:
  *   - handler-internal header read (usedRange GET)
  *   - column-name → column-letter resolution
- *   - row merge (preserves untouched cells)
+ *   - SPARSE payload: only the chosen columns carry a value, everything
+ *     else is `null` (Microsoft's documented "leave this cell alone")
  *   - fail-loud on unknown columns (no silent skip / no silent create)
  *   - SPREADSHEET-GUIDED-CONFIG-S3 fail-closed guards: the heading row is
  *     never a target, and a row beyond the used range is an ERROR with no
@@ -97,12 +98,16 @@ describe("update_row handler — happy path", () => {
       triggerEvent: excelTrigger(),
     });
 
-    // PATCH was issued at row 3 with the FULL column span,
-    // preserving Name + City and overlaying Age.
+    // The ADDRESS still spans the whole row, so array indices line up with
+    // header indices. The PAYLOAD is sparse: only Age carries a value, and
+    // Name + City are `null` — Microsoft's documented "leave this cell
+    // alone". `"bob"` and `"Portland"` are NOT re-sent, which is what makes
+    // a concurrent edit to either of them survive
+    // (EXCEL-UPDATE-ROW-CONCURRENCY-4).
     expect(mockPatch).toHaveBeenCalledTimes(1);
     const patchArg = mockPatch.mock.calls[0]![0];
     expect(patchArg.address).toBe("A3:C3");
-    expect(patchArg.values).toEqual([["bob", 26, "Portland"]]);
+    expect(patchArg.values).toEqual([[null, 26, null]]);
 
     // Output shape.
     expect(result.output).toEqual({
@@ -115,7 +120,7 @@ describe("update_row handler — happy path", () => {
     });
   });
 
-  it("updates multiple columns in one PATCH, preserving other cells", async () => {
+  it("updates several non-contiguous columns in ONE PATCH, omitting the rest", async () => {
     mockUsed.mockResolvedValueOnce({
       address: "Sheet1!A1:D3",
       rowCount: 3,
@@ -144,18 +149,24 @@ describe("update_row handler — happy path", () => {
 
     const patchArg = mockPatch.mock.calls[0]![0];
     expect(patchArg.address).toBe("A2:D2");
-    expect(patchArg.values).toEqual([["ALICE", 30, "Seattle", "inactive"]]);
+    // Two chosen columns written; the two between them left out entirely.
+    // Non-contiguous selections need no extra request — the sparse array
+    // addresses them in one PATCH.
+    expect(patchArg.values).toEqual([["ALICE", null, null, "inactive"]]);
     expect(result.output.columnsUpdated).toBe(2);
     expect(result.output.updatedColumns).toEqual(["Name", "Status"]);
   });
 
-  // The name this test used to carry — "preserves the existing value when
-  // overlay is null" — described the opposite of what it asserts. The
-  // overlaid cell is NOT preserved: `null` is written through and CLEARS
-  // it. What is preserved is the other, untouched column. Corrected in
-  // SPREADSHEET-GUIDED-CONFIG-S3, where the null path became a documented
-  // part of the compatibility contract rather than an accident.
-  it("writes an explicit null through, CLEARING that cell while untouched columns survive", async () => {
+  // This test has now been renamed twice, and the second time was the
+  // substantive one. S3 corrected the name from "preserves the existing
+  // value when overlay is null" to "CLEARING that cell", believing null was
+  // written through as a clear. The S4 audit checked that against
+  // Microsoft's documentation and found it backwards: "No update takes
+  // place to the intended target (cell) when null input is sent". So an
+  // explicit null has never cleared anything — it is a skip, and now the
+  // name says so. The saved key is still preserved and still transmitted;
+  // only the claim about its effect was wrong.
+  it("passes an explicit null straight through, which Excel treats as SKIP, not clear", async () => {
     mockUsed.mockResolvedValueOnce({
       address: "Sheet1!A1:B2",
       rowCount: 2,
@@ -182,7 +193,11 @@ describe("update_row handler — happy path", () => {
     });
 
     const patchArg = mockPatch.mock.calls[0]![0];
-    expect(patchArg.values).toEqual([["alice", null]]);
+    // Both positions are null: Name because it was never selected, Notes
+    // because that is literally what the saved config asked for. Neither
+    // cell is written.
+    expect(patchArg.values).toEqual([[null, null]]);
+    // The key is still reported as configured — the user did name it.
     expect(result.output.updatedColumns).toEqual(["Notes"]);
   });
 
@@ -213,9 +228,13 @@ describe("update_row handler — happy path", () => {
 
     expect(result.output.address).toBe("A2:AA2");
     const patchArg = mockPatch.mock.calls[0]![0];
-    expect((patchArg.values[0] as unknown[])[26]).toBe(999);
-    // Other cells preserved.
-    expect((patchArg.values[0] as unknown[])[0]).toBe(1);
+    const row = patchArg.values[0] as unknown[];
+    expect(row[26]).toBe(999);
+    // Every other position is omitted, including the first — the old code
+    // re-sent `1` here, which is exactly the value a colleague could have
+    // just changed.
+    expect(row[0]).toBeNull();
+    expect(row.filter((c) => c !== null)).toEqual([999]);
   });
 });
 
@@ -400,13 +419,15 @@ describe("update_row handler — the row must already exist", () => {
   it("accepts the last row that does exist", async () => {
     await expect(run(4)).resolves.toBeDefined();
     expect(mockPatch).toHaveBeenCalledTimes(1);
-    expect(mockPatch.mock.calls[0]![0].values).toEqual([["zoe", 40]]);
+    // Only the chosen column is written; the row's other value (40) is not
+    // echoed back, so it survives a concurrent edit.
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([["zoe", null]]);
   });
 
   it("indexes from the used range's REAL first row, not from row 1", async () => {
     // Graph returns an absolute address and the used range need not start
-    // at the top. Assuming `rowNumber - 1` read a DIFFERENT row's values
-    // into the merge and wrote them to the target.
+    // at the top. The row offset still has to come from that address: it is
+    // what the heading-row and row-existence guards are computed against.
     await expect(
       run(4, "Sheet1!A3:B5", [
         ["Name", "Age"],
@@ -414,8 +435,10 @@ describe("update_row handler — the row must already exist", () => {
         ["bob", 25],
       ]),
     ).resolves.toBeDefined();
-    // Row 4 is the SECOND row of a used range starting at row 3 → alice.
-    expect(mockPatch.mock.calls[0]![0].values).toEqual([["zoe", 30]]);
+    // Row 4 is the SECOND row of a used range starting at row 3 — the row
+    // the guards had to resolve correctly to allow this write at all. The
+    // payload itself no longer depends on which row was read.
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([["zoe", null]]);
     expect(mockPatch.mock.calls[0]![0].address).toBe("A4:B4");
   });
 
@@ -601,5 +624,152 @@ describe("update_row handler — refreshAndRetry routing", () => {
         providerAccountId: null,
       });
     }
+  });
+});
+
+/**
+ * EXCEL-UPDATE-ROW-CONCURRENCY-4 — the sparse-write contract.
+ *
+ * These are the assertions the whole slice exists for. The old handler
+ * seeded the payload with the values it had just read, so the row it wrote
+ * was a faithful copy of a snapshot that could already be stale — which is
+ * how a colleague's edit got silently reverted. The fix is not to send
+ * those cells at all: Microsoft documents `null` inside a values array as
+ * "No update takes place to the intended target (cell)".
+ *
+ * The mocks stay at the Graph wrapper boundary, so what is asserted here is
+ * the exact request ChainReact would put on the wire.
+ */
+describe("update_row handler — sparse payload", () => {
+  function sheet(values: unknown[][], address = "Sheet1!A1:D3") {
+    mockUsed.mockResolvedValueOnce({
+      address,
+      rowCount: values.length,
+      columnCount: values[0]?.length ?? 0,
+      values,
+    });
+  }
+
+  function run(configValues: Record<string, unknown>, rowNumber = 2) {
+    return updateRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        rowNumber,
+        values: configValues,
+      },
+      triggerEvent: excelTrigger(),
+    });
+  }
+
+  const POPULATED: unknown[][] = [
+    ["Name", "Age", "City", "Status"],
+    ["alice", 30, "Seattle", "active"],
+    ["bob", 25, "Portland", "active"],
+  ];
+
+  it("NEVER copies a read value into a column the user did not choose", async () => {
+    // The headline assertion. Every value present in the GET response must
+    // be absent from the PATCH body unless the user asked for it.
+    sheet(POPULATED);
+    await run({ Status: "paid" });
+
+    const row = mockPatch.mock.calls[0]![0].values[0] as unknown[];
+    for (const readValue of ["alice", 30, "Seattle", "active"]) {
+      expect(row).not.toContain(readValue);
+    }
+    expect(row).toEqual([null, null, null, "paid"]);
+  });
+
+  it("keeps the three states distinct in the payload", async () => {
+    sheet(POPULATED);
+    await run({ Name: "ALICE", City: "" });
+
+    // chosen value → the value; chosen blank → ""; not chosen → null.
+    // `""` and `null` are NOT interchangeable here: Microsoft documents the
+    // first as "the range value is cleared out" and the second as no update
+    // at all, which is exactly the distinction the guided editor saves.
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([
+      ["ALICE", null, "", null],
+    ]);
+  });
+
+  it("writes a resolved variable value verbatim", async () => {
+    // Variables are resolved by the engine before the handler parses config,
+    // so by here they are ordinary values and must not be re-interpreted.
+    sheet(POPULATED);
+    await run({ Name: "Northwind Traders (EMEA) Limited" });
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([
+      ["Northwind Traders (EMEA) Limited", null, null, null],
+    ]);
+  });
+
+  it("preserves numbers and booleans as their own types", async () => {
+    sheet([
+      ["Name", "Qty", "Active"],
+      ["alice", 1, false],
+    ]);
+    await run({ Qty: 42, Active: true });
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([[null, 42, true]]);
+  });
+
+  it("leaves an untouched FORMULA cell alone instead of flattening it", async () => {
+    // A real second data-loss bug the sparse write fixes. `valuesOnly: true`
+    // returns CALCULATED values, so the old merge read `=B2*C2` back as
+    // `1250` and rewrote it as that literal — destroying a formula in a
+    // column the user never selected. The cell is now simply not in the
+    // request, so it cannot be replaced by its own result.
+    sheet([
+      ["Name", "Rate", "Hours", "Total"],
+      ["alice", 25, 50, 1250], // `Total` is a formula; Graph returns 1250.
+    ]);
+    await run({ Name: "ALICE" });
+
+    const row = mockPatch.mock.calls[0]![0].values[0] as unknown[];
+    expect(row[3]).toBeNull();
+    expect(row).not.toContain(1250);
+  });
+
+  it("still writes exactly one PATCH — no per-cell requests, no batch", async () => {
+    // The audit rejected per-cell and batched writes: Graph batches are not
+    // atomic, and Microsoft states that on a failure "there is no way to
+    // confirm the status of other pending requests". One write is what makes
+    // partial success impossible.
+    sheet(POPULATED);
+    await run({ Name: "a", Age: 1, City: "c", Status: "d" });
+    expect(mockPatch).toHaveBeenCalledTimes(1);
+    expect(mockUsed).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a payload as wide as the header row, whatever is selected", async () => {
+    // The array indices ARE the column indices, which is what lets a
+    // non-contiguous selection travel in a single request.
+    sheet(POPULATED);
+    await run({ Status: "paid" });
+    expect((mockPatch.mock.calls[0]![0].values[0] as unknown[]).length).toBe(4);
+  });
+
+  it("selecting every column produces no nulls at all", async () => {
+    sheet(POPULATED);
+    await run({ Name: "a", Age: 2, City: "c", Status: "d" });
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([["a", 2, "c", "d"]]);
+  });
+
+  it("is unaffected by which row was read", async () => {
+    // Proves the payload no longer depends on the snapshot. Two different
+    // target rows with different contents produce the same request body.
+    sheet(POPULATED);
+    await run({ Status: "paid" }, 2);
+    const first = mockPatch.mock.calls[0]![0].values;
+
+    mockPatch.mockClear();
+    sheet(POPULATED);
+    await run({ Status: "paid" }, 3);
+    expect(mockPatch.mock.calls[0]![0].values).toEqual(first);
   });
 });

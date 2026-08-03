@@ -141,11 +141,26 @@ function displayValue(value: unknown): string {
  * The mapping is by NAME, never by position, so reordering a worksheet's
  * columns cannot change what a saved configuration means.
  *
- * `null` is read as "set to blank" because that is what the handler does
- * with it — it writes null into the cell, which clears it. The editor never
- * AUTHORS null (there is one clearing representation the builder emits, and
- * it is `""`); a legacy null is displayed honestly and round-tripped
- * untouched through `saved`.
+ * `null` is read as UNCHANGED, not as "set to blank"
+ * (EXCEL-UPDATE-ROW-CONCURRENCY-4).
+ *
+ * S3 shipped the opposite reading, on the belief that the handler wrote
+ * null through to clear the cell. The S4 audit checked that against
+ * Microsoft's documentation and found it backwards: a `null` inside a
+ * values array is an instruction to leave the cell alone — "No update
+ * takes place to the intended target (cell) when null input is sent"
+ * (https://learn.microsoft.com/en-us/graph/api/resources/excel). So a node
+ * saved with `null` has never cleared anything, and the editor was telling
+ * its author it would.
+ *
+ * The key is still PRESERVED rather than dropped: `saved: null` rides along
+ * and is re-emitted verbatim on commit, so opening a legacy node and saving
+ * it changes nothing. The user can convert it deliberately — choosing "Set
+ * to blank" writes `""`, choosing "Set to a value" writes a value — but
+ * nothing is normalized on their behalf.
+ *
+ * The editor still never AUTHORS null. `""` remains the one clearing
+ * representation the builder emits.
  */
 export function recordToUpdateCells(
   value: unknown,
@@ -157,7 +172,11 @@ export function recordToUpdateCells(
       return { column, state: "unchanged" as const, value: "" };
     }
     const cell = record[column];
-    if (cell === "" || cell === null) {
+    if (cell === null) {
+      // Unchanged, but the key stays in the saved record — see `saved`.
+      return { column, state: "unchanged" as const, value: "", saved: null };
+    }
+    if (cell === "") {
       return { column, state: "blank" as const, value: "", saved: cell };
     }
     return {
@@ -167,6 +186,17 @@ export function recordToUpdateCells(
       saved: cell,
     };
   });
+}
+
+/**
+ * True when this cell is an untouched legacy `null` — present in the saved
+ * record, meaning "leave this cell alone", and preserved as-is.
+ *
+ * The UI uses this to say so, rather than leaving the user wondering why a
+ * column reads as unchanged but the step still mentions it.
+ */
+export function isLegacyPreservedNull(cell: UpdateCell): boolean {
+  return cell.state === "unchanged" && "saved" in cell && cell.saved === null;
 }
 
 /**
@@ -214,7 +244,17 @@ export function updateCellsToRecord(
 ): Record<string, unknown> | undefined {
   const record: Record<string, unknown> = {};
   for (const cell of cells) {
-    if (cell.state === "unchanged") continue;
+    if (cell.state === "unchanged") {
+      // An untouched legacy `null` is UNCHANGED and yet still has a key in
+      // the saved record. Re-emit it verbatim rather than dropping it:
+      // deleting a key the user has not been asked about would edit their
+      // saved node just for opening it. Its runtime meaning already matches
+      // its new label — Graph skips a null cell — so preserving it costs
+      // nothing and silently rewriting it would be the surprise.
+      // (EXCEL-UPDATE-ROW-CONCURRENCY-4.)
+      if ("saved" in cell) record[cell.column] = cell.saved;
+      continue;
+    }
     if ("saved" in cell) {
       record[cell.column] = cell.saved;
       continue;

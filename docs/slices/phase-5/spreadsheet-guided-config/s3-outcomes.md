@@ -70,6 +70,24 @@ representation. A legacy `null` — which an API or AI author may
 legitimately have written, and which the handler writes through to clear
 the cell — is displayed as "Set to blank" and round-tripped untouched.
 
+> **Correction (EXCEL-UPDATE-ROW-CONCURRENCY-4, 2026-08-03).** The claim
+> above that a `null` "writes through to clear the cell" is **wrong**, and
+> the "Set to blank" label that followed from it was wrong with it. The S4
+> audit checked it against Microsoft's documentation, which states the
+> opposite: "No update takes place to the intended target (cell) when
+> `null` input is sent"
+> ([Working with Excel in Microsoft Graph](https://learn.microsoft.com/en-us/graph/api/resources/excel)).
+> A saved `null` has therefore never cleared anything — it is a *skip*.
+>
+> S4 corrects the label to "Leave unchanged" and explains the change in the
+> editor. The runtime behavior is identical before and after; only the claim
+> was wrong. The key is still preserved and still round-tripped untouched,
+> so nothing about a saved node changes. See
+> [s4-excel-concurrency-outcomes.md](./s4-excel-concurrency-outcomes.md) §8.
+>
+> The paragraph above is left as written rather than edited away, so the
+> reasoning that produced the error stays readable next to the correction.
+
 ---
 
 ## 3. Compatibility

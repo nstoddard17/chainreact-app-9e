@@ -204,15 +204,25 @@ const ADAPTERS: readonly GuidedSpreadsheetAdapter[] = [
       mappingHint:
         "Columns set to “Leave unchanged” keep whatever is already in them — nothing is written to those cells.",
       writeTitle: "Confirm how it's saved",
-      // Verified line by line against `updateRow.ts`: it reads the used
-      // range, merges the chosen changes over that row's existing values,
-      // and PATCHes the FULL row in one call. `worksheetRangePatch` sends
-      // no If-Match / ETag, so the write is unconditional — which means a
-      // lost update is genuinely possible, not theoretical. Said plainly.
-      // It claims no atomicity, no isolation and no conflict detection,
+      // EXCEL-UPDATE-ROW-CONCURRENCY-4 rewrote this, because the previous
+      // copy became untrue: the step no longer writes the whole row back,
+      // and no longer rewrites the columns left unchanged.
+      //
+      // What it says now is verified against `updateRow.ts`: unchanged
+      // columns are sent as `null`, which Microsoft documents as "no update
+      // takes place to the intended target (cell)", so they are genuinely
+      // not part of the request.
+      //
+      // The second sentence is the honest limit, and it is deliberately
+      // narrow. It would be easy — and wrong — to write "anything somebody
+      // else changes is safe": an edit to a column this step IS setting can
+      // still be overwritten, because Graph exposes no conditional token
+      // for this endpoint. So the claim is scoped to the cells actually
+      // left out, and the same-column case is stated rather than buried.
+      // Still no atomicity, isolation or conflict-detection language,
       // because there is none.
       writeEmpty:
-        "ChainReact reads the row first, applies the changes you chose, and writes the whole row back to Excel. Columns you left unchanged are written back exactly as they were found, so the rest of the row is kept. One thing to know: if somebody edits that same row in Excel during the moment between the read and the write, their change can be overwritten. There is nothing else to decide for this step.",
+        "ChainReact changes only the columns you chose. Every other cell in that row is left out of the update entirely, so changes somebody else makes to those cells are kept. If two people change the same column at the same moment, the last change saved wins. There is nothing else to decide for this step.",
     },
   },
 ];

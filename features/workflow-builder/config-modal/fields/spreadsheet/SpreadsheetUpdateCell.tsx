@@ -61,6 +61,12 @@ export interface SpreadsheetUpdateCellProps {
   readonly column: ClassifiedColumn;
   readonly state: UpdateCellState;
   readonly value: string;
+  /**
+   * This column is an untouched legacy `null` — saved before S4, meaning
+   * "leave this cell alone", and kept exactly as it is. Shown so the state
+   * is explained rather than merely correct.
+   */
+  readonly legacyPreserved?: boolean | undefined;
   readonly onStateChange: (next: UpdateCellState) => void;
   readonly onValueChange: (next: string) => void;
   readonly disabled?: boolean | undefined;
@@ -74,6 +80,7 @@ export function SpreadsheetUpdateCell({
   column,
   state,
   value,
+  legacyPreserved,
   onStateChange,
   onValueChange,
   disabled,
@@ -156,6 +163,26 @@ export function SpreadsheetUpdateCell({
               );
             })}
           </div>
+
+          {legacyPreserved ? (
+            /*
+              EXCEL-UPDATE-ROW-CONCURRENCY-4 — this column was saved with an
+              explicit empty marker by an older version of this step, which
+              described it as clearing the cell. It never did: Excel treats
+              that marker as "leave this cell alone". The setting is kept
+              exactly as it is and the label now matches what actually
+              happens, so the note explains the correction rather than
+              leaving the user to notice a silent change of meaning.
+            */
+            <p
+              className="mt-1.5 break-words text-[11px] text-muted-foreground"
+              data-testid={`spreadsheet-update-${fieldName}-legacy-${index}`}
+            >
+              This column was set up before we corrected how &ldquo;empty&rdquo;
+              was saved. It has always left the cell as it is, and it still
+              does. Choose one of the options above if you want it to change.
+            </p>
+          ) : null}
 
           {column.hasHiddenWhitespace ? (
             /*

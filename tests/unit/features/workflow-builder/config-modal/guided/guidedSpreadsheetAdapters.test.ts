@@ -97,11 +97,33 @@ describe("Excel update_row is guided as an UPDATE, not as an append", () => {
     expect(adapter.copy?.writeTitle).toBe("Confirm how it's saved");
   });
 
-  it("states the read-merge-write behavior and the lost-update risk in plain words", () => {
+  it("says only the chosen columns are written, and says why that is safe", () => {
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 replaced the read-merge-write copy,
+    // which became untrue: the step no longer writes the whole row back and
+    // no longer rewrites the columns left unchanged.
     const step3 = adapter.copy?.writeEmpty ?? "";
-    expect(step3).toMatch(/reads the row first/i);
-    expect(step3).toMatch(/writes the whole row back/i);
-    expect(step3).toMatch(/can be overwritten/i);
+    expect(step3).toMatch(/only the columns you chose/i);
+    expect(step3).toMatch(/left out of the update/i);
+    expect(step3).toMatch(/kept/i);
+  });
+
+  it("keeps the honest limit rather than over-claiming", () => {
+    // An edit to a column this step IS setting can still be overwritten, so
+    // the copy must not say "anything somebody else changes is safe".
+    const step3 = adapter.copy?.writeEmpty ?? "";
+    expect(step3).toMatch(/same column at the same moment/i);
+    expect(step3).toMatch(/last change saved wins/i);
+  });
+
+  it("no longer describes a full-row rewrite", () => {
+    const step3 = (adapter.copy?.writeEmpty ?? "").toLowerCase();
+    for (const stale of [
+      "reads the row first",
+      "whole row back",
+      "written back exactly as they were found",
+    ]) {
+      expect(step3).not.toContain(stale);
+    }
   });
 
   it("claims no guarantee the handler does not provide", () => {
