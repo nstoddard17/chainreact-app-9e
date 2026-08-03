@@ -46,6 +46,15 @@ beforeEach(() => {
   mockSignUp.mockReset();
   mockVerify.mockReset();
   mockResend.mockReset();
+  // jsdom storage persists across tests WITHIN a file. The auth flow's
+  // contract is that it persists nothing (asserted below via
+  // `localStorage.length === 0`) — clearing here makes that assertion mean
+  // "what THIS test's actions persisted", not "what every earlier test in
+  // the file happened to leave behind", so tests pass independently and in
+  // any order (JEST-DETERMINISTIC-WAITS-1). No test in this suite seeds
+  // storage intentionally.
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 /** Fill the signup form and submit, landing on the verification screen. */

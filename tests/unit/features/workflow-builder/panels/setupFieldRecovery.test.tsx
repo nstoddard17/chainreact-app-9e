@@ -22,7 +22,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { BuilderNodeSetupCard } from "@/features/workflow-builder/panels/BuilderNodeSetupCard";
@@ -298,7 +298,16 @@ describe("resolver recovery — retry in place", () => {
     });
     render(<Host />);
     await screen.findByTestId(`${FORM_FIELD}-error`);
-    await new Promise((r) => setTimeout(r, 60));
+    // Drain ALL cascaded React work deterministically: `act` loops the work
+    // queue — renders, effects, and effects scheduled by effects — until
+    // quiescent, and awaiting inside it flushes the mock-fetch microtask
+    // chain. A render/effect request loop issues its duplicate call DURING
+    // this drain (loops cascade through state updates, not wall time), so the
+    // count below catches it; the old 60ms real sleep could return before a
+    // slow worker's loop had fired, passing for the wrong reason
+    // (JEST-DETERMINISTIC-WAITS-1).
+    await act(async () => {});
+    await act(async () => {});
     const typeformCalls = mockFetchOptionsSource.mock.calls.filter((c) => c[0] === "typeform:forms");
     expect(typeformCalls).toHaveLength(1);
   });

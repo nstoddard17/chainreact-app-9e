@@ -259,10 +259,14 @@ describe("enrichment runs when a declared dynamic schema resolves (#10, #36)", (
     const settled = result.current.previewOverlay!.proposedDefinition;
     const resolveCalls = mockFetchOptionsSource.mock.calls.length;
 
-    // Let any follow-up effect pass settle.
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 30));
-    });
+    // Drain any follow-up effect pass deterministically: a re-enrichment
+    // would be triggered by an effect observing the mapped state — a React
+    // cascade, not a timed event — so two `act` drains settle it completely.
+    // The old 30ms real sleep both could miss a slow worker's second pass
+    // (false pass) and wasted wall time on every run
+    // (JEST-DETERMINISTIC-WAITS-1).
+    await act(async () => {});
+    await act(async () => {});
 
     // Enrichment changed the proposal's CONTENT but not its identity → no second pass, no new object.
     expect(result.current.previewOverlay!.proposedDefinition).toBe(settled);

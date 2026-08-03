@@ -27,20 +27,35 @@ import { useCanvasNodeFocus } from "@/features/workflow-builder/hooks/useCanvasN
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 
 beforeEach(() => {
+  // Fake timers make the hook's two-frame defer DETERMINISTIC: jsdom has no
+  // real rAF, so jest.setup.ts polyfills it as setTimeout(cb, 0), which fake
+  // timers control exactly. No test here uses userEvent or waitFor, so no
+  // real-timer machinery is starved by this.
+  jest.useFakeTimers();
   useConfigSlice.getState().reset();
   mockSetCenter.mockReset();
   mockGetNode.mockReset();
   currentZoom = 1;
 });
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 /**
  * BUILDER-CANVAS-ZOOM-FOCUS-1 — the pan is deferred two animation frames so React Flow's resize
- * observer can report the canvas width the config panel just changed. Tests must let those frames
- * run before asserting; jsdom drives rAF off a timer, so a short real wait covers both.
+ * observer can report the canvas width the config panel just changed (rAF nested inside rAF; under
+ * fake timers Jest fakes requestAnimationFrame itself, scheduling frames on its virtual clock).
+ * Advancing TO THE NEXT TIMER twice runs exactly frame 1 (which schedules frame 2) and then frame
+ * 2 — no duration guessing at all. Deterministic both ways: a frame that never runs leaves
+ * setCenter uncalled and the caller's assertion fails, and no amount of CI worker pressure can
+ * make the virtual clock miss a frame (JEST-DETERMINISTIC-WAITS-1; the old 50ms real sleep lost
+ * this race under parallel load).
  */
 async function flushFocusFrames(): Promise<void> {
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await jest.advanceTimersToNextTimerAsync();
+    await jest.advanceTimersToNextTimerAsync();
   });
 }
 
