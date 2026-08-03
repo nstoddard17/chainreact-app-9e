@@ -51,6 +51,12 @@ export function classifyHandlerError(err: unknown): RunFailureCode {
     // run history points at billing rather than at the step's configuration.
     case "AiCreditsExhaustedError":
       return "AI_CREDITS_EXHAUSTED";
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 — the document is in use by somebody
+    // else. Deliberately NOT `TRANSIENT_PROVIDER_ERROR`: that code's whole
+    // meaning is "retrying usually succeeds", and retrying a locked workbook
+    // is the one thing Microsoft documents clients must not do.
+    case "WorkbookConflictError":
+      return "PROVIDER_CONFLICT";
     default:
       return "HANDLER_FAILED";
   }

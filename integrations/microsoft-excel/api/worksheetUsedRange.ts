@@ -2,6 +2,7 @@ import { graphApiBase } from "@/integrations/_shared/microsoft/api/_base";
 import {
   NotFoundError,
   surfaceGraphError,
+  throwIfWorkbookConflict,
 } from "@/integrations/_shared/microsoft/api/errors";
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 import type { ExcelRange } from "./types";
@@ -67,6 +68,17 @@ export async function worksheetUsedRange(
   }
   if (!res.ok) {
     const text = await res.text();
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 — the READ is classified too, not just
+    // the write. Microsoft's own example of `accessConflict` is "another
+    // client has locked the workbook for edit", and a lock like that stops
+    // the very first request an action makes. Classifying only the PATCH
+    // would leave the most likely contention path reported as an unknown
+    // failure.
+    throwIfWorkbookConflict({
+      operation: "workbook/.../usedRange GET",
+      httpStatus: res.status,
+      body: text,
+    });
     throw new Error(
       `Microsoft Graph workbook/.../usedRange GET failed: ${surfaceGraphError(text, res.status)}`,
     );

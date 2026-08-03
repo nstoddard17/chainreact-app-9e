@@ -2,7 +2,10 @@
  * @jest-environment node
  */
 import { worksheetUsedRange } from "@/integrations/microsoft-excel/api/worksheetUsedRange";
-import { NotFoundError } from "@/integrations/_shared/microsoft/api/errors";
+import {
+  NotFoundError,
+  WorkbookConflictError,
+} from "@/integrations/_shared/microsoft/api/errors";
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 
 afterEach(() => {
@@ -26,6 +29,20 @@ function mockFetchOnce(opts: {
   return jest
     .spyOn(globalThis, "fetch")
     .mockResolvedValueOnce(new Response(body, { status }));
+}
+
+/**
+ * Capture the thrown error, failing loudly if the call unexpectedly
+ * RESOLVES — a bare `.catch(e => e)` would let an assertion about a
+ * rejection pass when nothing was thrown.
+ */
+async function rejection<T>(promise: Promise<unknown>): Promise<T> {
+  try {
+    await promise;
+  } catch (err) {
+    return err as T;
+  }
+  throw new Error("Expected the call to reject, but it resolved.");
 }
 
 describe("worksheetUsedRange wrapper", () => {
@@ -105,5 +122,56 @@ describe("worksheetUsedRange wrapper", () => {
         worksheetName: "Gone",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  /**
+   * EXCEL-UPDATE-ROW-CONCURRENCY-4 — the READ is classified as well as the
+   * write. Microsoft's own illustration of `accessConflict` is "another
+   * client has locked the workbook for edit", and a lock like that stops the
+   * FIRST request an action makes. Classifying only the PATCH would leave
+   * the likeliest contention path reported as an unknown failure.
+   */
+  it("throws a typed conflict when the workbook is locked for editing", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 409,
+      bodyText: JSON.stringify({
+        error: {
+          code: "conflict",
+          innerError: { code: "accessConflict", "request-id": "req-2" },
+        },
+      }),
+    });
+
+    const err = await rejection<WorkbookConflictError>(
+      worksheetUsedRange({
+        accessToken: "t",
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+      }),
+    );
+
+    expect(err).toBeInstanceOf(WorkbookConflictError);
+    expect(err.graphInnerCode).toBe("accessConflict");
+    expect(err.requestId).toBe("req-2");
+  });
+
+  it("leaves an unrelated failure generic", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 500,
+      bodyText: '{"error":{"code":"internalServerError","message":"Boom."}}',
+    });
+
+    const err = await rejection<Error>(
+      worksheetUsedRange({
+        accessToken: "t",
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+      }),
+    );
+
+    expect(err).not.toBeInstanceOf(WorkbookConflictError);
+    expect(err.message).toContain("Boom.");
   });
 });

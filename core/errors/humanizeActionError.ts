@@ -268,6 +268,26 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
         action: "retry_later",
         severity: "warning",
       };
+    case "PROVIDER_CONFLICT":
+      // EXCEL-UPDATE-ROW-CONCURRENCY-4 — the document is open for editing
+      // somewhere else, so the app refused the change.
+      //
+      // Two things this copy must do and one it must not. It states that
+      // NOTHING was changed, because that is the question a user actually
+      // has when a step touching their spreadsheet fails. It names the fix
+      // in terms of the world ("close the file") rather than the protocol.
+      // And it does NOT promise an automatic retry — there isn't one, by
+      // design: Microsoft documents that a client must not resend until the
+      // conflict clears. Code-derived copy only; the thrown message carries
+      // provider codes and ids and is never echoed.
+      return {
+        title: "The file was in use",
+        description:
+          "A connected app wouldn't save this change because the document was being used somewhere else — usually because somebody had it open for editing. Nothing was changed.",
+        hint: "Close the file, or wait a moment, then run the workflow again.",
+        action: "retry_later",
+        severity: "error",
+      };
     case "INTEGRATION_CHANGED":
       // CS-4 MCP-DRIFT — a connected app changed its interface in a way we
       // haven't reviewed; the engine stopped the step BEFORE sending any data.

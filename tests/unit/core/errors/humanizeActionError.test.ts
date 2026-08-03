@@ -320,3 +320,68 @@ describe("humanizeActionError — no-leak (generic branch never echoes raw text)
     expect(r.description).not.toMatch(/sk-live|xoxb|jane\.doe@example\.com|T0ABCDEF99/);
   });
 });
+
+/**
+ * EXCEL-UPDATE-ROW-CONCURRENCY-4 — the document was in use.
+ *
+ * This copy has one job the neighbouring codes don't: it has to say that
+ * NOTHING was written. A user whose spreadsheet step failed needs to know
+ * whether their sheet was half-changed, and for this failure the answer is a
+ * clean "no".
+ */
+describe("humanizeActionError — PROVIDER_CONFLICT", () => {
+  const result = () =>
+    humanizeActionError({
+      code: "PROVIDER_CONFLICT",
+      message:
+        "Microsoft Graph workbook/.../range PATCH refused: the workbook is in use by another client (HTTP 409, accessConflict).",
+    });
+
+  it("states plainly that nothing was changed", () => {
+    expect(result().description.toLowerCase()).toContain("nothing was changed");
+  });
+
+  it("names a fix the user can actually carry out", () => {
+    expect(result().hint?.toLowerCase()).toMatch(/close the file|wait a moment/);
+  });
+
+  it("does not promise an automatic retry", () => {
+    // Microsoft documents that a client must NOT resend until the conflict
+    // clears, and ChainReact does not. Saying otherwise would be a lie the
+    // user would then wait on.
+    const r = result();
+    const all = `${r.title} ${r.description} ${r.hint}`.toLowerCase();
+    expect(all).not.toMatch(/we'?ll (try|retry)|automatically|will retry|retrying/);
+  });
+
+  it("uses no protocol vocabulary", () => {
+    const r = result();
+    const all = `${r.title} ${r.description} ${r.hint}`.toLowerCase();
+    for (const jargon of [
+      "etag",
+      "409",
+      "innererror",
+      "accessconflict",
+      "conflict",
+      "http",
+      "graph",
+      "concurrency",
+      "optimistic",
+    ]) {
+      expect(all).not.toContain(jargon);
+    }
+  });
+
+  it("routes to the try-again-later guidance, not to reconnect or support", () => {
+    // The connection is fine and the configuration is fine; the only useful
+    // next step is to run it again once the file is free.
+    expect(result().action).toBe("retry_later");
+    expect(result().severity).toBe("error");
+  });
+
+  it("never echoes the raw thrown message", () => {
+    const r = result();
+    expect(r.description).not.toContain("accessConflict");
+    expect(r.description).not.toContain("range PATCH");
+  });
+});

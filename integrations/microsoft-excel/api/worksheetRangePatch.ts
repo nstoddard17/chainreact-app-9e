@@ -2,6 +2,7 @@ import { graphApiBase } from "@/integrations/_shared/microsoft/api/_base";
 import {
   NotFoundError,
   surfaceGraphError,
+  throwIfWorkbookConflict,
 } from "@/integrations/_shared/microsoft/api/errors";
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 import type { ExcelRange } from "./types";
@@ -71,6 +72,16 @@ export async function worksheetRangePatch(
   }
   if (!res.ok) {
     const text = await res.text();
+    // EXCEL-UPDATE-ROW-CONCURRENCY-4 — a contended workbook is its own
+    // failure, not a generic one. It is the difference between "wait for the
+    // person editing the file" and "this broke for an unknown reason", and
+    // between "do not resend" and an automatic retry against a locked file.
+    // Checked before the generic throw so the classification is reached.
+    throwIfWorkbookConflict({
+      operation: "workbook/.../range PATCH",
+      httpStatus: res.status,
+      body: text,
+    });
     throw new Error(
       `Microsoft Graph workbook/.../range PATCH failed: ${surfaceGraphError(text, res.status)}`,
     );

@@ -104,7 +104,26 @@ export type RunFailureCode =
    * from `BILLING_EXHAUSTED` (task quota, a different meter): here the feature
    * is included and the meter is AI credits. Humanizes to `upgrade_plan`.
    */
-  | "AI_CREDITS_EXHAUSTED";
+  | "AI_CREDITS_EXHAUSTED"
+  /**
+   * EXCEL-UPDATE-ROW-CONCURRENCY-4 — a connected app refused the write
+   * because the document is contended: somebody has the file open for
+   * editing, or another client holds it. Normalized from
+   * `WorkbookConflictError` at the handler boundary.
+   *
+   * A first-class code because every neighbouring one would give the wrong
+   * next step. It is not `INTEGRATION_REAUTH_REQUIRED` (the connection is
+   * fine), not `WORKFLOW_NOT_READY` (the configuration is fine), and
+   * specifically NOT `TRANSIENT_PROVIDER_ERROR` — that maps to "retry" and
+   * Microsoft's documented instruction for every conflict code is that the
+   * client "is not expected to resend the failed request until the conflict
+   * is resolved". Retrying against a locked workbook is how a client earns
+   * throttling.
+   *
+   * Nothing was written when this fires: it is refused before the change
+   * lands, which is what makes it safe to state plainly to the user.
+   */
+  | "PROVIDER_CONFLICT";
 
 export interface RunStepResult {
   nodeId: string;
