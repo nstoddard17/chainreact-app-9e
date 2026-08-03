@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Verifies all 6 Trello trigger registrations land in the activation
  * + deactivation registries on module load. Importing the side-effect

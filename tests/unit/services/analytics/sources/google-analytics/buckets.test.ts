@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + GA-date parsing + property-id validation helpers for the Google
  * Analytics analytics source (Slice ANALYTICS-SOURCES-GA-1). No I/O.

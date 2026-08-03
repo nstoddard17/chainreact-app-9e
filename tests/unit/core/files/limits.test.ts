@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   FILE_REF_SIZE_GUIDANCE,
   getFileRefSizeGuidance,

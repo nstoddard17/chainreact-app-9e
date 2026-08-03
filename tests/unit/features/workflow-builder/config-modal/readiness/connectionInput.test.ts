@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CONNECTION-AWARE-READINESS-1 — pure mapping from the server-resolved
  * connection signal (AgentConnectionSignal) to the readiness banner's

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { normalizeShopifyEvent } from "@/integrations/shopify/triggers/webhookReceived/normalize";
 
 describe("normalizeShopifyEvent — happy path", () => {

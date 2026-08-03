@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + workbook-id validation helpers for the Microsoft Excel analytics
  * source (Slice ANALYTICS-SOURCES-EXCEL-1). No I/O.

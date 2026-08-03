@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * React Agent boundary — behavior (REACT-AGENT-CS-1-SERVICE-BOUNDARY).
  *

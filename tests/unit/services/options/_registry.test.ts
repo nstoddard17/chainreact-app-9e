@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for `services/options/_registry.ts` — Slice 3.30 foundation.
  *

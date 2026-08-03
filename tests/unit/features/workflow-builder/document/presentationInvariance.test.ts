@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Execution / readiness invariance under presentation (CS-4).
  *

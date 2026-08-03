@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Config-UX Setup/Advanced sweep — Group C (commerce):
  * mailchimp · stripe · quickbooks · shopify.

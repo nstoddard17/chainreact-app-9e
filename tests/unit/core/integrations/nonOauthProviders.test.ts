@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for the shared non-OAuth/system pseudo-provider set + helper
  * (`core/integrations/nonOauthProviders.ts`) — the single source of truth that

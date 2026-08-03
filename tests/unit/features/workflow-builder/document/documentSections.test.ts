@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure Document section grouping + summary + selection resolution (CS-4).
  *

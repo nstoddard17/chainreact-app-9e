@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Sensitive-literal tokenize/rebind (REACT-CONFIG-COVERAGE-1).
  *

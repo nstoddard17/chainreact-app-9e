@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * buildPreviewRationale — deterministic "Why this change?" rationale for the React Agent preview
  * review rail (REACT-AGENT-PREVIEW-WHY).

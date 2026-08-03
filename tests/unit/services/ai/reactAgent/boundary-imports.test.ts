@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * React Agent boundary — architectural import guard (REACT-AGENT-CS-1-SERVICE-BOUNDARY).
  *

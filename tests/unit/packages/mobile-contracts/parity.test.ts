@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Parity locks: the mobile package's mirrored vocabularies must stay
  * IDENTICAL to the web contracts they mirror

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/workflows/dynamicOutputs.ts (AI-PROVIDER-8 CS-8).
  *

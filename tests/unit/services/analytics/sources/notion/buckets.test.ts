@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing helpers for the Notion analytics source
  * (Slice ANALYTICS-SOURCES-NOTION-1). No I/O.

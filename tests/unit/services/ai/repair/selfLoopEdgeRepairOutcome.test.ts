@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for buildSelfLoopEdgeRepairOutcome — Slice 4.AI-REPAIR-COVERAGE-1.
  *

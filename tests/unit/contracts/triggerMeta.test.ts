@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Unit tests for the TriggerMeta Zod contract.
  *

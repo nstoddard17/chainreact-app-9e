@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Stage 2A CS-2 — static option-source + connection-requirements diagnosis.
  *

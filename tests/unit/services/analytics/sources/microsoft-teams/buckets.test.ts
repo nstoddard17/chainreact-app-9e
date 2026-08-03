@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + Graph-id validation helpers for the Microsoft Teams analytics source
  * (Slice ANALYTICS-SOURCES-TEAMS-1). No I/O.

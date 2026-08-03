@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * DOC-FINAL-ACCEPTANCE-1 — the single governed destructive-preview classifier.
  *

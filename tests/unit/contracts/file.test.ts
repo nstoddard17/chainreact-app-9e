@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { FileRefSchema, FILE_REF_NAME_MAX_LENGTH } from "@/contracts/file";
 
 const baseShared = {

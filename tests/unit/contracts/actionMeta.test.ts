@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Unit tests for the ActionMeta Zod contract.
  *

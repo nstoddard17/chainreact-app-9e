@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + page-id validation helpers for the Facebook analytics source (Slice
  * ANALYTICS-SOURCES-FACEBOOK-1). No I/O.

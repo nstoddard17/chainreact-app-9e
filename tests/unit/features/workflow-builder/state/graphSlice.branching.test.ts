@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * graphSlice branch-route behavior (BRANCH-ENT-1 C4).
  *

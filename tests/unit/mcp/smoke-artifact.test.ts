@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Stage 2A CS-1 — sanitized smoke artifact + smoke MCP tools.
  *

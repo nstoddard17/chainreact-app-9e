@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for features/apps/relativeDate (Slice 4.APPS-PAGE-1).
  *

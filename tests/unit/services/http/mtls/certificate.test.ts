@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { generateKeyPairSync } from "node:crypto";
 import {
   parseClientCertificate,

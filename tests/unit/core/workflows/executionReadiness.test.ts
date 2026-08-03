@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { RequiredFieldsByType } from "@/core/workflows/requiredFields";
 import {

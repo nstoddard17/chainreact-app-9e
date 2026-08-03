@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Contextual-help resolver (HELP-CENTER-CONTEXTUAL-1).
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + currency helpers for the Stripe analytics source
  * (Slice ANALYTICS-SOURCES-STRIPE-1). No I/O.

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   ANALYTICS_BAR_ROW_MIN_HEIGHT,
   ANALYTICS_CHART_COMPACT_WIDTH,

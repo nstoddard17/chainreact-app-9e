@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-EDIT-MODE-LAYOUT-AUDIT-1 — diagnostic evidence, not a feature test.
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { randomBytes } from "node:crypto";
 
 const mockOAuthStatesCreate = jest.fn();

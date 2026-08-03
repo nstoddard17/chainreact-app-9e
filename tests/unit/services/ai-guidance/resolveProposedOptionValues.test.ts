@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Canonical-resolver pass for model-proposed dynamic option values (REACT-CONFIG-COVERAGE-1).
  *

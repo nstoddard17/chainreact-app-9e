@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/billing/taskUsagePeriod.ts — the pure current-period usage
  * view that mirrors the SQL lazy-rollover anchor (20260620000000).

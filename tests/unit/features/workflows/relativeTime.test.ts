@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { formatRelativeTime } from "@/features/workflows/relativeTime";
 
 describe("formatRelativeTime", () => {

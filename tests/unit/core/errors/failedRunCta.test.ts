@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CR-FAILREASON-2 — failedRunCta mapping (one primary CTA per classified action).
  */

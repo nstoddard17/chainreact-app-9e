@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for repositories/opsSignalEvents — cron-status derivation.
  *

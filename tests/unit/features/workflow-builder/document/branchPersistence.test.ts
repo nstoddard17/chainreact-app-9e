@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CS-5 branch persistence / round-trip fidelity (5.DUAL-BUILDER-1).
  *

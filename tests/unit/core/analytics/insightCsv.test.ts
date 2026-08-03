@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import type { ConnectedAnalyticsResult } from "@/contracts/connectedAnalytics";
 import {
   INSIGHT_CSV_COLUMNS,

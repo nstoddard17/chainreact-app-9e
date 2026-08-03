@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Phase A-1 verification advisory tools.
  *

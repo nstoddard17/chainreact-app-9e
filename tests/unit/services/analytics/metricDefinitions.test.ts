@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-FLEXIBILITY-CS-1 — canonical metric math. These definitions are
  * shared by the legacy overview and the flexible query engine; parity between

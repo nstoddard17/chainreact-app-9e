@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CONFIG-UX-SETUP-ADVANCED-1 — if/then meta ↔ runtime parity.
  *

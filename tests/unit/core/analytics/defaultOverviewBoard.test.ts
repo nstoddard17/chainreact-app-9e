@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 import {
   ANALYTICS_CANONICAL_COLUMNS,

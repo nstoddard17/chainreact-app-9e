@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { notionManifest } from "@/integrations/notion/manifest";
 import { ProviderManifestSchema } from "@/contracts/integration";
 

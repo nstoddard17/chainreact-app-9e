@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for buildDuplicateEdgeRepairOutcome — Slice 4.AI-REPAIR-COVERAGE-2.
  *

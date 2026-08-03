@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { describe, expect, it } from "@jest/globals";
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import {

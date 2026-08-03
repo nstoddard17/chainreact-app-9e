@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + id-validation helpers for the Airtable analytics source
  * (Slice ANALYTICS-SOURCES-AIRTABLE-1). No I/O.

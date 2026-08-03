@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * graphSlice presentation (manual sections) — CS-4.
  *

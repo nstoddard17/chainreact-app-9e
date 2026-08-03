@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Config-UX sweep — Group G (google-calendar, google-drive,
  * google-analytics, facebook, discord, dropbox, github).

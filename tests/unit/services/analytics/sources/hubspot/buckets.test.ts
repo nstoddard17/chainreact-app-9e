@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing helpers for the HubSpot analytics source
  * (Slice ANALYTICS-SOURCES-HUBSPOT-1). No I/O.

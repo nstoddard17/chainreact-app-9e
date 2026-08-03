@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Document React-Agent PREVIEW projection (5.DUAL-BUILDER-1 / CS-6).
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + Graph $filter builders for the Outlook analytics source
  * (Slice ANALYTICS-SOURCES-OUTLOOK-1). No I/O.

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Protects the internal MCP server's documentation tools (the allowed-read
  * happy path) and the registry/protocol wiring.

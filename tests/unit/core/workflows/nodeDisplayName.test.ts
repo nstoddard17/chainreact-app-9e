@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/workflows/nodeDisplayName (Slice 4.BUILDER-NODE-IDENTITY-1).
  *

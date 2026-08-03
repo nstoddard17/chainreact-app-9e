@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * BUILDER-ISSUES-RAIL-1 — per-issue explanation + next step for the issues rail.
  *

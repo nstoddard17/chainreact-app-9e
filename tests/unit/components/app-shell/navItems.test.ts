@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for components/app-shell/navItems (Slice 4.APP-SHELL-1).
  *

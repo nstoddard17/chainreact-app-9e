@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure day-bucketing helpers for the Microsoft OneNote analytics source (Slice
  * ANALYTICS-SOURCES-ONENOTE-1). No I/O.

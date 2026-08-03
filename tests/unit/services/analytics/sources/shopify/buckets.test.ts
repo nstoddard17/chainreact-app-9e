@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + currency helpers for the Shopify analytics source
  * (Slice ANALYTICS-SOURCES-SHOPIFY-1). No I/O.

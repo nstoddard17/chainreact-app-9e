@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * 5.DUAL-BUILDER-1 CS-7 — Router bulk-edit wiring consistency through the shared
  * config-commit path (`updateNodeConfig`, used by BOTH the Visual config panel

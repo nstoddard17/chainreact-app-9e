@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANON-BUILDER-2 — same-origin returnTo sanitizer (open-redirect guard).
  */

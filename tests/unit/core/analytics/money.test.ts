@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-4B — canonical decimal-safe money helpers.
  * These back every provider money path, so the failure they prevent (binary

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { requireExplicitField } from "@/core/workflows/requireExplicitField";
 
 describe("requireExplicitField (Q11)", () => {

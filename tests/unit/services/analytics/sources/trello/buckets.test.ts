@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + validation helpers for the Trello analytics source
  * (Slice ANALYTICS-SOURCES-TRELLO-1). No I/O.

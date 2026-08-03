@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + event helpers for the Outlook Calendar analytics source
  * (Slice ANALYTICS-SOURCES-OUTLOOK-CAL-1). No I/O.

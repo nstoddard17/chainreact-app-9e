@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { serializeDashboardWidgets } from "@/core/analytics/layout";
 import { AnalyticsWidgetSchema, type AnalyticsWidget } from "@/contracts/analytics";
 import type { AnalyticsWidgetSize } from "@/contracts/analytics";

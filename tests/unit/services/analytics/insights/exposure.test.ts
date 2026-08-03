@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { isSourceExposed } from "@/services/analytics/insights/exposure";
 import { buildClientAnalyticsCatalog } from "@/services/analytics/insights/clientProjection";
 import { runConnectedAnalyticsQuery } from "@/services/analytics/insights/runConnectedQuery";

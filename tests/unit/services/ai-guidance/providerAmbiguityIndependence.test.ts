@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Template / few-shot independence (REACT-PROVIDER-AMBIGUITY-1, scenario 9).
  *

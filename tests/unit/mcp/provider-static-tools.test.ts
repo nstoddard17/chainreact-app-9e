@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Phase A-2 provider readiness / metadata-consistency MCP tools.
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   ANALYTICS_CANONICAL_COLUMNS,
   findFirstAvailableRect,

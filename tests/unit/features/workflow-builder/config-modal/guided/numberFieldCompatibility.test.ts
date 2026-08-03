@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Number-field variable compatibility (SPREADSHEET-GUIDED-CONFIG-S3).
  *

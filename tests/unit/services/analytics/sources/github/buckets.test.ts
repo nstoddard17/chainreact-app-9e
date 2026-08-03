@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   MAX_BUCKETS,
   planBuckets,

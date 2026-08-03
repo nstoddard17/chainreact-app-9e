@@ -1,4 +1,33 @@
-import "@testing-library/jest-dom";
+/**
+ * JEST-NODE-ENV-SPLIT-1 — environment-conditional setup.
+ *
+ * This file runs for EVERY suite (setupFilesAfterEnv), but 2,054+ suites are
+ * `@jest-environment node` and have no DOM: for them, loading the RTL DOM
+ * matchers (~97ms of require per suite) and installing browser polyfills was
+ * pure overhead — ~3.5 CPU-minutes per full run — and polluted Node suites
+ * with browser-shaped globals (a Node suite could accidentally depend on a
+ * stubbed matchMedia that production Node code would never have).
+ *
+ * `IS_JSDOM` keys off the environment itself (jsdom defines `document`;
+ * node does not) — never off a path convention — so a suite's own
+ * `@jest-environment` pragma remains the single source of truth. jsdom
+ * suites keep EXACTLY the setup they had; node suites keep only what is
+ * environment-agnostic (the next/navigation mock below, which touches no
+ * DOM and stays overridable per test).
+ */
+// Type-only: restores jest-dom's matcher TYPE augmentation program-wide
+// (toBeInTheDocument etc. in .tsx suites) while emitting nothing at runtime.
+// jest-dom ships AMBIENT declarations (not a module), so the reference
+// directive — not `import type` — is the correct type-only mechanism.
+/// <reference types="@testing-library/jest-dom" />
+
+const IS_JSDOM = typeof document !== "undefined";
+
+if (IS_JSDOM) {
+  // DOM matchers only where there is a DOM. requireActual keeps this inside
+  // jest's module registry (a plain import would load it everywhere).
+  jest.requireActual("@testing-library/jest-dom");
+}
 
 /**
  * Default `next/navigation` mock (Slice 4.BUILDER-V1-SHELL-PARITY-1).
@@ -44,7 +73,7 @@ jest.mock("next/navigation", () => ({
  * pixel-level layout.
  */
 
-if (typeof globalThis.ResizeObserver === "undefined") {
+if (IS_JSDOM && typeof globalThis.ResizeObserver === "undefined") {
   class ResizeObserverStub {
     observe(): void {}
     unobserve(): void {}
@@ -64,7 +93,7 @@ if (typeof globalThis.ResizeObserver === "undefined") {
  * keep the whole `MarketingHome` tree mountable. Production code never
  * touches this file.
  */
-if (typeof globalThis.matchMedia === "undefined") {
+if (IS_JSDOM && typeof globalThis.matchMedia === "undefined") {
   globalThis.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -77,7 +106,7 @@ if (typeof globalThis.matchMedia === "undefined") {
   })) as unknown as typeof globalThis.matchMedia;
 }
 
-if (typeof globalThis.IntersectionObserver === "undefined") {
+if (IS_JSDOM && typeof globalThis.IntersectionObserver === "undefined") {
   class IntersectionObserverStub {
     observe(): void {}
     unobserve(): void {}
@@ -93,7 +122,7 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
     IntersectionObserverStub as unknown as typeof IntersectionObserver;
 }
 
-if (typeof globalThis.requestAnimationFrame === "undefined") {
+if (IS_JSDOM && typeof globalThis.requestAnimationFrame === "undefined") {
   globalThis.requestAnimationFrame = ((cb: (time: number) => void) =>
     setTimeout(() => cb(Date.now()), 0) as unknown as number) as typeof globalThis.requestAnimationFrame;
   globalThis.cancelAnimationFrame = ((id: number) =>
@@ -103,12 +132,12 @@ if (typeof globalThis.requestAnimationFrame === "undefined") {
 // The hero/ending motion field draws to a <canvas>. jsdom has no 2D context;
 // `getContext` returns null and the component early-returns. Stub it to null
 // explicitly so tests don't emit jsdom's "Not implemented" console noise.
-if (typeof globalThis.HTMLCanvasElement !== "undefined") {
+if (IS_JSDOM && typeof globalThis.HTMLCanvasElement !== "undefined") {
   HTMLCanvasElement.prototype.getContext =
     (() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 }
 
-if (typeof globalThis.DOMMatrixReadOnly === "undefined") {
+if (IS_JSDOM && typeof globalThis.DOMMatrixReadOnly === "undefined") {
   class DOMMatrixReadOnlyStub {
     m22 = 1;
     constructor() {
@@ -122,7 +151,7 @@ if (typeof globalThis.DOMMatrixReadOnly === "undefined") {
 // React Flow reads element bounding boxes for node sizing. jsdom returns
 // zeroed rects by default; the canvas component handles zero-size
 // gracefully, but a non-zero stub keeps test traces readable.
-if (typeof globalThis.HTMLElement !== "undefined") {
+if (IS_JSDOM && typeof globalThis.HTMLElement !== "undefined") {
   Object.defineProperties(HTMLElement.prototype, {
     offsetHeight: {
       configurable: true,

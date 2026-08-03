@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * REACT-AGENT-APPLY-MODES-1 — apply-mode availability rules.
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   OAUTH_POPUP_MESSAGE_TYPE,
   OAUTH_POPUP_COMPLETE_PATH,

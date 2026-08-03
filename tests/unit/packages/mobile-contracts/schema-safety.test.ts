@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Schema-safety locks for @chainreact/mobile-contracts
  * (MOBILE-COMPANION-M0-CONTRACTS-FOUNDATION-1).

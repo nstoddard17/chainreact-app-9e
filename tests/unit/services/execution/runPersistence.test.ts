@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CR-FAILREASON-1 — persistence safety for the humanized error_classification.
  *

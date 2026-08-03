@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Honest row preview (SHEETS-GUIDED-CONFIG-1, D6).
  *

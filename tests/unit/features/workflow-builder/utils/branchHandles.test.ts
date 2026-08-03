@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Branch source-handle model (BRANCH-ENT-1 C4).
  *

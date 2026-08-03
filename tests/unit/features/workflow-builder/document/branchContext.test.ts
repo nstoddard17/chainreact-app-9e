@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Document lane-context projection (5.DUAL-BUILDER-1 / CS-5).
  *

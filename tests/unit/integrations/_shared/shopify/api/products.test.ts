@@ -1,3 +1,4 @@
+/** @jest-environment node */
 const mockShopifyRequest = jest.fn();
 
 jest.mock("@/integrations/_shared/shopify/api/_request", () => ({

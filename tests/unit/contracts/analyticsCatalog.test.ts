@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-1 — catalog field-model invariants + mechanical
  * capability derivation. Meaningless analytics must be unrepresentable.

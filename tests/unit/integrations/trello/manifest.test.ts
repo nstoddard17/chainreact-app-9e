@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { ProviderManifestSchema } from "@/contracts/integration";
 import { trelloManifest } from "@/integrations/trello/manifest";
 

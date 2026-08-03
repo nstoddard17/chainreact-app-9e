@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Presentation contract + normalization (5.DUAL-BUILDER-1 / CS-4).
  *

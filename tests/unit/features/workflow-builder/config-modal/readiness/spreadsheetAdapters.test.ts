@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Readiness checklists for the guided spreadsheet actions
  * (SHEETS-GUIDED-CONFIG-1 · EXCEL-GUIDED-CONFIG-2).

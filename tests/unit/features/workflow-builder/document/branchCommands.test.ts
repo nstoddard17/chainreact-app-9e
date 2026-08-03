@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Document BRANCH-authoring command boundary (5.DUAL-BUILDER-1 / CS-5).
  *

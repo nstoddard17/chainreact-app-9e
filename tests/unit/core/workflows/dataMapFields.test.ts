@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/workflows/dataMapFields — Slice 4.BUILDER-DATA-MAP-2.
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/workflows/configVariableReferences — Slice 4.BUILDER-DATA-MAP-MVP-1.
  *

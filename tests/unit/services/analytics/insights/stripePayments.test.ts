@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-2 — Stripe Payments dataset: catalog, money/
  * currency correctness, aggregation semantics, and adapter behavior. Mocks sit

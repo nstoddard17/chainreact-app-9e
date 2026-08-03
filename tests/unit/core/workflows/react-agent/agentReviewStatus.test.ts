@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Setup-review status vocabulary (BUILDER-ISSUES-RAIL-1).
  *

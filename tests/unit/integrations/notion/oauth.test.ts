@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { notionOAuth } from "@/integrations/notion/oauth";
 import { RefreshNotSupportedError } from "@/contracts/integration";
 

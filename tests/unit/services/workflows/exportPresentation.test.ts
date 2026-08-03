@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Export + template sanitizer — presentation retention (CS-4).
  *

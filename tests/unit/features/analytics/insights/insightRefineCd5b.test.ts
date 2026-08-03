@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import type { InsightWidgetConfig } from "@/contracts/analytics";
 import {
   MAX_EXPLORATION_DEPTH,

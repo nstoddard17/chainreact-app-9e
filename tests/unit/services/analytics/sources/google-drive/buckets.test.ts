@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + folder-id validation helpers for the Google Drive analytics source
  * (Slice ANALYTICS-SOURCES-GDRIVE-1). No I/O.

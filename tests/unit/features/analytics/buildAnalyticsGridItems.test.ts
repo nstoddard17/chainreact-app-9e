@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { buildAnalyticsGridItems } from "@/features/analytics/grid/buildAnalyticsGridItems";
 import { AnalyticsWidgetSchema, type AnalyticsWidget } from "@/contracts/analytics";
 import type { AnalyticsWidgetSize } from "@/contracts/analytics";

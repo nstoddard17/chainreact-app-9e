@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for features/workflow-builder/validation/collectBuilderValidationIssues.
  *

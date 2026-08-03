@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * canActorUseIntegrationForMcp tests (Slice 4.PUBLIC-MCP-USAGE-1).
  *

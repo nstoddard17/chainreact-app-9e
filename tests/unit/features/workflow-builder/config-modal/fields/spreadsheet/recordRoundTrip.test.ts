@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Lossless round-trip of a COLUMN-KEYED row value
  * (EXCEL-GUIDED-CONFIG-2).

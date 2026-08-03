@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * "Changes we'll make" — what an update preview may claim
  * (SPREADSHEET-GUIDED-CONFIG-S3).

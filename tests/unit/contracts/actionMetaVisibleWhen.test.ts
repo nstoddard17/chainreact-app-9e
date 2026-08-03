@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CONFIG-UX-SETUP-ADVANCED-1 — top-level `visibleWhen` contract tests.
  *

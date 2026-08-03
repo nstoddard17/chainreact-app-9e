@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Metadata-driven proposed-config sanitizer (REACT-CONFIG-COVERAGE-1).
  *

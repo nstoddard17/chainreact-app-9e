@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CS-1 — Google Calendar create_event / update_event opt into the temporal
  * field family. Proves the metadata uses the new field types AND still

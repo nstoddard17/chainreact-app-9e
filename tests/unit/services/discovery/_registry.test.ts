@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Unit tests for services/discovery/_registry.ts.
  *

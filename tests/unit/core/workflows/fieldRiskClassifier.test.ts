@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * classifyFieldRisk — deterministic, conservative high-risk classification of one changed config
  * field for the React Agent preview rail (REACT-AGENT-PREVIEW-FIELD-REASONS).

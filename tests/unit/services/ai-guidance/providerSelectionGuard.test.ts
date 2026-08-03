@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Provider-selection guard decision table (REACT-PROVIDER-AMBIGUITY-1 · -2).
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Sections × CS-3 surfaces (queue + map) — pure integration (CS-4).
  *

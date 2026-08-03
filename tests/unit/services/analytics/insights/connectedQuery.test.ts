@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-1 — connected query validation + ChainReact
  * adapter PARITY with the CS-1 engine. Repos are mocked at the module

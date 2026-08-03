@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { parseRecipients } from "@/core/integrations/parseRecipients";
 
 describe("parseRecipients (Q7)", () => {

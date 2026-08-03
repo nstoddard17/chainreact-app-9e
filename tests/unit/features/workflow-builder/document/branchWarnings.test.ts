@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Branch-wiring warnings in the Document projection (5.DUAL-BUILDER-1 / CS-2).
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Server-side signup OTP actions — Slice AUTH-EMAIL-OTP-1.
  *

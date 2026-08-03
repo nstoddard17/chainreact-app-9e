@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * canvasPreviewEligibility — deterministic "Show on canvas" guard
  * (BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD).

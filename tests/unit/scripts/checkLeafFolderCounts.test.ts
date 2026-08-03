@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * DOC-FINAL-ACCEPTANCE-1 — structure-lint traversal respects nested Git worktree
  * boundaries WITHOUT weakening the real source rule.

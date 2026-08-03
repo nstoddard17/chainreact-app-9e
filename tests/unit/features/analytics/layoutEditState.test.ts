@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import * as edit from "@/features/analytics/grid/layoutEditState";
 import {
   candidateRectFor,

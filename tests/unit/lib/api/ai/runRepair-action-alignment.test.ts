@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CR-FAILREASON-2 — the AI run-repair failure-summary classification action must
  * stay aligned with the shared 5-value taxonomy. This file compiles only if

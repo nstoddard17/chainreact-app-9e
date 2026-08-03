@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * checkWorkflowReview — deterministic "Check workflow" review formatting
  * (BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW).

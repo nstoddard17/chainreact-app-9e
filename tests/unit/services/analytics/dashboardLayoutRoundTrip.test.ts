@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-EXPLICIT-LAYOUT-S2-CONTRACT-1 — the service/repository round trip.
  *

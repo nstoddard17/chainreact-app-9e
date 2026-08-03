@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for features/apps/collapsedReconnect — the pure derivation that decides
  * what the COLLAPSED app card surfaces for reconnect discoverability

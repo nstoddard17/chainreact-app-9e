@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Plan-config seeding on Apply (REACT-CONFIG-COVERAGE-1).
  *

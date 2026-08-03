@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * RESOLVERS-3 — meta wiring for per-row (`itemFields`) option-source pickers.
  *

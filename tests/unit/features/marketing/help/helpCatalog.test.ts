@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Help Center catalog integrity + search (HELP-CENTER-1).
  *

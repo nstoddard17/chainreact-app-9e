@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/errors/humanizePatchError (Slice 4.PROVIDER-CATALOG-INTEGRITY-1).
  *

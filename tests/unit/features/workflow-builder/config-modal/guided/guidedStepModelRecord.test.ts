@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Guided step model — the two shared changes record mode required
  * (SPREADSHEET-GUIDED-CONFIG-S3).

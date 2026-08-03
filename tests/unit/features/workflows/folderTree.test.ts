@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Unit tests for the pure folder-hierarchy helpers (WF-5 nested-tree pass).
  * No DOM — exercises childrenOf ordering, depth, path, descendants,

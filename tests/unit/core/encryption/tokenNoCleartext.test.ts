@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Deterministic (no-DB) no-cleartext guard for core/encryption/tokens.ts.
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { ZodError } from "zod";
 
 import {

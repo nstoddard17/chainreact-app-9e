@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * RESOLVERS-3 — `itemFields` option-source contract tests.
  *

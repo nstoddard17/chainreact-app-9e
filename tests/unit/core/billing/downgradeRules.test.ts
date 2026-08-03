@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Slice 4.BILLING-PLAN-METADATA-6 / CS-5 — pure downgrade safety rules.
  * Validation/preview only; never mutates or deletes. Limits come from plan policy

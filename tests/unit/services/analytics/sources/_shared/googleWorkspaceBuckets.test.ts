@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure day-bucketing helpers shared by the Google Docs + Sheets analytics sources
  * (Slice ANALYTICS-SOURCES-GWORKSPACE-1). No I/O.

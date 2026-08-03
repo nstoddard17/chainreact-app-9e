@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Conservative mapping suggestions (SHEETS-GUIDED-CONFIG-1, D3).
  *

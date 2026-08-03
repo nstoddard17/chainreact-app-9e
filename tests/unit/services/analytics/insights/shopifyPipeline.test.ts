@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-4C — Shopify Orders through the CD-2 provider
  * pipeline: snapshot cache, in-flight coalescing, protective limiter, stale

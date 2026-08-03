@@ -1,3 +1,4 @@
+/** @jest-environment node */
 jest.mock("@/services/analytics/analyticsOverview", () => ({
   getAnalyticsOverview: jest.fn(),
 }));

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * SPREADSHEET-CONFIG-REDESIGN-1 — pure readiness derivation behind the
  * NodeConfigReadinessBanner every config panel shows. Missing-item

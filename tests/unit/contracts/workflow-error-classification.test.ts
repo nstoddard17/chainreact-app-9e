@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CR-FAILREASON-1 — HumanizedErrorSchema action taxonomy + back-compat.
  *

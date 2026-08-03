@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * The `valueShape` field capability (SPREADSHEET-GUIDED-CONFIG-S3).
  *

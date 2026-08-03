@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { slackOAuth } from "@/integrations/slack/oauth";
 
 const ORIGINAL_ENV = { ...process.env };

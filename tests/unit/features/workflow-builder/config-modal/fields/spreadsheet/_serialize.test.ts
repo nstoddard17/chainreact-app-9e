@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * SPREADSHEET-CONFIG-REDESIGN-1 — pure save-shape contract of the
  * spreadsheet row editor. The editor renders cells; the SAVED config

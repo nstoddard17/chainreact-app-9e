@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { parseCsvList } from "@/core/integrations/parseCsvList";
 
 describe("parseCsvList — shape-agnostic CSV-or-array splitter", () => {

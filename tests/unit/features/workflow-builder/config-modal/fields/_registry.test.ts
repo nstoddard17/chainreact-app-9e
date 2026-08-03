@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for the field-renderer registry.
  *

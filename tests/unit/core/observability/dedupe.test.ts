@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/observability/dedupe — the spam-prevention decision.
  *

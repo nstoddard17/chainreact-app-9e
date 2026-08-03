@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * REACT-AGENT-FRIENDLY-VARIABLE-DISPLAY-1 — friendly rendering of `{{nodeId.path}}` tokens.
  *

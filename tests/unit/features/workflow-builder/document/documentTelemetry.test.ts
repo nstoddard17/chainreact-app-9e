@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import {
   emitDocumentBuilderEvent,

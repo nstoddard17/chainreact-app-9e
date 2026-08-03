@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   isAllowedShopifyTopic,
   SHOPIFY_ALLOWED_TOPICS,

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for the deterministic broken-variable-reference detector
  * (`core/workflows/invalidVariableReferences.ts`, Slice 4.AI-REPAIR-3G).

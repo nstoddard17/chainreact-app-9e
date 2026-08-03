@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Drift guard + generator for the committed option-source manifest
  * (scripts/mcp/data/option-source-manifest.json) — Stage 2A, CS-2.

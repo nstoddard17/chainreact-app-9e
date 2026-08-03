@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { formatRunStats } from "@/features/workflows/formatRunStats";
 
 describe("formatRunStats", () => {

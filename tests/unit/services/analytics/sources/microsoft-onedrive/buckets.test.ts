@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + folder-id validation helpers for the OneDrive analytics source
  * (Slice ANALYTICS-SOURCES-ONEDRIVE-1). No I/O.

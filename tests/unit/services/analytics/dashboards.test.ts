@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Dashboard service tests (Slice ANALYTICS-1) — default seeding, including the
  * race-safe path where a concurrent first-load already created the default.

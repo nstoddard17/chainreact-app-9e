@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-2 — provider pipeline: snapshot cache, in-flight
  * coalescing, and the protective limiter, driven end-to-end through

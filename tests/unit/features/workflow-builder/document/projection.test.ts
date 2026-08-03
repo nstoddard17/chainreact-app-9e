@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure graph→Document projection fixtures (5.DUAL-BUILDER-1 / CS-1).
  *

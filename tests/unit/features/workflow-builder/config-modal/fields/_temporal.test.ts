@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure-logic tests for the temporal helpers (CS-1).
  */

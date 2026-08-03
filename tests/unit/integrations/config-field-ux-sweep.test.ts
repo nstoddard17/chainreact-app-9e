@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Config-field UX sweep (CONFIG-FIELD-UX-SWEEP) — metadata-only adoptions:
  *   - Outlook Calendar create/update event: datetime + timezone controls.

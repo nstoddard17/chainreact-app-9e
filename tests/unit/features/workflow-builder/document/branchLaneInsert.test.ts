@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Branch-lane insertion (5.DUAL-BUILDER-1 / CS-2B).
  *

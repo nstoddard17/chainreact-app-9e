@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/security/secretKeys (AI-CONFIG-ASSIST CS-2A).
  *

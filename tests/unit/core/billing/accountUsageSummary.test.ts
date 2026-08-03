@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for the consolidated account usage summary (Slice 4.BILLING-USAGE-VISIBILITY-1).
  *

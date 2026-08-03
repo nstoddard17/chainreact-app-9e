@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + audience-id validation helpers for the Mailchimp analytics
  * source (Slice ANALYTICS-SOURCES-MAILCHIMP-1). No I/O.

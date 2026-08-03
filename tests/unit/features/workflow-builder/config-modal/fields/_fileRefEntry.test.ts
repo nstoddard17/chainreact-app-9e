@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure-function tests for the FileField / FileRefArrayField shared
  * helper module — Slice 3.25 (D-SFR-4).

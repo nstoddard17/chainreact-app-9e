@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/observability/evaluateRules — the pure ops-alert rules.
  *

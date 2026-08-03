@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { normalizeDashboardWidgets } from "@/core/analytics/layout";
 import { DEFAULT_OVERVIEW_WIDGETS } from "@/contracts/analyticsDefaults";
 import type { AnalyticsWidgetSize } from "@/contracts/analytics";

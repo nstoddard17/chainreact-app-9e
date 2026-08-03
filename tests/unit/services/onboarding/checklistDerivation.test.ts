@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure derivation matrix for the first-workflow onboarding checklist
  * (5.ONBOARD-1 Batch 1). Proves the honesty rules: every step's completion

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Document command boundary (5.DUAL-BUILDER-1 / CS-2).
  *

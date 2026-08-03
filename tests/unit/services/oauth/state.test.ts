@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { createHmac, randomBytes } from "node:crypto";
 
 const mockCreate = jest.fn();

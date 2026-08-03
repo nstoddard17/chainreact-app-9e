@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANON-BUILDER-2 — contextual auth copy for the anonymous-builder gates.
  */

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Guided step model (SHEETS-GUIDED-CONFIG-1).
  *

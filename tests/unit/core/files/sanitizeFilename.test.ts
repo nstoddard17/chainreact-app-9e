@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   sanitizeFilename,
   SANITIZED_FILENAME_FALLBACK,

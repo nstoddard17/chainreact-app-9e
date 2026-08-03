@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Config-diff field metadata derivation (HERMES-AGENT-CONFIG-DIFF-REVIEW).
  *

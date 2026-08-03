@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Slice 4.ACCOUNT-MODEL-6b — cross-account isolation test.
  *

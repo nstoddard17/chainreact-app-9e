@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Protects the internal MCP server's secret-redaction layer.
  *

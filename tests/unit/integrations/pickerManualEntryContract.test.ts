@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * PICKER-MANUAL-ENTRY-AUDIT-1 — the picker ↔ manual-entry contract, checked
  * against every shipped ActionMeta / TriggerMeta.

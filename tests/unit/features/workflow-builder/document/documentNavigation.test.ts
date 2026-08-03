@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure map navigation outcomes (5.DUAL-BUILDER-1 / CS-3).
  *

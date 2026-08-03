@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   EMPTY_WORKFLOW_DEFINITION,
   WorkflowDefinitionSchema,

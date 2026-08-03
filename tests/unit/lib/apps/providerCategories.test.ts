@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Coverage guard for the Apps-page provider category/description maps
  * (surfaced by the ASANA-1 Apps debug: asana shipped without entries, so

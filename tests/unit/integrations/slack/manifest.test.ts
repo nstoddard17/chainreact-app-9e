@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { slackManifest } from "@/integrations/slack/manifest";
 import { ProviderManifestSchema } from "@/contracts/integration";
 

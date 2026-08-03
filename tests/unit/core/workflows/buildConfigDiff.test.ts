@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Config-level diff for the React Agent preview review rail
  * (HERMES-AGENT-CONFIG-DIFF-REVIEW).

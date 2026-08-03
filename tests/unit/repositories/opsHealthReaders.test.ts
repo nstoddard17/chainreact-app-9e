@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for repositories/opsHealthReaders — the cross-table ops signal readers.
  *

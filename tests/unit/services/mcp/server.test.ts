@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * MCP dispatcher tests — account isolation + scope enforcement + no-leak
  * (Slice 4.PUBLIC-MCP-7).

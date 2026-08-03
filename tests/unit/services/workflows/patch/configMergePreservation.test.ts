@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Config merge integrity (REACT-CONFIG-COVERAGE-1, Part F).
  *

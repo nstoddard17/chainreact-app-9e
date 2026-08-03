@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * buildCheckReviewContext — the builder's deterministic snapshot for the "Check workflow" review
  * (BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW).

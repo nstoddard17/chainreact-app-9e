@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-1 — registry validation, ChainReact
  * registration, CS-1 capability parity pin, and client-projection safety.

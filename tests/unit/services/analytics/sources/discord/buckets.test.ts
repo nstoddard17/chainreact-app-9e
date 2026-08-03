@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + snowflake validation helpers for the Discord analytics source
  * (Slice ANALYTICS-SOURCES-DISCORD-1). No I/O.

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CONFIG-UX sweep (Group D) — Gmail builder-metadata pins.
  *

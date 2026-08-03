@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure canvas-layout helpers (Slice 4.BUILDER-CANVAS-LAYOUT-1).
  *

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   decideIntegrationUsage,
   PRIVATE_CONNECTION_DENY_DETAIL,

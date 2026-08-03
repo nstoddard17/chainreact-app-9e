@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for services/observability/opsAlertEvaluator — orchestration.
  *

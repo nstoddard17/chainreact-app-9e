@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Plan-step config channel + prompt semantics (REACT-CONFIG-COVERAGE-1).
  *

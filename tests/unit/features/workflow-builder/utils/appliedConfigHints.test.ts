@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import type { WorkflowNode } from "@/contracts/workflow";
 import type { RequiredFieldsByType } from "@/features/workflow-builder/validation/collectBuilderValidationIssues";
 import {

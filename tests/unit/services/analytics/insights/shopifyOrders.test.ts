@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-4C — Shopify Orders dataset: catalog, money,
  * status normalization, test-order default, aggregation semantics, and adapter

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import {
   ANALYTICS_CANONICAL_MIN_WIDTH_PX,
   ANALYTICS_MIN_CELL_WIDTH_PX,

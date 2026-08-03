@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import * as https from "node:https";
 import type { AddressInfo } from "node:net";
 import { mtlsRequest } from "@/services/http/mtls/client";

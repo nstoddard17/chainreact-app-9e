@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { normalizeSlackEvent } from "@/integrations/slack/webhooks/normalize";
 
 const baseSlackPayload = {

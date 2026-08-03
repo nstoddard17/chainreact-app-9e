@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for buildRequiredFieldsByType (BUILDER-READINESS).
  * Derives the required-field lookup from action/trigger metadata.

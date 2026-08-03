@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CS-2 — eligible Slack channel config fields use the searchable
  * `slack:channels` combobox (name-or-ID, manual paste allowed) while storing

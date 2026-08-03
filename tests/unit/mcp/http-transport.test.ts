@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Stage-1.5 guards for the internal MCP server's HTTP (Streamable HTTP)
  * transport. The HTTP front door is a SECOND transport onto the SAME tool

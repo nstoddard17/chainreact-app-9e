@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Stage-1 hardening guards for the internal MCP server.
  *

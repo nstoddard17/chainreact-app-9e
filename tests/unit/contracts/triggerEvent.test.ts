@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { TriggerEventSchema } from "@/contracts/triggerEvent";
 
 describe("TriggerEventSchema", () => {

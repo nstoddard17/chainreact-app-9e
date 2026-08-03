@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-FLEXIBILITY-CS-1 — the flexible query service. Repositories are
  * mocked at the module boundary; the windowing, bucketing, series assembly,

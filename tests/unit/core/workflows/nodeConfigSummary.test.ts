@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * CONFIG-UX-NODE-SUMMARY-1 — the at-a-glance summary is task-shaped, shows
  * recognizable resource names (not ids), distinguishes fixed / dynamic /

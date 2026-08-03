@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * A1-notation helpers for guided spreadsheet configuration
  * (SHEETS-GUIDED-CONFIG-1).

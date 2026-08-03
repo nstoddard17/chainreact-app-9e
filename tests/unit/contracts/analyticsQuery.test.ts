@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-FLEXIBILITY-CS-1 — strict request parsing + the canonical
  * capability matrix. Proves every supported measure×dimension cell validates,

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + folder-path validation helpers for the Dropbox analytics source
  * (Slice ANALYTICS-SOURCES-DROPBOX-1). No I/O.

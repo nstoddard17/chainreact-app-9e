@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for core/encryption/tokens.ts (database-security.md §5).
  *

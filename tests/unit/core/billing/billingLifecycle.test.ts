@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Slice 4.BILLING-PLAN-METADATA-6 / CS-5 — pure billing lifecycle derivation.
  * Warning-first: never claims runs are blocked; canceled/past_due keep access.

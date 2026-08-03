@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Phase C-1 no_leak_scanner — local dev aid that flags forbidden leak shapes in
  * diagnostic DTOs / sample JSON.

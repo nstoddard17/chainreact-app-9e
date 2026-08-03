@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * ANALYTICS-CONNECTED-DATA-CD-4B — QuickBooks Invoices dataset: catalog,
  * decimal/currency correctness, aggregation semantics, historical vs

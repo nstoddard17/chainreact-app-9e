@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure Whole Workflow map model (5.DUAL-BUILDER-1 / CS-3).
  *

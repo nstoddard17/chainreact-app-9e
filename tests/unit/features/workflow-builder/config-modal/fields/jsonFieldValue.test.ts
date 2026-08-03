@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Tests for the shared json-field value logic (CONFIG-UX-AUDIT-2) —
  * `_jsonFieldValue.ts`, the single source of truth behind JsonField's

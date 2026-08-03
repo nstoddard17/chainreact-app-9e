@@ -1,3 +1,4 @@
+/** @jest-environment node */
 /**
  * Pure bucketing + board-id-validation helpers for the Monday analytics source
  * (Slice ANALYTICS-SOURCES-MONDAY-1). No I/O.
