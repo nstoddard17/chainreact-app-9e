@@ -4,28 +4,33 @@ name: CI
 # v2-main and on every push that lands on v2-main.
 #
 # V2-READY-4 (2026-06-14): retargeted from the original `v2-foundation` to
-# `v2-main`. `v2-foundation` was fully merged into `v2-main` (an ancestor, 0
-# commits ahead) and last moved 2026-05-25 while active work continued on
-# `v2-main` — so the old trigger left the live working branch ungated. The
-# stale branch is replaced rather than kept alongside because it is no longer
-# a push/PR target.
+# `v2-main` (the stale branch was no longer a push/PR target).
 #
-# Scope (intentionally non-e2e):
-#   - Type-check (npx tsc --noEmit)
-#   - ESLint (npm run lint)
-#   - Structural lint (npm run lint:structure) — ≤50 files per leaf folder
-#   - Migration lint (npm run lint:migrations) — RLS on user-data tables
-#   - Unit + structural Jest (npm test) — currently 91 suites / 811 tests
+# CI-JEST-SHARDING-1 (2026-08-03): the single serial job (jest measured at
+# 16m02s–16m25s across 2,777 suites on the 2-core runner) is restructured into
+# parallel jobs. The GATE ITSELF IS UNCHANGED — same commands, same jest
+# config, same environment posture, same worker count, no exclusions, no
+# retries, no raised timeouts:
 #
-# Playwright e2e is intentionally NOT in this workflow. The e2e specs
-# (slice-1-slack-walkthrough.spec.ts, slice-2f-gmail-walkthrough.spec.ts)
-# require a real Supabase project for createTestUser + DB asserts; pointing
-# CI at production is unsafe, and a dedicated test Supabase project
-# doesn't exist yet. When that project lands, e2e gets its own workflow
-# job with the secrets enumerated in docs/ops/cron-wiring.md (the parent
-# OPS doc) — NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
-# SLACK_SIGNING_SECRET, CRON_SECRET, GOOGLE_CLIENT_ID,
-# GOOGLE_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY, OAUTH_STATE_SIGNING_KEY.
+#   static  — typecheck + eslint + structure lint + migration lint
+#   discover — jest's OWN --listTests inventory for the exact SHA (artifact)
+#   jest (matrix 1..4) — `npm test -- --shard=k/4`, fail-fast disabled,
+#             each shard uploads a machine-readable result artifact
+#   aggregate — FAIL-CLOSED equivalence: every shard passed, every artifact
+#             present, the union of executed files has no duplicates and
+#             equals the discovery inventory exactly (none missing, none
+#             extra), summed counts match. Runs even when shards fail.
+#   ci-gate — the single required status: green ONLY when static + all four
+#             shards + aggregate are green.
+#
+# Native jest sharding partitions deterministically for a given file set —
+# proven locally at 2,777 suites: 695+694+694+694, zero duplicates, union
+# identical to the unsharded inventory. The aggregate job re-proves it on
+# every run from the shards' ACTUAL executed files, so a partition bug can
+# never silently drop a suite.
+#
+# Playwright e2e is intentionally NOT in this workflow (needs a dedicated
+# test Supabase project; see docs/ops/cron-wiring.md for the secret list).
 
 on:
   pull_request:
@@ -41,14 +46,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: typecheck + lint + jest
+  static:
+    name: typecheck + lint + structure + migrations
     runs-on: ubuntu-latest
-    # CI-TIMEOUT-CAPACITY-FIX-1: the jest inventory grew from ~91 suites/811
-    # tests (when this was 10) to ~2,700 suites/32k tests — a serial run on the
-    # 2-core runner cannot finish in 10 minutes and was being killed mid-jest
-    # (reported as "cancelled"). Capacity only; the gate itself is unchanged.
-    timeout-minutes: 90
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -57,9 +58,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          # Matches local dev (v22.20.0 at time of writing). The repo has
-          # no .nvmrc; pinning to 22.x here keeps CI deterministic without
-          # forcing an .nvmrc on every contributor.
+          # Matches local dev (v22.20.0 at time of writing). Pinning 22.x keeps
+          # CI deterministic without forcing an .nvmrc on every contributor.
           node-version: 22.x
           cache: npm
 
@@ -78,5 +78,152 @@ jobs:
       - name: Lint migrations (RLS on user-data tables)
         run: npm run lint:migrations
 
-      - name: Jest (unit + structural)
-        run: npm test
+  discover:
+    name: jest discovery inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Discover full jest inventory (jest's own --listTests, same config as the gate)
+        run: node scripts/ci/jest-shard-tools.mjs inventory --sha "$GITHUB_SHA" --out jest-inventory.json
+
+      - name: Upload inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-inventory-${{ github.sha }}
+          path: jest-inventory.json
+          retention-days: 7
+
+  jest:
+    name: jest shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Every shard runs to completion even when a sibling fails — aggregation
+      # needs all four result artifacts to say exactly what broke.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        id: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Restore jest transform cache
+        id: jest-cache
+        # Transformed-code cache ONLY (ts-jest output keyed internally by file
+        # content + compiler options). Test RESULTS are never cached — every
+        # suite executes on every run; a cache hit can only skip recompiling
+        # unchanged TypeScript. Per-shard key: shards populate different
+        # entries, and separate keys avoid four jobs racing one shared entry.
+        uses: actions/cache@v4
+        with:
+          path: .jest-cache
+          key: jest-transform-v1-${{ runner.os }}-node${{ steps.node.outputs.node-version }}-shard${{ matrix.shard }}-${{ hashFiles('package-lock.json', 'jest.config.mjs', 'tsconfig.json', 'jest.setup.ts', 'tests/globalTeardown.ts', 'tests/__mocks__/styleMock.js') }}
+          restore-keys: |
+            jest-transform-v1-${{ runner.os }}-node${{ steps.node.outputs.node-version }}-shard${{ matrix.shard }}-
+
+      - name: Report cache hit or miss
+        run: echo "jest transform cache hit=${{ steps.jest-cache.outputs.cache-hit || 'false' }} (restore-key fallbacks count as miss here)"
+
+      - name: Jest shard ${{ matrix.shard }}/4 (same command, config, and posture as the unsharded gate)
+        run: |
+          set +e
+          npm test -- --shard=${{ matrix.shard }}/4 --cacheDirectory=.jest-cache --json --outputFile=jest-shard-raw.json
+          JEST_EXIT=$?
+          set -e
+          echo "JEST_EXIT=$JEST_EXIT" >> "$GITHUB_ENV"
+          echo "jest shard ${{ matrix.shard }}/4 exited $JEST_EXIT"
+
+      - name: Write machine-readable shard result
+        if: always()
+        run: node scripts/ci/jest-shard-tools.mjs extract --sha "$GITHUB_SHA" --shard "${{ matrix.shard }}/4" --exit "${JEST_EXIT:-1}" --raw jest-shard-raw.json --out shard-result-${{ matrix.shard }}.json
+
+      - name: Upload shard result artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-shard-result-${{ matrix.shard }}-${{ github.sha }}
+          path: shard-result-${{ matrix.shard }}.json
+          retention-days: 7
+
+      - name: Fail the job when jest failed
+        run: |
+          if [ "${JEST_EXIT:-1}" != "0" ]; then
+            echo "jest shard ${{ matrix.shard }}/4 failed (exit ${JEST_EXIT:-unset})."
+            exit 1
+          fi
+
+  aggregate:
+    name: shard equivalence + aggregation (fail-closed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [discover, jest]
+    # Runs even when shards fail so a red run reports EXACTLY what broke; the
+    # verifier itself fails on any non-passing shard, so always() can never
+    # convert a failure into a pass.
+    if: always()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download inventory artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jest-inventory-${{ github.sha }}
+
+      - name: Download shard result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: jest-shard-result-*-${{ github.sha }}
+          merge-multiple: true
+
+      - name: Verify shard equivalence (no dupes, none missing, none extra, all passed, same SHA)
+        run: node scripts/ci/jest-shard-tools.mjs verify --inventory jest-inventory.json --results . --shards 4
+
+  ci-gate:
+    name: ci gate — static + all jest shards + aggregation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [static, jest, aggregate]
+    # always() so a skipped upstream can never skip the gate itself; the gate
+    # then requires every dependency to have SUCCEEDED explicitly.
+    if: always()
+
+    steps:
+      - name: Require every gate
+        run: |
+          set -euo pipefail
+          echo "static:    ${{ needs.static.result }}"
+          echo "jest:      ${{ needs.jest.result }}"
+          echo "aggregate: ${{ needs.aggregate.result }}"
+          if [ "${{ needs.static.result }}" != "success" ] || \
+             [ "${{ needs.jest.result }}" != "success" ] || \
+             [ "${{ needs.aggregate.result }}" != "success" ]; then
+            echo "CI GATE FAIL — every static check, every jest shard, and the aggregation must pass."
+            exit 1
+          fi
+          echo "CI GATE PASS."
