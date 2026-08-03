@@ -53,11 +53,9 @@ describe("no service-role secret references in client code", () => {
     "no file under %s/ references SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY",
     (root) => {
       const dir = join(ROOT, root);
-      try {
-        statSync(dir);
-      } catch {
-        return; // root not yet populated
-      }
+      // Fail-closed: every scanned root exists; a missing one means the scan
+      // is broken, and returning green would disable the secret guard.
+      expect(() => statSync(dir)).not.toThrow();
       const offenders: string[] = [];
       for (const file of collectFiles(dir)) {
         const src = readFileSync(file, "utf8");

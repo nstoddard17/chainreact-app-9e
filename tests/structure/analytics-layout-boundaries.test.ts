@@ -87,6 +87,11 @@ const ALL_SOURCE_ROOTS = [
   "utils",
 ];
 
+// STRUCTURE-TEST-CONSOLIDATION-1: one walk of the twelve roots per test
+// process — the duplicate-symbol and stale-import rules below previously each
+// re-walked all of them (~8 traversals per run).
+const ALL_SOURCES = ALL_SOURCE_ROOTS.flatMap((r) => collect(r));
+
 const CORE_LAYOUT = join("core", "analytics", "layout");
 /** This file names the symbols it guards; it must not match itself. */
 const SELF = join("tests", "structure", "analytics-layout-boundaries.test.ts");
@@ -96,7 +101,7 @@ describe("the Analytics layout engine has one home", () => {
     // IMPORT SPECIFIERS only. Prose may still name the old path as history —
     // the supersession notes in this repo deliberately do — but no module may
     // resolve to it. Both the `@/`-aliased and relative spellings are checked.
-    const offenders = ALL_SOURCE_ROOTS.flatMap((r) => collect(r)).filter((file) =>
+    const offenders = ALL_SOURCES.filter((file) =>
       importSpecifiers(read(file)).some((s) => s.includes("features/analytics/layout")),
     );
     expect(offenders).toEqual([]);
@@ -116,7 +121,7 @@ describe("the Analytics layout engine has one home", () => {
     "serializeDashboardWidgets",
   ])("declares %s exactly once, and inside core/analytics/layout", (symbol) => {
     const declaration = new RegExp(`export\\s+function\\s+${symbol}\\b`);
-    const sites = ALL_SOURCE_ROOTS.flatMap((r) => collect(r)).filter((file) =>
+    const sites = ALL_SOURCES.filter((file) =>
       declaration.test(read(file)),
     );
     expect(sites).toHaveLength(1);
@@ -128,7 +133,7 @@ describe("the Analytics layout engine has one home", () => {
     (constant) => {
       // Re-exports are fine — a second `const` is not.
       const declaration = new RegExp(`export\\s+const\\s+${constant}\\b`);
-      const sites = ALL_SOURCE_ROOTS.flatMap((r) => collect(r)).filter((file) =>
+      const sites = ALL_SOURCES.filter((file) =>
         declaration.test(read(file)),
       );
       expect(sites).toEqual([join("contracts", "analytics.ts")]);
@@ -201,7 +206,7 @@ describe("responsive projection stays a render-time derivation", () => {
       "export function projectLayoutToColumns",
       "export function columnsForContainerWidth",
     ];
-    const sites = ALL_SOURCE_ROOTS.flatMap((r) => collect(r))
+    const sites = ALL_SOURCES
       .filter((file) => file !== SELF)
       .filter((file) => DECLARATIONS.some((d) => read(file).includes(d)));
     expect([...new Set(sites)]).toEqual([join(CORE_LAYOUT, "project.ts")]);
@@ -211,7 +216,7 @@ describe("responsive projection stays a render-time derivation", () => {
     // One layout is stored. A `mobileLayout` / `layoutsByBreakpoint` anywhere
     // would mean the viewport had become persisted state.
     const banned = /(mobileLayout|tabletLayout|desktopLayout|layoutsByBreakpoint|breakpointLayouts)/;
-    const offenders = ALL_SOURCE_ROOTS.flatMap((r) => collect(r))
+    const offenders = ALL_SOURCES
       .filter((file) => file !== SELF)
       .filter((file) => banned.test(read(file)));
     expect(offenders).toEqual([]);

@@ -34,12 +34,9 @@ const NON_PROVIDER_ROOTS: ReadonlySet<string> = new Set(["native", "ai"]);
 
 describe("every provider folder has a manifest.ts", () => {
   it("checks each integrations/<provider>/ for manifest.ts", () => {
-    let entries;
-    try {
-      entries = readdirSync(INTEGRATIONS_DIR, { withFileTypes: true });
-    } catch {
-      return; // integrations dir not present yet
-    }
+    // Fail-closed: integrations/ exists; an unreadable dir means the scan is
+    // broken, and returning green would disable the manifest rule.
+    const entries = readdirSync(INTEGRATIONS_DIR, { withFileTypes: true });
 
     const offenders: string[] = [];
     for (const entry of entries) {

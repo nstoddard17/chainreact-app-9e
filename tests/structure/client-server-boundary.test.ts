@@ -52,11 +52,10 @@ describe("client/server import boundary", () => {
     "no file under %s/ imports a value from repositories/ or services/ (type-only imports are OK)",
     (root) => {
       const dir = join(ROOT, root);
-      try {
-        statSync(dir);
-      } catch {
-        return; // root not yet populated; nothing to check
-      }
+      // Fail-closed (STRUCTURE-TEST-CONSOLIDATION-1): every scanned root
+      // exists in this repository; a missing one means the scan is broken,
+      // and silently returning green here would disable the whole boundary.
+      expect(() => statSync(dir)).not.toThrow();
       const files = collectFiles(dir);
       const offenders: string[] = [];
       for (const file of files) {

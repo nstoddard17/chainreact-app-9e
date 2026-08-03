@@ -40,11 +40,9 @@ function collectFiles(dir: string): string[] {
 describe("core/ purity", () => {
   it("no core/ file imports from app/features/components/repositories/services/stores", () => {
     const coreDir = join(ROOT, "core");
-    try {
-      statSync(coreDir);
-    } catch {
-      return;
-    }
+    // Fail-closed: core/ exists; a missing dir means the scan is broken, and
+    // returning green would disable the purity rule entirely.
+    expect(() => statSync(coreDir)).not.toThrow();
     const files = collectFiles(coreDir);
     const offenders: string[] = [];
     for (const file of files) {

@@ -97,7 +97,7 @@ holds the breakpoints and the presentation decisions (pure, no React).
 `layout/useBuilderLayout.ts` is the **only** module allowed to ask the browser
 about width, via `matchMedia` — never `window.innerWidth`, never a `resize`
 listener. `WorkflowBuilder` calls it once and threads the result down as
-presentation props. `tests/structure/builder-responsive-single-viewport-source.test.ts`
+presentation props. `tests/structure/responsive-source-guards.test.ts`
 enforces this.
 
 | tier | width | agent rail | node config | header |

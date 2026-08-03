@@ -123,7 +123,7 @@ Walk the complete ancestor chain and account for every one of:
 The landed proof: a single `shrink-0` on the control slot of `SettingRow` made a long email
 the row's minimum width and pushed ~300px of content under the settings card's
 `overflow-hidden`. The guard now forbids that class on that component by name —
-[account-settings-responsive-source.test.ts](../../tests/structure/account-settings-responsive-source.test.ts).
+[responsive-source-guards.test.ts (account-settings section)](../../tests/structure/responsive-source-guards.test.ts).
 
 ### 4. `min-w-0`, `shrink-0`, wrapping, truncation
 
@@ -157,10 +157,10 @@ unbroken machine tokens. On sentences it produces mid-word breaks that read as c
   Validation §A).
 
 Four structure guards enforce the absence of masking across the swept surfaces:
-[account-settings](../../tests/structure/account-settings-responsive-source.test.ts) ·
-[team](../../tests/structure/team-responsive-source.test.ts) ·
-[data-surfaces](../../tests/structure/data-surfaces-responsive-source.test.ts) ·
-[builder-runs](../../tests/structure/builder-runs-responsive-source.test.ts).
+[account-settings](../../tests/structure/responsive-source-guards.test.ts) ·
+[team](../../tests/structure/responsive-source-guards.test.ts) ·
+[data-surfaces](../../tests/structure/responsive-source-guards.test.ts) ·
+[builder-runs](../../tests/structure/responsive-source-guards.test.ts).
 
 **Legitimate local overflow** — a bounded panel whose content is irreducibly wide:
 
@@ -525,7 +525,7 @@ Required whenever a breakpoint hides anything interactive:
 Landed example: [MarketingNav.tsx](../../features/marketing/MarketingNav.tsx) (one
 `NAV_LINKS` declaration, one `<nav>`, one state source) with
 [marketingResponsive.test.tsx](../../tests/unit/features/marketing/marketingResponsive.test.tsx)
-and [marketing-responsive-source.test.ts](../../tests/structure/marketing-responsive-source.test.ts)
+and [responsive-source-guards.test.ts (marketing section)](../../tests/structure/responsive-source-guards.test.ts)
 carrying the assertion the sweep cannot.
 
 **Generalise this.** Before trusting any green responsive run, ask what the harness is
@@ -707,10 +707,10 @@ For any surface receiving responsive work:
    named/allowed set of local scrollers and their caps; page bounds via a named
    `AppPageContainer` variant with no layered gutter; no breakpoint-scoped control; legibility
    floors present and not on `shrink-0`; panning declarations present where required.
-   Pattern: [team](../../tests/structure/team-responsive-source.test.ts) ·
-   [data-surfaces](../../tests/structure/data-surfaces-responsive-source.test.ts) ·
-   [builder-runs](../../tests/structure/builder-runs-responsive-source.test.ts) ·
-   [account-settings](../../tests/structure/account-settings-responsive-source.test.ts).
+   Pattern: [team](../../tests/structure/responsive-source-guards.test.ts) ·
+   [data-surfaces](../../tests/structure/responsive-source-guards.test.ts) ·
+   [builder-runs](../../tests/structure/responsive-source-guards.test.ts) ·
+   [account-settings](../../tests/structure/responsive-source-guards.test.ts).
    Strip comments before scanning so the guard never fires on prose that discusses the
    pattern — and so it cannot be silenced by moving code into a comment.
 3. **Rendered behavior tests** proving exactly one control set per entity, that permissions
@@ -767,7 +767,7 @@ Reusable by future responsive implementation prompts:
 | Containment assertion | `measure-app-shell.mjs` — `escapes` / `deepEscapes` |
 | Legibility declaration | `data-legible-min` / `data-legible-what` — [WorkflowRow.tsx](../../features/workflows/WorkflowRow.tsx), [RunRow.tsx](../../features/runs/RunRow.tsx) |
 | Panning declaration | `data-no-pan-below` — [WorkflowsTable.tsx](../../features/workflows/WorkflowsTable.tsx) (1024), [RunsPanel.tsx](../../features/workflow-builder/canvas/RunsPanel.tsx) (1600) |
-| Structure guards | [tests/structure/](../../tests/structure/) — `*-responsive-source.test.ts`, `builder-responsive-single-viewport-source.test.ts` |
+| Structure guards | [tests/structure/](../../tests/structure/) — `responsive-source-guards.test.ts` (one suite; each surface keeps its own describe) |
 
 ## Scope of the completed sweep
 
