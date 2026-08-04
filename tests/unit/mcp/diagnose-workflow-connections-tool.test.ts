@@ -9,7 +9,6 @@
  * tool is a pure `fetch` client + renderer — it imports no app code.
  */
 import { diagnoseWorkflowTools } from "@/scripts/mcp/tools/diagnoseWorkflow";
-import { buildRegistry } from "@/scripts/mcp/tools";
 import { ToolRegistry } from "@/scripts/mcp/registry";
 import { handleRpc } from "@/scripts/mcp/protocol";
 
@@ -37,9 +36,11 @@ afterEach(() => {
 });
 
 describe("diagnose_workflow_connections — registration + guards", () => {
-  it("is registered in the MCP registry", () => {
-    expect(buildRegistry().list().map((t) => t.name)).toContain("diagnose_workflow_connections");
-  });
+  // TEST-REDUNDANCY-CONSOLIDATION-2A — removed the registration-presence
+  // test (`buildRegistry().list()` contains this tool). Survivor:
+  // tests/unit/mcp/registry-inventory.test.ts pins the EXACT sorted tool
+  // list, so a missing registration fails there — and an unapproved extra
+  // one does too, which the removed test could not catch.
   it("requires workflowId", async () => {
     expect(await handler({ userId: "u1" })).toMatch(/'workflowId' is required/);
   });

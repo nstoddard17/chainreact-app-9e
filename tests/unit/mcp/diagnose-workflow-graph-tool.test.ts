@@ -6,7 +6,6 @@
  * drive render + failure paths, and proves the protocol egress redacts secrets.
  */
 import { diagnoseWorkflowTools } from "@/scripts/mcp/tools/diagnoseWorkflow";
-import { buildRegistry } from "@/scripts/mcp/tools";
 import { ToolRegistry } from "@/scripts/mcp/registry";
 import { handleRpc } from "@/scripts/mcp/protocol";
 
@@ -31,9 +30,11 @@ afterEach(() => {
 });
 
 describe("diagnose_workflow_graph — registration + guards", () => {
-  it("is registered", () => {
-    expect(buildRegistry().list().map((t) => t.name)).toContain("diagnose_workflow_graph");
-  });
+  // TEST-REDUNDANCY-CONSOLIDATION-2A — removed the registration-presence
+  // test (`buildRegistry().list()` contains this tool). Survivor:
+  // tests/unit/mcp/registry-inventory.test.ts pins the EXACT sorted tool
+  // list, so a missing registration fails there — and an unapproved extra
+  // one does too, which the removed test could not catch.
   it("requires workflowId and userId", async () => {
     expect(await handler({ userId: "u1" })).toMatch(/'workflowId' is required/);
     expect(await handler({ workflowId: "wf-1" })).toMatch(/'userId' is required/);

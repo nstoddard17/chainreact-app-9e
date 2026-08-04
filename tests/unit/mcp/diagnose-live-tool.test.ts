@@ -9,7 +9,6 @@
  * running app, and prove the protocol egress redacts any secret-shaped string.
  */
 import { diagnoseLiveTools } from "@/scripts/mcp/tools/diagnoseLive";
-import { buildRegistry } from "@/scripts/mcp/tools";
 import { ToolRegistry } from "@/scripts/mcp/registry";
 import { handleRpc } from "@/scripts/mcp/protocol";
 
@@ -39,10 +38,11 @@ afterEach(() => {
 });
 
 describe("diagnose_option_source_live — registration", () => {
-  it("is registered in the MCP registry", () => {
-    const names = buildRegistry().list().map((t) => t.name);
-    expect(names).toContain("diagnose_option_source_live");
-  });
+  // TEST-REDUNDANCY-CONSOLIDATION-2A — removed the registration-presence
+  // test (`buildRegistry().list()` contains this tool). Survivor:
+  // tests/unit/mcp/registry-inventory.test.ts pins the EXACT sorted tool
+  // list, so a missing registration fails there — and an unapproved extra
+  // one does too, which the removed test could not catch.
 });
 
 describe("diagnose_option_source_live — input + config guards", () => {
