@@ -71,7 +71,9 @@ describe("prompt-size ceilings (#1, #3, #4, #5)", () => {
     const triggerLine = lines.find((l) => l.includes("typeform:new_response_in_form"));
     expect(triggerLine).toBeDefined();
     expect(triggerLine).toContain("outputs:");
-    expect(triggerLine).toMatch(/\[trigger\]/);
+    // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — trigger lines carry their activation
+    // mechanism so the model can never conclude a non-webhook trigger is unsupported.
+    expect(triggerLine).toMatch(/\[trigger, (?:polling|webhook|scheduled|manual)\]/);
   });
 
   it("named-mode prompts still carry names-only awareness of every other provider", () => {

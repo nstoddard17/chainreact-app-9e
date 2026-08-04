@@ -331,6 +331,9 @@ function compactCapabilityLine(meta: {
   fields: readonly FieldMeta[];
   outputs?: readonly { name: string }[];
   dynamicOutputs?: boolean;
+  /** Trigger activation mechanism (polling/webhook/…) — rendered so the model can never conclude
+   *  a non-webhook trigger is unsupported (REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1). */
+  activation?: string;
 }): string {
   const required = meta.fields.filter((f) => f.required).map((f) => f.name);
   const optional = meta.fields
@@ -338,8 +341,9 @@ function compactCapabilityLine(meta: {
     .slice(0, MAX_COMPACT_INPUT_FIELDS)
     .map((f) => f.name);
   const purpose = compactPurpose(meta.description);
+  const kindTag = meta.kind === "trigger" && meta.activation ? `trigger, ${meta.activation}` : meta.kind;
   const parts = [
-    `  - ${meta.key} [${meta.kind}] "${meta.displayName}"${purpose ? ` — ${purpose}` : ""}`,
+    `  - ${meta.key} [${kindTag}] "${meta.displayName}"${purpose ? ` — ${purpose}` : ""}`,
     required.length ? `setup: ${required.join(", ")}` : "",
     optional.length ? `inputs: ${optional.join(", ")}` : "",
   ];
@@ -365,6 +369,7 @@ export function buildCompactCapabilityLines(providerIds: readonly string[]): rea
         fields: m.fields,
         outputs: (m.payloadShape ?? []) as readonly { name: string }[],
         dynamicOutputs: (m as { dynamicOutputSource?: unknown }).dynamicOutputSource != null,
+        activation: m.activation,
       })),
       ...listActionMetasForProvider(providerId).map((m) => ({
         key: m.key,

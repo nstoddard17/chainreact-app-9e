@@ -54,6 +54,10 @@ import {
 } from "@/services/ai-guidance/gateway/gatewayConfig";
 import { inferNamedProviderChainPlan } from "../fallback/inferNamedProviderChainPlan";
 import {
+  buildHonestCapabilityCopy,
+  findCapabilityContradiction,
+} from "./capabilityContradiction";
+import {
   classifyPreviewFirst,
   buildPreviewFirstRepairGoal,
   MIN_REPAIR_BUDGET_MS,
@@ -154,6 +158,22 @@ function logPreviewFirstDecision(info: {
 }
 
 /**
+ * REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — one safe line whenever a model reply contradicted
+ * the registry and was repaired. Enums + safe registry id only — never the model's text.
+ */
+function logCapabilityContradiction(info: {
+  requestId: string;
+  providerId: string;
+  handling: "honest_copy" | "plan_lead_in";
+}): void {
+  console.warn(
+    `[workflow-guidance] capability_contradiction requestId=${info.requestId} ` +
+      `provider=${info.providerId} handling=${info.handling} — the model denied a registered ` +
+      "capability; the reply was repaired with application-owned wording.",
+  );
+}
+
+/**
  * Apply preview-first enforcement to an initial guidance reply. See the module header for the
  * decision table and preserved invariants.
  */
@@ -162,13 +182,39 @@ export async function enforcePreviewFirst(
 ): Promise<EnforcePreviewFirstOutcome> {
   const { initialResult, editing, safeGoalText, brainStartedAt, requestId } = input;
 
+  // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — the USER's own texts across this conversation.
+  // Conversation-aware classification (a clarification answer like "gmail" is judged with the turns
+  // that gave it meaning), and the scope of the capability-contradiction guard below. Assistant
+  // turns are deliberately excluded — the assistant asking "Gmail or Outlook?" is not the user
+  // naming providers.
+  const recentUserTexts = (input.safeRecentTurns ?? [])
+    .filter((t) => t.role === "user")
+    .map((t) => t.text);
+  const conversationTexts = [...recentUserTexts, safeGoalText];
+
   // A plan (or proposed edit ops) is already the preview path; an editing turn belongs to the edit
-  // pipeline. Nothing to enforce.
+  // pipeline. Nothing to enforce structurally — but a plan-bearing reply whose PROSE denies a
+  // capability the registry has still gets the prose repaired (the plan itself already disproves
+  // the claim, so the shared lead-in is always truthful).
   if (editing || initialResult.workflowPlan || initialResult.mutationOperations) {
+    if (!editing && initialResult.workflowPlan) {
+      const contradiction = findCapabilityContradiction({
+        guidanceText: initialResult.guidanceText,
+        conversationTexts,
+      });
+      if (contradiction) {
+        logCapabilityContradiction({ requestId, providerId: contradiction.providerId, handling: "plan_lead_in" });
+        return {
+          kind: "accept",
+          result: { ...initialResult, guidanceText: PREVIEW_LEAD_IN },
+          via: "initial",
+        };
+      }
+    }
     return { kind: "accept", result: initialResult, via: "initial" };
   }
 
-  const classification = classifyPreviewFirst({ goalText: safeGoalText, editing });
+  const classification = classifyPreviewFirst({ goalText: safeGoalText, editing, recentUserTexts });
   const clarificationAllowed = classification.kind === "clarification_allowed";
   let result: WorkflowGuidanceIntakeResult & { readonly ok: true } = initialResult;
   let repairAttempted = false;
@@ -274,6 +320,22 @@ export async function enforcePreviewFirst(
     // route returns the typed failure + retry copy, never the questionnaire. The draft is untouched.
     return { kind: "plan_missing" };
   }
+
+  // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — a clarification-allowed, plan-less reply is the
+  // one surface where model prose reaches the user unchallenged. If that prose denies a capability
+  // the registry actually has for a provider the USER named ("ChainReact doesn't have a trigger for
+  // Gmail"), replace it with honest registry-derived copy — the false claim is never surfaced.
+  if (!finalHasPlan) {
+    const contradiction = findCapabilityContradiction({
+      guidanceText: result.guidanceText,
+      conversationTexts,
+    });
+    if (contradiction) {
+      logCapabilityContradiction({ requestId, providerId: contradiction.providerId, handling: "honest_copy" });
+      result = { ...result, guidanceText: buildHonestCapabilityCopy(contradiction) };
+    }
+  }
+
   return {
     kind: "accept",
     result,

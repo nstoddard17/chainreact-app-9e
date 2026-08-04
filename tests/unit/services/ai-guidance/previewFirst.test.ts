@@ -99,6 +99,60 @@ describe("classifyPreviewFirst — clarification legitimately allowed", () => {
   });
 });
 
+describe("classifyPreviewFirst — conversation-aware (REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1)", () => {
+  it("a clarification ANSWER turn ('gmail' after '…notified in slack') is preview_expected", () => {
+    const c = classifyPreviewFirst({
+      goalText: "gmail",
+      editing: false,
+      recentUserTexts: ["when I get an email I want to be notified in slack"],
+    });
+    expect(c.kind).toBe("preview_expected");
+    expect(c.namedProviders).toEqual(["gmail", "slack"]);
+  });
+
+  it("prior USER turns count toward the provider threshold; a lone 'gmail' without history stays a clarification", () => {
+    const c = classifyPreviewFirst({ goalText: "gmail", editing: false });
+    expect(c.kind).toBe("clarification_allowed");
+    expect(c.kind === "clarification_allowed" && c.reason).toBe("insufficient_named_providers");
+  });
+
+  it("an either/or in an EARLIER user turn is resolved by a later turn naming a provider", () => {
+    const c = classifyPreviewFirst({
+      goalText: "outlook",
+      editing: false,
+      recentUserTexts: ["when I get an email in Gmail or Outlook, post it to Slack"],
+    });
+    expect(c.kind).toBe("preview_expected");
+  });
+
+  it("an either/or in the CURRENT turn still clarifies (the user is asking us to choose)", () => {
+    const c = classifyPreviewFirst({
+      goalText: "should this use Gmail or Outlook?",
+      editing: false,
+      recentUserTexts: ["post new emails to Slack"],
+    });
+    expect(c.kind).toBe("clarification_allowed");
+    expect(c.kind === "clarification_allowed" && c.reason).toBe("provider_alternation");
+  });
+
+  it("a destructive either/or stands until a later user turn picks one of the verbs", () => {
+    const unresolved = classifyPreviewFirst({
+      goalText: "gmail",
+      editing: false,
+      recentUserTexts: ["when a HubSpot deal closes, delete or archive the Slack thread"],
+    });
+    expect(unresolved.kind).toBe("clarification_allowed");
+    expect(unresolved.kind === "clarification_allowed" && unresolved.reason).toBe("destructive_alternation");
+
+    const resolved = classifyPreviewFirst({
+      goalText: "archive it",
+      editing: false,
+      recentUserTexts: ["when a HubSpot deal closes, delete or archive the Slack thread"],
+    });
+    expect(resolved.kind).toBe("preview_expected");
+  });
+});
+
 describe("classifyPreviewFirst — non-alternating 'or' does not misfire", () => {
   it("'or' between values (not providers) still expects a preview", () => {
     const c = classifyPreviewFirst({

@@ -169,7 +169,12 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
   const compactCatalogBlock = input.compactCapabilityLines?.length
     ? "ChainReact capabilities relevant to this request — propose ONLY from these provider:type ids. " +
       "Each line: purpose | setup (required fields, collected by ChainReact's setup form) | inputs (common optional fields) | trigger outputs (referenceable as {{stepRef.name}}). " +
-      "Full field and output detail is applied by ChainReact AFTER the preview — do not guess fields not listed:\n" +
+      "Full field and output detail is applied by ChainReact AFTER the preview — do not guess fields not listed. " +
+      // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — the model once told a user ChainReact had no
+      // Gmail trigger while gmail:new_email (polling) sat in this very catalog. State the
+      // activation fact explicitly so outside knowledge about webhooks can never override it.
+      "Every capability listed IS fully supported as-is: a [trigger, polling] entry means ChainReact watches the source automatically by polling — webhook support is NOT required for any trigger to work. " +
+      "Never tell the user an app, trigger, or action listed here is unavailable, unsupported, or cannot be watched:\n" +
       input.compactCapabilityLines.join("\n")
     : "";
   const otherProvidersBlock = input.compactCapabilityLines?.length ? (input.otherProvidersLine ?? "") : "";

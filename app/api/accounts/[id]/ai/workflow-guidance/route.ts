@@ -785,11 +785,14 @@ export async function POST(
     : { kind: "none" as const };
 
   // REACT-PROVIDER-AMBIGUITY-1/-2 — the provider-selection guard's shared context: the user's words
-  // (all turns), providers already on their canvas, and connected providers. See the decision table
-  // in `providerSelectionGuard.ts` — a capability match never authorizes inventing a provider, and
-  // `connectedProviders` informs only the clarification COPY (connection ≠ intent).
+  // (their OWN turns only), providers already on their canvas, and connected providers. See the
+  // decision table in `providerSelectionGuard.ts` — a capability match never authorizes inventing a
+  // provider, and `connectedProviders` informs only the clarification COPY (connection ≠ intent).
+  // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — assistant turns are excluded: the decision-table
+  // rule is "the USER named P", and the assistant asking "Gmail or Outlook?" must not make both
+  // options count as user-named (which would let the very question justify an unanswered choice).
   const providerGuardCtx = {
-    texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
+    texts: [goalText, ...(boundedRecentTurns?.filter((t) => t.role === "user").map((t) => t.text) ?? [])],
     canvasProviders: editing ? currentDraft!.nodes.map((n) => n.provider) : [],
     connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
   };

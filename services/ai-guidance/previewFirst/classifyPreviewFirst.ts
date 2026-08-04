@@ -165,26 +165,62 @@ export interface ClassifyPreviewFirstInput {
   readonly goalText: string;
   /** True when the turn edits an existing non-empty draft (the edit pipeline owns that path). */
   readonly editing: boolean;
+  /**
+   * REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — the PRIOR user-turn texts of this conversation
+   * (oldest → newest). A clarification answer like "gmail" names one provider by itself, but the
+   * CONVERSATION names two ("…notified in slack" + "gmail") — and the answer turn is exactly where
+   * a withheld plan (or a false "unsupported" claim) must not stand. Only USER turns belong here:
+   * the assistant asking "Gmail or Outlook?" is not the user naming providers.
+   */
+  readonly recentUserTexts?: readonly string[];
 }
+
+/** Any verb from either alternation class — the answer that RESOLVES a destructive either/or. */
+const ALTERNATION_ANSWER_VERB = new RegExp(
+  `\\b(?:${DESTRUCTIVE_VERBS}|${NON_DESTRUCTIVE_ALTERNATIVES})\\b`,
+  "i",
+);
 
 /**
  * Decide whether a no-plan (clarification-only) guidance reply is acceptable for this request.
- * Deterministic; grounded ONLY in the request text and the provider registry.
+ * Deterministic; grounded ONLY in the request/conversation text and the provider registry.
+ *
+ * Conversation-aware (REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1): named providers are the UNION
+ * across the user's own turns, and an either/or counts only while it is UNANSWERED — an alternation
+ * in an earlier turn is resolved once a later user turn names a provider (or, for a destructive
+ * either/or, picks one of the verbs). With no `recentUserTexts` the behavior is exactly the
+ * original single-text rule.
  */
 export function classifyPreviewFirst(input: ClassifyPreviewFirstInput): PreviewFirstClassification {
   if (input.editing) {
     return { kind: "clarification_allowed", reason: "editing_turn", namedProviders: [] };
   }
-  const providers = mentionedProviders(input.goalText);
-  const named = providers.map((p) => p.id).sort();
-  if (providers.length < 2) {
+  const texts = [...(input.recentUserTexts ?? []), input.goalText];
+  const perText = texts.map((t) => mentionedProviders(t));
+  const byId = new Map<string, MentionedProvider>();
+  for (const list of perText) for (const p of list) if (!byId.has(p.id)) byId.set(p.id, p);
+  const named = [...byId.keys()].sort();
+  if (byId.size < 2) {
     return { kind: "clarification_allowed", reason: "insufficient_named_providers", namedProviders: named };
   }
-  if (hasProviderAlternation(input.goalText, providers)) {
-    return { kind: "clarification_allowed", reason: "provider_alternation", namedProviders: named };
+  // An explicit provider either/or stands until a LATER user turn names a provider (the answer).
+  for (let i = 0; i < texts.length; i += 1) {
+    const providersHere = perText[i]!;
+    if (providersHere.length >= 2 && hasProviderAlternation(texts[i]!, providersHere)) {
+      const answered = perText.slice(i + 1).some((later) => later.length > 0);
+      if (!answered) {
+        return { kind: "clarification_allowed", reason: "provider_alternation", namedProviders: named };
+      }
+    }
   }
-  if (DESTRUCTIVE_ALTERNATION.test(input.goalText)) {
-    return { kind: "clarification_allowed", reason: "destructive_alternation", namedProviders: named };
+  // A destructive either/or stands until a later user turn picks one of the verbs.
+  for (let i = 0; i < texts.length; i += 1) {
+    if (DESTRUCTIVE_ALTERNATION.test(texts[i]!)) {
+      const answered = texts.slice(i + 1).some((t) => ALTERNATION_ANSWER_VERB.test(t));
+      if (!answered) {
+        return { kind: "clarification_allowed", reason: "destructive_alternation", namedProviders: named };
+      }
+    }
   }
   return { kind: "preview_expected", namedProviders: named };
 }
