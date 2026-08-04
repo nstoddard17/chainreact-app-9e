@@ -7,7 +7,8 @@ import {
   type AuthActionResult,
 } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
+import { TURNSTILE_FIELD_NAME } from "@/core/security/turnstile";
+import { CAPTCHA_MISCONFIGURED_MESSAGE, useCaptchaMode } from "./useCaptchaMode";
 import { AuthHeading } from "./AuthShell";
 import { AuthOtpField, EMAIL_OTP_MIN_LENGTH, EMAIL_OTP_MAX_LENGTH } from "./AuthCodeInput";
 import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";
@@ -57,7 +58,9 @@ export function VerifyEmailForm({
   const [cooldown, setCooldown] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
 
-  const captchaConfigured = isTurnstileWidgetConfigured();
+  // Central policy (LOCAL-AUTH-CAPTCHA-BYPASS-1) — gates only the RESEND form
+  // (Supabase enforces captcha on resend when the project has it enabled).
+  const { captchaRequired, showCaptchaWidget, captchaMisconfigured } = useCaptchaMode();
   const [captchaToken, setCaptchaToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
 
@@ -100,7 +103,8 @@ export function VerifyEmailForm({
   // 6–10 digits, explicit submit only — never auto-submit at any length (the
   // sanitizer already clamps above the max, but the gate stays double-ended).
   const complete = code.length >= EMAIL_OTP_MIN_LENGTH && code.length <= EMAIL_OTP_MAX_LENGTH;
-  const resendBlocked = resending || cooldown > 0 || (captchaConfigured && !captchaToken);
+  const resendBlocked =
+    resending || cooldown > 0 || (captchaRequired && (captchaMisconfigured || !captchaToken));
 
   return (
     <>
@@ -154,7 +158,7 @@ export function VerifyEmailForm({
 
       <form action={resendAction}>
         <input type="hidden" name="email" value={email} />
-        {captchaConfigured && (
+        {showCaptchaWidget && (
           <>
             <input type="hidden" name={TURNSTILE_FIELD_NAME} value={captchaToken} readOnly />
             <TurnstileWidget
@@ -164,6 +168,8 @@ export function VerifyEmailForm({
             />
           </>
         )}
+        {/* Required but no site key: fail visibly, never silently skip the check. */}
+        {captchaMisconfigured && <AuthFormError>{CAPTCHA_MISCONFIGURED_MESSAGE}</AuthFormError>}
         <p className="au-swap">
           {expired ? "That code has expired." : "Didn't get a code?"}
           {cooldown > 0 ? (

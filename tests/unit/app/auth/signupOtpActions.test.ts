@@ -263,14 +263,12 @@ describe("resendSignupOtp", () => {
     });
   });
 
-  it("omits the captcha token when the widget isn't configured", async () => {
+  it("OMITS the captcha option entirely when no token was submitted (disabled mode)", async () => {
     mockResend.mockResolvedValueOnce({ error: null });
     await resendSignupOtp(null, form({ email: "new@example.test" }));
-    expect(mockResend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        options: expect.objectContaining({ captchaToken: undefined }),
-      }),
-    );
+    const arg = mockResend.mock.calls[0]![0] as { options: Record<string, unknown> };
+    expect(arg.options).not.toHaveProperty("captchaToken");
+    expect(arg.options.emailRedirectTo).toBeDefined();
   });
 
   it("returns a safe failure and logs only the message — never the address", async () => {

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { requestPasswordReset, type AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
+import { TURNSTILE_FIELD_NAME } from "@/core/security/turnstile";
+import { CAPTCHA_MISCONFIGURED_MESSAGE, useCaptchaMode } from "./useCaptchaMode";
 import { AuthHeading } from "./AuthShell";
 import { AuthField } from "./AuthField";
 import { AuthFormError, AuthSubmit } from "./AuthControls";
@@ -36,7 +37,8 @@ export function ForgotPasswordForm({ serverError }: { serverError?: string } = {
   // so a LATER success (a new result object) shows the confirmation again.
   const [dismissed, setDismissed] = useState<AuthActionResult | null>(null);
 
-  const captchaConfigured = isTurnstileWidgetConfigured();
+  // Central policy (LOCAL-AUTH-CAPTCHA-BYPASS-1) — see AuthForm for the modes.
+  const { captchaRequired, showCaptchaWidget, captchaMisconfigured } = useCaptchaMode();
   const [captchaToken, setCaptchaToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
   useEffect(() => {
@@ -98,8 +100,8 @@ export function ForgotPasswordForm({ serverError }: { serverError?: string } = {
               onChange={(e) => setEmail(e.target.value)}
             />
 
-            {/* Bot protection — renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
-            {captchaConfigured && (
+            {/* Bot protection — rendered only when the central policy requires it. */}
+            {showCaptchaWidget && (
               <>
                 <input type="hidden" name={TURNSTILE_FIELD_NAME} value={captchaToken} readOnly />
                 <TurnstileWidget
@@ -109,13 +111,17 @@ export function ForgotPasswordForm({ serverError }: { serverError?: string } = {
                 />
               </>
             )}
+            {/* Required but no site key: fail visibly, never silently skip the check. */}
+            {captchaMisconfigured && (
+              <AuthFormError>{CAPTCHA_MISCONFIGURED_MESSAGE}</AuthFormError>
+            )}
 
             {state && !state.ok && <AuthFormError>{state.error}</AuthFormError>}
 
             <AuthSubmit
               pending={pending}
               pendingLabel="Sending…"
-              disabled={captchaConfigured && captchaToken.length === 0}
+              disabled={captchaRequired && (captchaMisconfigured || captchaToken.length === 0)}
             >
               Send reset link
             </AuthSubmit>

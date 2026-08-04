@@ -24,6 +24,7 @@ jest.mock("@/app/auth/actions", () => ({
 jest.mock("@/core/security/turnstile", () => ({
   TURNSTILE_FIELD_NAME: "cf-turnstile-response",
   isTurnstileWidgetConfigured: () => false,
+  resolveBrowserCaptchaMode: () => "disabled",
 }));
 
 jest.mock("@/utils/supabase/client", () => ({

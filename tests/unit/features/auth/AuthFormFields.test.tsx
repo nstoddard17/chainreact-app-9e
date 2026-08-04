@@ -6,11 +6,13 @@ jest.mock("@/app/auth/actions", () => ({
   signIn: (...args: unknown[]) => mockSignIn(...args),
 }));
 
-// Keep the captcha out of these cases; its own gating is covered by the
-// actions-captcha suite. Rendering it here would just add an async script load.
+// Keep the captcha out of these cases; policy gating has its own suites
+// (captchaPolicy + captchaModeUi). Rendering it here would just add an async
+// script load.
 jest.mock("@/core/security/turnstile", () => ({
   TURNSTILE_FIELD_NAME: "cf-turnstile-response",
   isTurnstileWidgetConfigured: () => false,
+  resolveBrowserCaptchaMode: () => "disabled",
 }));
 
 import { AuthField } from "@/features/auth/AuthField";

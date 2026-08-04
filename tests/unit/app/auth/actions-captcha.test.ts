@@ -5,8 +5,10 @@
  * Supabase-native: the app forwards the Turnstile token from the form to the
  * Supabase SDK via `options.captchaToken`. These tests prove the token is read
  * from the `cf-turnstile-response` field and passed to signUp / signIn /
- * resetPasswordForEmail — and that its absence yields `captchaToken: undefined`
- * (dev / not configured), never a thrown/blocked request app-side.
+ * resetPasswordForEmail — and that when no token was submitted (the central
+ * policy disabled captcha: local loopback dev / hosted v2-dev) the
+ * `captchaToken` option is OMITTED ENTIRELY — never sent as `""` and never as
+ * an explicit `undefined` property (LOCAL-AUTH-CAPTCHA-BYPASS-1).
  */
 
 const mockSignUp = jest.fn();
@@ -99,11 +101,56 @@ describe("captcha token forwarded to Supabase", () => {
     );
   });
 
-  it("omits the token (undefined) when the field is absent — dev / not configured", async () => {
+  it("signIn OMITS the captcha option entirely when the field is absent (disabled mode)", async () => {
     mockSignInWithPassword.mockResolvedValueOnce({ error: null });
-    await swallowRedirect(() => signIn(null, fd({ email: "u@example.test", password: "password123" })));
-    expect(mockSignInWithPassword).toHaveBeenCalledWith(
-      expect.objectContaining({ options: { captchaToken: undefined } }),
+    await swallowRedirect(() =>
+      signIn(null, fd({ email: "u@example.test", password: "password123" })),
     );
+    const arg = mockSignInWithPassword.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg).not.toHaveProperty("options");
+    expect(JSON.stringify(arg)).not.toContain("captchaToken");
+  });
+
+  it("signIn never forwards an empty-string token as a captcha option", async () => {
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
+    await swallowRedirect(() =>
+      signIn(
+        null,
+        fd({ email: "u@example.test", password: "password123", "cf-turnstile-response": "" }),
+      ),
+    );
+    const arg = mockSignInWithPassword.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg).not.toHaveProperty("options");
+  });
+
+  it("signUp omits captchaToken from options when no token was submitted", async () => {
+    mockSignUp.mockResolvedValueOnce({ data: { session: null }, error: null });
+    await signUp(null, fd({ email: "u@example.test", password: "password123" }));
+    const arg = mockSignUp.mock.calls[0]![0] as { options: Record<string, unknown> };
+    expect(arg.options).not.toHaveProperty("captchaToken");
+    expect(arg.options.emailRedirectTo).toBeDefined();
+  });
+
+  it("requestPasswordReset omits captchaToken when no token was submitted", async () => {
+    mockResetPasswordForEmail.mockResolvedValueOnce({ error: null });
+    await requestPasswordReset(null, fd({ email: "u@example.test" }));
+    const opts = mockResetPasswordForEmail.mock.calls[0]![1] as Record<string, unknown>;
+    expect(opts).not.toHaveProperty("captchaToken");
+    expect(opts.redirectTo).toBeDefined();
+  });
+
+  it("credential failures surface unchanged when no captcha is involved", async () => {
+    mockSignInWithPassword.mockResolvedValueOnce({
+      error: { message: "Invalid login credentials" },
+    });
+    const result = await signIn(null, fd({ email: "u@example.test", password: "nope-nope" }));
+    expect(result).toEqual({ ok: false, error: "Invalid login credentials" });
+  });
+
+  it("network failures surface as thrown errors, not silent successes", async () => {
+    mockSignInWithPassword.mockRejectedValueOnce(new Error("fetch failed"));
+    await expect(
+      signIn(null, fd({ email: "u@example.test", password: "password123" })),
+    ).rejects.toThrow("fetch failed");
   });
 });

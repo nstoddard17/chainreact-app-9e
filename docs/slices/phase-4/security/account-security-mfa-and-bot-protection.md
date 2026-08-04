@@ -87,8 +87,55 @@ Verification lives in exactly one place: Supabase.
   have no `captchaToken` and are not gated, so account-page MFA enrollment is
   unaffected.
 - **Config:** the app only needs `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; the secret lives
-  in the Supabase dashboard. When the site key is unset the widget is hidden and no
-  token is sent (correct for dev, where Supabase captcha is off).
+  in the Supabase dashboard.
+
+### Central CAPTCHA requirement policy (LOCAL-AUTH-CAPTCHA-BYPASS-1)
+
+Whether an auth surface requires a token is decided in exactly one place:
+`resolveCaptchaMode` in `core/security/turnstile.ts`, consumed by every auth
+form through the `useCaptchaMode` hook (`features/auth/useCaptchaMode.ts`).
+Before this policy, "no site key" silently meant "attempt no captcha", which
+both broke local sign-in against an enforcing project and hid production
+misconfiguration.
+
+The deciding axis is the **Supabase project the build targets**
+(`NEXT_PUBLIC_SUPABASE_URL`) — the same backend that enforces the captcha —
+never the browser hostname alone (spoofable). The refs mirror
+`scripts/lib/env-target.mjs`.
+
+| Environment | Mode |
+| --- | --- |
+| Production project (`qcepijemjlkssfkvzlio`) — any host, including localhost | **required** |
+| Hosted `v2-dev` (build against `syvnzqzctnywakgyykmz`, its branch-scoped env) | **disabled** (approved: that project's bot protection is intentionally off) |
+| Local dev server (`next dev`) against the dev project or the local stack, viewed over loopback (`localhost` / `127.0.0.1` / `::1`) | **disabled** |
+| Same local dev server viewed from a LAN IP | **required** (the loopback check revokes the bypass after mount) |
+| Unknown previews / unknown backends / missing env | **required** — fail closed |
+
+Behavioral contract:
+
+- **Disabled mode** renders no widget, loads no Turnstile script, submits no
+  hidden token field, and the server actions **omit `captchaToken` entirely**
+  from the Supabase options — never `""`, never a fake token, never an explicit
+  `undefined` property. Normal credential/network errors surface unchanged.
+- **Required mode** keeps the existing widget experience (submit disabled until
+  a real token exists, expiry clears it, a failed submit mints a fresh one). If
+  the site key is missing where captcha is required, the form shows an explicit
+  configuration error and **blocks submission** — it never silently falls back
+  to bypass mode.
+- **Local setup:** `npm run dev:devdb` (dev project) or the local Supabase
+  stack under `next dev` needs no Turnstile variables at all. No new env var
+  was introduced; `NEXT_PUBLIC_TURNSTILE_SITE_KEY` remains the only knob, and
+  it only matters where the policy already requires captcha.
+- **Troubleshooting:** if a *development* Supabase project starts rejecting
+  tokenless auth with a captcha error, its Bot & Abuse Protection was turned on
+  — the app-side policy cannot (and must not) compensate; turn it off for that
+  dev project or supply a dev site key + secret pair. Production keeps captcha
+  on in both places (site key in Vercel env, secret in the Supabase dashboard).
+
+Tests: `tests/unit/core/security/captchaPolicy.test.ts` (environment matrix,
+policy unmocked) and `tests/unit/features/auth/captchaModeUi.test.tsx` (widget
+rendering, submit gating, misconfiguration failure, token lifecycle, omission
+of the token field).
 
 ## Security guarantees
 

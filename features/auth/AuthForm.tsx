@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import type { AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/core/security/turnstile";
+import { TURNSTILE_FIELD_NAME } from "@/core/security/turnstile";
+import { CAPTCHA_MISCONFIGURED_MESSAGE, useCaptchaMode } from "./useCaptchaMode";
 import { AuthField } from "./AuthField";
 import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";
 
@@ -61,7 +62,11 @@ export function AuthForm({
   // uncontrolled: it is cleared on every failed attempt and never persisted.
   const [email, setEmail] = useState("");
 
-  const captchaConfigured = isTurnstileWidgetConfigured();
+  // Central policy (LOCAL-AUTH-CAPTCHA-BYPASS-1): required environments render
+  // the widget and gate the submit on a real token; disabled environments
+  // (local loopback dev, hosted v2-dev) render no widget and submit no token
+  // field at all; required-but-unconfigured fails visibly instead of bypassing.
+  const { captchaRequired, showCaptchaWidget, captchaMisconfigured } = useCaptchaMode();
   const [captchaToken, setCaptchaToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
   useEffect(() => {
@@ -111,8 +116,8 @@ export function AuthForm({
           : {})}
       />
 
-      {/* Bot protection — renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
-      {captchaConfigured && (
+      {/* Bot protection — rendered only when the central policy requires it. */}
+      {showCaptchaWidget && (
         <>
           <input type="hidden" name={TURNSTILE_FIELD_NAME} value={captchaToken} readOnly />
           <TurnstileWidget
@@ -122,13 +127,15 @@ export function AuthForm({
           />
         </>
       )}
+      {/* Required but no site key: fail visibly, never silently skip the check. */}
+      {captchaMisconfigured && <AuthFormError>{CAPTCHA_MISCONFIGURED_MESSAGE}</AuthFormError>}
 
       {state && !state.ok && <AuthFormError>{state.error}</AuthFormError>}
 
       <AuthSubmit
         pending={pending}
         pendingLabel={pendingLabel}
-        disabled={captchaConfigured && captchaToken.length === 0}
+        disabled={captchaRequired && (captchaMisconfigured || captchaToken.length === 0)}
       >
         {submitLabel}
       </AuthSubmit>

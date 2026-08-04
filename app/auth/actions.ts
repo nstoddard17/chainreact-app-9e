@@ -49,10 +49,11 @@ async function resolveOrigin(): Promise<string> {
 export async function signUp(_prev: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
-  // Bot protection (SEC-3): the Turnstile token is forwarded to Supabase, which
-  // verifies it server-side when captcha protection is enabled for the project.
-  // Undefined when the widget isn't configured (dev) — Supabase then requires no
-  // token. We never redeem it ourselves (single-use).
+  // Bot protection (SEC-3 / LOCAL-AUTH-CAPTCHA-BYPASS-1): a submitted Turnstile
+  // token is forwarded to Supabase, which verifies it server-side. When the
+  // central captcha policy disabled the widget, no token was submitted and the
+  // captchaToken option is OMITTED ENTIRELY — never sent as "" or undefined.
+  // We never redeem the token ourselves (single-use).
   const captchaToken = readCaptchaToken(formData);
   // ANON-BUILDER-2 — same-origin destination after auth (e.g. /start/continue to
   // restore an anonymous draft). Sanitized; defaults to /workflows.
@@ -70,7 +71,7 @@ export async function signUp(_prev: AuthActionResult | null, formData: FormData)
     password: creds.password,
     options: {
       emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(emailNext)}`,
-      captchaToken,
+      ...(captchaToken ? { captchaToken } : {}),
     },
   });
   if (error) return { ok: false, error: error.message };
@@ -88,16 +89,16 @@ export async function signIn(_prev: AuthActionResult | null, formData: FormData)
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
   // Bot protection (SEC-3): forward the Turnstile token to Supabase for
-  // server-side verification (see signUp). Never redeemed app-side.
+  // server-side verification (see signUp). Never redeemed app-side; the option
+  // is omitted entirely when no token was submitted.
   const captchaToken = readCaptchaToken(formData);
   const returnTo = safeReturnPath(
     typeof formData.get("returnTo") === "string" ? (formData.get("returnTo") as string) : null,
   );
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
-    ...creds,
-    options: { captchaToken },
-  });
+  const { error } = await supabase.auth.signInWithPassword(
+    captchaToken ? { ...creds, options: { captchaToken } } : { ...creds },
+  );
   if (error) return { ok: false, error: error.message };
   redirect(returnTo);
 }
@@ -125,13 +126,14 @@ export async function requestPasswordReset(
   if (typeof email !== "string" || email.trim().length === 0) {
     return { ok: false, error: "Email is required." };
   }
-  // Bot protection (SEC-3): forward the Turnstile token to Supabase (see signUp).
+  // Bot protection (SEC-3): forward the Turnstile token to Supabase (see signUp);
+  // omitted entirely when no token was submitted.
   const captchaToken = readCaptchaToken(formData);
   const supabase = await createClient();
   const origin = await resolveOrigin();
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
     redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
-    captchaToken,
+    ...(captchaToken ? { captchaToken } : {}),
   });
   if (error) {
     console.warn(
@@ -358,7 +360,7 @@ export async function resendSignupOtp(
     email,
     options: {
       emailRedirectTo: `${origin}/auth/callback?next=/auth/confirmed`,
-      captchaToken,
+      ...(captchaToken ? { captchaToken } : {}),
     },
   });
   if (error) {
