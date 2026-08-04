@@ -76,37 +76,39 @@ describe("stripe manifest", () => {
     expect(providerSupports("stripe", "pollingTrigger")).toBe(false);
   });
 
-  it("when webhookTrigger: true, event_received activation + deactivation hooks are registered", () => {
-    if (stripeManifest.capabilities.webhookTrigger) {
-      expect(findActivation("stripe", "event_received")).not.toBeNull();
-      expect(findDeactivation("stripe", "event_received")).not.toBeNull();
-    }
+  it("declares webhookTrigger: true and event_received activation + deactivation hooks are registered", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(stripeManifest.capabilities.webhookTrigger).toBe(true);
+    expect(findActivation("stripe", "event_received")).not.toBeNull();
+    expect(findDeactivation("stripe", "event_received")).not.toBeNull();
   });
 
-  it("when actions: true, the action-handler registry contains all 16 Stripe actions", () => {
-    if (stripeManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "stripe",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "cancel_subscription",
-        "capture_payment_intent",
-        "confirm_payment_intent",
-        "create_checkout_session",
-        "create_customer",
-        "create_invoice",
-        "create_payment_intent",
-        "create_payment_link",
-        "create_refund",
-        "create_subscription",
-        "find_customer",
-        "find_payment_intent",
-        "find_subscription",
-        "get_payments",
-        "update_customer",
-        "update_subscription",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 16 Stripe actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(stripeManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "stripe",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "cancel_subscription",
+      "capture_payment_intent",
+      "confirm_payment_intent",
+      "create_checkout_session",
+      "create_customer",
+      "create_invoice",
+      "create_payment_intent",
+      "create_payment_link",
+      "create_refund",
+      "create_subscription",
+      "find_customer",
+      "find_payment_intent",
+      "find_subscription",
+      "get_payments",
+      "update_customer",
+      "update_subscription",
+    ]);
   });
 
   it("declares apiVersion '2025-05-28.basil' (matches V1's lib/stripe/client.ts pin for cutover wire-format parity)", () => {

@@ -24,6 +24,7 @@ jest.mock("@/integrations/stripe/api/paymentIntents", () => ({
 
 import { findPaymentIntent } from "@/integrations/stripe/actions/findPaymentIntent";
 import { NotFoundError } from "@/integrations/_shared/stripe/errors";
+import { FindPaymentIntentConfigSchema } from "@/integrations/stripe/actions/findPaymentIntent.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
@@ -269,5 +270,68 @@ describe("find_payment_intent action", () => {
       }),
     ).rejects.toThrow();
     expect(mockGet).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Schema contract tests — merged from the former sibling findPaymentIntent.schema.test.ts
+// (PROVIDER-CONTRACT-CONSOLIDATION-1A; same production schema import, all
+// assertions preserved verbatim).
+// ---------------------------------------------------------------------------
+
+describe("FindPaymentIntentConfigSchema", () => {
+  it("accepts a valid paymentIntentId", () => {
+    const result = FindPaymentIntentConfigSchema.safeParse({
+      paymentIntentId: "pi_test_1",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects when paymentIntentId is missing", () => {
+    const result = FindPaymentIntentConfigSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty paymentIntentId", () => {
+    const result = FindPaymentIntentConfigSchema.safeParse({
+      paymentIntentId: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-string paymentIntentId", () => {
+    const result = FindPaymentIntentConfigSchema.safeParse({
+      paymentIntentId: 123,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects unknown fields (.strict() — no raw expand passthrough)", () => {
+    const result = FindPaymentIntentConfigSchema.safeParse({
+      paymentIntentId: "pi_1",
+      expand: ["charges"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects V1 search/list-style fields (customer / status / limit)", () => {
+    expect(
+      FindPaymentIntentConfigSchema.safeParse({
+        paymentIntentId: "pi_1",
+        customer: "cus_1",
+      }).success,
+    ).toBe(false);
+    expect(
+      FindPaymentIntentConfigSchema.safeParse({
+        paymentIntentId: "pi_1",
+        status: "succeeded",
+      }).success,
+    ).toBe(false);
+    expect(
+      FindPaymentIntentConfigSchema.safeParse({
+        paymentIntentId: "pi_1",
+        limit: 10,
+      }).success,
+    ).toBe(false);
   });
 });

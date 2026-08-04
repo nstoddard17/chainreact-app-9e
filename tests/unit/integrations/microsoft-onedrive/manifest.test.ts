@@ -92,21 +92,22 @@ describe("microsoft-onedrive manifest", () => {
     );
   });
 
-  it("when actions: true, the action-handler registry contains all 7 OneDrive actions", () => {
-    if (microsoftOneDriveManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "microsoft-onedrive",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "copy_item",
-        "create_folder",
-        "delete_item",
-        "get_file",
-        "list_items",
-        "move_item",
-        "upload_file",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 7 OneDrive actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(microsoftOneDriveManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "microsoft-onedrive",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "copy_item",
+      "create_folder",
+      "delete_item",
+      "get_file",
+      "list_items",
+      "move_item",
+      "upload_file",
+    ]);
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

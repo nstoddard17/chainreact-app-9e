@@ -105,22 +105,23 @@ describe("microsoft-teams manifest", () => {
     expect(providerSupports("microsoft-teams", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 8 Teams actions", () => {
-    if (microsoftTeamsManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "microsoft-teams",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "get_channel_details",
-        "get_team_members",
-        "list_channel_messages",
-        "list_channels",
-        "list_teams",
-        "reply_to_channel_message",
-        "send_channel_message",
-        "send_chat_message",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 8 Teams actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(microsoftTeamsManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "microsoft-teams",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "get_channel_details",
+      "get_team_members",
+      "list_channel_messages",
+      "list_channels",
+      "list_teams",
+      "reply_to_channel_message",
+      "send_channel_message",
+      "send_chat_message",
+    ]);
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

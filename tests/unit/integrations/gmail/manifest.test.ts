@@ -54,18 +54,19 @@ describe("gmail manifest", () => {
     expect(providerSupports("gmail", "webhookTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains gmail:send_email", () => {
+  it("declares actions: true and the action-handler registry contains gmail:send_email", () => {
     // Honest-capability invariant: the manifest only claims `actions: true`
     // when there's at least one corresponding handler registered.
-    if (gmailManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "gmail",
-      );
-      expect(registered).toContainEqual({
-        provider: "gmail",
-        type: "send_email",
-      });
-    }
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(gmailManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "gmail",
+    );
+    expect(registered).toContainEqual({
+      provider: "gmail",
+      type: "send_email",
+    });
   });
 
   it("uses 6h health-check interval matching V1 Google cadence", () => {

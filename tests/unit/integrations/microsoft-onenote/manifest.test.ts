@@ -83,26 +83,27 @@ describe("microsoft-onenote manifest", () => {
     expect(providerSupports("microsoft-onenote", "pollingTrigger")).toBe(true);
   });
 
-  it("when actions: true, the action-handler registry contains all 12 OneNote actions", () => {
-    if (microsoftOneNoteManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "microsoft-onenote",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "copy_page",
-        "create_notebook",
-        "create_page",
-        "create_section",
-        "delete_page",
-        "get_notebook_details",
-        "get_page_content",
-        "get_section_details",
-        "list_notebooks",
-        "list_pages",
-        "list_sections",
-        "update_page",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 12 OneNote actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(microsoftOneNoteManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "microsoft-onenote",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "copy_page",
+      "create_notebook",
+      "create_page",
+      "create_section",
+      "delete_page",
+      "get_notebook_details",
+      "get_page_content",
+      "get_section_details",
+      "list_notebooks",
+      "list_pages",
+      "list_sections",
+      "update_page",
+    ]);
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

@@ -50,21 +50,22 @@ describe("google-drive manifest", () => {
     expect(providerSupports("google-drive", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 7 Drive actions", () => {
-    if (googleDriveManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "google-drive",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "create_folder",
-        "delete_file",
-        "get_file_metadata",
-        "list_files",
-        "move_file",
-        "search_files",
-        "upload_file",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 7 Drive actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(googleDriveManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "google-drive",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "create_folder",
+      "delete_file",
+      "get_file_metadata",
+      "list_files",
+      "move_file",
+      "search_files",
+      "upload_file",
+    ]);
   });
 
   it("uses 6h health-check interval matching V1 Google cadence", () => {

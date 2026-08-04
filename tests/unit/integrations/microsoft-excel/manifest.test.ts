@@ -82,27 +82,28 @@ describe("microsoft-excel manifest", () => {
     expect(providerSupports("microsoft-excel", "pollingTrigger")).toBe(true);
   });
 
-  it("when actions: true, the action-handler registry contains all 13 Excel actions (slice 15 + Microsoft Excel parity + EXCEL-READ-2 reads)", () => {
-    if (microsoftExcelManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "microsoft-excel",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "add_row",
-        "add_table_row",
-        "create_worksheet",
-        "delete_row",
-        "delete_worksheet",
-        "export_sheet",
-        "find_row",
-        "get_workbooks",
-        "get_worksheets",
-        "read_range",
-        "read_table_rows",
-        "rename_worksheet",
-        "update_row",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 13 Excel actions (slice 15 + Microsoft Excel parity + EXCEL-READ-2 reads)", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(microsoftExcelManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "microsoft-excel",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "add_row",
+      "add_table_row",
+      "create_worksheet",
+      "delete_row",
+      "delete_worksheet",
+      "export_sheet",
+      "find_row",
+      "get_workbooks",
+      "get_worksheets",
+      "read_range",
+      "read_table_rows",
+      "rename_worksheet",
+      "update_row",
+    ]);
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

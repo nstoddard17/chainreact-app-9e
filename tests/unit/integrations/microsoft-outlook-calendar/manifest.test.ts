@@ -77,19 +77,20 @@ describe("microsoft-outlook-calendar manifest", () => {
     ).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 5 calendar actions", () => {
-    if (microsoftOutlookCalendarManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "microsoft-outlook-calendar",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "add_attendees",
-        "create_event",
-        "delete_event",
-        "list_events",
-        "update_event",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 5 calendar actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(microsoftOutlookCalendarManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "microsoft-outlook-calendar",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "add_attendees",
+      "create_event",
+      "delete_event",
+      "list_events",
+      "update_event",
+    ]);
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

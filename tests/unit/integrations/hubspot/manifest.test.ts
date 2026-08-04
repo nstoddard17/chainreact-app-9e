@@ -101,44 +101,45 @@ describe("hubspot manifest", () => {
     expect(providerSupports("hubspot", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 26 actions (22 Slice 13 + 4 HubSpot 2.1 parity)", () => {
-    if (hubspotManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "hubspot",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        // Sorted alphabetically — covers Slice 13 Batch 1 (10) + Batch 2 (12)
-        // + HubSpot 2.1 parity (4: get_line_items, get_products,
-        // remove_from_list, remove_line_item).
-        "add_contact_to_list",
-        "create_call",
-        "create_company",
-        "create_contact",
-        "create_deal",
-        "create_line_item",
-        "create_meeting",
-        "create_note",
-        "create_product",
-        "create_task",
-        "create_ticket",
-        "get_companies",
-        "get_contacts",
-        "get_deals",
-        "get_line_items",
-        "get_owners",
-        "get_products",
-        "get_tickets",
-        "remove_from_list",
-        "remove_line_item",
-        "update_company",
-        "update_contact",
-        "update_deal",
-        "update_line_item",
-        "update_product",
-        "update_ticket",
-      ]);
-      expect(registered).toHaveLength(26);
-    }
+  it("declares actions: true and the action-handler registry contains all 26 actions (22 Slice 13 + 4 HubSpot 2.1 parity)", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(hubspotManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "hubspot",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      // Sorted alphabetically — covers Slice 13 Batch 1 (10) + Batch 2 (12)
+      // + HubSpot 2.1 parity (4: get_line_items, get_products,
+      // remove_from_list, remove_line_item).
+      "add_contact_to_list",
+      "create_call",
+      "create_company",
+      "create_contact",
+      "create_deal",
+      "create_line_item",
+      "create_meeting",
+      "create_note",
+      "create_product",
+      "create_task",
+      "create_ticket",
+      "get_companies",
+      "get_contacts",
+      "get_deals",
+      "get_line_items",
+      "get_owners",
+      "get_products",
+      "get_tickets",
+      "remove_from_list",
+      "remove_line_item",
+      "update_company",
+      "update_contact",
+      "update_deal",
+      "update_line_item",
+      "update_product",
+      "update_ticket",
+    ]);
+    expect(registered).toHaveLength(26);
   });
 
   it("declares apiVersion 'v3' (HubSpot CRM REST + Webhooks API version)", () => {

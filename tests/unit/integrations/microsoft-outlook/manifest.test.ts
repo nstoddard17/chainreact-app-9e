@@ -94,34 +94,35 @@ describe("microsoft-outlook manifest", () => {
     expect(providerSupports("microsoft-outlook", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains the full 2.1 + 2.2 + 2.3 set", () => {
+  it("declares actions: true and the action-handler registry contains the full 2.1 + 2.2 + 2.3 set", () => {
     // Outlook Mail 2.3 Commit 4 — get_attachment joins the 2.2 set
     // (move_email / delete_email / add_categories / fetch_emails) and
     // 2.1's compose set (send_email / reply_to_email / forward_email /
     // create_draft_email). 2.3 also adds email_sent + email_flagged
     // triggers, but this registry pins only ACTIONS — triggers register
     // through activationRegistry / subscriptionRegistry.
-    if (microsoftOutlookManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "microsoft-outlook",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "add_categories",
-        "create_draft_email",
-        "delete_email",
-        "fetch_emails",
-        "forward_email",
-        "get_attachment",
-        // Later additions to the registered set (stale pin caught by the
-        // CONFIG-UX-SETUP-ADVANCED-1 gate run — these handlers shipped
-        // with the profile/folders slices, not with that sweep).
-        "get_profile",
-        "list_folders",
-        "move_email",
-        "reply_to_email",
-        "send_email",
-      ]);
-    }
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(microsoftOutlookManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "microsoft-outlook",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "add_categories",
+      "create_draft_email",
+      "delete_email",
+      "fetch_emails",
+      "forward_email",
+      "get_attachment",
+      // Later additions to the registered set (stale pin caught by the
+      // CONFIG-UX-SETUP-ADVANCED-1 gate run — these handlers shipped
+      // with the profile/folders slices, not with that sweep).
+      "get_profile",
+      "list_folders",
+      "move_email",
+      "reply_to_email",
+      "send_email",
+    ]);
   });
 
   it("uses 6h health-check interval matching Microsoft cadence (CLAUDE.md)", () => {

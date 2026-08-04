@@ -55,26 +55,27 @@ describe("google-sheets manifest", () => {
     expect(providerSupports("google-sheets", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 12 Sheets actions (Slice 5 + Sheets 2.1 + Sheets 2.2)", () => {
-    if (googleSheetsManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "google-sheets",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "append_row",
-        "batch_update",
-        "clear_range",
-        "create_spreadsheet",
-        "delete_row",
-        "find_row",
-        "format_range",
-        "get_cell_value",
-        "get_sheet_metadata",
-        "read_rows",
-        "update_cell",
-        "update_row",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 12 Sheets actions (Slice 5 + Sheets 2.1 + Sheets 2.2)", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(googleSheetsManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "google-sheets",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "append_row",
+      "batch_update",
+      "clear_range",
+      "create_spreadsheet",
+      "delete_row",
+      "find_row",
+      "format_range",
+      "get_cell_value",
+      "get_sheet_metadata",
+      "read_rows",
+      "update_cell",
+      "update_row",
+    ]);
   });
 
   it("uses 6h health-check interval matching V1 Google cadence", () => {

@@ -25,6 +25,7 @@ jest.mock("@/integrations/gmail/api/usersMessagesModify", () => ({
 }));
 
 import { archiveEmail } from "@/integrations/gmail/actions/archiveEmail";
+import { ArchiveEmailConfigSchema } from "@/integrations/gmail/actions/archiveEmail.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
@@ -108,5 +109,36 @@ describe("archiveEmail — error propagation", () => {
       archiveEmail(baseHandlerInput({ config: {} })),
     ).rejects.toThrow();
     expect(mockRefreshAndRetry).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Schema contract tests — merged from the former sibling archiveEmail.schema.test.ts
+// (PROVIDER-CONTRACT-CONSOLIDATION-1A; same production schema import, all
+// assertions preserved verbatim).
+// Tests for the Gmail archive_email config schema.
+// ---------------------------------------------------------------------------
+
+describe("ArchiveEmailConfigSchema", () => {
+  it("accepts a minimal valid config", () => {
+    expect(
+      ArchiveEmailConfigSchema.safeParse({ messageId: "msg-1" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects when messageId is missing or empty", () => {
+    expect(ArchiveEmailConfigSchema.safeParse({}).success).toBe(false);
+    expect(
+      ArchiveEmailConfigSchema.safeParse({ messageId: "" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects unknown fields", () => {
+    expect(
+      ArchiveEmailConfigSchema.safeParse({
+        messageId: "msg-1",
+        applyToThread: true,
+      }).success,
+    ).toBe(false);
   });
 });

@@ -86,32 +86,34 @@ describe("airtable manifest", () => {
     expect(providerSupports("airtable", "pollingTrigger")).toBe(false);
   });
 
-  it("when webhookTrigger: true, record_changed activation + deactivation hooks are registered", () => {
-    if (airtableManifest.capabilities.webhookTrigger) {
-      expect(findActivation("airtable", "record_changed")).not.toBeNull();
-      expect(findDeactivation("airtable", "record_changed")).not.toBeNull();
-    }
+  it("declares webhookTrigger: true and record_changed activation + deactivation hooks are registered", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(airtableManifest.capabilities.webhookTrigger).toBe(true);
+    expect(findActivation("airtable", "record_changed")).not.toBeNull();
+    expect(findDeactivation("airtable", "record_changed")).not.toBeNull();
   });
 
-  it("when actions: true, the action-handler registry contains all 11 Airtable actions", () => {
-    if (airtableManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "airtable",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "add_attachment",
-        "create_multiple_records",
-        "create_record",
-        "delete_record",
-        "find_record",
-        "get_base_schema",
-        "get_record",
-        "get_table_schema",
-        "list_records",
-        "update_multiple_records",
-        "update_record",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 11 Airtable actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(airtableManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "airtable",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "add_attachment",
+      "create_multiple_records",
+      "create_record",
+      "delete_record",
+      "find_record",
+      "get_base_schema",
+      "get_record",
+      "get_table_schema",
+      "list_records",
+      "update_multiple_records",
+      "update_record",
+    ]);
   });
 
   it("declares apiVersion 'v0' (Airtable REST API version)", () => {

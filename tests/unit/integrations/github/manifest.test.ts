@@ -99,27 +99,29 @@ describe("github manifest", () => {
     expect(providerSupports("github", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 6 GitHub actions", () => {
-    if (githubManifest.capabilities.actions) {
-      const registered = listRegisteredHandlers().filter(
-        (h) => h.provider === "github",
-      );
-      expect(registered.map((r) => r.type).sort()).toEqual([
-        "add_comment",
-        "create_branch",
-        "create_gist",
-        "create_issue",
-        "create_pull_request",
-        "create_repository",
-      ]);
-    }
+  it("declares actions: true and the action-handler registry contains all 6 GitHub actions", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(githubManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "github",
+    );
+    expect(registered.map((r) => r.type).sort()).toEqual([
+      "add_comment",
+      "create_branch",
+      "create_gist",
+      "create_issue",
+      "create_pull_request",
+      "create_repository",
+    ]);
   });
 
-  it("when webhookTrigger: true, new_commit activation + deactivation hooks are registered", () => {
-    if (githubManifest.capabilities.webhookTrigger) {
-      expect(findActivation("github", "new_commit")).not.toBeNull();
-      expect(findDeactivation("github", "new_commit")).not.toBeNull();
-    }
+  it("declares webhookTrigger: true and new_commit activation + deactivation hooks are registered", () => {
+    // Fail-closed: assert the capability itself — a regression that flips
+    // it to false must FAIL here, not silently skip the registry pin.
+    expect(githubManifest.capabilities.webhookTrigger).toBe(true);
+    expect(findActivation("github", "new_commit")).not.toBeNull();
+    expect(findDeactivation("github", "new_commit")).not.toBeNull();
   });
 
   it("declares apiVersion '2022-11-28' (matches V1 lifecycle + actions pin)", () => {
