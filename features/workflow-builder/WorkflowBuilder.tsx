@@ -47,6 +47,7 @@ import {
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
 import { useGuidanceConversation } from "@/features/workflows/useGuidanceConversation";
+import { useAutoShowLatestProposal } from "@/features/workflows/useAutoShowLatestProposal";
 import type { DocumentAgentContext } from "./document/documentAgentContext";
 import {
   emitDocumentBuilderEvent,
@@ -987,6 +988,17 @@ export function WorkflowBuilder({
     pendingNodes,
     pendingEdges,
     runTestAfterApply: builderRunControls.handleTestWorkflow,
+  });
+
+  // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — same-turn canvas delivery. The auto-show
+  // effect lives HERE (always mounted for the builder session), not inside the guidance panel:
+  // when the panel is unmounted (collapsed Document workspace, mode switch) a proposal must still
+  // reach the canvas during the turn that produced it — never held until the user's next message
+  // remounts the panel and flushes it as if the later turn had produced it.
+  useAutoShowLatestProposal({
+    messages: agentConversation.messages,
+    onPreviewToCanvas: handleShowPreview,
+    getCurrentGraphShape,
   });
 
   // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the workflow as it is actually

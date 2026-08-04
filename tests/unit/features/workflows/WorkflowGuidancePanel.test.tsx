@@ -32,6 +32,42 @@ jest.mock("@/lib/api/workflowTemplates", () => ({
 }));
 
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import { useGuidanceConversation } from "@/features/workflows/useGuidanceConversation";
+import {
+  useAutoShowLatestProposal,
+  type AgentProposalCanvasPayload,
+} from "@/features/workflows/useAutoShowLatestProposal";
+
+/**
+ * REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — the builder-like wiring for auto-show tests. The
+ * auto-show effect no longer lives inside the panel (it was mount-gated there, which delayed
+ * proposals until the panel next mounted); production hosts `useAutoShowLatestProposal` in
+ * `WorkflowBuilder` next to the shared conversation, and this harness mirrors exactly that.
+ */
+function BuilderRailHarness(props: {
+  onPreviewToCanvas: (p: AgentProposalCanvasPayload) => void;
+  getCurrentGraphShape?: () => readonly { kind: string; provider: string; type: string }[];
+  getCheckReviewContext?: () => never;
+}) {
+  const conversation = useGuidanceConversation({ accountId: "acct-1", workflowId: "wf-9" });
+  useAutoShowLatestProposal({
+    messages: conversation.messages,
+    onPreviewToCanvas: props.onPreviewToCanvas,
+    ...(props.getCurrentGraphShape
+      ? { getCurrentGraphShape: props.getCurrentGraphShape as never }
+      : {}),
+  });
+  return (
+    <WorkflowGuidancePanel
+      accountId="acct-1"
+      workflowId="wf-9"
+      conversational
+      conversation={conversation}
+      onPreviewToCanvas={props.onPreviewToCanvas}
+      {...(props.getCheckReviewContext ? { getCheckReviewContext: props.getCheckReviewContext } : {})}
+    />
+  );
+}
 
 beforeEach(() => {
   mockRequest.mockReset();
@@ -488,7 +524,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     mockRequest
       .mockResolvedValueOnce({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") })
       .mockResolvedValueOnce({ ok: true, guidanceText: "second", source: "hermes-agent", workflowPlan: planFor("Second"), previewDraft: previewFor("Second") });
-    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    render(<BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} />);
 
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
@@ -543,7 +579,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
       workflowPlan: starterPlan,
       previewDraft: starterPreview,
     });
-    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    render(<BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "low usage, alert someone on slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
 
@@ -564,9 +600,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") });
     const onPreviewToCanvas = jest.fn();
-    render(
-      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />,
-    );
+    render(<BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     // The suggestion renders and auto-shows on the canvas…
@@ -808,10 +842,7 @@ describe("WorkflowGuidancePanel — auto-show eligibility guard", () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "Here's a thought.", source: "hermes-agent", ...opts });
     render(
-      <WorkflowGuidancePanel
-        accountId="acct-1"
-        workflowId="wf-9"
-        conversational
+      <BuilderRailHarness
         onPreviewToCanvas={opts.onPreviewToCanvas ?? jest.fn()}
         {...(opts.getCurrentGraphShape ? { getCurrentGraphShape: opts.getCurrentGraphShape } : {})}
       />,
@@ -1009,7 +1040,7 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
       workflowPlan: planFor("Auto"),
       previewDraft: previewFor("Auto"),
     });
-    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    render(<BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "watch new gmail");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
@@ -1029,13 +1060,7 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
       previewDraft: previewFor("Same"),
     });
     render(
-      <WorkflowGuidancePanel
-        accountId="acct-1"
-        workflowId="wf-9"
-        conversational
-        onPreviewToCanvas={onPreviewToCanvas}
-        getCurrentGraphShape={getCurrentGraphShape}
-      />,
+      <BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} getCurrentGraphShape={getCurrentGraphShape} />,
     );
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "watch new gmail");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
@@ -1049,7 +1074,7 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
     const user = userEvent.setup();
     const onPreviewToCanvas = jest.fn();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "Which app?", source: "hermes-agent", workflowPlan: null, previewDraft: null });
-    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    render(<BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "automate stuff");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("workflow-guidance-result");
@@ -1073,7 +1098,7 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
       workflowPlan: planFor("WithReq"),
       previewDraft: previewWithMissing,
     });
-    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    render(<BuilderRailHarness onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "send slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));

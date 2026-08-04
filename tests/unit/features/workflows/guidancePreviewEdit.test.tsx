@@ -23,6 +23,34 @@ jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn() }) }))
 jest.mock("@/lib/api/workflowTemplates", () => ({ useTemplate: jest.fn(), TemplateApiError: class extends Error {} }));
 
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import { useGuidanceConversation } from "@/features/workflows/useGuidanceConversation";
+import {
+  useAutoShowLatestProposal,
+  type AgentProposalCanvasPayload,
+} from "@/features/workflows/useAutoShowLatestProposal";
+
+/**
+ * REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — auto-show is hosted by `WorkflowBuilder`, so the
+ * test wiring mirrors it: builder-owned conversation + builder-level hook + the panel as display.
+ */
+function BuilderRailHarness(props: {
+  onPreviewToCanvas: (p: AgentProposalCanvasPayload) => void;
+}) {
+  const conversation = useGuidanceConversation({ accountId: "acct-1", workflowId: "wf-9" });
+  useAutoShowLatestProposal({
+    messages: conversation.messages,
+    onPreviewToCanvas: props.onPreviewToCanvas,
+  });
+  return (
+    <WorkflowGuidancePanel
+      accountId="acct-1"
+      workflowId="wf-9"
+      conversational
+      conversation={conversation}
+      onPreviewToCanvas={props.onPreviewToCanvas}
+    />
+  );
+}
 
 const editPreview: DraftPreview = {
   version: 1,
@@ -57,9 +85,9 @@ const EDIT_SUMMARY =
   "I'll replace the Slack Send Channel Message step with a Gmail Send Email step. Review the preview below, then choose Apply preview if it looks right.";
 const editResponse = { ok: true, guidanceText: EDIT_SUMMARY, source: "hermes-agent", workflowPlan: editPlan, previewDraft: editPreview, proposedDefinition };
 
-async function send(goal: string, extraProps: Record<string, unknown> = {}) {
+async function send(goal: string, extraProps: { onPreviewToCanvas?: jest.Mock } = {}) {
   const user = userEvent.setup();
-  render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={jest.fn()} {...extraProps} />);
+  render(<BuilderRailHarness onPreviewToCanvas={extraProps.onPreviewToCanvas ?? jest.fn()} />);
   await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), goal);
   await user.click(screen.getByTestId("workflow-guidance-submit"));
   return user;

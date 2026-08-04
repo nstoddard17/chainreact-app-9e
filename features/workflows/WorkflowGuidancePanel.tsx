@@ -17,10 +17,8 @@ import type {
   CheckWorkflowReviewContext,
   CheckWorkflowSetupTarget,
 } from "@/core/workflows/checkWorkflowReview";
-import {
-  isPlanMeaningfulCanvasPreview,
-  type CanvasPreviewGraphNode,
-} from "@/core/workflows/canvasPreviewEligibility";
+import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
+import { toCanvasPayload } from "./useAutoShowLatestProposal";
 import type { PersistedPreviewVerdict } from "@/core/workflows/reactAgentPreviewReconciliation";
 import {
   CHAT_PLACEHOLDER,
@@ -184,21 +182,9 @@ export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
  */
 type ChatMessage = GuidanceChatMessage;
 
-/** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
-function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string; agentChangeId?: string } {
-  return {
-    plan: m.plan!,
-    preview: m.preview!,
-    ...(m.proposedDefinition ? { proposedDefinition: m.proposedDefinition } : {}),
-    ...(m.baseGraphVersion ? { baseGraphVersion: m.baseGraphVersion } : {}),
-    // CHECKPOINTS-1 — carry the user prompt so the builder can name the pre-apply checkpoint.
-    ...(m.prompt ? { prompt: m.prompt } : {}),
-    // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the lifecycle correlation id minted
-    // with the proposal, so preview/apply/discard and the persisted transcript
-    // all transition the SAME `agent_change_history` row.
-    ...(m.agentChangeId ? { agentChangeId: m.agentChangeId } : {}),
-  };
-}
+// REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — `toCanvasPayload` moved to
+// `useAutoShowLatestProposal.ts` (the builder-level auto-show hook) and is shared by the reopen
+// control below, so both paths construct the identical overlay payload.
 
 /** A restored turn carries a reopenable proposal only when its payload survived persistence. */
 function hasProposalPayload(m: Extract<ChatMessage, { role: "assistant" }>): boolean {
@@ -206,7 +192,7 @@ function hasProposalPayload(m: Extract<ChatMessage, { role: "assistant" }>): boo
 }
 
 /** The conversational rail. Durable in the builder (persistence port), in-memory on the dashboard. */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent, conversation, hideComposer, reconcileRestoredPreview }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent, conversation, hideComposer, reconcileRestoredPreview }: WorkflowGuidancePanelProps) {
   // DOC-REACT-AGENT-1 — ONE conversation. `WorkflowBuilder` owns it so the
   // Visual rail and the Document workspace are two presentations of the same
   // agent; without an injected one the panel owns its own (dashboard / tests).
@@ -251,40 +237,12 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, hasFooter]);
 
-  // REACT-LIVE-SKELETON — live builder copilot: the canvas should update as the conversation
-  // progresses, WITHOUT a hidden extra click. When the latest assistant turn carries a valid,
-  // MEANINGFUL preview+plan and the builder wired `onPreviewToCanvas`, auto-show it on the canvas ONCE
-  // per message. A newer preview supersedes the prior one (builder owns the overlay → latest wins).
-  // Same-shape restatements are skipped (eligibility guard), and a no-plan/clarifying turn never
-  // clears the standing preview. Auto-show is display-only — it NEVER applies/saves/activates/runs
-  // (Apply stays an explicit click in the overlay). Dashboard (no builder callback) → no-op.
-  // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — a RESTORED turn is never auto-shown.
-  // A proposal from a previous session describes a draft the user may well have
-  // abandoned; putting it back on the canvas unasked would resurrect exactly the
-  // unsaved work returning to the workflow is supposed to have discarded. The
-  // conversation excludes restored turns from `latestAssistantId` for the same
-  // reason, so reading it here is the single guard.
-  const autoShownPreviewRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!onPreviewToCanvas) return;
-    let latest: Extract<ChatMessage, { role: "assistant" }> | null = null;
-    for (const m of messages) {
-      if (m.role === "assistant" && !m.restored) latest = m;
-    }
-    if (!latest || !latest.preview || !latest.plan) return;
-    if (autoShownPreviewRef.current === latest.id) return; // already auto-shown this turn
-    // HERMES-AGENT-WORKFLOW-EDITOR — an EDIT proposal (proposedDefinition) is a change by construction
-    // (it may even SHRINK the graph, e.g. a removal), so the same-shape "meaningful" guard — which only
-    // fits ADD-shaped previews — does not apply; always auto-show it. New-workflow skeletons still use
-    // the guard so a same-shape restatement doesn't ghost duplicates.
-    const meaningful =
-      latest.proposedDefinition != null ||
-      getCurrentGraphShape == null ||
-      isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: latest.plan });
-    if (!meaningful) return;
-    autoShownPreviewRef.current = latest.id;
-    onPreviewToCanvas(toCanvasPayload(latest));
-  }, [messages, onPreviewToCanvas, getCurrentGraphShape]);
+  // REACT-LIVE-SKELETON / REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — the auto-show-on-canvas
+  // effect no longer lives here. It moved to `useAutoShowLatestProposal`, hosted by
+  // `WorkflowBuilder` (always mounted), so a proposal renders during the turn that produced it
+  // even while this panel is unmounted (collapsed Document workspace, mode switch) — a later user
+  // message must never be what flushes an earlier turn's proposal onto the canvas. This panel
+  // keeps only the explicit per-message reopen control below.
 
   const trimmed = input.trim();
   const canSend = trimmed.length > 0 && !loading;

@@ -83,7 +83,10 @@ export function DocumentAgentWorkspace({
 
   const submit = () => {
     const trimmed = value.trim();
-    if (trimmed.length === 0) return;
+    // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — while a request is in flight the conversation
+    // refuses new sends; without this guard the composer CLEARED the message and the send was then
+    // silently dropped. Refusing here keeps the user's text in the box instead of losing it.
+    if (trimmed.length === 0 || busy) return;
     setValue("");
     onExpandedChange(true);
     onSubmit(trimmed);
@@ -257,7 +260,7 @@ export function DocumentAgentWorkspace({
           type="button"
           data-testid="document-ask-react-submit"
           onClick={submit}
-          disabled={value.trim().length === 0}
+          disabled={value.trim().length === 0 || busy}
           className="inline-flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold disabled:opacity-40"
           style={{ background: "var(--builder-text)", color: "var(--builder-panel)" }}
         >

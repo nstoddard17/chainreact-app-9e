@@ -241,6 +241,13 @@ export function useGuidanceConversation(
   // Read the transcript at send time without making the callbacks change identity.
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  // REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — the latest-AUTHORITATIVE-request marker. The
+  // `loading` flag is a timing guard, not a correctness guard: two sends dispatched in the same
+  // task both pass it, and the LAST response to resolve would then append last and win the canvas.
+  // Every model-bound request records its id here at dispatch; a response whose id is no longer
+  // current is dropped (with a safe diagnostic) instead of mutating chat/preview state — a delayed
+  // turn-N response can never surface as if a later turn produced it.
+  const activeRequestIdRef = useRef<string | null>(null);
 
   const send = useCallback(async (goalTextInput?: string): Promise<void> => {
     const goalText = (goalTextInput ?? inputRef.current).trim();
@@ -255,6 +262,7 @@ export function useGuidanceConversation(
     // a restored transcript can pair them. It is a correlation id only — billing
     // idempotency stays where it already lives, on the server route.
     const requestId = mintCorrelationId();
+    activeRequestIdRef.current = requestId;
     const userMessage: GuidanceChatMessage = {
       id: makeId(),
       role: "user",
@@ -272,6 +280,12 @@ export function useGuidanceConversation(
         ...(recentTurns.length ? { recentTurns } : {}),
         ...(currentDraft && currentDraft.nodes.length ? { currentDraft } : {}),
       });
+      // A newer request became authoritative while this one was in flight — this response may not
+      // touch chat, proposal, or preview state (safe id-only diagnostic; nothing user-derived).
+      if (activeRequestIdRef.current !== requestId) {
+        console.info(`[guidance-conversation] stale_response_dropped requestId=${requestId}`);
+        return;
+      }
       if (res.ok) {
         const carriesProposal = res.workflowPlan != null || res.proposedDefinition != null;
         const assistantMessage: GuidanceChatMessage = {
@@ -305,6 +319,10 @@ export function useGuidanceConversation(
         persist(errorMessage, requestId);
       }
     } catch {
+      if (activeRequestIdRef.current !== requestId) {
+        console.info(`[guidance-conversation] stale_response_dropped requestId=${requestId}`);
+        return;
+      }
       const errorMessage: GuidanceChatMessage = {
         id: makeId(),
         role: "error",
@@ -313,7 +331,9 @@ export function useGuidanceConversation(
       setMessages((prev) => [...prev, errorMessage]);
       persist(errorMessage, requestId);
     } finally {
-      setLoading(false);
+      // Only the authoritative request may clear `loading` — a stale request's finally must not
+      // turn off the spinner a newer in-flight request owns.
+      if (activeRequestIdRef.current === requestId) setLoading(false);
     }
     // makeId is stable (ref-backed); messages are read through messagesRef.
   }, []);
@@ -344,6 +364,7 @@ export function useGuidanceConversation(
     const recentTurns = toRecentTurns(messagesRef.current);
     const currentDraft = ctx.getCurrentDraft?.();
     const requestId = mintCorrelationId();
+    activeRequestIdRef.current = requestId;
     setLoading(true);
     try {
       const res = await requestWorkflowGuidance({
@@ -353,6 +374,11 @@ export function useGuidanceConversation(
         ...(ctx.workflowId ? { workflowId: ctx.workflowId } : {}),
         ...(recentTurns.length ? { recentTurns } : {}),
       });
+      // Same latest-authoritative-request rule as `send` — a superseded response mutates nothing.
+      if (activeRequestIdRef.current !== requestId) {
+        console.info(`[guidance-conversation] stale_response_dropped requestId=${requestId}`);
+        return;
+      }
       if (res.ok) {
         const cleaned = stripFencedJsonBlocks(res.guidanceText) || res.guidanceText;
         const text = looksLikeRawJson(cleaned)
@@ -382,6 +408,10 @@ export function useGuidanceConversation(
         persist(errorMessage, requestId);
       }
     } catch {
+      if (activeRequestIdRef.current !== requestId) {
+        console.info(`[guidance-conversation] stale_response_dropped requestId=${requestId}`);
+        return;
+      }
       const errorMessage: GuidanceChatMessage = {
         id: makeId(),
         role: "error",
@@ -390,7 +420,7 @@ export function useGuidanceConversation(
       setMessages((prev) => [...prev, errorMessage]);
       persist(errorMessage, requestId);
     } finally {
-      setLoading(false);
+      if (activeRequestIdRef.current === requestId) setLoading(false);
     }
   }, []);
 

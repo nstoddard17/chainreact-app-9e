@@ -16,7 +16,34 @@ jest.mock("@/lib/api/ai/guidance", () => ({
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderGuidanceRail } from "@/features/workflow-builder/panels/BuilderGuidanceRail";
+import { useGuidanceConversation } from "@/features/workflows/useGuidanceConversation";
+import {
+  useAutoShowLatestProposal,
+  type AgentProposalCanvasPayload,
+} from "@/features/workflows/useAutoShowLatestProposal";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+
+/**
+ * REACT-AGENT-TRUTH-AND-TURN-INTEGRITY-AUDIT-1 — auto-show is hosted by `WorkflowBuilder`
+ * (always mounted), not by the rail/panel. This harness mirrors that production wiring for the
+ * auto-show assertion below.
+ */
+function BuilderHostedRail(props: { onShowPreview: (p: AgentProposalCanvasPayload) => void }) {
+  const conversation = useGuidanceConversation({ accountId: "acct-1", workflowId: "wf-9" });
+  useAutoShowLatestProposal({
+    messages: conversation.messages,
+    onPreviewToCanvas: props.onShowPreview,
+  });
+  return (
+    <BuilderGuidanceRail
+      accountId="acct-1"
+      workflowId="wf-9"
+      guidanceEnabled
+      conversation={conversation}
+      onShowPreview={props.onShowPreview}
+    />
+  );
+}
 
 beforeEach(() => {
   mockRequest.mockReset();
@@ -116,9 +143,7 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     };
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft });
 
-    render(
-      <BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled onShowPreview={onShowPreview} />,
-    );
+    render(<BuilderHostedRail onShowPreview={onShowPreview} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
 
