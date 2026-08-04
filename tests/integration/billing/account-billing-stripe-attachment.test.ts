@@ -157,7 +157,7 @@ describeDb("account_billing Stripe attachment — CS-2", () => {
     expect(data!.stripe_subscription_id).toBeNull();
   });
 
-  it("a member CANNOT write the Stripe ids (no client write policy → 0 rows)", async () => {
+  it("a member CANNOT write the Stripe ids (no UPDATE grant → 42501 permission denied)", async () => {
     const b = accounts[1]!;
     const supaB = await signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email: b.email });
 
@@ -166,8 +166,14 @@ describeDb("account_billing Stripe attachment — CS-2", () => {
       .update({ stripe_customer_id: "cus_member_forged" })
       .eq("account_id", b.accountId)
       .select("account_id");
-    // RLS allows SELECT only; UPDATE matches no writable row → no error, 0 rows.
-    expect(error).toBeNull();
+    // DB-CI-COVERAGE-GAP-1 — this asserted "no error, 0 rows", i.e. that
+    // `authenticated` HOLDS an UPDATE grant and RLS merely matches no row. The
+    // migrations (20260531000001) grant `authenticated` SELECT and nothing else,
+    // so the real refusal is a hard table-privilege denial, one layer earlier
+    // than RLS. Pin that SQLSTATE: if a future migration ever hands
+    // `authenticated` an UPDATE grant, this must fail and be reviewed.
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
     expect(data ?? []).toHaveLength(0);
 
     // Confirm service-role still sees NULL — the member write did not land.

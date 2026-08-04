@@ -398,6 +398,40 @@ Rules that go with it:
   blocked, never as passed.**
 - **A full-suite run happens only when Marcus explicitly authorizes it for that batch.**
 
+## Environment-gated database suites must be ACTIVATED by CI (DB-CI-COVERAGE-GAP-1)
+
+A suite that reads `ALLOW_DB_INTEGRATION_TESTS` resolves to `describe.skip` when the
+variable is absent — and **jest still exits 0**. So for these suites a green CI job is
+not evidence of anything. `tests/integration/billing` (9 suites) and
+`tests/integration/accounts` (5 suites) sat in exactly that state: they existed, they
+were correct in intent, and no workflow activated them, so they protected nothing. Two
+of them had silently rotted against a later migration that changed an RPC signature —
+the failure mode this rule exists to prevent.
+
+Durable rules:
+
+- **Every environment-gated database suite must be wired into `db-ci.yml`'s suite
+  groups** (`scripts/ci/db-suite-gate.mjs` → `GROUPS`). A new `tests/integration/<group>`
+  directory that needs the database is a workflow change, not a "run it locally
+  sometimes" suite.
+- **Groups are discovered, not listed.** The gate resolves a group's files with jest's
+  own `--listTests`, so a suite added to a wired directory is covered automatically.
+- **Absence is never success.** The gate fails closed when the activation variables are
+  missing, when discovery collapses below the group's minimum, when a discovered suite
+  did not execute, when zero tests passed, when the group resolved entirely to skipped
+  tests, or when **any single suite** contributed zero passing tests (so one suite
+  silently de-activating cannot hide behind its passing siblings).
+- **Never `--passWithNoTests`, `continue-on-error`, retries, or a `.skip` added to make
+  db-ci green.** A suite that cannot run in CI is a blocker to report, not to mute.
+- **db-ci is loopback-only.** The groups run against the one ephemeral local Supabase
+  stack, sequentially (`--runInBand`), with the RLS/migration group first on the
+  untouched post-reset state. No hosted project is ever contacted, and the workflow
+  holds no secrets.
+- **db-ci's path filters are directory-scoped** (`repositories/`, `services/`, `core/`,
+  `workflow-engine/`, `utils/`, `lib/`) rather than a hand-picked file list, so new
+  database-touching code triggers the gate without anyone remembering to extend a list.
+  Documentation-only changes do not trigger it.
+
 ## Open questions
 
 No open questions remain that block Slice 1.

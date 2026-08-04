@@ -54,7 +54,12 @@ if (!RUN) {
   );
 }
 
-const ARGS = { p_plan_status: "active", p_tasks_limit: 100 };
+// DB-CI-COVERAGE-GAP-1: must match the CURRENT RPC signature. AI-CREDITS-REPRICE-1
+// (20260808000000) DROPPED the 3-arg overload for a 4-arg one taking
+// p_ai_credits_limit — what repositories/accountBilling.ts passes in production.
+// Unwired in CI, this suite kept calling the dropped signature, so its assertions
+// were only proving "PostgREST could not find the function".
+const ARGS = { p_plan_status: "active", p_tasks_limit: 100, p_ai_credits_limit: 50 };
 
 describeDb("apply_business_downgrade — CS-BD-1", () => {
   let admin: SupabaseClient;
@@ -107,12 +112,14 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
     expect(acct!.type).toBe("team");
     const { data: bill } = await admin
       .from("account_billing")
-      .select("plan, plan_status, tasks_limit, stripe_customer_id")
+      .select("plan, plan_status, tasks_limit, ai_credits_limit, stripe_customer_id")
       .eq("account_id", orgId)
-      .single<{ plan: string; plan_status: string; tasks_limit: number; stripe_customer_id: string | null }>();
+      .single<{ plan: string; plan_status: string; tasks_limit: number; ai_credits_limit: number; stripe_customer_id: string | null }>();
     expect(bill!.plan).toBe("team");
     expect(bill!.plan_status).toBe("active");
     expect(bill!.tasks_limit).toBe(100);
+    // AI-CREDITS-REPRICE-1 — the credit allowance flips inside the SAME transaction.
+    expect(bill!.ai_credits_limit).toBe(50);
     expect(bill!.stripe_customer_id).toBe("cus_csbd1_keep"); // attachment preserved
   });
 

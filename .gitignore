@@ -69,3 +69,8 @@ supabase/.temp
 
 # 5.DUAL-BUILDER-1 CS-7B — local owner-review screenshot artifacts (uncommitted)
 owner-review/
+
+# DB-CI-COVERAGE-GAP-1 — db-ci suite-group run artifacts (per-run evidence,
+# uploaded by CI, never committed).
+jest-db-*-raw.json
+db-suite-result-*.json

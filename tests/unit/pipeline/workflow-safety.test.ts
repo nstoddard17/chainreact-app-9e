@@ -167,6 +167,10 @@ describe("deploy-development.yml — DB gate before app, dev environment only", 
 
 describe("db-ci.yml — loopback-only, zero cloud credentials", () => {
   const text = WF("db-ci.yml");
+  const raw = readFileSync(
+    resolve(__dirname, "../../../.github/workflows/db-ci.yml"),
+    "utf8",
+  );
 
   it("uses no repository or environment secrets at all", () => {
     expect(text).not.toContain("secrets.");
@@ -194,5 +198,133 @@ describe("db-ci.yml — loopback-only, zero cloud credentials", () => {
   it("stops the stack even on failure", () => {
     expect(text).toContain("if: always()");
     expect(text).toContain("npm run supabase:test:stop");
+  });
+
+  // ── DB-CI-COVERAGE-GAP-1 ────────────────────────────────────────────────
+  // The billing + account database suites existed but NO workflow activated
+  // them, so they provided zero CI protection. These contracts keep them wired
+  // and keep the wiring honest.
+
+  it("invokes all three database suite groups through the gate", () => {
+    for (const group of ["security", "billing", "accounts"]) {
+      expect(text).toContain(`db-suite-gate.mjs run --group ${group}`);
+    }
+  });
+
+  it("runs the billing and account groups AFTER the local stack is started", () => {
+    const startIdx = text.indexOf("npm run supabase:test:start");
+    expect(startIdx).toBeGreaterThan(-1);
+    for (const group of ["security", "billing", "accounts"]) {
+      expect(text.indexOf(`--group ${group}`)).toBeGreaterThan(startIdx);
+    }
+    // The RLS group owns population-wide invariants, so it runs first, on the
+    // untouched post-reset state.
+    expect(text.indexOf("--group security")).toBeLessThan(text.indexOf("--group billing"));
+    expect(text.indexOf("--group billing")).toBeLessThan(text.indexOf("--group accounts"));
+  });
+
+  it("explicitly enables the activation gates and preflights them fail-closed", () => {
+    expect(text).toContain('echo "ALLOW_DB_INTEGRATION_TESTS=true" >> "$GITHUB_ENV"');
+    expect(text).toContain("db-suite-gate.mjs preflight");
+    // The preflight must sit BEFORE any suite group runs.
+    expect(text.indexOf("db-suite-gate.mjs preflight")).toBeLessThan(
+      text.indexOf("db-suite-gate.mjs run"),
+    );
+  });
+
+  it("requires a minimum discovered suite count per group (zero-executed fails closed)", () => {
+    expect(text).toMatch(/--group security --min-suites \d+/);
+    expect(text).toMatch(/--group billing --min-suites 9\b/);
+    expect(text).toMatch(/--group accounts --min-suites 5\b/);
+  });
+
+  it("keeps the existing migration, RLS and schema verification required", () => {
+    // Every pre-existing gate is still an unconditional step (no `if:` guard
+    // other than the pull-request-only forward-only check, no soft-failure).
+    for (const step of [
+      "npm run lint:migrations",
+      "npm run supabase:test:start",
+      "npm run supabase:test:reset",
+      "npm run db:types:check",
+    ]) {
+      expect(text).toContain(step);
+    }
+    expect(text).toContain("tests/integration/migrations");
+  });
+
+  it("triggers on database-relevant service and repository changes", () => {
+    // Directory-scoped, so a NEW database-touching service is covered without
+    // anyone remembering to extend a list.
+    for (const p of [
+      '"repositories/**"',
+      '"services/**"',
+      '"core/**"',
+      '"supabase/**"',
+      '"tests/integration/security/**"',
+      '"tests/integration/billing/**"',
+      '"tests/integration/accounts/**"',
+      '"tests/helpers/**"',
+      '"scripts/ci/db-suite-gate.mjs"',
+      '"package.json"',
+      '"jest.config.mjs"',
+      '".github/workflows/db-ci.yml"',
+    ]) {
+      expect(text).toContain(p);
+    }
+  });
+
+  it("does NOT trigger on documentation-only changes", () => {
+    expect(text).not.toMatch(/- "docs\//);
+    expect(text).not.toMatch(/- "\*\*\/\*\.md"/);
+  });
+
+  it("keeps the pull_request and push path filters identical", () => {
+    // GitHub Actions has no YAML anchors, so the list is duplicated; drift
+    // between the two would silently un-protect one of the lanes.
+    const pathLists = [...raw.matchAll(/paths:\n((?:\s+- "[^"]+"\n)+)/g)].map((m) =>
+      m[1]!
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean),
+    );
+    expect(pathLists).toHaveLength(2);
+    expect(pathLists[0]).toEqual(pathLists[1]);
+    expect(pathLists[0]!.length).toBeGreaterThan(20);
+  });
+
+  it("introduces no retries, no failure masking, and no pass-with-no-tests", () => {
+    expect(text).not.toContain("continue-on-error");
+    expect(text).not.toContain("--passWithNoTests");
+    expect(text).not.toMatch(/retry|retries|retryTimes/i);
+    expect(text).not.toMatch(/--testPathIgnorePatterns|\.skip\b|--onlyFailures/);
+  });
+
+  it("never contacts a hosted development or production database", () => {
+    expect(text).not.toMatch(/supabase\.co|supabase\.in/);
+    expect(text).not.toContain("CHAINREACT_DB_TARGET");
+    expect(text).not.toContain("db:push");
+    expect(text).not.toContain("--linked");
+  });
+
+  it("cleans up and preserves diagnostics even when the suites fail", () => {
+    const stopIdx = text.indexOf("npm run supabase:test:stop");
+    const stopBlock = text.slice(text.lastIndexOf("- name:", stopIdx), stopIdx);
+    expect(stopBlock).toContain("if: always()");
+    // The result artifacts are uploaded even on failure — the evidence of WHY
+    // a group failed must survive the cleanup step.
+    const uploadIdx = text.indexOf("upload-artifact");
+    expect(uploadIdx).toBeGreaterThan(-1);
+    expect(text.slice(text.lastIndexOf("- name:", uploadIdx), uploadIdx)).toContain("if: always()");
+  });
+
+  it("never echoes a secret expression or a stack key value", () => {
+    for (const line of text.split("\n")) {
+      if (/\becho\b/.test(line)) {
+        expect(line).not.toContain("secrets.");
+        expect(line).not.toMatch(/echo "\$v"|echo \$v\b/);
+      }
+    }
+    // The throwaway loopback keys are masked before they reach the log.
+    expect(text).toContain("::add-mask::$v");
   });
 });

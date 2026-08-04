@@ -53,6 +53,12 @@ if (!RUN) {
   );
 }
 
+// DB-CI-COVERAGE-GAP-1: the argument list must match the CURRENT RPC signature.
+// AI-CREDITS-REPRICE-1 (20260808000000) DROPPED the 7-arg overload and replaced
+// it with an 8-arg one taking p_ai_credits_limit — exactly what
+// repositories/accountBilling.ts passes in production. While this suite ran in
+// no CI it kept calling the dropped signature, so every assertion below was
+// really only proving "PostgREST could not find the function".
 const UPGRADE_ARGS = {
   p_plan_status: "active",
   p_current_period_end: "2026-08-01T00:00:00.000Z",
@@ -60,6 +66,7 @@ const UPGRADE_ARGS = {
   p_stripe_subscription_id: "sub_bu1_test",
   p_stripe_customer_id: "cus_bu1_test",
   p_tasks_limit: 100,
+  p_ai_credits_limit: 250,
 };
 
 describeDb("apply_business_upgrade — BU-1", () => {
@@ -112,12 +119,14 @@ describeDb("apply_business_upgrade — BU-1", () => {
     expect(acct!.type).toBe("organization");
     const { data: bill } = await admin
       .from("account_billing")
-      .select("plan, plan_status, tasks_limit, stripe_subscription_id, current_period_end")
+      .select("plan, plan_status, tasks_limit, ai_credits_limit, stripe_subscription_id, current_period_end")
       .eq("account_id", teamId)
-      .single<{ plan: string; plan_status: string; tasks_limit: number; stripe_subscription_id: string; current_period_end: string }>();
+      .single<{ plan: string; plan_status: string; tasks_limit: number; ai_credits_limit: number; stripe_subscription_id: string; current_period_end: string }>();
     expect(bill!.plan).toBe("business");
     expect(bill!.plan_status).toBe("active");
     expect(bill!.tasks_limit).toBe(100);
+    // AI-CREDITS-REPRICE-1 — the credit allowance flips inside the SAME transaction.
+    expect(bill!.ai_credits_limit).toBe(250);
     expect(bill!.stripe_subscription_id).toBe("sub_bu1_test");
   });
 

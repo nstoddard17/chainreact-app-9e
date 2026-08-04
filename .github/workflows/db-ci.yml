@@ -8,40 +8,89 @@ name: Database CI
 #   4. the committed types/database.types.ts matches the schema (no drift),
 #   5. the RLS / database integration suites pass against that clean stack.
 #
+# DB-CI-COVERAGE-GAP-1 — extends (5) to the database suites that had NO CI
+# protection at all: tests/integration/billing (9 suites) and
+# tests/integration/accounts (5 suites) were environment-gated and activated by
+# no workflow, so they silently skipped everywhere. They now run here, on the
+# same ephemeral loopback stack, behind a gate that fails closed when a group
+# discovers nothing, executes nothing, or resolves entirely to skipped tests —
+# because for an opt-in suite "jest exited 0" proves nothing on its own.
+#
 # NO cloud project is ever touched: everything runs on the loopback Docker
 # stack inside the runner. There are deliberately no secrets in this workflow —
 # the local stack's keys are ephemeral throwaways.
+#
+# PATH FILTERS: deliberately DIRECTORY-scoped (repositories/, services/, core/,
+# workflow-engine/, utils/, lib/) rather than a hand-picked file list. These
+# suites exercise real repositories, services, RPCs and RLS, so a new
+# database-touching service must trigger this gate without anyone remembering
+# to extend a list. Documentation-only changes still do not trigger it.
 
 on:
   pull_request:
     branches: [v2-main]
+    # NOTE: GitHub Actions does not support YAML anchors, so this list is
+    # duplicated verbatim under `push:` below. tests/unit/pipeline/workflow-safety.test.ts
+    # asserts the two lists stay identical.
     paths:
       - "supabase/**"
       - "types/database.types.ts"
+      - "repositories/**"
+      - "services/**"
+      - "core/**"
+      - "workflow-engine/**"
+      - "utils/**"
+      - "lib/**"
+      - "middleware.ts"
+      - "tests/integration/security/**"
+      - "tests/integration/migrations/**"
+      - "tests/integration/billing/**"
+      - "tests/integration/accounts/**"
+      - "tests/helpers/**"
+      - "tests/globalTeardown.ts"
       - "scripts/check-migration-rls.mjs"
       - "scripts/db-types.mjs"
       - "scripts/supabase-test.mjs"
       - "scripts/db-push*.mjs"
       - "scripts/dev-*.mjs"
       - "scripts/lib/**"
-      - "tests/integration/security/**"
-      - "tests/integration/migrations/**"
-      - "tests/helpers/**"
+      - "scripts/ci/db-suite-gate.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "jest.config.mjs"
+      - "jest.setup.ts"
+      - "tsconfig.json"
       - ".github/workflows/db-ci.yml"
   push:
     branches: [v2-main, v2-dev]
     paths:
       - "supabase/**"
       - "types/database.types.ts"
+      - "repositories/**"
+      - "services/**"
+      - "core/**"
+      - "workflow-engine/**"
+      - "utils/**"
+      - "lib/**"
+      - "middleware.ts"
+      - "tests/integration/security/**"
+      - "tests/integration/migrations/**"
+      - "tests/integration/billing/**"
+      - "tests/integration/accounts/**"
+      - "tests/helpers/**"
+      - "tests/globalTeardown.ts"
       - "scripts/check-migration-rls.mjs"
       - "scripts/db-types.mjs"
       - "scripts/supabase-test.mjs"
       - "scripts/db-push*.mjs"
       - "scripts/dev-*.mjs"
       - "scripts/lib/**"
-      - "tests/integration/security/**"
-      - "tests/integration/migrations/**"
-      - "tests/helpers/**"
+      - "scripts/ci/db-suite-gate.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "jest.config.mjs"
+      - "jest.setup.ts"
+      - "tsconfig.json"
       - ".github/workflows/db-ci.yml"
   workflow_dispatch:
     inputs:
@@ -61,9 +110,9 @@ concurrency:
 
 jobs:
   db-ci:
-    name: clean reset + lint + types + RLS suites
+    name: clean reset + lint + types + RLS/billing/account suites
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout exact commit
@@ -103,34 +152,67 @@ jobs:
       - name: Prove clean reset-from-zero
         # `start` already applied the chain once; `db reset` drops and replays
         # every migration plus supabase/seed.sql from scratch — the actual
-        # "migrations reconstruct the schema from zero" proof.
+        # "migrations reconstruct the schema from zero" proof. Every suite group
+        # below therefore runs against this SINGLE freshly-rebuilt stack.
         run: npm run supabase:test:reset
 
       - name: Types drift gate
         run: npm run db:types:check
 
-      - name: RLS / database integration suites
+      - name: Export loopback stack environment for the database suite groups
         # Suites are opt-in and read connection values from process env with
-        # precedence over .env files; export the loopback stack's values.
+        # precedence over .env files. Exported ONCE here (masked) so all three
+        # groups share the same activated, verified-loopback environment.
         run: |
           set -euo pipefail
-          # Loopback-only throwaway keys from the stack we just started.
           while IFS='=' read -r k v; do
             case "$k" in
               NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|TOKEN_ENCRYPTION_KEY|OAUTH_STATE_SIGNING_KEY)
                 echo "::add-mask::$v"
-                export "$k=$v"
+                echo "$k=$v" >> "$GITHUB_ENV"
                 ;;
             esac
           done < .env.test.local
-          case "$NEXT_PUBLIC_SUPABASE_URL" in
+          URL=$(grep -m1 '^NEXT_PUBLIC_SUPABASE_URL=' .env.test.local | cut -d= -f2-)
+          case "$URL" in
             http://127.0.0.1:*|http://localhost:*) ;;
             *) echo "ABORT — expected loopback Supabase URL"; exit 1 ;;
           esac
-          # Serial: the suites share one database; parallel workers race on
-          # population-wide invariants (e.g. the accounts-backfill no-op check).
-          ALLOW_DB_INTEGRATION_TESTS=true npm test -- --runInBand \
-            tests/integration/security tests/integration/migrations
+          echo "ALLOW_DB_INTEGRATION_TESTS=true" >> "$GITHUB_ENV"
+
+      - name: Activation preflight — fail closed if a gate variable is absent or the DB is not loopback
+        # Without this, a missing ALLOW_DB_INTEGRATION_TESTS turns every suite
+        # below into describe.skip and the job still goes green.
+        run: node scripts/ci/db-suite-gate.mjs preflight
+
+      # The three groups run SEQUENTIALLY against the one stack. They share a
+      # single database and several assert population-wide invariants, so each
+      # group runs --runInBand and the RLS group (which owns those invariants)
+      # goes first, on the untouched post-reset state. Each suite owns its
+      # fixtures (createFixtureTracker / cleanupFixtures) and tests/globalTeardown
+      # sweeps any escaped @chainreact.test row after every group, so no reset is
+      # needed between groups.
+      - name: RLS / migration database suites (group 1/3)
+        run: node scripts/ci/db-suite-gate.mjs run --group security --min-suites 40 --out db-suite-result-security.json
+
+      - name: Billing database suites (group 2/3)
+        # Upgrade/downgrade atomicity + idempotency, entitlement transitions,
+        # AI-credit gating, reserve/reconcile — against the REAL RPCs.
+        run: node scripts/ci/db-suite-gate.mjs run --group billing --min-suites 9 --out db-suite-result-billing.json
+
+      - name: Account database suites (group 3/3)
+        # Purge / cascade / no-orphan, deletion authorization atomicity,
+        # membership cleanup, ledger anonymization — against the REAL schema.
+        run: node scripts/ci/db-suite-gate.mjs run --group accounts --min-suites 5 --out db-suite-result-accounts.json
+
+      - name: Upload database suite results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-suite-results-${{ inputs.sha || github.sha }}
+          path: db-suite-result-*.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Stop local stack
         if: always()
