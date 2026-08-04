@@ -39,7 +39,6 @@ import { AnalyticsQuotaError, AnalyticsNotFoundError } from "@/integrations/_sha
 import { OptionsResolverError, type OptionsResolverContext } from "@/services/options/types";
 import type { IntegrationRecord } from "@/repositories/integrations";
 import { googleAnalyticsConversionEventsResolver } from "@/integrations/google-analytics/options/conversionEvents";
-import type { OptionsResolverContext } from "@/services/options/types";
 import { googleAnalyticsDataStreamsResolver } from "@/integrations/google-analytics/options/dataStreams";
 import { googleAnalyticsPropertiesResolver } from "@/integrations/google-analytics/options/properties";
 import { googleAnalyticsPropertiesFlatResolver } from "@/integrations/google-analytics/options/propertiesFlat";

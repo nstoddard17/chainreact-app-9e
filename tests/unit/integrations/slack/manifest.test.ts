@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { slackManifest } from "@/integrations/slack/manifest";
 import { ProviderManifestSchema } from "@/contracts/integration";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("Slack manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -151,5 +152,52 @@ describe("Slack manifest", () => {
     expect(slackManifest.scopes.required).not.toEqual(
       expect.arrayContaining(["users.profile:write"]),
     );
+  });
+
+  it("declares actions: true and the action-handler registry contains EXACTLY the 31 Slack actions", () => {
+    // TEST-REDUNDANCY-REMOVAL-1 — Slack had NO registry pin in this file;
+    // its handler inventory was only covered centrally. This EXACT-SET pin
+    // moves that contract to the provider it belongs to and strengthens it:
+    // it fails when a shipped handler disappears AND when an unapproved one
+    // appears, so the old suite's Slack negatives — the deferred `file_uploaded` trigger, the
+  // user-token actions, and the permanently-skipped `find_user_by_email` —
+  // can never register without failing this set.
+    expect(slackManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "slack",
+    );
+    expect(registered.map((h) => h.type).sort()).toEqual([
+      "add_reaction",
+      "archive_channel",
+      "cancel_scheduled_message",
+      "create_channel",
+      "delete_message",
+      "download_file",
+      "get_channel_info",
+      "get_file_info",
+      "get_messages",
+      "get_thread_messages",
+      "get_user_info",
+      "invite_users_to_channel",
+      "join_channel",
+      "leave_channel",
+      "list_channels",
+      "list_scheduled_messages",
+      "list_users",
+      "pin_message",
+      "post_interactive_blocks",
+      "remove_reaction",
+      "remove_user_from_channel",
+      "rename_channel",
+      "schedule_message",
+      "send_channel_message",
+      "send_direct_message",
+      "set_channel_purpose",
+      "set_channel_topic",
+      "unarchive_channel",
+      "unpin_message",
+      "update_message",
+      "upload_file",
+    ]);
   });
 });

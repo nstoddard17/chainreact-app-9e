@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { notionManifest } from "@/integrations/notion/manifest";
 import { ProviderManifestSchema } from "@/contracts/integration";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 describe("Notion manifest", () => {
   it("validates against ProviderManifestSchema", () => {
@@ -52,5 +53,36 @@ describe("Notion manifest", () => {
 
   it("declares oauth flow 'v2'", () => {
     expect(notionManifest.oauthFlows).toEqual(["v2"]);
+  });
+
+  it("declares actions: true and the action-handler registry contains EXACTLY the 16 Notion actions", () => {
+    // TEST-REDUNDANCY-REMOVAL-1 — Notion had NO registry pin in this file;
+    // its handler inventory was only covered centrally. This EXACT-SET pin
+    // moves that contract to the provider it belongs to and strengthens it:
+    // it fails when a shipped handler disappears AND when an unapproved one
+    // appears, so the old suite pinned these one commit at a time (pages, databases, blocks,
+  // comments, users); the exact set covers all of them and any future drift.
+    expect(notionManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "notion",
+    );
+    expect(registered.map((h) => h.type).sort()).toEqual([
+      "append_block_children",
+      "archive_page",
+      "create_comment",
+      "create_database",
+      "create_database_entry",
+      "create_page",
+      "get_block",
+      "get_block_children",
+      "get_page",
+      "get_user",
+      "list_comments",
+      "list_users",
+      "query_database",
+      "restore_page",
+      "search",
+      "update_page",
+    ]);
   });
 });

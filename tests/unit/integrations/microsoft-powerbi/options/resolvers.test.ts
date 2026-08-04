@@ -144,7 +144,6 @@ import { microsoftPowerBiDataflowTransactionsResolver } from "@/integrations/mic
 import { NotFoundError } from "@/integrations/microsoft-powerbi/api/errors";
 import { microsoftPowerBiDataflowsResolver } from "@/integrations/microsoft-powerbi/options/dataflows";
 import { microsoftPowerBiGatewayDatasourceUsersResolver } from "@/integrations/microsoft-powerbi/options/gatewayDatasourceUsers";
-import type { OptionsResolverContext } from "@/services/options/types";
 import { microsoftPowerBiGatewayDatasourcesResolver } from "@/integrations/microsoft-powerbi/options/gatewayDatasources";
 import { microsoftPowerBiGatewaysResolver } from "@/integrations/microsoft-powerbi/options/gateways";
 import { microsoftPowerBiImportsResolver } from "@/integrations/microsoft-powerbi/options/imports";

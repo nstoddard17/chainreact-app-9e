@@ -17,50 +17,32 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     // `/runs` joined the rail in Slice 4.RUNS-PAGE-1 (read-only history).
     // `/team` joined the rail in Slice 4.TEAM-PAGE-1 (account/team management).
     // `/templates` joined the rail in Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5 (live marketplace).
-    expect(APP_SHELL_NAV_ITEMS.map((i) => i.href)).toEqual([
-      "/workflows",
-      "/templates",
-      "/apps",
-      "/runs",
-      "/analytics",
-      "/team",
+    // TEST-REDUNDANCY-REMOVAL-1 — pinned as the full {id,label,href} shape
+    // rather than hrefs alone. This absorbs the five per-route tests that
+    // used to follow ("does NOT include /notifications", and the id+label
+    // checks for /templates, /runs, /analytics, /team): an unapproved entry
+    // appearing, an approved one disappearing, or any id/label drift now
+    // fails HERE, in one place, with the whole list in the diff.
+    expect(
+      APP_SHELL_NAV_ITEMS.map((i) => ({
+        id: i.id,
+        label: i.label,
+        href: i.href,
+      })),
+    ).toEqual([
+      { id: "workflows", label: "Workflows", href: "/workflows" },
+      { id: "templates", label: "Templates", href: "/templates" },
+      { id: "apps", label: "Apps", href: "/apps" },
+      { id: "runs", label: "Runs", href: "/runs" },
+      { id: "analytics", label: "Analytics", href: "/analytics" },
+      { id: "team", label: "Team", href: "/team" },
     ]);
     for (const item of APP_SHELL_NAV_ITEMS) {
       expect(item.href.startsWith("/")).toBe(true);
       expect(item.href.startsWith("#")).toBe(false);
+      // The rail is icon-forward: an entry without a glyph renders blank.
+      expect(item.icon).toBeTruthy();
     }
-  });
-
-  it("does NOT include /notifications (covered by the top-bar bell instead)", () => {
-    expect(APP_SHELL_NAV_ITEMS.find((i) => i.href === "/notifications")).toBeUndefined();
-  });
-
-  it("includes /templates (Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-5)", () => {
-    const tpl = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/templates");
-    expect(tpl).toBeDefined();
-    expect(tpl?.id).toBe("templates");
-    expect(tpl?.label).toBe("Templates");
-  });
-
-  it("includes /runs after the real page landed (Slice 4.RUNS-PAGE-1)", () => {
-    const runs = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/runs");
-    expect(runs).toBeDefined();
-    expect(runs?.id).toBe("runs");
-    expect(runs?.label).toBe("Runs");
-  });
-
-  it("includes /analytics after the real page landed (Slice ANALYTICS-1)", () => {
-    const analytics = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/analytics");
-    expect(analytics).toBeDefined();
-    expect(analytics?.id).toBe("analytics");
-    expect(analytics?.label).toBe("Analytics");
-  });
-
-  it("includes /team after the real page landed (Slice 4.TEAM-PAGE-1)", () => {
-    const teamItem = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/team");
-    expect(teamItem).toBeDefined();
-    expect(teamItem?.id).toBe("team");
-    expect(teamItem?.label).toBe("Team");
   });
 
   it("every item has a stable id, label, and absolute href", () => {

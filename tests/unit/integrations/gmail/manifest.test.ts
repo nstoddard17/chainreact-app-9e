@@ -54,7 +54,7 @@ describe("gmail manifest", () => {
     expect(providerSupports("gmail", "webhookTrigger")).toBe(false);
   });
 
-  it("declares actions: true and the action-handler registry contains gmail:send_email", () => {
+  it("declares actions: true and the action-handler registry contains EXACTLY the 15 Gmail actions", () => {
     // Honest-capability invariant: the manifest only claims `actions: true`
     // when there's at least one corresponding handler registered.
     // Fail-closed: assert the capability itself — a regression that flips
@@ -63,10 +63,32 @@ describe("gmail manifest", () => {
     const registered = listRegisteredHandlers().filter(
       (h) => h.provider === "gmail",
     );
-    expect(registered).toContainEqual({
-      provider: "gmail",
-      type: "send_email",
-    });
+    // TEST-REDUNDANCY-REMOVAL-1 — this EXACT-SET pin replaces the central
+    // per-slice presence tests that used to live in
+    // tests/unit/services/execution/handlers/registry.test.ts. It is
+    // strictly stronger than those: it fails both when a shipped handler
+    // DISAPPEARS and when an unapproved one APPEARS, which is what the old
+    // suite's negative assertions covered one action at a time —
+    // `gmail:advanced_search` (folded into search_emails, parity decision 1)
+    // and `gmail:download_attachment` (folded into get_attachment, Gmail 2.3
+    // plan §8 decision 13.1) can never register without failing here.
+    expect(registered.map((h) => h.type).sort()).toEqual([
+      "add_label",
+      "archive_email",
+      "create_draft",
+      "create_draft_reply",
+      "create_label",
+      "delete_email",
+      "get_attachment",
+      "get_profile",
+      "list_labels",
+      "mark_as_read",
+      "mark_as_unread",
+      "remove_label",
+      "reply_to_email",
+      "search_emails",
+      "send_email",
+    ]);
   });
 
   it("uses 6h health-check interval matching V1 Google cadence", () => {

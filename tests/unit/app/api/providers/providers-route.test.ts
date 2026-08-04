@@ -21,6 +21,8 @@ jest.mock("@/utils/supabase/server", () => ({
 import { GET as getProviders } from "@/app/api/providers/route";
 import { GET as getActions } from "@/app/api/providers/[id]/actions/route";
 import { GET as getTriggers } from "@/app/api/providers/[id]/triggers/route";
+import { listProviders } from "@/integrations/_registry";
+import { listProvidersWithMetadata } from "@/services/discovery/_registry";
 
 beforeEach(() => {
   mockGetUser.mockReset();
@@ -56,6 +58,52 @@ describe("GET /api/providers", () => {
     expect(native?.hasMetadata).toBe(true);
   });
 
+  // TEST-REDUNDANCY-REMOVAL-1 — one registry-driven contract replaces the 20
+  // per-provider "marks <X> as hasMetadata=true now that Slice N shipped"
+  // markers. Those were historical landing notices: identical in body, each
+  // naming one provider, and collectively a manually maintained list that a
+  // newly added provider was never added to. This sweep derives its
+  // expectations from the SAME production registries the route reads, so a
+  // new provider is covered the moment it registers metadata — and the
+  // serialization (not the registry) is what is under test.
+  it("serializes hasMetadata from the discovery registry for every provider — no manual list", async () => {
+    authedUser();
+    const res = await getProviders();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      providers: Array<{ id: string; hasMetadata: boolean }>;
+    };
+
+    const withMetadata = new Set(listProvidersWithMetadata());
+    const manifestIds = listProviders().map((m) => m.id);
+
+    // Fail-closed floors: an empty registry (or an empty response) would make
+    // every per-provider expectation below vacuously true.
+    expect(withMetadata.size).toBeGreaterThan(10);
+    expect(body.providers.length).toBeGreaterThanOrEqual(manifestIds.length);
+
+    // Every manifest provider is serialized — the route never silently drops
+    // one — and its hasMetadata mirrors the registry exactly.
+    for (const id of manifestIds) {
+      const entry = body.providers.find((p) => p.id === id);
+      expect(entry).toBeDefined();
+      expect(entry!.hasMetadata).toBe(withMetadata.has(id));
+    }
+
+    // Both polarities are actually exercised, so this can never pass by
+    // every provider happening to be true.
+    const trueIds = body.providers.filter((p) => p.hasMetadata).map((p) => p.id);
+    const falseIds = body.providers.filter((p) => !p.hasMetadata).map((p) => p.id);
+    expect(trueIds.length).toBeGreaterThan(10);
+    expect(falseIds.length).toBeGreaterThan(0);
+    // Concrete anchors for the true side (previously asserted one test each).
+    expect(trueIds).toEqual(expect.arrayContaining(["gmail", "slack", "stripe"]));
+    // ...and the false side is a real provider that has not shipped metas.
+    for (const id of falseIds) {
+      expect(withMetadata.has(id)).toBe(false);
+    }
+  });
+
   it("includes the OAuth providers from the manifest registry", async () => {
     authedUser();
     const res = await getProviders();
@@ -66,137 +114,17 @@ describe("GET /api/providers", () => {
     expect(ids).toEqual(expect.arrayContaining(["slack", "gmail", "notion"]));
   });
 
-  it("marks GitHub as hasMetadata=true now that Slice 3.0b shipped its metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const github = body.providers.find((p) => p.id === "github");
-    expect(github).toBeDefined();
-    expect(github?.hasMetadata).toBe(true);
-  });
 
-  it("marks Slack as hasMetadata=true now that Slice 3.11 shipped its trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const slack = body.providers.find((p) => p.id === "slack");
-    expect(slack).toBeDefined();
-    expect(slack?.hasMetadata).toBe(true);
-  });
 
-  it("marks Gmail as hasMetadata=true now that Slice 3.12 shipped its trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const gmail = body.providers.find((p) => p.id === "gmail");
-    expect(gmail).toBeDefined();
-    expect(gmail?.hasMetadata).toBe(true);
-  });
 
-  it("marks Microsoft Outlook as hasMetadata=true now that Slice 3.17 shipped its action+trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const outlook = body.providers.find((p) => p.id === "microsoft-outlook");
-    expect(outlook).toBeDefined();
-    expect(outlook?.hasMetadata).toBe(true);
-  });
 
-  it("marks Notion as hasMetadata=true now that Slice 3.41 shipped the page+database action metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const notion = body.providers.find((p) => p.id === "notion");
-    expect(notion).toBeDefined();
-    expect(notion?.hasMetadata).toBe(true);
-  });
 
-  it("marks Stripe as hasMetadata=true now that Slice 3.45 shipped the customer + payment lifecycle action metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const stripe = body.providers.find((p) => p.id === "stripe");
-    expect(stripe).toBeDefined();
-    expect(stripe?.hasMetadata).toBe(true);
-  });
 
-  it("marks Google Sheets as hasMetadata=true now that Slice 3.GSHEETS-3 shipped the first 8 action metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const gsheets = body.providers.find((p) => p.id === "google-sheets");
-    expect(gsheets).toBeDefined();
-    expect(gsheets?.hasMetadata).toBe(true);
-  });
 
-  it("marks HubSpot as hasMetadata=true now that Slice 3.HUBSPOT-3 shipped the first 6 action metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const hubspot = body.providers.find((p) => p.id === "hubspot");
-    expect(hubspot).toBeDefined();
-    expect(hubspot?.hasMetadata).toBe(true);
-  });
 
-  it("marks Mailchimp as hasMetadata=true now that Slice 3.MAILCHIMP-3 shipped the first 12 action metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const mailchimp = body.providers.find((p) => p.id === "mailchimp");
-    expect(mailchimp).toBeDefined();
-    expect(mailchimp?.hasMetadata).toBe(true);
-  });
 
-  it("marks Discord as hasMetadata=true now that Slice 3.DISCORD-4 shipped the 5 action metas (triggers deferred per D-DC1)", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const discord = body.providers.find((p) => p.id === "discord");
-    expect(discord).toBeDefined();
-    expect(discord?.hasMetadata).toBe(true);
-  });
 
-  it("marks Google Docs as hasMetadata=true now that Slice 3.GDOCS-4 shipped the 5 action metas (triggers deferred to GDOCS-5)", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const googleDocs = body.providers.find((p) => p.id === "google-docs");
-    expect(googleDocs).toBeDefined();
-    expect(googleDocs?.hasMetadata).toBe(true);
-  });
 
-  it("marks Microsoft OneNote as hasMetadata=true now that Slice 3.ONENOTE-4 shipped the 12 action metas (triggers deferred to ONENOTE-5)", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const onenote = body.providers.find((p) => p.id === "microsoft-onenote");
-    expect(onenote).toBeDefined();
-    expect(onenote?.hasMetadata).toBe(true);
-  });
 
   // Slice 4.OUTLOOK-CAL-META-2 (final launch-gap provider) closed the
   // launch-gap tracker — `microsoft-outlook-calendar` flipped to
@@ -211,40 +139,8 @@ describe("GET /api/providers", () => {
   // positive `microsoft-outlook-calendar hasMetadata=true` assertion
   // below replaces this block.
 
-  it("marks Google Calendar as hasMetadata=true now that Slice 4.GCAL-META-2 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const cal = body.providers.find((p) => p.id === "google-calendar");
-    expect(cal).toBeDefined();
-    expect(cal?.hasMetadata).toBe(true);
-  });
 
-  it("marks Google Drive as hasMetadata=true now that Slice 4.GDRIVE-META-2 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const drive = body.providers.find((p) => p.id === "google-drive");
-    expect(drive).toBeDefined();
-    expect(drive?.hasMetadata).toBe(true);
-  });
 
-  it("marks Microsoft Outlook Calendar as hasMetadata=true now that Slice 4.OUTLOOK-CAL-META-2 shipped its action + trigger metas (FINAL launch-gap provider — tracker closes at 26/26)", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const outlookCal = body.providers.find(
-      (p) => p.id === "microsoft-outlook-calendar",
-    );
-    expect(outlookCal).toBeDefined();
-    expect(outlookCal?.hasMetadata).toBe(true);
-  });
 
   it("exposes Stripe event_received TriggerMeta now that Slice 4.STRIPE-TRIGGER-META-2 shipped (closes PROVIDER-AUDIT-1's launch blocker — Stripe failed-payment → Slack DM is catalog-grounded)", async () => {
     authedUser();
@@ -262,60 +158,10 @@ describe("GET /api/providers", () => {
     expect(trigger.activation).toBe("webhook");
   });
 
-  it("marks Microsoft Teams as hasMetadata=true now that Slice 4.TEAMS-META-3 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const teams = body.providers.find((p) => p.id === "microsoft-teams");
-    expect(teams).toBeDefined();
-    expect(teams?.hasMetadata).toBe(true);
-  });
 
-  it("marks Trello as hasMetadata=true now that Slice 4.TRELLO-META-3 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const trello = body.providers.find((p) => p.id === "trello");
-    expect(trello).toBeDefined();
-    expect(trello?.hasMetadata).toBe(true);
-  });
 
-  it("marks Airtable as hasMetadata=true now that Slice 4.AIRTABLE-META-3 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const airtable = body.providers.find((p) => p.id === "airtable");
-    expect(airtable).toBeDefined();
-    expect(airtable?.hasMetadata).toBe(true);
-  });
 
-  it("marks Shopify as hasMetadata=true now that Slice 4.SHOPIFY-META-2 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const shopify = body.providers.find((p) => p.id === "shopify");
-    expect(shopify).toBeDefined();
-    expect(shopify?.hasMetadata).toBe(true);
-  });
 
-  it("marks Microsoft Excel as hasMetadata=true now that Slice 4.EXCEL-META-3 shipped its action + trigger metas", async () => {
-    authedUser();
-    const res = await getProviders();
-    const body = (await res.json()) as {
-      providers: Array<{ id: string; hasMetadata: boolean }>;
-    };
-    const excel = body.providers.find((p) => p.id === "microsoft-excel");
-    expect(excel).toBeDefined();
-    expect(excel?.hasMetadata).toBe(true);
-  });
 
   it("sorts providers by displayName", async () => {
     authedUser();

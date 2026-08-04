@@ -25,7 +25,9 @@ describe("Router routes operator parity", () => {
     expect([...ROUTER_OPERATORS]).toEqual([...IF_THEN_OPERATORS]);
   });
 
-  it("both lists have the same length", () => {
-    expect(ROUTER_OPERATORS.length).toBe(IF_THEN_OPERATORS.length);
-  });
+  // TEST-REDUNDANCY-REMOVAL-1 — removed "both lists have the same length".
+  // A length mismatch is a strict subset of an ordered deep-equality
+  // mismatch, so the assertion above fails first and with a better message
+  // for every input the length check could have caught. Survivor: the
+  // `toEqual` pin immediately above.
 });

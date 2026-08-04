@@ -97,11 +97,14 @@ describe("legacy plan path is not user-mounted", () => {
     expect(src).not.toMatch(/<BuilderAiPanel[\s/>]/);
   });
 
-  it("the superseded floating BuilderGuidanceEntry component was removed", () => {
-    expect(
-      existsSync(resolve(process.cwd(), "features/workflow-builder/panels/BuilderGuidanceEntry.tsx")),
-    ).toBe(false);
-  });
+  // TEST-REDUNDANCY-REMOVAL-1 — removed "the superseded floating
+  // BuilderGuidanceEntry component was removed" (an existsSync === false pin
+  // on an already-deleted file). Unlike the retired ROUTE files, whose mere
+  // presence would re-expose an HTTP endpoint, a re-added presentational
+  // component is inert unless something renders it — and rendering it is
+  // already banned by the live composition-root scan directly above plus
+  // "WorkflowBuilder no longer mounts BuilderAiPanel or the floating
+  // BuilderGuidanceEntry". Those are the survivors.
 
   // (The /ai/plan route was retired in Phase 2 — see "legacy chat AI routes ... retired (Phase 2)".)
 });

@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { ProviderManifestSchema } from "@/contracts/integration";
 import { shopifyManifest } from "@/integrations/shopify/manifest";
+import { listRegisteredHandlers } from "@/services/execution/handlers/_registry";
 
 /**
  * Slice 12 Commit 2: Shopify manifest validates against the V2 schema
@@ -89,5 +90,31 @@ describe("shopifyManifest", () => {
       placeholder: "your-store.myshopify.com",
       help: expect.stringContaining("myshopify.com"),
     });
+  });
+
+  it("declares actions: true and the action-handler registry contains EXACTLY the 11 Shopify actions", () => {
+    // TEST-REDUNDANCY-REMOVAL-1 — Shopify had NO registry pin in this file;
+    // its handler inventory was only covered centrally. This EXACT-SET pin
+    // moves that contract to the provider it belongs to and strengthens it:
+    // it fails when a shipped handler disappears AND when an unapproved one
+    // appears, so replaces the old suite's `registers all 11 Shopify actions` +
+  // `registers update_product_variant` presence pins.
+    expect(shopifyManifest.capabilities.actions).toBe(true);
+    const registered = listRegisteredHandlers().filter(
+      (h) => h.provider === "shopify",
+    );
+    expect(registered.map((h) => h.type).sort()).toEqual([
+      "add_order_note",
+      "create_customer",
+      "create_fulfillment",
+      "create_order",
+      "create_product",
+      "create_product_variant",
+      "update_customer",
+      "update_inventory",
+      "update_order_status",
+      "update_product",
+      "update_product_variant",
+    ]);
   });
 });

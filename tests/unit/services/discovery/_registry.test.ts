@@ -11,17 +11,13 @@
  *   - getActionMeta / getTriggerMeta resolve registered keys and return
  *     undefined for unknown.
  *   - listProvidersWithMetadata returns sorted unique provider ids.
- *   - All registered metas pass their respective Zod parse (defense in
- *     depth — module-load parse covers this already, but a re-run here
- *     surfaces drift in the contract).
+ *
+ * Zod-contract re-parsing used to be asserted here as "defense in depth"; it
+ * was removed in TEST-REDUNDANCY-REMOVAL-1 because
+ * services/discovery/_registry.ts parses every action and trigger meta at
+ * module load, so importing this file at all already proves it.
  */
-import {
-  ActionMetaSchema,
-  type ActionMeta,
-} from "@/contracts/actionMeta";
-import {
-  TriggerMetaSchema,
-} from "@/contracts/triggerMeta";
+import type { ActionMeta } from "@/contracts/actionMeta";
 import {
   getActionMeta,
   getTriggerMeta,
@@ -303,11 +299,13 @@ describe("listAllActionMetas", () => {
     }
   });
 
-  it("returns metas that pass the Zod contract", () => {
-    for (const m of listAllActionMetas()) {
-      expect(() => ActionMetaSchema.parse(m)).not.toThrow();
-    }
-  });
+  // TEST-REDUNDANCY-REMOVAL-1 — removed "returns metas that pass the Zod
+  // contract". services/discovery/_registry.ts parses EVERY action meta with
+  // ActionMetaSchema.parse() at module load, so this file cannot even be
+  // imported when a meta is malformed; the assertion could only ever run
+  // after the contract it checked had already been enforced. Proven by
+  // corrupting `gmail:send_email`'s key and observing the real registry
+  // import reject. Survivor: the module-load parse loop itself.
 });
 
 describe("listAllTriggerMetas", () => {
@@ -377,11 +375,10 @@ describe("listAllTriggerMetas", () => {
     expect(keys).toContain("hubspot:webhook_received");
   });
 
-  it("returns metas that pass the Zod contract", () => {
-    for (const m of listAllTriggerMetas()) {
-      expect(() => TriggerMetaSchema.parse(m)).not.toThrow();
-    }
-  });
+  // TEST-REDUNDANCY-REMOVAL-1 — removed "returns metas that pass the Zod
+  // contract" for the same reason as the action-meta case above: the
+  // TriggerMetaSchema.parse() loop at module load in
+  // services/discovery/_registry.ts owns this contract.
 });
 
 describe("per-provider accessors", () => {
