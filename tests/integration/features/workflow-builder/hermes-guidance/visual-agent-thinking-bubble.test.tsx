@@ -120,7 +120,8 @@ function renderBuilder(extraProps: Record<string, unknown> = {}) {
 }
 
 async function submitGoal(user: ReturnType<typeof userEvent.setup>, text = "follow up with leads") {
-  await user.type(screen.getByPlaceholderText(/Example:/i), text);
+  await user.click(screen.getByPlaceholderText(/Example:/i));
+  await user.paste(text);
   await user.click(screen.getByTestId("workflow-guidance-submit"));
 }
 

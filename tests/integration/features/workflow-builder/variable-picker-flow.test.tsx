@@ -371,7 +371,8 @@ it("router row input + value fields get picker affordances and inserts produce r
 
   // Add one route to expose the row inputs.
   await user.click(screen.getByRole("button", { name: /^add route$/i }));
-  await user.type(screen.getByLabelText("Route 1 label"), "happy");
+  await user.click(screen.getByLabelText("Route 1 label"));
+    await user.paste("happy");
 
   // Picker on the input field.
   const inputField = screen.getByLabelText("Route 1 input") as HTMLInputElement;

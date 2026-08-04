@@ -320,7 +320,8 @@ function renderBuilder() {
 }
 
 async function createAndApply(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByPlaceholderText(/Example:/i), "post Stripe payments to Slack");
+  await user.click(screen.getByPlaceholderText(/Example:/i));
+  await user.paste("post Stripe payments to Slack");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
   await user.click(await screen.findByTestId("builder-preview-apply"));
 }
@@ -696,7 +697,8 @@ describe("ambiguous Stripe payment → guided Connect then Configure (REACT-AGEN
     const triggerNode = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "stripe")!;
     const eventField = `node-setup-${triggerNode.id}-enabledEvents`;
     await screen.findByTestId(`${eventField}-search`);
-    await user.type(screen.getByTestId(`${eventField}-search`), "payment_intent.succeeded");
+    await user.click(screen.getByTestId(`${eventField}-search`));
+  await user.paste("payment_intent.succeeded");
     await user.click(
       await screen.findByTestId(`${eventField}-payment_intent.succeeded`),
     );

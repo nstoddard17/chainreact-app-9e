@@ -235,14 +235,10 @@ it("end-to-end: Outlook send_email config round-trips chip arrays + required isH
   await user.keyboard("{Enter}");
 
   // 7. Type Subject + Body.
-  await user.type(
-    screen.getByRole("textbox", { name: /^subject$/i }),
-    "Outlook test subject",
-  );
-  await user.type(
-    screen.getByRole("textbox", { name: /^body$/i }),
-    "Hello from Outlook builder",
-  );
+  await user.click(screen.getByRole("textbox", { name: /^subject$/i }));
+    await user.paste("Outlook test subject");
+  await user.click(screen.getByRole("textbox", { name: /^body$/i }));
+    await user.paste("Hello from Outlook builder");
 
   // 8. Toggle Is HTML on via Switch click. Switch is a native button-role
   //    primitive (not portaled), so this works in jsdom.

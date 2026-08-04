@@ -105,7 +105,8 @@ describe("HelpCenterPage — search", () => {
     render(<HelpCenterPage providers={PROVIDERS} />);
     const input = screen.getByTestId("help-search-input");
     expect(input).toHaveAccessibleName("Search help articles");
-    await user.type(input, "triggers");
+    await user.click(input);
+    await user.paste("triggers");
     const results = screen.getByTestId("help-search-results");
     const option = within(results).getByRole("option", {
       name: /understand triggers and actions/i,
@@ -116,7 +117,8 @@ describe("HelpCenterPage — search", () => {
   it("finds articles by keyword (not just title words)", async () => {
     const user = userEvent.setup();
     render(<HelpCenterPage providers={PROVIDERS} />);
-    await user.type(screen.getByTestId("help-search-input"), "quota");
+    await user.click(screen.getByTestId("help-search-input"));
+    await user.paste("quota");
     const results = screen.getByTestId("help-search-results");
     expect(
       within(results).getByRole("option", { name: /understand task usage/i }),
@@ -126,7 +128,8 @@ describe("HelpCenterPage — search", () => {
   it("shows a useful no-results state with a real support mailto", async () => {
     const user = userEvent.setup();
     render(<HelpCenterPage providers={PROVIDERS} />);
-    await user.type(screen.getByTestId("help-search-input"), "xyzzy-plugh-42");
+    await user.click(screen.getByTestId("help-search-input"));
+    await user.paste("xyzzy-plugh-42");
     expect(screen.queryByTestId("help-search-results")).not.toBeInTheDocument();
     const empty = screen.getByTestId("help-search-empty");
     expect(empty).toHaveTextContent(/no articles match/i);
@@ -140,7 +143,8 @@ describe("HelpCenterPage — search", () => {
     const user = userEvent.setup();
     render(<HelpCenterPage providers={PROVIDERS} />);
     const input = screen.getByTestId("help-search-input");
-    await user.type(input, "triggers");
+    await user.click(input);
+    await user.paste("triggers");
     await user.keyboard("{ArrowDown}{Enter}");
     expect(mockPush).toHaveBeenCalledWith("/help/understand-triggers-and-actions");
   });
@@ -149,7 +153,8 @@ describe("HelpCenterPage — search", () => {
     const user = userEvent.setup();
     render(<HelpCenterPage providers={PROVIDERS} />);
     const input = screen.getByTestId("help-search-input");
-    await user.type(input, "triggers");
+    await user.click(input);
+    await user.paste("triggers");
     expect(screen.getByTestId("help-search-results")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(input).toHaveValue("");

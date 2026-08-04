@@ -222,7 +222,8 @@ describe("ConfigModalShell — selected-node tabs (BUILDER-CONFIG-TABS-1)", () =
     expect(screen.queryByLabelText("URL")).toBeNull();
     await user.click(configTab(/^Setup$/));
     // The real config form is back and still saves into graphSlice.
-    await user.type(screen.getByLabelText("URL"), "https://example.com");
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://example.com");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     expect(
       useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)?.config,
@@ -264,7 +265,8 @@ describe("ConfigModalShell — native action open state", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("URL"), "https://x");
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://x");
     expect(useConfigSlice.getState().drafts[nodeId]!.isDirty).toBe(true);
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
@@ -276,7 +278,8 @@ describe("ConfigModalShell — native action open state", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("URL"), "https://example.com");
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://example.com");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     const persisted = useGraphSlice
@@ -299,7 +302,8 @@ describe("ConfigModalShell — native action open state", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("URL"), "https://nope");
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://nope");
     // C — Cancel on a dirty draft asks before discarding (no silent loss).
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(
@@ -333,7 +337,8 @@ describe("ConfigModalShell — C: unsaved-edit discard guard", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("URL"), "https://keep.me");
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://keep.me");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(
       screen.getByTestId("config-modal-discard-confirm"),
@@ -352,7 +357,8 @@ describe("ConfigModalShell — C: unsaved-edit discard guard", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("URL"), "https://keep.me");
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://keep.me");
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     await user.click(screen.getByTestId("config-modal-discard-keep"));
     expect(
@@ -465,14 +471,16 @@ describe("ConfigModalShell — native router (Slice 3.6 routes editor)", () => {
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
 
     // Fill the label → routes valid → Save enables.
-    await user.type(screen.getByLabelText("Route 1 label"), "happy");
+    await user.click(screen.getByLabelText("Route 1 label"));
+    await user.paste("happy");
     await user.type(
       screen.getByLabelText("Route 1 input"),
       // user-event v14 escapes `{` by doubling it; type `{{{{x}}` to
       // produce the literal `{{x}}` inside the input.
       "{{{{trigger.foo}}",
     );
-    await user.type(screen.getByLabelText("Route 1 value"), "yes");
+    await user.click(screen.getByLabelText("Route 1 value"));
+    await user.paste("yes");
     expect(screen.getByRole("button", { name: /^save$/i })).toBeEnabled();
   });
 
@@ -489,14 +497,16 @@ describe("ConfigModalShell — native router (Slice 3.6 routes editor)", () => {
       expect(screen.getByTestId("router-routes-field")).toBeInTheDocument();
     });
     await user.click(screen.getByRole("button", { name: /^add route$/i }));
-    await user.type(screen.getByLabelText("Route 1 label"), "happy");
+    await user.click(screen.getByLabelText("Route 1 label"));
+    await user.paste("happy");
     await user.type(
       screen.getByLabelText("Route 1 input"),
       // user-event v14 escapes `{` by doubling it; type `{{{{x}}` to
       // produce the literal `{{x}}` inside the input.
       "{{{{trigger.foo}}",
     );
-    await user.type(screen.getByLabelText("Route 1 value"), "yes");
+    await user.click(screen.getByLabelText("Route 1 value"));
+    await user.paste("yes");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     const persisted = useGraphSlice
@@ -603,10 +613,8 @@ describe("ConfigModalShell — provider trigger SchemaForm (Slice 3.10)", () => 
     await waitFor(() => {
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
-    await user.type(
-      screen.getByLabelText("Repository"),
-      "octocat/hello-world",
-    );
+    await user.click(screen.getByLabelText("Repository"));
+      await user.paste("octocat/hello-world");
     expect(useConfigSlice.getState().drafts[node.id]!.isDirty).toBe(true);
   });
 
@@ -626,10 +634,8 @@ describe("ConfigModalShell — provider trigger SchemaForm (Slice 3.10)", () => 
     await waitFor(() => {
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
-    await user.type(
-      screen.getByLabelText("Repository"),
-      "octocat/hello-world",
-    );
+    await user.click(screen.getByLabelText("Repository"));
+      await user.paste("octocat/hello-world");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     expect(
       useGraphSlice
@@ -658,7 +664,8 @@ describe("ConfigModalShell — provider trigger SchemaForm (Slice 3.10)", () => 
     await waitFor(() => {
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Repository"), "octocat/x");
+    await user.click(screen.getByLabelText("Repository"));
+    await user.paste("octocat/x");
     // C — Cancel on a dirty draft confirms before discarding.
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     await user.click(screen.getByTestId("config-modal-discard-confirm-button"));
@@ -799,10 +806,8 @@ describe("ConfigModalShell — native trigger open state", () => {
     // "Custom (cron)" preset choice; power syntax still saves verbatim.
     await user.click(screen.getByLabelText("Cron Expression"));
     await user.click(screen.getByRole("option", { name: /custom \(cron\)/i }));
-    await user.type(
-      screen.getByLabelText(/custom cron expression/i),
-      "*/15 * * * *",
-    );
+    await user.click(screen.getByLabelText(/custom cron expression/i));
+      await user.paste("*/15 * * * *");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     const persisted = useGraphSlice
       .getState()
@@ -936,7 +941,8 @@ describe("ConfigModalShell — provider action open state", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Repository"), "octocat/hello-world");
+    await user.click(screen.getByLabelText("Repository"));
+    await user.paste("octocat/hello-world");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     const persisted = useGraphSlice
       .getState()
@@ -958,7 +964,8 @@ describe("ConfigModalShell — provider action open state", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Repository")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Repository"), "abandoned");
+    await user.click(screen.getByLabelText("Repository"));
+    await user.paste("abandoned");
     // C — Cancel on a dirty draft confirms before discarding.
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     await user.click(screen.getByTestId("config-modal-discard-confirm-button"));
@@ -1102,7 +1109,8 @@ describe("ConfigModalShell — node rename (Slice 4.BUILDER-NODE-IDENTITY-1)", (
     const user = userEvent.setup();
     render(<ConfigModalShell />);
     await waitFor(() => expect(screen.getByTestId("node-name-input")).toBeInTheDocument());
-    await user.type(screen.getByTestId("node-name-input"), "Notify Support Team");
+    await user.click(screen.getByTestId("node-name-input"));
+    await user.paste("Notify Support Team");
     expect(
       useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)!.displayName,
     ).toBe("Notify Support Team");
@@ -1150,7 +1158,8 @@ describe("ConfigModalShell — external config sync (rail Update step)", () => {
     const user = userEvent.setup();
     render(<ConfigModalShell />);
     await screen.findByLabelText("URL");
-    await user.type(screen.getByLabelText("URL"), "https://typed.example"); // manual panel edit
+    await user.click(screen.getByLabelText("URL"));
+    await user.paste("https://typed.example"); // manual panel edit
 
     // The rail updates a DIFFERENT field (Timeout) on the same node.
     act(() => {

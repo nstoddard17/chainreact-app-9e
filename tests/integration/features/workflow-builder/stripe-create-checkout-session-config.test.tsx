@@ -367,10 +367,8 @@ it(
     screen.queryByRole("textbox", { name: /price id \(entry 1\)/i }),
   ).toBeNull();
   await pickComboboxOption(user, /^price$/i, /pro plan/i);
-  await user.type(
-    screen.getByRole("spinbutton", { name: /quantity \(entry 1\)/i }),
-    "2",
-  );
+  await user.click(screen.getByRole("spinbutton", { name: /quantity \(entry 1\)/i }));
+    await user.paste("2");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.lineItems,
   ).toEqual(LINE_ITEMS);
@@ -388,14 +386,10 @@ it(
 
   // 8. Fill the metadata keyvalue chip UI: add one row, type key/value.
   await user.click(screen.getByRole("button", { name: /add row/i }));
-  await user.type(
-    screen.getByRole("textbox", { name: /metadata key 1/i }),
-    "order_id",
-  );
-  await user.type(
-    screen.getByRole("textbox", { name: /metadata value 1/i }),
-    "ord_99",
-  );
+  await user.click(screen.getByRole("textbox", { name: /metadata key 1/i }));
+    await user.paste("order_id");
+  await user.click(screen.getByRole("textbox", { name: /metadata value 1/i }));
+    await user.paste("ord_99");
   const draftMetadata = useConfigSlice.getState().drafts[action.id]!.values
     .metadata;
   // Record wire shape (keyValueShape: "record") — what Stripe's

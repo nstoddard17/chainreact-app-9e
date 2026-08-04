@@ -143,7 +143,8 @@ function renderBuilder() {
 }
 
 async function proposeEdit(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByPlaceholderText(/Example:/i), "send to #sales instead");
+  await user.click(screen.getByPlaceholderText(/Example:/i));
+  await user.paste("send to #sales instead");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
 }
 

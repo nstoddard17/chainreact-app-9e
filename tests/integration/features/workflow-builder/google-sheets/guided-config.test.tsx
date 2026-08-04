@@ -507,10 +507,8 @@ describe("pasting a link instead of searching", () => {
     const action = await addAppendRowAndOpen(user);
 
     await user.click(screen.getByTestId("guided-paste-link-open"));
-    await user.type(
-      screen.getByTestId("guided-paste-link-input"),
-      "https://docs.google.com/spreadsheets/d/pasted-file-id/edit#gid=0",
-    );
+    await user.click(screen.getByTestId("guided-paste-link-input"));
+      await user.paste("https://docs.google.com/spreadsheets/d/pasted-file-id/edit#gid=0");
     await user.click(screen.getByTestId("guided-paste-link-apply"));
 
     await waitFor(() => {
@@ -532,10 +530,8 @@ describe("pasting a link instead of searching", () => {
     const action = await addAppendRowAndOpen(user);
 
     await user.click(screen.getByTestId("guided-paste-link-open"));
-    await user.type(
-      screen.getByTestId("guided-paste-link-input"),
-      "https://example.com/something",
-    );
+    await user.click(screen.getByTestId("guided-paste-link-input"));
+      await user.paste("https://example.com/something");
     await user.click(screen.getByTestId("guided-paste-link-apply"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

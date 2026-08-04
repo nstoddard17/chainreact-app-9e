@@ -105,12 +105,20 @@ function renderBuilder(wf: WorkflowDetail) {
   );
 }
 
+// Enter the guidance prompt the fast user-level way: focus + paste fires the same
+// controlled-input path as typing, in ONE input event instead of one per character
+// (BUILDER-JSDOM-PERFORMANCE-1). Per-character behavior is not this suite's contract.
+async function enterPrompt(user: ReturnType<typeof userEvent.setup>, text: string) {
+  await user.click(screen.getByPlaceholderText(/Example:/i));
+  await user.paste(text);
+}
+
 async function applyPreview(user: ReturnType<typeof userEvent.setup>) {
   // HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — guidance now lives directly in the left rail (no
   // floating toggle to open first). REACT-LIVE-SKELETON — the preview AUTO-shows on the canvas; the
   // overlay's "Apply preview" is the action (no redundant rail "Show on canvas" click — that button is
   // hidden while the preview is already displayed, per HERMES-AGENT-PREVIEW-SHOWN-DEDUP).
-  await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+  await enterPrompt(user, "follow up with leads");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
   await user.click(await screen.findByTestId("builder-preview-apply"));
 }
@@ -123,7 +131,7 @@ describe("builder preview canvas state (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FI
     expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
 
     // Submit → preview overlay AUTO-shows → empty-state hidden (no "Show on canvas" click needed).
-    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await enterPrompt(user, "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("builder-preview-overlay");
     expect(screen.queryByTestId("empty-canvas-state")).not.toBeInTheDocument();
@@ -147,7 +155,7 @@ describe("builder preview canvas state (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FI
   it("auto-shows the preview overlay on the canvas with NO 'Show on canvas' click (no apply, no save)", async () => {
     const user = userEvent.setup();
     renderBuilder(workflow([], []));
-    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await enterPrompt(user, "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     // The skeleton overlay appears on its own — the test never clicks "Show on canvas".
     await screen.findByTestId("builder-preview-overlay");
@@ -206,7 +214,7 @@ describe("builder apply-preview — general EDIT (Slack → email swap, replace 
     const user = userEvent.setup();
     mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
+    await enterPrompt(user, "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     // HERMES-AGENT-PREVIEW-DIFF-GRAPH — the edit shows a slim control bar + ONE composed diff graph in
     // the canvas (data-preview-diff), NOT the old floating ghost-node overlay stacked over the live graph.
@@ -224,7 +232,7 @@ describe("builder apply-preview — general EDIT (Slack → email swap, replace 
     const user = userEvent.setup();
     mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
+    await enterPrompt(user, "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await user.click(await screen.findByTestId("builder-preview-apply"));
 
@@ -242,7 +250,7 @@ describe("builder apply-preview — general EDIT (Slack → email swap, replace 
     const user = userEvent.setup();
     mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
+    await enterPrompt(user, "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await user.click(await screen.findByTestId("builder-preview-discard"));
     await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
@@ -259,7 +267,7 @@ describe("builder apply-preview — general EDIT (Slack → email swap, replace 
     const user = userEvent.setup();
     mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "change the slack action to a gmail send email");
+    await enterPrompt(user, "change the slack action to a gmail send email");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("builder-preview-control-bar"); // auto-shown on the canvas
     await waitFor(() => expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull());
@@ -351,7 +359,7 @@ describe("builder apply-preview — insert between (selected mid-chain node)", (
   it("inserts the proposed action between the selected node and its single child (A → new → B)", async () => {
     const user = userEvent.setup();
     renderBuilder(workflow(existingNodes, existingEdges));
-    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await enterPrompt(user, "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("builder-preview-overlay"); // auto-shown
     // Select the mid-chain trigger node (its sole outgoing edge trig → act is the split point).
@@ -581,7 +589,7 @@ describe("builder apply-preview — auto-open first incomplete node (HERMES-AGEN
   it("auto-show alone, then Discard, never selects/opens a node (and applies nothing)", async () => {
     const user = userEvent.setup();
     renderWith(workflow([], []), slackMeta);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await enterPrompt(user, "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("builder-preview-overlay"); // auto-shown
     // Showing the preview overlay selects nothing.
@@ -637,7 +645,7 @@ describe("builder apply-preview — the pre-apply preview card (REACT-AGENT-PREA
     );
   }
   async function showPreview(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(screen.getByPlaceholderText(/Example:/i), "remind the team to review new leads");
+    await enterPrompt(user, "remind the team to review new leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("builder-preview-overlay"); // auto-shown (no redundant rail button click)
   }
