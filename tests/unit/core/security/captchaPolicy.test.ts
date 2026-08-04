@@ -9,7 +9,11 @@
  * REVOKE a local bypass (LAN visit to a dev server), never grant one.
  */
 
-import { resolveCaptchaMode, type CaptchaPolicyInput } from "@/core/security/turnstile";
+import {
+  classifySupabaseTarget,
+  resolveCaptchaMode,
+  type CaptchaPolicyInput,
+} from "@/core/security/turnstile";
 
 const PROD_SUPABASE = "https://qcepijemjlkssfkvzlio.supabase.co";
 const DEV_SUPABASE = "https://syvnzqzctnywakgyykmz.supabase.co";
@@ -112,6 +116,71 @@ describe("unknown / missing environments — fail closed", () => {
     expect(mode({ nodeEnv: undefined, supabaseUrl: LOCAL_STACK, hostname: "localhost" })).toBe(
       "required",
     );
+  });
+});
+
+describe("classifySupabaseTarget — the authoritative base axis (BYPASS-2)", () => {
+  it("classifies the production project", () => {
+    expect(classifySupabaseTarget(PROD_SUPABASE)).toBe("production");
+    expect(classifySupabaseTarget(`${PROD_SUPABASE}/`)).toBe("production");
+  });
+
+  it("classifies the approved development project", () => {
+    expect(classifySupabaseTarget(DEV_SUPABASE)).toBe("development");
+  });
+
+  it.each([
+    "http://127.0.0.1:54321",
+    "http://localhost:54321",
+    "http://localhost:54321/",
+    "http://127.0.0.1:64321",
+    "http://[::1]:54321",
+  ])("classifies the local stack regardless of port/slash/IPv6 form: %s", (url) => {
+    expect(classifySupabaseTarget(url)).toBe("local-stack");
+  });
+
+  it("classifies unknown, malformed, and missing URLs as unknown (fail closed upstream)", () => {
+    expect(classifySupabaseTarget("https://zzzzunknownproject.supabase.co")).toBe("unknown");
+    expect(classifySupabaseTarget("not a url")).toBe("unknown");
+    expect(classifySupabaseTarget(undefined)).toBe("unknown");
+    expect(classifySupabaseTarget("https://myapp-preview.vercel.app")).toBe("unknown");
+  });
+});
+
+describe("local-stack URL variants resolve like the local stack", () => {
+  it.each(["http://localhost:54321", "http://127.0.0.1:54321", "http://[::1]:54321"])(
+    "next dev + loopback host + %s → disabled",
+    (supabaseUrl) => {
+      expect(mode({ nodeEnv: "development", supabaseUrl, hostname: "localhost" })).toBe(
+        "disabled",
+      );
+    },
+  );
+});
+
+describe("SSR/first-render consistency — undefined hostname never differs from loopback", () => {
+  // The client's first render must match the server render (no hydration
+  // fork), and a loopback visitor must then see NO post-mount flip. Only a
+  // NON-loopback hostname may change the result — and only toward "required".
+  const targets: Array<[string, string | undefined]> = [
+    ["production", PROD_SUPABASE],
+    ["development", DEV_SUPABASE],
+    ["local-stack", LOCAL_STACK],
+    ["unknown", "https://zzzzunknownproject.supabase.co"],
+    ["missing", undefined],
+  ];
+  it.each(targets)("%s target under next dev: undefined === localhost", (_label, supabaseUrl) => {
+    const ssr = mode({ nodeEnv: "development", supabaseUrl, hostname: undefined });
+    const hydrated = mode({ nodeEnv: "development", supabaseUrl, hostname: "localhost" });
+    expect(hydrated).toBe(ssr);
+  });
+
+  it("a hostname can only tighten, never loosen", () => {
+    for (const [, supabaseUrl] of targets) {
+      const base = mode({ nodeEnv: "development", supabaseUrl, hostname: undefined });
+      const lan = mode({ nodeEnv: "development", supabaseUrl, hostname: "192.168.0.9" });
+      if (base === "required") expect(lan).toBe("required");
+    }
   });
 });
 

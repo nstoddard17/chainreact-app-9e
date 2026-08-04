@@ -137,6 +137,41 @@ policy unmocked) and `tests/unit/features/auth/captchaModeUi.test.tsx` (widget
 rendering, submit gating, misconfiguration failure, token lifecycle, omission
 of the token field).
 
+#### BYPASS-2 correction — the real local session still dead-ended (2026-08-03)
+
+The first implementation's verification only exercised `npm run dev:devdb`.
+Marcus's real session ran plain **`npm run dev`**, which inherits `.env.local`
+— and this machine's `.env.local` targets the **production** Supabase project.
+The policy did what the spec demands for a production target (required, fail
+closed, visible error), but the error said "contact the site owner", which is a
+dead end on the developer's own machine. Verified root cause: **environment
+targeting of the launch command**, not target detection, hostname handling,
+hydration, or client/server disagreement (SSR and client both resolved
+`required`; confirmed live against the failing server).
+
+What changed:
+
+- `classifySupabaseTarget` is now the explicit, exported base-policy axis
+  (production / development / local-stack / unknown); `resolveCaptchaMode`
+  derives the mode from it, and the hostname can only tighten the result.
+- When the required-but-no-site-key state arises on a **local dev server whose
+  build targets production** (`NODE_ENV === "development"` + production
+  target), the form shows a developer-facing message naming the fix — run
+  `npm run dev:devdb` — instead of the generic owner-facing copy. Submission
+  stays blocked either way; hosted builds can never render the developer
+  variant. CAPTCHA is still never bypassed for a production target, on any
+  hostname.
+- Regression suite `tests/unit/features/auth/captchaLocalRegression.test.tsx`
+  runs the REAL policy through the real form: development target + localhost +
+  no key → no error, enabled submit, token field omitted; production target on
+  a dev server → blocked with the actionable guidance (this assertion fails
+  against the pre-BYPASS-2 code).
+
+The working local paths remain: `npm run dev:devdb` (development project) or a
+loopback local stack under `next dev` — no Turnstile variables needed, no fake
+or empty token ever sent. Production, LAN-viewed dev servers, and unknown
+hosts/backends stay fail-closed.
+
 ## Security guarantees
 
 - **No secret leakage / no AI exposure.** MFA setup secret, otpauth URI, QR, and

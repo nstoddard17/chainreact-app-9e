@@ -8,7 +8,7 @@ import {
 } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { TURNSTILE_FIELD_NAME } from "@/core/security/turnstile";
-import { CAPTCHA_MISCONFIGURED_MESSAGE, useCaptchaMode } from "./useCaptchaMode";
+import { useCaptchaMode } from "./useCaptchaMode";
 import { AuthHeading } from "./AuthShell";
 import { AuthOtpField, EMAIL_OTP_MIN_LENGTH, EMAIL_OTP_MAX_LENGTH } from "./AuthCodeInput";
 import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";
@@ -60,7 +60,8 @@ export function VerifyEmailForm({
 
   // Central policy (LOCAL-AUTH-CAPTCHA-BYPASS-1) — gates only the RESEND form
   // (Supabase enforces captcha on resend when the project has it enabled).
-  const { captchaRequired, showCaptchaWidget, captchaMisconfigured } = useCaptchaMode();
+  const { captchaRequired, showCaptchaWidget, captchaMisconfigured, captchaMisconfiguredMessage } =
+    useCaptchaMode();
   const [captchaToken, setCaptchaToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
 
@@ -169,7 +170,7 @@ export function VerifyEmailForm({
           </>
         )}
         {/* Required but no site key: fail visibly, never silently skip the check. */}
-        {captchaMisconfigured && <AuthFormError>{CAPTCHA_MISCONFIGURED_MESSAGE}</AuthFormError>}
+        {captchaMisconfiguredMessage && <AuthFormError>{captchaMisconfiguredMessage}</AuthFormError>}
         <p className="au-swap">
           {expired ? "That code has expired." : "Didn't get a code?"}
           {cooldown > 0 ? (

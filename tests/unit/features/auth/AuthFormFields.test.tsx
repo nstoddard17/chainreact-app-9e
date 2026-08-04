@@ -13,6 +13,7 @@ jest.mock("@/core/security/turnstile", () => ({
   TURNSTILE_FIELD_NAME: "cf-turnstile-response",
   isTurnstileWidgetConfigured: () => false,
   resolveBrowserCaptchaMode: () => "disabled",
+  browserSupabaseTargetClass: () => "development",
 }));
 
 import { AuthField } from "@/features/auth/AuthField";

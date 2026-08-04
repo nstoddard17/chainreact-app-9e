@@ -5,7 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { requestPasswordReset, type AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { TURNSTILE_FIELD_NAME } from "@/core/security/turnstile";
-import { CAPTCHA_MISCONFIGURED_MESSAGE, useCaptchaMode } from "./useCaptchaMode";
+import { useCaptchaMode } from "./useCaptchaMode";
 import { AuthHeading } from "./AuthShell";
 import { AuthField } from "./AuthField";
 import { AuthFormError, AuthSubmit } from "./AuthControls";
@@ -38,7 +38,8 @@ export function ForgotPasswordForm({ serverError }: { serverError?: string } = {
   const [dismissed, setDismissed] = useState<AuthActionResult | null>(null);
 
   // Central policy (LOCAL-AUTH-CAPTCHA-BYPASS-1) — see AuthForm for the modes.
-  const { captchaRequired, showCaptchaWidget, captchaMisconfigured } = useCaptchaMode();
+  const { captchaRequired, showCaptchaWidget, captchaMisconfigured, captchaMisconfiguredMessage } =
+    useCaptchaMode();
   const [captchaToken, setCaptchaToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
   useEffect(() => {
@@ -112,8 +113,8 @@ export function ForgotPasswordForm({ serverError }: { serverError?: string } = {
               </>
             )}
             {/* Required but no site key: fail visibly, never silently skip the check. */}
-            {captchaMisconfigured && (
-              <AuthFormError>{CAPTCHA_MISCONFIGURED_MESSAGE}</AuthFormError>
+            {captchaMisconfiguredMessage && (
+              <AuthFormError>{captchaMisconfiguredMessage}</AuthFormError>
             )}
 
             {state && !state.ok && <AuthFormError>{state.error}</AuthFormError>}

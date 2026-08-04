@@ -105,6 +105,24 @@ function isLocalDevelopmentContext(input: CaptchaPolicyInput): boolean {
   return input.hostname === undefined || isLoopbackHostname(input.hostname);
 }
 
+/**
+ * Classification of the Supabase project a build targets — the AUTHORITATIVE
+ * base for the captcha mode (LOCAL-AUTH-CAPTCHA-BYPASS-2). The browser
+ * hostname can only ever make the result MORE restrictive, never authorize a
+ * bypass on its own.
+ */
+export type SupabaseTargetClass = "production" | "development" | "local-stack" | "unknown";
+
+/** Classify `NEXT_PUBLIC_SUPABASE_URL`. Ports, paths, and trailing slashes are irrelevant. */
+export function classifySupabaseTarget(supabaseUrl: string | undefined): SupabaseTargetClass {
+  const host = parseHost(supabaseUrl);
+  if (!host) return "unknown"; // missing or malformed — fail closed upstream
+  if (host === PRODUCTION_SUPABASE_HOST) return "production";
+  if (host === DEVELOPMENT_SUPABASE_HOST) return "development";
+  if (isLoopbackHostname(host)) return "local-stack";
+  return "unknown";
+}
+
 /** The single source of truth for whether an auth surface requires a CAPTCHA token. */
 export function resolveCaptchaMode(input: CaptchaPolicyInput): CaptchaMode {
   // Jest-only: unit suites run with NODE_ENV=test and no meaningful public
@@ -113,28 +131,27 @@ export function resolveCaptchaMode(input: CaptchaPolicyInput): CaptchaMode {
   // `next dev` forces "development".
   if (input.nodeEnv === "test") return "disabled";
 
-  const supabaseHost = parseHost(input.supabaseUrl);
-  if (!supabaseHost) return "required"; // missing/invalid env data — fail closed
+  switch (classifySupabaseTarget(input.supabaseUrl)) {
+    // Production backend: captcha required no matter where the app is served
+    // from (a localhost dev server included) — never a silent bypass.
+    case "production":
+      return "required";
 
-  // Production backend: captcha required no matter where the app is served
-  // from (a localhost dev server included) — never a silent bypass.
-  if (supabaseHost === PRODUCTION_SUPABASE_HOST) return "required";
+    // Approved development project (bot protection intentionally off).
+    // Hosted v2-dev builds are NODE_ENV=production → disabled as configured.
+    // A local dev server against it must also be viewed over loopback.
+    case "development":
+      if (input.nodeEnv === "production") return "disabled";
+      return isLocalDevelopmentContext(input) ? "disabled" : "required";
 
-  // Approved development project (bot protection intentionally off).
-  // Hosted v2-dev builds are NODE_ENV=production → disabled as configured.
-  // A local dev server against it must also be viewed over loopback.
-  if (supabaseHost === DEVELOPMENT_SUPABASE_HOST) {
-    if (input.nodeEnv === "production") return "disabled";
-    return isLocalDevelopmentContext(input) ? "disabled" : "required";
+    // Local Supabase stack: only ever a bypass for a loopback-viewed dev server.
+    case "local-stack":
+      return isLocalDevelopmentContext(input) ? "disabled" : "required";
+
+    // Unknown backend / preview / staging-like / missing env — fail closed.
+    case "unknown":
+      return "required";
   }
-
-  // Local Supabase stack: only ever a bypass for a loopback-viewed dev server.
-  if (isLoopbackHostname(supabaseHost)) {
-    return isLocalDevelopmentContext(input) ? "disabled" : "required";
-  }
-
-  // Unknown backend / preview / staging-like environment — fail closed.
-  return "required";
 }
 
 /**
@@ -148,4 +165,9 @@ export function resolveBrowserCaptchaMode(hostname?: string): CaptchaMode {
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
     hostname,
   });
+}
+
+/** The build's Supabase target class, from the same env the mode is resolved from. */
+export function browserSupabaseTargetClass(): SupabaseTargetClass {
+  return classifySupabaseTarget(process.env.NEXT_PUBLIC_SUPABASE_URL);
 }
