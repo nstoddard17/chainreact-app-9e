@@ -67,18 +67,48 @@ function fnv1aHex(input: string): string {
  * node is a real edit the proposal should not silently clobber). The `displayName` is included too so a
  * rename counts as drift. Returns an opaque short hex string — compare for EQUALITY only.
  */
+/**
+ * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — the SHAPE of a value produced by
+ * `computeEditableGraphVersion`: exactly 8 lowercase hex characters.
+ *
+ * This exists because two different "version" spaces meet in the builder and one was silently
+ * compared against the other: this CONTENT FINGERPRINT, and the workflow's `updatedAt` REVISION
+ * TIMESTAMP (`graphSlice.hydratedRevision`). A timestamp can never equal a fingerprint, so every
+ * restored edit proposal reconciled as "the workflow moved on" and was falsely marked Stale.
+ * Comparisons that expect a fingerprint now VALIDATE their inputs and fail closed instead of
+ * silently producing a wrong verdict.
+ */
+export const EDITABLE_GRAPH_VERSION_PATTERN = /^[0-9a-f]{8}$/;
+
+/** True when `value` has the shape of a `computeEditableGraphVersion` digest. */
+export function isEditableGraphVersion(value: unknown): value is string {
+  return typeof value === "string" && EDITABLE_GRAPH_VERSION_PATTERN.test(value);
+}
+
 export function computeEditableGraphVersion(def: VersionableDefinition): string {
   const projection = {
-    nodes: def.nodes.map((n) => ({
-      id: n.id,
-      kind: n.kind,
-      provider: n.provider,
-      type: n.type,
-      config: n.config ?? {},
-      position: n.position ?? { x: 0, y: 0 },
-      ...(n.displayName !== undefined ? { displayName: n.displayName } : {}),
-    })),
-    edges: def.edges.map((e) => ({ id: e.id, from: e.from, to: e.to, ...(e.label !== undefined ? { label: e.label } : {}) })),
+    // RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — nodes and edges are a SET, not a sequence:
+    // execution order comes from the EDGES and layout from `position`, so the array order carries
+    // no meaning. Sorting by id before hashing means two semantically identical graphs can never
+    // produce different digests just because they were serialized in a different order — one more
+    // way a proposal could be called stale when nothing had actually changed.
+    nodes: [...def.nodes]
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map((n) => ({
+        id: n.id,
+        kind: n.kind,
+        provider: n.provider,
+        type: n.type,
+        config: n.config ?? {},
+        // Layout IS semantic here (documented decision): Apply replaces the whole definition,
+        // positions included, so a node the user moved is a real edit the proposal must not
+        // silently clobber.
+        position: n.position ?? { x: 0, y: 0 },
+        ...(n.displayName !== undefined ? { displayName: n.displayName } : {}),
+      })),
+    edges: [...def.edges]
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map((e) => ({ id: e.id, from: e.from, to: e.to, ...(e.label !== undefined ? { label: e.label } : {}) })),
   };
   return fnv1aHex(JSON.stringify(canonicalize(projection)));
 }
