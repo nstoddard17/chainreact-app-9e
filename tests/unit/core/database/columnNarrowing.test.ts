@@ -10,7 +10,11 @@
  * deletion state would have flowed into a billing or lifecycle decision wearing
  * a type it did not have. These helpers make that failure loud.
  */
-import { narrowColumn, narrowNullableColumn } from "@/core/database/columnNarrowing";
+import {
+  narrowColumn,
+  narrowNullableColumn,
+  requireFiniteNumber,
+} from "@/core/database/columnNarrowing";
 import { PLAN_STATUSES, PLAN_TIERS } from "@/core/billing/planPolicy";
 import { ACCOUNT_DELETION_STATUSES } from "@/repositories/accountDeletions";
 
@@ -74,5 +78,61 @@ describe("narrowNullableColumn — preserves a genuine NULL", () => {
     expect(() =>
       narrowNullableColumn("account_billing.trial_origin_plan", TRIAL_ORIGINS, "enterprise"),
     ).toThrow(/unexpected value "enterprise"/);
+  });
+});
+
+/**
+ * SUPABASE-TABLE-TYPING-1C — a numeric aggregate must never degrade silently.
+ *
+ * `Number(row.runs)` turns a NULL, an empty string or a non-numeric cell into
+ * `NaN`, which then poisons every downstream sum without ever throwing, and a
+ * `?? 0` fallback is worse still: it asserts "no runs" on the strength of a
+ * failed parse. Both are rejected here.
+ */
+describe("requireFiniteNumber — analytics aggregates fail closed", () => {
+  const COL = "analytics_runs_aggregate.runs";
+
+  it("accepts a JSON number", () => {
+    expect(requireFiniteNumber(COL, 42)).toBe(42);
+    expect(requireFiniteNumber(COL, 0)).toBe(0);
+    expect(requireFiniteNumber(COL, -3.5)).toBe(-3.5);
+  });
+
+  it("accepts the numeric STRING PostgREST may return for bigint/numeric", () => {
+    expect(requireFiniteNumber(COL, "42")).toBe(42);
+    expect(requireFiniteNumber(COL, "0")).toBe(0);
+    expect(requireFiniteNumber(COL, " 7 ")).toBe(7);
+  });
+
+  it("rejects NULL rather than defaulting it to zero", () => {
+    expect(() => requireFiniteNumber(COL, null)).toThrow(
+      /analytics_runs_aggregate\.runs: expected a finite numeric aggregate, received null/,
+    );
+  });
+
+  it("rejects undefined, empty and non-numeric text", () => {
+    for (const bad of [undefined, "", "   ", "abc", "12abc", {}, []]) {
+      expect(() => requireFiniteNumber(COL, bad)).toThrow(/expected a finite numeric aggregate/);
+    }
+  });
+
+  it("rejects NaN and the infinities instead of propagating them", () => {
+    for (const bad of [Number.NaN, Infinity, -Infinity, "NaN", "Infinity"]) {
+      expect(() => requireFiniteNumber(COL, bad)).toThrow(/expected a finite numeric aggregate/);
+    }
+  });
+
+  it("names the column and the received TYPE, never the raw value", () => {
+    // An aggregate cell is not a closed vocabulary the way a plan tier is, so
+    // the message must not echo whatever the database actually returned.
+    expect(() => requireFiniteNumber(COL, "s3cret-looking-garbage")).toThrow(
+      /analytics_runs_aggregate\.runs: expected a finite numeric aggregate, received string/,
+    );
+    try {
+      requireFiniteNumber(COL, "s3cret-looking-garbage");
+      throw new Error("expected requireFiniteNumber to throw");
+    } catch (e) {
+      expect((e as Error).message).not.toContain("s3cret-looking-garbage");
+    }
   });
 });

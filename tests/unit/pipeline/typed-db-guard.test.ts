@@ -307,6 +307,115 @@ export async function load(id: string) {
     expect(r.status).toBe(0);
   });
 
+  // ── SUPABASE-TABLE-TYPING-1C: analytics JSON + write payloads ────────────
+
+  it.each([
+    ["widgets", "row.widgets as AnalyticsWidget[]"],
+    ["result", "row.result as NormalizedAnalyticsResult"],
+  ])("fails when the analytics JSON column %s is cast into a trusted type", (_col, expr) => {
+    const r = check(`${GOOD_SOURCE}
+export function bad(row: { widgets: unknown; result: unknown }) {
+  return ${expr};
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("decision-driving JSON column");
+  });
+
+  it("still allows an analytics JSON column to stay opaque", () => {
+    const r = check(`${GOOD_SOURCE}
+export function fine(row: { widgets: unknown; result: unknown }) {
+  return { widgets: row.widgets as unknown, result: row.result as Json };
+}
+`);
+    expect(r.status).toBe(0);
+  });
+
+  it("fails on `as Json` inside an insert payload (write side)", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+export async function save(widgets: unknown) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  await db.from("analytics_dashboards").insert({ account_id: "a", name: "n", widgets: widgets as Json });
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("asserts JSON-encodability");
+  });
+
+  it("fails on `as Json` inside a named `satisfies TableInsert<>` payload", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableInsert } from "@/types/tables";
+export async function save(result: unknown) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  const row = { cache_key: "k", result: result as Json } satisfies TableInsert<"analytics_source_snapshots">;
+  await db.from("analytics_source_snapshots").upsert(row);
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("asserts JSON-encodability");
+  });
+
+  it("fails on an insert payload typed Record<string, unknown>", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+export async function save(name: string) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  const row: Record<string, unknown> = { name };
+  await db.from("analytics_dashboards").insert(row);
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("defeats the generated Insert/Update contract");
+  });
+
+  it("fails on an update payload built by a Record<string, unknown> factory", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+function toRow(name: string): Record<string, unknown> {
+  return { name };
+}
+export async function save(id: string, name: string) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  await db.from("analytics_dashboards").update(toRow(name)).eq("id", id);
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("defeats the generated Insert/Update contract");
+  });
+
+  it("does NOT flag Record<string, unknown> used as an ordinary DOMAIN type", () => {
+    // workflowRuns.ts legitimately models a run's `output` that way — the rule
+    // is about WRITE PAYLOADS, not about the type appearing in the file.
+    const r = check(`${GOOD_SOURCE}
+export interface RunView {
+  output?: Readonly<Record<string, unknown>>;
+}
+export function describe2(o: Record<string, unknown>) {
+  return Object.keys(o).length;
+}
+`);
+    expect(r.status).toBe(0);
+  });
+
+  it("covers the analytics family in the committed manifest", () => {
+    const files: string[] = JSON.parse(readFileSync(MANIFEST, "utf8")).migratedFiles;
+    for (const expected of [
+      "repositories/analyticsDashboards.ts",
+      "repositories/analyticsSourceSnapshots.ts",
+      "repositories/billingShadowComparisons.ts",
+    ]) {
+      expect(files).toContain(expected);
+    }
+    // Pure-RPC, no table access — listing it would fail the check by design.
+    expect(files).not.toContain("repositories/analytics/queries.ts");
+  });
+
   it("covers the workflow-run family in the committed manifest", () => {
     const files: string[] = JSON.parse(readFileSync(MANIFEST, "utf8")).migratedFiles;
     for (const expected of [

@@ -1,5 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import type { TableInsert, TableRow, TableUpdate } from "@/types/tables";
 
 /**
  * Repository for `analytics_dashboards` (Slice ANALYTICS-1).
@@ -19,6 +22,20 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * The `widgets` column is opaque JSONB here — the service layer validates it with
  * `contracts/analytics.ts` Zod on the way in AND out (defensive). No credentials
  * or live values are ever stored (see the migration header).
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1C). Table access runs through
+ * `asTypedDb`, so the table name and every selected column are compile-time
+ * checked against `types/database.types.ts`.
+ *
+ * `widgets` is classified DISPLAY-ONLY CONFIGURATION, validated at ONE
+ * downstream chokepoint: `services/analytics/dashboards.ts` normalizes every
+ * board through `normalizeDashboardWidgets` on read, and
+ * `validateLayout` refuses an unstorable board on write. This repository
+ * therefore keeps the column OPAQUE (`Json` in, `unknown` out) and asserts
+ * nothing about its interior — a second schema here would be a second source of
+ * truth for the layout contract. Writes CONSTRUCT the `Json` value with
+ * `toJsonColumn` rather than asserting `as Json`, so an unencodable widget
+ * payload is rejected before it reaches Postgres.
  */
 
 export interface AnalyticsDashboardRecord {
@@ -33,22 +50,16 @@ export interface AnalyticsDashboardRecord {
   updatedAt: string;
 }
 
-interface AnalyticsDashboardsRow {
-  id: string;
-  account_id: string;
-  created_by_user_id: string | null;
-  name: string;
-  position: number;
-  is_default: boolean;
-  widgets: unknown;
-  created_at: string;
-  updated_at: string;
-}
-
+/**
+ * `COLUMNS` is the FULL generated row, so the mapper takes `TableRow`. That is
+ * not a formality: if a column were ever dropped from the projection, the
+ * inferred query result would stop being assignable here and the build would
+ * fail — the exact drift a handwritten row interface used to hide.
+ */
 const COLUMNS =
   "id,account_id,created_by_user_id,name,position,is_default,widgets,created_at,updated_at";
 
-function rowToRecord(row: AnalyticsDashboardsRow): AnalyticsDashboardRecord {
+function rowToRecord(row: TableRow<"analytics_dashboards">): AnalyticsDashboardRecord {
   return {
     id: row.id,
     accountId: row.account_id,
@@ -69,7 +80,7 @@ function rowToRecord(row: AnalyticsDashboardsRow): AnalyticsDashboardRecord {
 export async function listByAccount(
   accountId: string,
 ): Promise<readonly AnalyticsDashboardRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("analytics_dashboards")
     .select(COLUMNS)
@@ -79,7 +90,7 @@ export async function listByAccount(
   if (error) {
     throw new Error(`analytics_dashboards.listByAccount failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as AnalyticsDashboardsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -89,7 +100,9 @@ export async function listByAccount(
 export async function getByIdServiceRole(
   id: string,
 ): Promise<AnalyticsDashboardRecord | null> {
-  const supabase = getServiceRoleClient(`analytics_dashboards: getById ${id}`);
+  const supabase = asTypedDb(
+    getServiceRoleClient(`analytics_dashboards: getById ${id}`),
+  );
   const { data, error } = await supabase
     .from("analytics_dashboards")
     .select(COLUMNS)
@@ -98,7 +111,7 @@ export async function getByIdServiceRole(
   if (error) {
     throw new Error(`analytics_dashboards.getByIdServiceRole failed: ${error.message}`);
   }
-  return data ? rowToRecord(data as AnalyticsDashboardsRow) : null;
+  return data ? rowToRecord(data) : null;
 }
 
 export interface CreateDashboardRecord {
@@ -110,28 +123,38 @@ export interface CreateDashboardRecord {
   widgets: unknown;
 }
 
+/**
+ * The insert payload, checked against the generated `Insert` contract. `id`,
+ * `created_at` and `updated_at` are database-managed and deliberately absent.
+ */
+function toInsertRow(input: CreateDashboardRecord) {
+  return {
+    account_id: input.accountId,
+    created_by_user_id: input.createdByUserId,
+    name: input.name,
+    position: input.position,
+    is_default: input.isDefault,
+    widgets: toJsonColumn("analytics_dashboards.widgets", input.widgets),
+  } satisfies TableInsert<"analytics_dashboards">;
+}
+
 export async function createServiceRole(
   input: CreateDashboardRecord,
 ): Promise<AnalyticsDashboardRecord> {
-  const supabase = getServiceRoleClient(
-    `analytics_dashboards: create for account ${input.accountId}`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(
+      `analytics_dashboards: create for account ${input.accountId}`,
+    ),
   );
   const { data, error } = await supabase
     .from("analytics_dashboards")
-    .insert({
-      account_id: input.accountId,
-      created_by_user_id: input.createdByUserId,
-      name: input.name,
-      position: input.position,
-      is_default: input.isDefault,
-      widgets: input.widgets,
-    })
+    .insert(toInsertRow(input))
     .select(COLUMNS)
     .single();
   if (error) {
     throw new Error(`analytics_dashboards.createServiceRole failed: ${error.message}`);
   }
-  return rowToRecord(data as AnalyticsDashboardsRow);
+  return rowToRecord(data);
 }
 
 /**
@@ -144,26 +167,21 @@ export async function createServiceRole(
 export async function seedDefaultServiceRole(
   input: CreateDashboardRecord,
 ): Promise<AnalyticsDashboardRecord | null> {
-  const supabase = getServiceRoleClient(
-    `analytics_dashboards: seedDefault for account ${input.accountId}`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(
+      `analytics_dashboards: seedDefault for account ${input.accountId}`,
+    ),
   );
   const { data, error } = await supabase
     .from("analytics_dashboards")
-    .insert({
-      account_id: input.accountId,
-      created_by_user_id: input.createdByUserId,
-      name: input.name,
-      position: input.position,
-      is_default: input.isDefault,
-      widgets: input.widgets,
-    })
+    .insert(toInsertRow(input))
     .select(COLUMNS)
     .single();
   if (error) {
     if ((error as { code?: string }).code === "23505") return null;
     throw new Error(`analytics_dashboards.seedDefaultServiceRole failed: ${error.message}`);
   }
-  return rowToRecord(data as AnalyticsDashboardsRow);
+  return rowToRecord(data);
 }
 
 export interface UpdateDashboardPatch {
@@ -176,11 +194,15 @@ export async function updateServiceRole(
   id: string,
   patch: UpdateDashboardPatch,
 ): Promise<AnalyticsDashboardRecord> {
-  const supabase = getServiceRoleClient(`analytics_dashboards: update ${id}`);
-  const row: Record<string, unknown> = {};
+  const supabase = asTypedDb(getServiceRoleClient(`analytics_dashboards: update ${id}`));
+  // Sparse by design — an absent key must stay untouched, so this is the
+  // generated Update contract (every column optional), never the full Row.
+  const row: TableUpdate<"analytics_dashboards"> = {};
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.position !== undefined) row.position = patch.position;
-  if (patch.widgets !== undefined) row.widgets = patch.widgets;
+  if (patch.widgets !== undefined) {
+    row.widgets = toJsonColumn("analytics_dashboards.widgets", patch.widgets);
+  }
   const { data, error } = await supabase
     .from("analytics_dashboards")
     .update(row)
@@ -190,11 +212,11 @@ export async function updateServiceRole(
   if (error) {
     throw new Error(`analytics_dashboards.updateServiceRole failed: ${error.message}`);
   }
-  return rowToRecord(data as AnalyticsDashboardsRow);
+  return rowToRecord(data);
 }
 
 export async function deleteServiceRole(id: string): Promise<void> {
-  const supabase = getServiceRoleClient(`analytics_dashboards: delete ${id}`);
+  const supabase = asTypedDb(getServiceRoleClient(`analytics_dashboards: delete ${id}`));
   const { error } = await supabase
     .from("analytics_dashboards")
     .delete()
@@ -206,16 +228,18 @@ export async function deleteServiceRole(id: string): Promise<void> {
 
 /** Service-role next free tab position for an account (max(position)+1, or 0). */
 export async function nextPositionServiceRole(accountId: string): Promise<number> {
-  const supabase = getServiceRoleClient(
-    `analytics_dashboards: nextPosition ${accountId}`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(`analytics_dashboards: nextPosition ${accountId}`),
   );
+  // A one-column PROJECTION — the query describes its own shape, so no type
+  // argument is supplied and nothing here claims to hold a whole dashboard row.
   const { data, error } = await supabase
     .from("analytics_dashboards")
     .select("position")
     .eq("account_id", accountId)
     .order("position", { ascending: false })
     .limit(1)
-    .maybeSingle<{ position: number }>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `analytics_dashboards.nextPositionServiceRole failed: ${error.message}`,

@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "../supabase/serviceRoleClient";
+import { requireFiniteNumber } from "@/core/database/columnNarrowing";
 import type { RpcArgs, RpcRows } from "@/types/rpc";
 
 /**
@@ -24,6 +25,21 @@ import type { RpcArgs, RpcRows } from "@/types/rpc";
  * Returns BASE aggregates only — measure math lives in
  * services/analytics/metricDefinitions.ts. No payload columns are ever
  * selected by the RPC; nothing here can widen that.
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1C): this repository performs NO table
+ * access — it is a single `.rpc()` call, which by the 1A design stays on the
+ * untyped client and is guarded on both sides by `RpcArgs` / `RpcRows` +
+ * `scripts/ci/rpc-signature-guard.mjs`. It is therefore deliberately ABSENT
+ * from `scripts/ci/typed-db-manifest.json`, whose contract is that every listed
+ * file routes `.from()` through `asTypedDb`.
+ *
+ * Two things the generated RPC type cannot say, handled explicitly below:
+ *   - `RETURNS TABLE` columns are all typed non-null, but `bucket_start` and
+ *     `group_key` are genuinely NULL for KPI (dimension-less) rows — the row
+ *     type here is the honest one.
+ *   - the count/sum columns are `bigint`/`numeric`, which PostgREST may return
+ *     as a JSON string; they are parsed fail-closed rather than `Number()`-ed
+ *     into a silent `NaN`.
  */
 
 export interface AnalyticsAggregateParams {
@@ -57,16 +73,6 @@ export interface AnalyticsAggregateRow {
   durCount: number;
 }
 
-interface RpcRow {
-  bucket_start: string | null;
-  group_key: string | null;
-  runs: number;
-  succeeded: number;
-  failed: number;
-  dur_sum_ms: number;
-  dur_count: number;
-}
-
 export async function aggregateRuns(
   params: AnalyticsAggregateParams,
 ): Promise<readonly AnalyticsAggregateRow[]> {
@@ -91,12 +97,13 @@ export async function aggregateRuns(
   }
   const rows: RpcRows<"analytics_runs_aggregate"> = data ?? [];
   return rows.map((r) => ({
-    bucketStart: r.bucket_start,
-    groupKey: r.group_key,
-    runs: Number(r.runs),
-    succeeded: Number(r.succeeded),
-    failed: Number(r.failed),
-    durSumMs: Number(r.dur_sum_ms),
-    durCount: Number(r.dur_count),
+    // Non-null in the generated RETURNS TABLE type, genuinely null for KPI rows.
+    bucketStart: r.bucket_start ?? null,
+    groupKey: r.group_key ?? null,
+    runs: requireFiniteNumber("analytics_runs_aggregate.runs", r.runs),
+    succeeded: requireFiniteNumber("analytics_runs_aggregate.succeeded", r.succeeded),
+    failed: requireFiniteNumber("analytics_runs_aggregate.failed", r.failed),
+    durSumMs: requireFiniteNumber("analytics_runs_aggregate.dur_sum_ms", r.dur_sum_ms),
+    durCount: requireFiniteNumber("analytics_runs_aggregate.dur_count", r.dur_count),
   }));
 }

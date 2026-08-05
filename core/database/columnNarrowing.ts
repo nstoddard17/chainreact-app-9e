@@ -1,5 +1,6 @@
 /**
- * SUPABASE-TABLE-TYPING-1A — narrowing a CHECK-constrained text column.
+ * SUPABASE-TABLE-TYPING-1A — narrowing a constrained column at the repository
+ * boundary (CHECK-constrained text, and — since 1C — numeric aggregates).
  *
  * PostgreSQL enforces closed value sets with CHECK constraints on plain `text`
  * columns, which the Supabase generator can only describe as `string`. The
@@ -38,4 +39,38 @@ export function narrowNullableColumn<T extends string>(
 ): T | null {
   if (value === null) return null;
   return narrowColumn(column, allowed, value);
+}
+
+/**
+ * SUPABASE-TABLE-TYPING-1C — a numeric aggregate arriving from PostgREST.
+ *
+ * `count(*)` and `sum(...)` are `bigint`/`numeric` in Postgres, and PostgREST
+ * may serialize either as a JSON number OR as a string (numeric has no lossless
+ * JSON number form). The habit that grew around that is `Number(row.runs)` —
+ * which turns a NULL, an empty string or anything non-numeric into `NaN` and
+ * carries it silently into a chart, a total, or a billing-adjacent comparison.
+ * `NaN` then poisons every downstream sum without ever throwing.
+ *
+ * This FAILS CLOSED instead: an aggregate that is not a finite number is a
+ * broken query result, not a zero. It deliberately does NOT default to 0 —
+ * "no runs" and "the aggregate did not parse" are different facts, and only the
+ * database may assert the first one.
+ *
+ * The offending value is NOT echoed: unlike the closed enumerations above, an
+ * aggregate cell is not a known-safe vocabulary, so the error names the column
+ * and the received type only.
+ */
+export function requireFiniteNumber(column: string, value: unknown): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `${column}: expected a finite numeric aggregate, received ${value === null ? "null" : typeof value}`,
+    );
+  }
+  return parsed;
 }

@@ -1,4 +1,7 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import type { TableColumns, TableInsert } from "@/types/tables";
 
 /**
  * Repository for `analytics_source_snapshots` (Slice ANALYTICS-SOURCES-CACHE-1).
@@ -13,6 +16,26 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  *
  * The `result` column holds a NormalizedAnalyticsResult only; this repo treats it
  * as opaque JSON — the cache service validates it with Zod on read + write.
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1C). Table access runs through
+ * `asTypedDb`. The snapshot payload is classified OPAQUE CACHED EVIDENCE and
+ * stays `Json` here, for a concrete reason rather than convenience: TWO
+ * different contracts share this column, distinguished only by the cache-key
+ * namespace — `NormalizedAnalyticsResultSchema` for the widget sources
+ * (`services/analytics/sources/cache.ts`) and `ConnectedAnalyticsResultSchema`
+ * for connected datasets (`services/analytics/insights/cache.ts`). The
+ * repository cannot know which applies, so validating here would mean either a
+ * third permissive schema that proves nothing, or rejecting a payload that is
+ * perfectly valid for the other consumer. Both consumers already parse
+ * fail-closed and treat an unparseable blob as a CACHE MISS (recompute), which
+ * is the established product rule — no caller ever trusts this value unvalidated.
+ *
+ * Writes CONSTRUCT the `Json` with `toJsonColumn` instead of asserting
+ * `as Json`, so a non-encodable result is rejected before it is persisted.
+ *
+ * The row projection below is a genuine PARTIAL select (`created_at` /
+ * `updated_at` are not read), so it is a `TableColumns<>` pick — not a
+ * `TableRow`, which would claim columns this query never asked for.
  */
 
 export interface AnalyticsSnapshotRecord {
@@ -30,20 +53,21 @@ export interface AnalyticsSnapshotRecord {
   expiresAt: string;
 }
 
-interface SnapshotRow {
-  id: string;
-  account_id: string;
-  source_user_id: string | null;
-  provider_key: string;
-  metric_key: string;
-  range_key: string;
-  group_by: string | null;
-  filters_hash: string;
-  cache_key: string;
-  result: unknown;
-  generated_at: string;
-  expires_at: string;
-}
+type SnapshotRow = TableColumns<
+  "analytics_source_snapshots",
+  | "id"
+  | "account_id"
+  | "source_user_id"
+  | "provider_key"
+  | "metric_key"
+  | "range_key"
+  | "group_by"
+  | "filters_hash"
+  | "cache_key"
+  | "result"
+  | "generated_at"
+  | "expires_at"
+>;
 
 const COLUMNS =
   "id,account_id,source_user_id,provider_key,metric_key,range_key,group_by,filters_hash,cache_key,result,generated_at,expires_at";
@@ -69,8 +93,8 @@ function rowToRecord(row: SnapshotRow): AnalyticsSnapshotRecord {
 export async function getByCacheKey(
   cacheKey: string,
 ): Promise<AnalyticsSnapshotRecord | null> {
-  const supabase = getServiceRoleClient(
-    `analytics_source_snapshots: getByCacheKey`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(`analytics_source_snapshots: getByCacheKey`),
   );
   const { data, error } = await supabase
     .from("analytics_source_snapshots")
@@ -80,7 +104,7 @@ export async function getByCacheKey(
   if (error) {
     throw new Error(`analytics_source_snapshots.getByCacheKey failed: ${error.message}`);
   }
-  return data ? rowToRecord(data as SnapshotRow) : null;
+  return data ? rowToRecord(data) : null;
 }
 
 export interface UpsertSnapshotInput {
@@ -99,27 +123,27 @@ export interface UpsertSnapshotInput {
 
 /** Upsert a snapshot in place, keyed on `cache_key` (service-role). */
 export async function upsertServiceRole(input: UpsertSnapshotInput): Promise<void> {
-  const supabase = getServiceRoleClient(
-    `analytics_source_snapshots: upsert ${input.providerKey}/${input.metricKey}`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(
+      `analytics_source_snapshots: upsert ${input.providerKey}/${input.metricKey}`,
+    ),
   );
+  const row = {
+    account_id: input.accountId,
+    source_user_id: input.sourceUserId,
+    provider_key: input.providerKey,
+    metric_key: input.metricKey,
+    range_key: input.rangeKey,
+    group_by: input.groupBy,
+    filters_hash: input.filtersHash,
+    cache_key: input.cacheKey,
+    result: toJsonColumn("analytics_source_snapshots.result", input.result),
+    generated_at: input.generatedAt,
+    expires_at: input.expiresAt,
+  } satisfies TableInsert<"analytics_source_snapshots">;
   const { error } = await supabase
     .from("analytics_source_snapshots")
-    .upsert(
-      {
-        account_id: input.accountId,
-        source_user_id: input.sourceUserId,
-        provider_key: input.providerKey,
-        metric_key: input.metricKey,
-        range_key: input.rangeKey,
-        group_by: input.groupBy,
-        filters_hash: input.filtersHash,
-        cache_key: input.cacheKey,
-        result: input.result,
-        generated_at: input.generatedAt,
-        expires_at: input.expiresAt,
-      },
-      { onConflict: "cache_key" },
-    );
+    .upsert(row, { onConflict: "cache_key" });
   if (error) {
     throw new Error(`analytics_source_snapshots.upsertServiceRole failed: ${error.message}`);
   }
@@ -127,8 +151,8 @@ export async function upsertServiceRole(input: UpsertSnapshotInput): Promise<voi
 
 /** Delete expired snapshots (service-role). For a future cleanup cron. */
 export async function deleteExpiredServiceRole(nowIso: string): Promise<number> {
-  const supabase = getServiceRoleClient(
-    `analytics_source_snapshots: deleteExpired`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(`analytics_source_snapshots: deleteExpired`),
   );
   const { data, error } = await supabase
     .from("analytics_source_snapshots")

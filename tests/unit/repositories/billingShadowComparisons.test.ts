@@ -114,6 +114,7 @@ describe("billingShadowComparisons.listForRange", () => {
       proposed_reserved_tasks: 3, proposed_reconciled_tasks: 2, proposed_refunded_tasks: 1,
       delta_vs_flat: 1, would_have_reserved: true, would_have_had_enough_balance: false,
       warning_codes: ["UNKNOWN_NODE_TYPE"], policy_version: "v1", billing_mode: "shadow",
+      anonymized_at: null, ledger_purge_after: null,
       created_at: "2026-05-25T00:00:00Z", ...over,
     };
   }
@@ -149,5 +150,51 @@ describe("billingShadowComparisons.listForRange", () => {
     const records = await listForWorkflow("wf-1");
     expect(records).toHaveLength(1);
     expect(calls.eq).toEqual(["workflow_id", "wf-1"]);
+  });
+
+  /**
+   * SUPABASE-TABLE-TYPING-1C. account_id / workflow_id / workflow_run_id are
+   * NULLABLE (20260531000008 ledger anonymization) and billing_mode is
+   * CHECK-constrained text the generator can only describe as `string`.
+   */
+  it("maps a retention-anonymized row to null ids instead of claiming strings", async () => {
+    const { client } = makeRangeClient({
+      data: [row({ account_id: null, workflow_id: null, workflow_run_id: null, anonymized_at: "2026-06-01T00:00:00Z" })],
+      error: null,
+    });
+    mockServiceRole.current = client;
+    const [record] = await listForRange();
+    expect(record).toMatchObject({
+      accountId: null,
+      workflowId: null,
+      workflowRunId: null,
+      anonymizedAt: "2026-06-01T00:00:00Z",
+      // The statistical payload survives anonymization untouched.
+      flatChargedTasks: 1,
+      deltaVsFlat: 1,
+      billingMode: "shadow",
+    });
+  });
+
+  it("reports anonymizedAt as null for an attributable row", async () => {
+    const { client } = makeRangeClient({ data: [row()], error: null });
+    mockServiceRole.current = client;
+    const [record] = await listForRange();
+    expect(record!.anonymizedAt).toBeNull();
+    expect(record!.accountId).toBe("user-1");
+  });
+
+  it("fails closed on a billing_mode outside the CHECK constraint", async () => {
+    const { client } = makeRangeClient({ data: [row({ billing_mode: "live" })], error: null });
+    mockServiceRole.current = client;
+    await expect(listForRange()).rejects.toThrow(
+      /billing_shadow_comparisons\.billing_mode: unexpected value "live"/,
+    );
+  });
+
+  it("fails closed on a missing billing_mode rather than assuming shadow", async () => {
+    const { client } = makeRangeClient({ data: [row({ billing_mode: null })], error: null });
+    mockServiceRole.current = client;
+    await expect(listForRange()).rejects.toThrow(/billing_shadow_comparisons\.billing_mode/);
   });
 });

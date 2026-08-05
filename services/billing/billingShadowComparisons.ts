@@ -51,9 +51,29 @@ export async function recordBillingShadowComparison(
   });
 }
 
+/**
+ * A row that can still be reconstructed as a comparison
+ * (SUPABASE-TABLE-TYPING-1C).
+ *
+ * Retention anonymization (4.ACCOUNT-MODEL-10d) NULLS `workflow_id` and
+ * `workflow_run_id` on a deleted account's shadow rows — deliberately, so the
+ * retained record can no longer be attributed. A `ReserveReconcileShadowComparison`
+ * asserts both ids, and the aggregator groups on `workflowId`, so an anonymized
+ * row cannot be folded in without inventing the attribution anonymization just
+ * destroyed. (Before typing, it silently became a `"undefined"` workflow bucket.)
+ * Such rows are therefore excluded from the shadow analysis, which exists to
+ * decide a PER-WORKFLOW cutover and cannot say anything about a workflow it is
+ * not allowed to know.
+ */
+function isAttributable(
+  r: BillingShadowComparisonRecord,
+): r is BillingShadowComparisonRecord & { workflowId: string; workflowRunId: string } {
+  return r.workflowId !== null && r.workflowRunId !== null;
+}
+
 /** Reconstruct a comparison-shaped object from a persisted row (codes → warnings). */
 function rowToComparison(
-  r: BillingShadowComparisonRecord,
+  r: BillingShadowComparisonRecord & { workflowId: string; workflowRunId: string },
 ): ReserveReconcileShadowComparison {
   return {
     billingMode: "shadow",
@@ -88,7 +108,7 @@ export async function getReserveReconcileShadowStats(
   range: { from?: string; to?: string; limit?: number } = {},
 ): Promise<PersistedShadowStats> {
   const rows = await billingShadowComparisonsRepo.listForRange(range);
-  const comparisons = rows.map(rowToComparison);
+  const comparisons = rows.filter(isAttributable).map(rowToComparison);
   return {
     summary: summarizeShadowComparisons(comparisons),
     delta: getShadowDeltaStats(comparisons),
@@ -101,5 +121,5 @@ export async function getReserveReconcileShadowStatsByWorkflow(
   args: { from?: string; to?: string; limit?: number } = {},
 ): Promise<Record<string, ShadowWorkflowStat>> {
   const rows = await billingShadowComparisonsRepo.listForRange(args);
-  return groupShadowByWorkflow(rows.map(rowToComparison));
+  return groupShadowByWorkflow(rows.filter(isAttributable).map(rowToComparison));
 }

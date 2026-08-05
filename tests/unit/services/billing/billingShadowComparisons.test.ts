@@ -67,6 +67,7 @@ function row(p: Partial<BillingShadowComparisonRecord> = {}): BillingShadowCompa
     warningCodes: ["BRANCHING_UPPER_BOUND"],
     policyVersion: "v1",
     billingMode: "shadow",
+    anonymizedAt: null,
     createdAt: "2026-05-25T00:00:00Z",
     ...p,
   };
@@ -139,6 +140,47 @@ describe("getReserveReconcileShadowStatsByWorkflow", () => {
     const g = await getReserveReconcileShadowStatsByWorkflow({ from: "A" });
     expect(g["wf-a"]).toMatchObject({ count: 2, totalDelta: 3 });
     expect(g["wf-b"]).toMatchObject({ count: 1, totalDelta: -1 });
+  });
+});
+
+/**
+ * SUPABASE-TABLE-TYPING-1C — retention-anonymized rows.
+ *
+ * 4.ACCOUNT-MODEL-10d nulls account_id / workflow_id / workflow_run_id on a
+ * deleted account's shadow rows. They must never be attributed to a workflow —
+ * before the correlation ids were typed nullable they became a literal
+ * "undefined" workflow bucket.
+ */
+describe("anonymized shadow rows", () => {
+  const anonymized = () =>
+    row({ accountId: null, workflowId: null, workflowRunId: null, anonymizedAt: "2026-06-01T00:00:00Z" });
+
+  it("never produce a fabricated workflow bucket", async () => {
+    mockListForRange.mockResolvedValueOnce([
+      row({ workflowId: "wf-a", deltaVsFlat: 2, proposedReconciledTasks: 3 }),
+      anonymized(),
+    ]);
+    const g = await getReserveReconcileShadowStatsByWorkflow({});
+    expect(Object.keys(g)).toEqual(["wf-a"]);
+    expect(Object.keys(g)).not.toContain("undefined");
+    expect(Object.keys(g)).not.toContain("null");
+  });
+
+  it("are excluded from the shadow analysis rather than attributed", async () => {
+    mockListForRange.mockResolvedValueOnce([
+      row({ workflowId: "wf-a", deltaVsFlat: 2 }),
+      anonymized(),
+    ]);
+    const stats = await getReserveReconcileShadowStats({});
+    expect(stats.summary.total).toBe(1);
+    expect(stats.delta.topPositiveDeltaWorkflows.map((w) => w.workflowId)).toEqual(["wf-a"]);
+  });
+
+  it("an all-anonymized range yields zeroed stats, not fabricated ones", async () => {
+    mockListForRange.mockResolvedValueOnce([anonymized(), anonymized()]);
+    const stats = await getReserveReconcileShadowStats({});
+    expect(stats.summary.total).toBe(0);
+    expect(stats.delta.topPositiveDeltaWorkflows).toEqual([]);
   });
 });
 

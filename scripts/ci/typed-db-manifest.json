@@ -13,7 +13,15 @@
     "Batch 1A scope: account billing + entitlement state, account lifecycle and",
     "deletion, ownership and membership, and the ledger/usage tables those",
     "repositories write through.",
-    "Batch 1B scope: the workflow-run persistence + queue boundary (runs, lifecycle, queue, diagnostics), including decision-driving trigger_event validation."
+    "Batch 1B scope: the workflow-run persistence + queue boundary (runs, lifecycle, queue, diagnostics), including decision-driving trigger_event validation.",
+    "Batch 1C scope: the analytics persistence boundary — saved dashboards, the",
+    "source-snapshot cache, and the billing-shadow comparison ledger.",
+    "",
+    "repositories/analytics/queries.ts is INTENTIONALLY not listed: it performs no",
+    "table access at all (one .rpc() call), which by the 1A design stays on the",
+    "untyped client guarded by RpcArgs/RpcRows + rpc-signature-guard.mjs. Listing it",
+    "would fail the check, because the contract of an entry is that the file routes",
+    ".from() through asTypedDb."
   ],
   "migratedFiles": [
     "repositories/accountBilling.ts",
@@ -28,6 +36,9 @@
     "repositories/workflowRuns.ts",
     "repositories/workflowRunsLifecycle.ts",
     "repositories/workflowRunsQueue.ts",
-    "repositories/workflowRunsDiagnostics.ts"
+    "repositories/workflowRunsDiagnostics.ts",
+    "repositories/analyticsDashboards.ts",
+    "repositories/analyticsSourceSnapshots.ts",
+    "repositories/billingShadowComparisons.ts"
   ]
 }

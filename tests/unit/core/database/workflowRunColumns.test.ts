@@ -19,6 +19,7 @@ import {
   parseTriggerEvent,
 } from "@/core/database/workflowRunColumns";
 import { narrowColumn, narrowNullableColumn } from "@/core/database/columnNarrowing";
+import { fakeSlackBotToken } from "../../../helpers/syntheticSecrets";
 
 const WEBHOOK_EVENT = {
   provider: "slack",
@@ -81,11 +82,15 @@ describe("parseTriggerEvent — the envelope the engine replays", () => {
     // trigger_event.payload is an unmodified provider body: tokens, e-mail
     // addresses and message text live there. A validation error must name the
     // field and nothing else.
+    // Assembled at runtime (tests/helpers/syntheticSecrets.ts) so the fixture
+    // still matches a token detector without a literal token-shaped string
+    // living in a tracked file — V2-READY-45.
+    const secretToken = fakeSlackBotToken("workflow-run-columns");
     const secretish = {
       ...WEBHOOK_EVENT,
       eventId: "",
       payload: {
-        access_token: "xoxb-SUPER-SECRET-VALUE",
+        access_token: secretToken,
         email: "victim@example.test",
         body: "confidential message body",
       },
@@ -98,7 +103,7 @@ describe("parseTriggerEvent — the envelope the engine replays", () => {
     }
     expect(message).toContain("workflow_runs.trigger_event(run-1)");
     expect(message).toContain("eventId");
-    expect(message).not.toContain("xoxb-SUPER-SECRET-VALUE");
+    expect(message).not.toContain(secretToken);
     expect(message).not.toContain("victim@example.test");
     expect(message).not.toContain("confidential message body");
   });

@@ -1,4 +1,7 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import { narrowColumn } from "@/core/database/columnNarrowing";
+import type { TableInsert, TableRow } from "@/types/tables";
 
 /**
  * Repository for billing_shadow_comparisons (Slice 4.COST-14C) — the persisted
@@ -12,6 +15,24 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * NEVER persist node config / secrets / tokens / payloads / raw warning
  * messages — only ids, counts, booleans, warning CODES, policy version, and
  * timestamps. Callers (the recorder service) pass already-shaped scalar values.
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1C). Table access runs through
+ * `asTypedDb`, and typing surfaced one latent defect worth stating plainly:
+ *
+ * THE CORRELATION IDS ARE NULLABLE. `account_id`, `workflow_id` and
+ * `workflow_run_id` were made nullable by the ledger-anonymization migration
+ * (20260531000008, slice 4.ACCOUNT-MODEL-10d): when an account is deleted its
+ * shadow rows are RETAINED as non-attributable statistical records with those
+ * three columns nulled. The handwritten row interface this file used to carry
+ * declared all three `string`, so an anonymized row was mapped to a record
+ * whose `accountId` was `undefined` while its type said otherwise. The record
+ * now says what the table says, and exposes `anonymizedAt` so a reader can tell
+ * a retention-anonymized row from a malformed one instead of guessing.
+ *
+ * `billing_mode` is CHECK-constrained to 'shadow'
+ * (billing_shadow_comparisons_mode_chk) but generated as plain `string`. It is
+ * narrowed FAIL-CLOSED — an unexpected mode is a row this repository refuses to
+ * describe, never a value asserted into the union.
  */
 
 export interface BillingShadowComparisonInsert {
@@ -31,33 +52,42 @@ export interface BillingShadowComparisonInsert {
   policyVersion: string;
 }
 
-export interface BillingShadowComparisonRecord extends BillingShadowComparisonInsert {
+/** The closed set enforced by `billing_shadow_comparisons_mode_chk`. */
+export const BILLING_SHADOW_MODES = ["shadow"] as const;
+export type BillingShadowMode = (typeof BILLING_SHADOW_MODES)[number];
+
+/**
+ * A persisted comparison. NOT `extends BillingShadowComparisonInsert`: what the
+ * engine WRITES always carries its correlation ids, but what the table RETURNS
+ * may have had them anonymized away, and one interface cannot honestly claim
+ * both.
+ */
+export interface BillingShadowComparisonRecord {
   id: string;
-  billingMode: "shadow";
+  /** null once the owning account has been deleted + the row anonymized. */
+  accountId: string | null;
+  /** null once anonymized — the row is no longer attributable to a workflow. */
+  workflowId: string | null;
+  /** null once anonymized — the row is no longer attributable to a run. */
+  workflowRunId: string | null;
+  flatChargedTasks: number;
+  estimatedTasksPerRun: number;
+  actualBillableTasks: number;
+  proposedReservedTasks: number;
+  proposedReconciledTasks: number;
+  proposedRefundedTasks: number;
+  deltaVsFlat: number;
+  wouldHaveReserved: boolean;
+  wouldHaveHadEnoughBalance: boolean | null;
+  warningCodes: string[];
+  policyVersion: string;
+  billingMode: BillingShadowMode;
+  /** When retention anonymization stripped the ids; null while attributable. */
+  anonymizedAt: string | null;
   createdAt: string;
 }
 
-interface BillingShadowComparisonRow {
-  id: string;
-  account_id: string;
-  workflow_id: string;
-  workflow_run_id: string;
-  flat_charged_tasks: number;
-  estimated_tasks_per_run: number;
-  actual_billable_tasks: number;
-  proposed_reserved_tasks: number;
-  proposed_reconciled_tasks: number;
-  proposed_refunded_tasks: number;
-  delta_vs_flat: number;
-  would_have_reserved: boolean;
-  would_have_had_enough_balance: boolean | null;
-  warning_codes: string[];
-  policy_version: string;
-  billing_mode: "shadow";
-  created_at: string;
-}
-
-function toInsertRow(e: BillingShadowComparisonInsert): Record<string, unknown> {
+function toInsertRow(e: BillingShadowComparisonInsert) {
   return {
     account_id: e.accountId,
     workflow_id: e.workflowId,
@@ -74,10 +104,12 @@ function toInsertRow(e: BillingShadowComparisonInsert): Record<string, unknown> 
     warning_codes: e.warningCodes,
     policy_version: e.policyVersion,
     billing_mode: "shadow",
-  };
+  } satisfies TableInsert<"billing_shadow_comparisons">;
 }
 
-function rowToRecord(row: BillingShadowComparisonRow): BillingShadowComparisonRecord {
+function rowToRecord(
+  row: TableRow<"billing_shadow_comparisons">,
+): BillingShadowComparisonRecord {
   return {
     id: row.id,
     accountId: row.account_id,
@@ -94,7 +126,12 @@ function rowToRecord(row: BillingShadowComparisonRow): BillingShadowComparisonRe
     wouldHaveHadEnoughBalance: row.would_have_had_enough_balance,
     warningCodes: row.warning_codes ?? [],
     policyVersion: row.policy_version,
-    billingMode: row.billing_mode,
+    billingMode: narrowColumn(
+      "billing_shadow_comparisons.billing_mode",
+      BILLING_SHADOW_MODES,
+      row.billing_mode,
+    ),
+    anonymizedAt: row.anonymized_at,
     createdAt: row.created_at,
   };
 }
@@ -106,8 +143,10 @@ function rowToRecord(row: BillingShadowComparisonRow): BillingShadowComparisonRe
 export async function insertComparison(
   comparison: BillingShadowComparisonInsert,
 ): Promise<void> {
-  const supabase = getServiceRoleClient(
-    `engine: billing_shadow_comparisons insert (run ${comparison.workflowRunId})`,
+  const supabase = asTypedDb(
+    getServiceRoleClient(
+      `engine: billing_shadow_comparisons insert (run ${comparison.workflowRunId})`,
+    ),
   );
   const { error } = await supabase
     .from("billing_shadow_comparisons")
@@ -138,8 +177,10 @@ export interface ShadowComparisonQuery {
 export async function listForRange(
   q: ShadowComparisonQuery = {},
 ): Promise<readonly BillingShadowComparisonRecord[]> {
-  const supabase = getServiceRoleClient(
-    "analytics: billing_shadow_comparisons range read (owner/admin)",
+  const supabase = asTypedDb(
+    getServiceRoleClient(
+      "analytics: billing_shadow_comparisons range read (owner/admin)",
+    ),
   );
   let query = supabase.from("billing_shadow_comparisons").select("*");
   if (q.from) query = query.gte("created_at", q.from);
@@ -154,7 +195,7 @@ export async function listForRange(
       `billing_shadow_comparisons.listForRange failed: ${error.message}`,
     );
   }
-  return (data ?? []).map((r) => rowToRecord(r as BillingShadowComparisonRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /** Owner/admin read of one workflow's shadow comparisons (service-role). */

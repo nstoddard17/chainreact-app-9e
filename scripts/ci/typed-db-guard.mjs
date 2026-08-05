@@ -33,6 +33,13 @@ const DEFAULT_MANIFEST = "scripts/ci/typed-db-manifest.json";
  * type is banned outright — the generated type is `Json`, so the cast asserts
  * structure nothing verified, on values that drive execution, retries and the
  * failure UI.
+ *
+ * 1C adds the analytics pair. Both are OPAQUE at their repository and validated
+ * at exactly one downstream chokepoint (`normalizeDashboardWidgets` for
+ * widgets; `NormalizedAnalyticsResultSchema` / `ConnectedAnalyticsResultSchema`
+ * for a snapshot result). Listing them here does not make the repositories
+ * validate — it stops a repository from QUIETLY ADOPTING a trusted shape and
+ * bypassing the chokepoint that does.
  */
 const JSON_COLUMN_ACCESSORS = [
   ".trigger_event",
@@ -42,6 +49,8 @@ const JSON_COLUMN_ACCESSORS = [
   ".run_input",
   ".run_output",
   ".error_detail",
+  ".widgets",
+  ".result",
 ];
 
 function fail(message) {
@@ -114,15 +123,25 @@ export function inspectMigratedFile(relPath, source, tableColumns) {
   const untyped = new Set();
   const typed = new Set();
   let usesTypedEntryPoint = false;
+  // SUPABASE-TABLE-TYPING-1C — bindings / factories typed as a bare loose
+  // record. Harmless as a DOMAIN type; fatal as a WRITE PAYLOAD, because an
+  // index signature satisfies nothing the generated Insert/Update asserts.
+  const looseRecordBindings = new Set();
+  const looseRecordFactories = new Set();
+  const isLooseRecord = (typeNode) =>
+    typeNode !== undefined &&
+    /^Record<string,(unknown|any)>$/.test(typeNode.getText(sf).replace(/\s+/g, ""));
 
   const collect = (node) => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      const init = node.initializer.getText(sf);
-      if (/\basTypedDb\s*\(/.test(init)) {
-        typed.add(node.name.text);
-        usesTypedEntryPoint = true;
-      } else if (/getServiceRoleClient\s*\(|await\s+createClient\s*\(\)/.test(init)) {
-        untyped.add(node.name.text);
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      if (node.initializer) {
+        const init = node.initializer.getText(sf);
+        if (/\basTypedDb\s*\(/.test(init)) {
+          typed.add(node.name.text);
+          usesTypedEntryPoint = true;
+        } else if (/getServiceRoleClient\s*\(|await\s+createClient\s*\(\)/.test(init)) {
+          untyped.add(node.name.text);
+        }
       }
       // An explicit `SupabaseClient<Database>` annotation also counts as typed.
       if (node.type && /SupabaseClient\s*<\s*Database\s*>/.test(node.type.getText(sf))) {
@@ -130,12 +149,29 @@ export function inspectMigratedFile(relPath, source, tableColumns) {
         untyped.delete(node.name.text);
         usesTypedEntryPoint = true;
       }
+      if (isLooseRecord(node.type)) looseRecordBindings.add(node.name.text);
+    }
+    if (ts.isFunctionDeclaration(node) && node.name && isLooseRecord(node.type)) {
+      looseRecordFactories.add(node.name.text);
     }
     ts.forEachChild(node, collect);
   };
   collect(sf);
 
   const line = (n) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+
+  /** Report every `as Json`-family assertion inside a write-payload subtree. */
+  const flagJsonAssertions = (root) => {
+    const walk = (n) => {
+      if (ts.isAsExpression(n) && /^Json(\[\])?(\|null)?$/.test(n.type.getText(sf).replace(/\s+/g, ""))) {
+        violations.push(
+          `${relPath}:${line(n)}: \`as ${n.type.getText(sf).trim()}\` in a write payload asserts JSON-encodability nothing proved — construct the value with toJsonColumn() instead`,
+        );
+      }
+      ts.forEachChild(n, walk);
+    };
+    walk(root);
+  };
 
   const visit = (node) => {
     // 1. `.from()` must not run on an untyped binding.
@@ -195,6 +231,57 @@ export function inspectMigratedFile(relPath, source, tableColumns) {
         );
       }
     }
+    // 2c. SUPABASE-TABLE-TYPING-1C — `as Json` inside a WRITE PAYLOAD.
+    //
+    // Reading a jsonb column and keeping it as `Json` is opaque storage and
+    // stays legal (1B). Writing is the other direction and is NOT symmetric: a
+    // domain value is not assignable to `Json`, so `value as Json` asserts
+    // JSON-encodability that nothing proved — an `undefined`, a BigInt or a
+    // circular reference then reaches supabase-js and fails at serialization
+    // time instead of at the boundary. core/database/jsonColumn.ts CONSTRUCTS
+    // the value, which earns the type. So the ban is scoped to the payload:
+    // the argument of an insert/update/upsert, and any object named with
+    // `satisfies TableInsert<…>` / `TableUpdate<…>`.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ["insert", "update", "upsert"].includes(node.expression.name.text) &&
+      node.arguments.length > 0
+    ) {
+      flagJsonAssertions(node.arguments[0]);
+    }
+    if (
+      ts.isSatisfiesExpression?.(node) &&
+      /^Table(Insert|Update)</.test(node.type.getText(sf).replace(/\s+/g, ""))
+    ) {
+      flagJsonAssertions(node.expression);
+    }
+
+    // 2d. SUPABASE-TABLE-TYPING-1C — an insert/update payload built as a bare
+    // `Record<string, unknown>`. An index signature is assignable to almost
+    // anything, so the generated Insert/Update contract checks NOTHING: a
+    // misspelled column, a dropped required field or a wrong-typed value all
+    // pass. Name the payload and `satisfies TableInsert<"t">` /
+    // `TableUpdate<"t">` instead.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ["insert", "update", "upsert"].includes(node.expression.name.text) &&
+      node.arguments.length > 0
+    ) {
+      const payload = node.arguments[0];
+      const offender = ts.isIdentifier(payload)
+        ? (looseRecordBindings.has(payload.text) ? payload.text : null)
+        : ts.isCallExpression(payload) && ts.isIdentifier(payload.expression)
+          ? (looseRecordFactories.has(payload.expression.text) ? `${payload.expression.text}()` : null)
+          : null;
+      if (offender) {
+        violations.push(
+          `${relPath}:${line(node)}: .${node.expression.name.text}() payload \`${offender}\` is typed Record<string, unknown> — an index signature defeats the generated Insert/Update contract; use \`satisfies TableInsert<"…">\` / \`TableUpdate<"…">\``,
+        );
+      }
+    }
+
     // The same assertion wearing a `.single<T>()` / `.maybeSingle<T>()` generic.
     // Scoped to TABLE chains: an `.rpc(...).single<RpcRow<"fn">>()` generic is
     // correct and required, because PostgREST function results are not inferred
