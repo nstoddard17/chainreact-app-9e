@@ -5,6 +5,7 @@ import type {
   AccountType,
   DeletionStatus,
 } from "@/contracts/accounts";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for `accounts`.
@@ -267,7 +268,7 @@ export async function transferAccountOwnershipServiceRole(input: {
     p_account_id: input.accountId,
     p_current_owner_user_id: input.currentOwnerUserId,
     p_target_user_id: input.targetUserId,
-  });
+  } satisfies RpcArgs<"transfer_account_ownership">);
   if (error) {
     throw new Error(
       `accounts.transferAccountOwnershipServiceRole failed: ${error.message}`,

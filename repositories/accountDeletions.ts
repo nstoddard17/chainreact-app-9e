@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for `account_deletions` — the durable deletion audit ledger
@@ -121,7 +122,7 @@ export async function scheduleAccountDeletionAtomic(input: {
       p_challenge_purpose: input.challenge?.purpose ?? null,
       p_challenge_session_binding: input.challenge?.sessionBinding ?? null,
       p_challenge_email_binding: input.challenge?.emailBinding ?? null,
-    })
+    } satisfies RpcArgs<"schedule_account_deletion">)
     .single<ScheduleDeletionRow>();
   if (error || !data) {
     throw new Error(

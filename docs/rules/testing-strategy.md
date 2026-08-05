@@ -432,6 +432,51 @@ Durable rules:
   database-touching code triggers the gate without anyone remembering to extend a list.
   Documentation-only changes do not trigger it.
 
+## RPC signatures may never drift from their callers (RPC-SIGNATURE-DRIFT-GUARD-1)
+
+Migration `20260808000000` added `p_ai_credits_limit` to `apply_business_upgrade` /
+`apply_business_downgrade` and dropped the old overloads. The repository callers were
+updated; the integration tests were not — and **nothing failed**, because
+`types/database.types.ts` was generated and drift-checked but **imported by no file in
+the repository**. Every Supabase client was untyped, so `.rpc(name, args)` accepted any
+string and any object. The stale suites compiled, ran, and asserted only PostgREST's
+"could not find the function" response instead of atomicity or idempotency.
+
+Three sources must agree, and only one of them is authoritative:
+
+1. **The migrated local database (`pg_proc`) — authoritative.** Read from the catalog,
+   never by parsing migration SQL text.
+2. **`types/database.types.ts`** — the generated bridge. `db:types:check` proves
+   schema → types; the guard additionally proves types → database on names, argument
+   names, required/optional, and mapped argument types.
+3. **TypeScript `.rpc()` call sites** — extracted with the TypeScript AST, never a
+   regex, and compared to (1).
+
+Durable rules:
+
+- **Annotate every RPC argument object** with `satisfies RpcArgs<"fn">` from
+  [`types/rpc.ts`](../../types/rpc.ts). It costs one line, changes nothing at runtime,
+  and turns a renamed / removed / misnamed / missing / wrong-typed argument into a
+  compile error. `RpcArgs` is a projection of the generated `Database` type — **never
+  hand-write a function signature**, and never introduce a second RPC type system.
+- **Layer responsibilities:** `tsc` catches argument *value types*; the guard catches
+  function existence, argument names, required-argument omissions, stale arguments,
+  overload ambiguity, removed functions, and generated-types-vs-database drift. Neither
+  replaces the other.
+- **Overloading a PostgREST-reachable function is a defect.** Named-argument resolution
+  becomes ambiguous, so the guard fails on any called function with more than one
+  overload. Ship a distinctly named function instead.
+- **An unresolvable `.rpc()` call site must be declared** in
+  [`scripts/ci/rpc-dynamic-callers.json`](../../scripts/ci/rpc-dynamic-callers.json)
+  with its reason, the exact count for that file, the functions it can dispatch, and how
+  its arguments *are* covered. An undeclared unresolved caller fails the guard, and a
+  stale declaration fails it too. Prefer making the call site statically resolvable — a
+  literal name plus a literal (or file-local const) argument object is checked for free.
+- **The guard runs in db-ci after the reset and before the suite groups**, so a
+  signature mismatch is a fast, unambiguous failure rather than a confusing PostgREST
+  error deep inside the billing suites. It is loopback-only: no connection string, no
+  hosted project, no secret.
+
 ## Open questions
 
 No open questions remain that block Slice 1.

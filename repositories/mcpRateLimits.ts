@@ -1,5 +1,6 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { McpRateLimitCounts } from "@/core/mcp/rateLimitPolicy";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Durable rate-limit counter repository for the public MCP server
@@ -41,7 +42,7 @@ export async function incrementMcpRateLimitWindowsServiceRole(
     p_account_bucket: input.accountBucket,
     p_window_start: input.windowStart,
     p_expires_at: input.expiresAt,
-  });
+  } satisfies RpcArgs<"increment_mcp_rate_limits">);
   if (error) {
     throw new Error(
       `mcp_rate_limits.incrementMcpRateLimitWindowsServiceRole failed: ${error.message}`,

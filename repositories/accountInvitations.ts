@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for `account_invitations` (4.ACCOUNT-MODEL-15).
@@ -293,7 +294,7 @@ export async function replaceInvitationServiceRole(input: {
       p_new_token_hash: input.newTokenHash,
       p_invited_by_user_id: input.invitedByUserId,
       p_now: input.nowIso,
-    })
+    } satisfies RpcArgs<"replace_account_invitation">)
     .single<AccountInvitationsRow>();
   if (error) {
     if (error.message?.includes("INVITATION_NOT_PENDING")) {

@@ -22,6 +22,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -111,7 +112,7 @@ describeDb("apply_business_upgrade — BU-1", () => {
   });
 
   it("flips a Team account to organization + business + tasks_limit atomically", async () => {
-    const { data, error } = await admin.rpc("apply_business_upgrade", { p_account_id: teamId, ...UPGRADE_ARGS });
+    const { data, error } = await admin.rpc("apply_business_upgrade", { p_account_id: teamId, ...UPGRADE_ARGS } satisfies RpcArgs<"apply_business_upgrade">);
     expect(error).toBeNull();
     expect(data).toMatchObject({ ok: true, applied: true, reason: "upgraded" });
 
@@ -131,14 +132,14 @@ describeDb("apply_business_upgrade — BU-1", () => {
   });
 
   it("is idempotent on replay — already_upgraded, no unsafe write", async () => {
-    const { data } = await admin.rpc("apply_business_upgrade", { p_account_id: teamId, ...UPGRADE_ARGS });
+    const { data } = await admin.rpc("apply_business_upgrade", { p_account_id: teamId, ...UPGRADE_ARGS } satisfies RpcArgs<"apply_business_upgrade">);
     expect(data).toMatchObject({ ok: true, applied: false, reason: "already_upgraded" });
     const { data: acct } = await admin.from("accounts").select("type").eq("id", teamId).single<{ type: string }>();
     expect(acct!.type).toBe("organization");
   });
 
   it("rejects a personal account (not_upgradeable) with no write", async () => {
-    const { data } = await admin.rpc("apply_business_upgrade", { p_account_id: personalId, ...UPGRADE_ARGS });
+    const { data } = await admin.rpc("apply_business_upgrade", { p_account_id: personalId, ...UPGRADE_ARGS } satisfies RpcArgs<"apply_business_upgrade">);
     expect(data).toMatchObject({ ok: false, applied: false, reason: "not_upgradeable" });
     const { data: acct } = await admin.from("accounts").select("type").eq("id", personalId).single<{ type: string }>();
     expect(acct!.type).toBe("personal");
@@ -148,7 +149,7 @@ describeDb("apply_business_upgrade — BU-1", () => {
     const { data } = await admin.rpc("apply_business_upgrade", {
       p_account_id: "00000000-0000-0000-0000-000000000000",
       ...UPGRADE_ARGS,
-    });
+    } satisfies RpcArgs<"apply_business_upgrade">);
     expect(data).toMatchObject({ ok: false, reason: "account_not_found" });
   });
 
@@ -160,7 +161,7 @@ describeDb("apply_business_upgrade — BU-1", () => {
       .select("id")
       .single<{ id: string }>();
     await admin.from("account_billing").insert({ account_id: t!.id, plan: "team" });
-    const { data } = await admin.rpc("apply_business_upgrade", { p_account_id: t!.id, ...UPGRADE_ARGS });
+    const { data } = await admin.rpc("apply_business_upgrade", { p_account_id: t!.id, ...UPGRADE_ARGS } satisfies RpcArgs<"apply_business_upgrade">);
     expect(data).toMatchObject({ ok: false, reason: "account_frozen" });
     const { data: acct } = await admin.from("accounts").select("type").eq("id", t!.id).single<{ type: string }>();
     expect(acct!.type).toBe("team");
@@ -168,7 +169,7 @@ describeDb("apply_business_upgrade — BU-1", () => {
 
   it("an authenticated client CANNOT execute the RPC (service-role only)", async () => {
     const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { error } = await anon.rpc("apply_business_upgrade", { p_account_id: teamId, ...UPGRADE_ARGS });
+    const { error } = await anon.rpc("apply_business_upgrade", { p_account_id: teamId, ...UPGRADE_ARGS } satisfies RpcArgs<"apply_business_upgrade">);
     expect(error).not.toBeNull(); // no EXECUTE grant for anon/authenticated
   });
 });

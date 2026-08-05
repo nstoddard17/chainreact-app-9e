@@ -21,6 +21,7 @@ import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -156,7 +157,7 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
       p_new_token_hash: `h-clash-${stamp}`,
       p_invited_by_user_id: userId,
       p_now: new Date().toISOString(),
-    });
+    } satisfies RpcArgs<"replace_account_invitation">);
     expect(clash.error).not.toBeNull();
     const afterClash = await admin
       .from("account_invitations")
@@ -174,7 +175,7 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
       p_new_token_hash: `h-fresh-${stamp}`,
       p_invited_by_user_id: userId,
       p_now: new Date().toISOString(),
-    });
+    } satisfies RpcArgs<"replace_account_invitation">);
     expect(ok.error).toBeNull();
     const oldRow = await admin
       .from("account_invitations").select("status").eq("id", oldId).single<{ status: string }>();
@@ -197,7 +198,7 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
       p_new_token_hash: `h-again-${stamp}`,
       p_invited_by_user_id: userId,
       p_now: new Date().toISOString(),
-    });
+    } satisfies RpcArgs<"replace_account_invitation">);
     expect(again.error?.message ?? "").toContain("INVITATION_NOT_PENDING");
   });
 
@@ -211,7 +212,7 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
       p_new_token_hash: "h-denied",
       p_invited_by_user_id: caller.userId,
       p_now: new Date().toISOString(),
-    });
+    } satisfies RpcArgs<"replace_account_invitation">);
     expect(denied.error).not.toBeNull(); // EXECUTE not granted to authenticated
   });
 
@@ -260,11 +261,11 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
 
   it("find_user_id_by_email resolves a known email and returns null for unknown", async () => {
     const { userId, email } = await createUser();
-    const known = await admin.rpc("find_user_id_by_email", { p_email: email.toUpperCase() });
+    const known = await admin.rpc("find_user_id_by_email", { p_email: email.toUpperCase() } satisfies RpcArgs<"find_user_id_by_email">);
     expect(known.error).toBeNull();
     expect(known.data).toBe(userId);
 
-    const unknown = await admin.rpc("find_user_id_by_email", { p_email: "nobody-here@example.test" });
+    const unknown = await admin.rpc("find_user_id_by_email", { p_email: "nobody-here@example.test" } satisfies RpcArgs<"find_user_id_by_email">);
     expect(unknown.error).toBeNull();
     expect(unknown.data).toBeNull();
   });

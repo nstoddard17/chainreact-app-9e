@@ -24,6 +24,7 @@ import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -171,7 +172,7 @@ describeDb("TL-1 — owner invariants + transfer RPC (dev DB)", () => {
       p_account_id: teamId,
       p_current_owner_user_id: owner.userId,
       p_target_user_id: member.userId,
-    });
+    } satisfies RpcArgs<"transfer_account_ownership">);
     expect(res.error).toBeNull();
     expect(await roleOf(teamId, member.userId)).toBe("owner");
     expect(await roleOf(teamId, owner.userId)).toBe("admin");
@@ -186,7 +187,7 @@ describeDb("TL-1 — owner invariants + transfer RPC (dev DB)", () => {
       p_account_id: teamId,
       p_current_owner_user_id: owner.userId,
       p_target_user_id: stranger.userId,
-    });
+    } satisfies RpcArgs<"transfer_account_ownership">);
     expect(res.error).not.toBeNull();
     expect(res.error?.message ?? "").toMatch(/transfer_account_ownership_error/);
     expect(await ownerOf(teamId)).toBe(owner.userId);
@@ -201,7 +202,7 @@ describeDb("TL-1 — owner invariants + transfer RPC (dev DB)", () => {
       p_account_id: teamId,
       p_current_owner_user_id: member.userId, // not the real owner
       p_target_user_id: member.userId,
-    });
+    } satisfies RpcArgs<"transfer_account_ownership">);
     expect(res.error).not.toBeNull();
     expect(res.error?.message ?? "").toMatch(/current owner mismatch/i);
   });
@@ -233,7 +234,7 @@ describeDb("TL-1 — owner invariants + transfer RPC (dev DB)", () => {
       p_account_id: teamId,
       p_current_owner_user_id: owner.userId,
       p_target_user_id: member.userId,
-    });
+    } satisfies RpcArgs<"transfer_account_ownership">);
     // service_role-only grant → PostgREST denies the authenticated caller.
     expect(res.error).not.toBeNull();
     // And nothing changed.

@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "../supabase/serviceRoleClient";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for the flexible analytics query path
@@ -84,7 +85,7 @@ export async function aggregateRuns(
     p_trigger_sources: params.triggerSources ? [...params.triggerSources] : null,
     p_include_tests: params.includeTests,
     p_limit: params.limit,
-  });
+  } satisfies RpcArgs<"analytics_runs_aggregate">);
   if (error) {
     throw new Error(`analytics_runs_aggregate failed: ${error.message}`);
   }

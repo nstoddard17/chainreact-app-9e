@@ -27,6 +27,7 @@ import {
 } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
 import { requireTables } from "@/tests/helpers/dbPreflight";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -142,7 +143,7 @@ describeDb("analytics_runs_aggregate — ANALYTICS-FLEXIBILITY-CS-1", () => {
       p_include_tests: false,
       p_limit: null,
       ...params,
-    });
+    } satisfies RpcArgs<"analytics_runs_aggregate">);
   }
 
   beforeAll(async () => {
@@ -155,7 +156,7 @@ describeDb("analytics_runs_aggregate — ANALYTICS-FLEXIBILITY-CS-1", () => {
       p_account_id: "00000000-0000-4000-8000-000000000000",
       p_from: FROM,
       p_to: TO,
-    });
+    } satisfies RpcArgs<"analytics_runs_aggregate">);
     if (probe.error?.message.includes("Could not find the function")) {
       throw new Error(
         "analytics_runs_aggregate missing — apply migration 20260801000000 (npm run db:push).",
@@ -292,7 +293,7 @@ describeDb("analytics_runs_aggregate — ANALYTICS-FLEXIBILITY-CS-1", () => {
       p_account_id: userA.accountId,
       p_from: FROM,
       p_to: TO,
-    });
+    } satisfies RpcArgs<"analytics_runs_aggregate">);
     expect(asUser.error).not.toBeNull();
     expect(asUser.error!.code === "42501" || asUser.status === 401 || asUser.status === 403).toBe(true);
 
@@ -303,7 +304,7 @@ describeDb("analytics_runs_aggregate — ANALYTICS-FLEXIBILITY-CS-1", () => {
       p_account_id: userA.accountId,
       p_from: FROM,
       p_to: TO,
-    });
+    } satisfies RpcArgs<"analytics_runs_aggregate">);
     expect(asAnon.error).not.toBeNull();
   });
 });

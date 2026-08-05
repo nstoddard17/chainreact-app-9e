@@ -74,3 +74,5 @@ owner-review/
 # uploaded by CI, never committed).
 jest-db-*-raw.json
 db-suite-result-*.json
+rpc-inventory.json
+rpc-callers.json

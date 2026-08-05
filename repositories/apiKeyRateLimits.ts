@@ -1,5 +1,6 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { RateLimitCounts } from "@/core/apiKeys/rateLimitPolicy";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Durable rate-limit counter repository (Slice 4.API-KEYS-RATE-LIMIT-1).
@@ -43,7 +44,7 @@ export async function incrementApiKeyRateLimitWindowsServiceRole(
     p_account_bucket: input.accountBucket,
     p_window_start: input.windowStart,
     p_expires_at: input.expiresAt,
-  });
+  } satisfies RpcArgs<"increment_api_key_rate_limits">);
   if (error) {
     throw new Error(
       `api_key_rate_limits.incrementApiKeyRateLimitWindowsServiceRole failed: ${error.message}`,

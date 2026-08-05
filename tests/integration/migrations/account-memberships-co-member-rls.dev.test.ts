@@ -19,6 +19,7 @@ import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -118,12 +119,12 @@ describeDb("4.ACCOUNT-MODEL-16 — co-member RLS (dev DB)", () => {
     const teamId = await createTeam(owner.userId);
 
     const ownerSession = await sessionFor(owner.email);
-    const isMember = await ownerSession.rpc("is_account_member", { p_account_id: teamId });
+    const isMember = await ownerSession.rpc("is_account_member", { p_account_id: teamId } satisfies RpcArgs<"is_account_member">);
     expect(isMember.error).toBeNull();
     expect(isMember.data).toBe(true);
 
     const strangerSession = await sessionFor(stranger.email);
-    const notMember = await strangerSession.rpc("is_account_member", { p_account_id: teamId });
+    const notMember = await strangerSession.rpc("is_account_member", { p_account_id: teamId } satisfies RpcArgs<"is_account_member">);
     expect(notMember.error).toBeNull();
     expect(notMember.data).toBe(false);
   });

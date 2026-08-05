@@ -55,6 +55,9 @@ on:
       - "scripts/dev-*.mjs"
       - "scripts/lib/**"
       - "scripts/ci/db-suite-gate.mjs"
+      - "scripts/ci/rpc-signature-guard.mjs"
+      - "scripts/ci/rpc-dynamic-callers.json"
+      - "types/rpc.ts"
       - "package.json"
       - "package-lock.json"
       - "jest.config.mjs"
@@ -86,6 +89,9 @@ on:
       - "scripts/dev-*.mjs"
       - "scripts/lib/**"
       - "scripts/ci/db-suite-gate.mjs"
+      - "scripts/ci/rpc-signature-guard.mjs"
+      - "scripts/ci/rpc-dynamic-callers.json"
+      - "types/rpc.ts"
       - "package.json"
       - "package-lock.json"
       - "jest.config.mjs"
@@ -158,6 +164,15 @@ jobs:
 
       - name: Types drift gate
         run: npm run db:types:check
+
+      - name: RPC signature drift guard
+        # RPC-SIGNATURE-DRIFT-GUARD-1 — reads the migrated LOCAL catalog
+        # (pg_proc, via the stack's own database container) and proves the
+        # generated types AND every static TypeScript .rpc() caller still match
+        # it. Runs BEFORE the suite groups: a signature mismatch is a fast,
+        # unambiguous failure, not a confusing PostgREST error 20 minutes into
+        # the billing suites. Loopback-only; no connection string, no secret.
+        run: node scripts/ci/rpc-signature-guard.mjs run --out-dir .
 
       - name: Export loopback stack environment for the database suite groups
         # Suites are opt-in and read connection values from process env with

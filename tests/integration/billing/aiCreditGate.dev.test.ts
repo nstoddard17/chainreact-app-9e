@@ -28,6 +28,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -156,7 +157,7 @@ describeDb("AI credit gate — dev DB smoke (3b-dev-smoke)", () => {
     const { data, error } = await admin.rpc("deduct_ai_credits_if_available", {
       p_account_id: accountId,
       p_amount: 1,
-    });
+    } satisfies RpcArgs<"deduct_ai_credits_if_available">);
     expect(error).toBeNull();
     expect(data).toMatchObject({ ok: true, used: 3, limit: 3 });
     expect(await usedCredits(admin, accountId)).toBe(3);
@@ -164,7 +165,7 @@ describeDb("AI credit gate — dev DB smoke (3b-dev-smoke)", () => {
     const { data: data2 } = await admin.rpc("deduct_ai_credits_if_available", {
       p_account_id: accountId,
       p_amount: 1,
-    });
+    } satisfies RpcArgs<"deduct_ai_credits_if_available">);
     expect(data2).toMatchObject({ ok: false, used: 3, limit: 3 });
     expect(await usedCredits(admin, accountId)).toBe(3);
   });

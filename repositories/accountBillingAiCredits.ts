@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * AI credit balance mutations (Slice 4.AI-CREDITS-3, deduct-only).
@@ -39,7 +40,7 @@ export async function deductAiCredits(
   const { data, error } = await supabase.rpc("deduct_ai_credits_if_available", {
     p_account_id: accountId,
     p_amount: amount,
-  });
+  } satisfies RpcArgs<"deduct_ai_credits_if_available">);
   if (error) {
     throw new Error(`deduct_ai_credits_if_available RPC failed: ${error.message}`);
   }

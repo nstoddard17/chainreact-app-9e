@@ -292,6 +292,46 @@ describe("db-ci.yml — loopback-only, zero cloud credentials", () => {
     expect(pathLists[0]!.length).toBeGreaterThan(20);
   });
 
+  // ── RPC-SIGNATURE-DRIFT-GUARD-1 ─────────────────────────────────────────
+  // A migration can change an RPC signature while its TypeScript callers stay
+  // stale; that is how apply_business_upgrade's tests silently degraded into
+  // "PostgREST could not find the function". The guard runs against the
+  // migrated local catalog, early enough to fail fast.
+
+  it("runs the RPC signature guard", () => {
+    expect(text).toContain("rpc-signature-guard.mjs run");
+  });
+
+  it("runs the guard AFTER the database reset and BEFORE the suite groups", () => {
+    const resetIdx = text.indexOf("npm run supabase:test:reset");
+    const guardIdx = text.indexOf("rpc-signature-guard.mjs run");
+    expect(resetIdx).toBeGreaterThan(-1);
+    expect(guardIdx).toBeGreaterThan(resetIdx);
+    for (const group of ["security", "billing", "accounts"]) {
+      expect(guardIdx).toBeLessThan(text.indexOf(`--group ${group}`));
+    }
+  });
+
+  it("keeps the guard on the loopback stack — no connection string, no hosted project", () => {
+    const guardStep = text.slice(
+      text.lastIndexOf("- name:", text.indexOf("rpc-signature-guard.mjs run")),
+      text.indexOf("rpc-signature-guard.mjs run") + 60,
+    );
+    expect(guardStep).not.toMatch(/postgres:\/\/|postgresql:\/\/|supabase\.co|--linked|--db-url/);
+    expect(guardStep).not.toContain("secrets.");
+  });
+
+  it("triggers db-ci when the guard, its manifest, or the RPC type contract changes", () => {
+    for (const p of [
+      '"scripts/ci/rpc-signature-guard.mjs"',
+      '"scripts/ci/rpc-dynamic-callers.json"',
+      '"types/rpc.ts"',
+      '"types/database.types.ts"',
+    ]) {
+      expect(text).toContain(p);
+    }
+  });
+
   it("introduces no retries, no failure masking, and no pass-with-no-tests", () => {
     expect(text).not.toContain("continue-on-error");
     expect(text).not.toContain("--passWithNoTests");

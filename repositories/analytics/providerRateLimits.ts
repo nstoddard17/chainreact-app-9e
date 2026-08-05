@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "../supabase/serviceRoleClient";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for `analytics_provider_rate_limits` (CD-2, migration
@@ -26,7 +27,7 @@ export async function incrementProviderRateBuckets(input: {
       p_source_bucket: input.sourceBucket,
       p_window_start: new Date(input.windowStartMs).toISOString(),
       p_expires_at: new Date(input.expiresAtMs).toISOString(),
-    },
+    } satisfies RpcArgs<"increment_analytics_provider_rate_limits">,
   );
   if (error) {
     throw new Error(`analytics_provider_rate_limits increment failed: ${error.message}`);

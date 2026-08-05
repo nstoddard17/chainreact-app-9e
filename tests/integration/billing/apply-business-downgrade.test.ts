@@ -23,6 +23,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -104,7 +105,7 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
   });
 
   it("flips an organization account to team + team plan + tasks_limit, keeping the Stripe customer", async () => {
-    const { data, error } = await admin.rpc("apply_business_downgrade", { p_account_id: orgId, ...ARGS });
+    const { data, error } = await admin.rpc("apply_business_downgrade", { p_account_id: orgId, ...ARGS } satisfies RpcArgs<"apply_business_downgrade">);
     expect(error).toBeNull();
     expect(data).toMatchObject({ ok: true, applied: true, reason: "downgraded" });
 
@@ -124,14 +125,14 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
   });
 
   it("is idempotent on replay — already_team, no unsafe write", async () => {
-    const { data } = await admin.rpc("apply_business_downgrade", { p_account_id: orgId, ...ARGS });
+    const { data } = await admin.rpc("apply_business_downgrade", { p_account_id: orgId, ...ARGS } satisfies RpcArgs<"apply_business_downgrade">);
     expect(data).toMatchObject({ ok: true, applied: false, reason: "already_team" });
     const { data: acct } = await admin.from("accounts").select("type").eq("id", orgId).single<{ type: string }>();
     expect(acct!.type).toBe("team");
   });
 
   it("rejects a personal account (not_downgradeable) with no write", async () => {
-    const { data } = await admin.rpc("apply_business_downgrade", { p_account_id: personalId, ...ARGS });
+    const { data } = await admin.rpc("apply_business_downgrade", { p_account_id: personalId, ...ARGS } satisfies RpcArgs<"apply_business_downgrade">);
     expect(data).toMatchObject({ ok: false, applied: false, reason: "not_downgradeable" });
     const { data: acct } = await admin.from("accounts").select("type").eq("id", personalId).single<{ type: string }>();
     expect(acct!.type).toBe("personal");
@@ -141,7 +142,7 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
     const { data } = await admin.rpc("apply_business_downgrade", {
       p_account_id: "00000000-0000-0000-0000-000000000000",
       ...ARGS,
-    });
+    } satisfies RpcArgs<"apply_business_downgrade">);
     expect(data).toMatchObject({ ok: false, reason: "account_not_found" });
   });
 
@@ -153,7 +154,7 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
       .select("id")
       .single<{ id: string }>();
     await admin.from("account_billing").insert({ account_id: t!.id, plan: "business" });
-    const { data } = await admin.rpc("apply_business_downgrade", { p_account_id: t!.id, ...ARGS });
+    const { data } = await admin.rpc("apply_business_downgrade", { p_account_id: t!.id, ...ARGS } satisfies RpcArgs<"apply_business_downgrade">);
     expect(data).toMatchObject({ ok: false, reason: "account_frozen" });
     const { data: acct } = await admin.from("accounts").select("type").eq("id", t!.id).single<{ type: string }>();
     expect(acct!.type).toBe("organization");
@@ -161,7 +162,7 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
 
   it("an authenticated client CANNOT execute the RPC (service-role only)", async () => {
     const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { error } = await anon.rpc("apply_business_downgrade", { p_account_id: orgId, ...ARGS });
+    const { error } = await anon.rpc("apply_business_downgrade", { p_account_id: orgId, ...ARGS } satisfies RpcArgs<"apply_business_downgrade">);
     expect(error).not.toBeNull(); // no EXECUTE grant for anon/authenticated
   });
 });

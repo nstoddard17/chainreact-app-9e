@@ -7,6 +7,7 @@ import {
   type LiveTestFailureCode,
   type LiveTestSessionStatus,
 } from "@/core/workflows/liveTest/liveTestSessionLifecycle";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for `workflow_live_test_sessions` (WORKFLOW-LIVE-TEST-3 §1).
@@ -364,7 +365,7 @@ export async function authorizeExecution(input: {
     p_session_id: input.sessionId,
     p_run_id: input.runId,
     p_enqueued_at: input.enqueuedAt,
-  });
+  } satisfies RpcArgs<"authorize_live_test_run">);
   if (error) {
     throw new Error(`workflow_live_test_sessions.authorize failed: ${error.message}`);
   }

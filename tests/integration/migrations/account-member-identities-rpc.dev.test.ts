@@ -20,6 +20,7 @@ import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -176,7 +177,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   it("a co-member sees every member's email + display_name", async () => {
     const { data, error } = await owner1Session.rpc("get_account_member_identities", {
       p_account_id: team1,
-    });
+    } satisfies RpcArgs<"get_account_member_identities">);
     expect(error).toBeNull();
     const rows = (data ?? []) as IdentityRow[];
     expect(rows.length).toBe(2);
@@ -192,7 +193,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   it("falls back to auth metadata full_name/name when display_name is unset", async () => {
     const { data, error } = await owner2Session.rpc("get_account_member_identities", {
       p_account_id: team2,
-    });
+    } satisfies RpcArgs<"get_account_member_identities">);
     expect(error).toBeNull();
     const rows = (data ?? []) as IdentityRow[];
     const ownerRow = rows.find((r) => r.user_id === owner2.userId)!;
@@ -202,7 +203,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   it("a NON-member gets an error and zero rows (no email leak)", async () => {
     const { data, error } = await strangerSession.rpc("get_account_member_identities", {
       p_account_id: team3,
-    });
+    } satisfies RpcArgs<"get_account_member_identities">);
     // SECURITY DEFINER raises 42501 for a non-member; supabase surfaces it as error.
     expect(error).not.toBeNull();
     expect(data ?? []).toEqual([]);

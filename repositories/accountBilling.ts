@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import { planLimitsFor, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Atomic Team → Business upgrade (Slice 4.BILLING-BUSINESS-UPGRADE-2 / BU-1). Service-role
@@ -41,7 +42,10 @@ export async function applyBusinessUpgradeServiceRole(
   const supabase = getServiceRoleClient(
     `account upgrade: team→business for account ${input.accountId}`,
   );
-  const { data, error } = await supabase.rpc("apply_business_upgrade", {
+  // RPC-SIGNATURE-DRIFT-GUARD-1 — checked against the generated database
+  // signature at compile time; a migration that renames, adds or drops a
+  // parameter breaks the build here instead of at runtime.
+  const args = {
     p_account_id: input.accountId,
     p_plan_status: input.planStatus,
     p_current_period_end: input.currentPeriodEnd ?? null,
@@ -50,7 +54,8 @@ export async function applyBusinessUpgradeServiceRole(
     p_stripe_customer_id: input.stripeCustomerId ?? null,
     p_tasks_limit: tasksLimit,
     p_ai_credits_limit: aiCreditsLimit,
-  });
+  } satisfies RpcArgs<"apply_business_upgrade">;
+  const { data, error } = await supabase.rpc("apply_business_upgrade", args);
   if (error) {
     throw new Error(`apply_business_upgrade RPC failed: ${error.message}`);
   }
@@ -100,7 +105,7 @@ export async function applyBusinessDowngradeServiceRole(
     p_plan_status: input.planStatus,
     p_tasks_limit: tasksLimit,
     p_ai_credits_limit: aiCreditsLimit,
-  });
+  } satisfies RpcArgs<"apply_business_downgrade">);
   if (error) {
     throw new Error(`apply_business_downgrade RPC failed: ${error.message}`);
   }
@@ -198,7 +203,7 @@ export async function deductTasks(
   const { data, error } = await supabase.rpc("deduct_tasks_if_available", {
     p_account_id: accountId,
     p_amount: amount,
-  });
+  } satisfies RpcArgs<"deduct_tasks_if_available">);
   if (error) {
     throw new Error(`deduct_tasks_if_available RPC failed: ${error.message}`);
   }
@@ -267,7 +272,7 @@ export async function reserveTasks(
     p_amount: amount,
     p_run_id: runId,
     p_expires_at: expiresAt ?? null,
-  });
+  } satisfies RpcArgs<"reserve_tasks_if_available">);
   if (error) {
     throw new Error(`reserve_tasks_if_available RPC failed: ${error.message}`);
   }
@@ -287,7 +292,7 @@ export async function reconcileReservation(
     p_account_id: accountId,
     p_run_id: runId,
     p_actual: actual,
-  });
+  } satisfies RpcArgs<"reconcile_task_reservation">);
   if (error) {
     throw new Error(`reconcile_task_reservation RPC failed: ${error.message}`);
   }
@@ -305,7 +310,7 @@ export async function releaseReservation(
   const { data, error } = await supabase.rpc("release_task_reservation", {
     p_account_id: accountId,
     p_run_id: runId,
-  });
+  } satisfies RpcArgs<"release_task_reservation">);
   if (error) {
     throw new Error(`release_task_reservation RPC failed: ${error.message}`);
   }
@@ -321,7 +326,7 @@ export async function releaseExpiredReservations(
   );
   const { data, error } = await supabase.rpc("release_expired_reservations", {
     p_now: now ?? new Date().toISOString(),
-  });
+  } satisfies RpcArgs<"release_expired_reservations">);
   if (error) {
     throw new Error(`release_expired_reservations RPC failed: ${error.message}`);
   }
@@ -854,7 +859,7 @@ export async function claimAccountTrialServiceRole(
     p_account_id: accountId,
     p_origin_plan: originPlan,
     p_trial_ends_at: trialEndsAt,
-  });
+  } satisfies RpcArgs<"claim_account_trial">);
   if (error) {
     throw new Error(`claim_account_trial RPC failed: ${error.message}`);
   }

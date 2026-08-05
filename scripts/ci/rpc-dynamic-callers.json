@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "RPC-SIGNATURE-DRIFT-GUARD-1 — the documented contract for .rpc() call sites",
+    "whose arguments (and sometimes the function name) cannot be resolved from the",
+    "TypeScript AST alone. The guard REFUSES to skip an unresolved caller silently:",
+    "every one must appear here, and every entry here must still match a real site.",
+    "",
+    "Contract for an entry:",
+    "  file            — repo-relative path containing the unresolved call site(s).",
+    "  unresolvedCount — EXACT number of unresolved sites in that file. A new one",
+    "                    changes the count and fails the guard, so widening an entry",
+    "                    is a deliberate, reviewable act rather than a silent drift.",
+    "  rpcs            — every function the site can dispatch to. Each must exist in",
+    "                    the migrated database, and a statically-known function name",
+    "                    at the site must appear in this list.",
+    "  reason          — why static resolution is impossible.",
+    "  argumentCoverage— how the arguments ARE protected, since this guard cannot",
+    "                    check them here.",
+    "",
+    "Keep this list SHORT. Prefer making a call site statically resolvable over",
+    "adding an entry: a literal function name plus a literal argument object is",
+    "checked for free."
+  ],
+  "unresolvedCallers": [
+    {
+      "file": "tests/integration/billing/accountBillingFoundation.dev.test.ts",
+      "unresolvedCount": 1,
+      "rpcs": [
+        "deduct_tasks_if_available",
+        "reserve_tasks_if_available",
+        "reconcile_task_reservation",
+        "release_task_reservation",
+        "release_expired_reservations"
+      ],
+      "reason": "a local `rpc(fn, params)` helper forwards a function-name PARAMETER to admin.rpc(), so no single function name exists at the call site",
+      "argumentCoverage": "the suite executes every one of these RPCs against the real local database in db-ci's billing group; a stale argument name fails there as a live PostgREST error, not silently"
+    },
+    {
+      "file": "tests/integration/security/analytics-runs-aggregate-rpc.test.ts",
+      "unresolvedCount": 1,
+      "rpcs": ["analytics_runs_aggregate"],
+      "reason": "the argument object spreads a `params` function parameter over its literal base keys, so the full key set is only known at runtime",
+      "argumentCoverage": "the literal base keys cover every REQUIRED argument, and the suite calls the RPC for real in db-ci's security group"
+    }
+  ]
+}

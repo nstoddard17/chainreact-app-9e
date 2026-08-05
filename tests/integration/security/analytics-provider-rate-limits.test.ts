@@ -12,6 +12,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -50,7 +51,7 @@ describeDb("analytics_provider_rate_limits — CD-2", () => {
       p_source_bucket: s,
       p_window_start: windowStart,
       p_expires_at: expiresAt,
-    });
+    } satisfies RpcArgs<"increment_analytics_provider_rate_limits">);
 
   beforeAll(() => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });

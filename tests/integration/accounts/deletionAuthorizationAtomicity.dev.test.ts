@@ -33,6 +33,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import type { RpcArgs } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -134,7 +135,7 @@ describeDb("schedule_account_deletion — transactional atomicity (dev DB)", () 
         p_challenge_email_binding: input.challengeId
           ? (input.emailBinding ?? EMAIL_BINDING)
           : null,
-      })
+      } satisfies RpcArgs<"schedule_account_deletion">)
       .single<{
         out_outcome: string;
         out_account_id: string | null;
@@ -281,7 +282,7 @@ describeDb("schedule_account_deletion — transactional atomicity (dev DB)", () 
       p_challenge_purpose: "delete_account",
       p_challenge_session_binding: SESSION_BINDING,
       p_challenge_email_binding: EMAIL_BINDING,
-    });
+    } satisfies RpcArgs<"schedule_account_deletion">);
     expect(error).not.toBeNull();
 
     // Challenge NOT consumed, account NOT scheduled, no audit row: one outcome.
@@ -380,7 +381,7 @@ describeDb("schedule_account_deletion — transactional atomicity (dev DB)", () 
       p_challenge_purpose: null,
       p_challenge_session_binding: null,
       p_challenge_email_binding: null,
-    });
+    } satisfies RpcArgs<"schedule_account_deletion">);
     expect(error).not.toBeNull();
   });
 });

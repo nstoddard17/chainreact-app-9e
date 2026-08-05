@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for auth-user lookups that the app can't do through normal tables
@@ -16,7 +17,7 @@ export async function findUserIdByEmailServiceRole(
   const supabase = getServiceRoleClient(`users: findUserIdByEmail`);
   const { data, error } = await supabase.rpc("find_user_id_by_email", {
     p_email: email,
-  });
+  } satisfies RpcArgs<"find_user_id_by_email">);
   if (error) {
     throw new Error(`users.findUserIdByEmailServiceRole failed: ${error.message}`);
   }

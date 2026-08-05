@@ -4,6 +4,7 @@ import type {
   AccountMembershipRecord,
   MembershipRole,
 } from "@/contracts/accounts";
+import type { RpcArgs } from "@/types/rpc";
 
 /**
  * Repository for `account_memberships`.
@@ -120,7 +121,7 @@ export async function listMemberIdentities(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_account_member_identities", {
     p_account_id: accountId,
-  });
+  } satisfies RpcArgs<"get_account_member_identities">);
   if (error) {
     throw new Error(
       `account_memberships.listMemberIdentities failed: ${error.message}`,
