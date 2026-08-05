@@ -243,4 +243,79 @@ export interface OwnedAccountSummary {
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain("unknown command");
   });
+
+  // ── SUPABASE-TABLE-TYPING-1B: decision-driving JSON ─────────────────────
+  // The generated type for these columns is `Json`, which carries no field
+  // information — so a cast into a trusted domain type asserts a shape nothing
+  // verified, on the value the engine replays.
+
+  it.each([
+    ["trigger_event", "row.trigger_event as TriggerEvent"],
+    ["steps", "row.steps as WorkflowRunStep[]"],
+    ["fatal_error", "row.fatal_error as WorkflowRunFatalError"],
+    ["error_classification", "row.error_classification as ErrorClassification"],
+  ])("fails when %s is cast directly into a trusted domain type", (_col, expr) => {
+    const r = check(`${GOOD_SOURCE}
+export function bad(row: { trigger_event: unknown; steps: unknown; fatal_error: unknown; error_classification: unknown }) {
+  return ${expr};
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("decision-driving JSON column");
+  });
+
+  it("still allows keeping a JSON column AS Json (opaque storage)", () => {
+    const r = check(`${GOOD_SOURCE}
+export function fine(row: { trigger_event: unknown }) {
+  return row.trigger_event as Json;
+}
+`);
+    expect(r.status).toBe(0);
+  });
+
+  it("fails a manual .single<>() / .maybeSingle<>() generic on a TABLE query", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+export async function load(id: string) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  const { data } = await db.from("accounts").select("id").eq("id", id).maybeSingle<{ id: string }>();
+  return data;
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("overrides the generated inference on a table query");
+  });
+
+  it("does NOT flag a .single<RpcRow<...>>() generic on an RPC call", () => {
+    // PostgREST function results are not inferred from the Database type, so
+    // that generic is required — flagging it would push authors back to casts.
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import type { RpcRow } from "@/types/rpc";
+export async function load(id: string) {
+  const supabase = getServiceRoleClient("reason");
+  const db = asTypedDb(supabase);
+  void db;
+  const { data } = await supabase
+    .rpc("schedule_account_deletion", { p_account_id: id })
+    .single<RpcRow<"schedule_account_deletion">>();
+  return data;
+}
+`);
+    expect(r.status).toBe(0);
+  });
+
+  it("covers the workflow-run family in the committed manifest", () => {
+    const files: string[] = JSON.parse(readFileSync(MANIFEST, "utf8")).migratedFiles;
+    for (const expected of [
+      "repositories/workflowRuns.ts",
+      "repositories/workflowRunsLifecycle.ts",
+      "repositories/workflowRunsQueue.ts",
+      "repositories/workflowRunsDiagnostics.ts",
+    ]) {
+      expect(files).toContain(expected);
+    }
+  });
 });

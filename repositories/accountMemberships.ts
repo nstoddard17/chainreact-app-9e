@@ -175,7 +175,7 @@ export async function isMember(
     .select("account_id")
     .eq("account_id", accountId)
     .eq("user_id", userId)
-    .maybeSingle<{ account_id: string }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_memberships.isMember failed: ${error.message}`);
   }
@@ -220,7 +220,7 @@ export async function isMemberServiceRole(
     .select("account_id")
     .eq("account_id", accountId)
     .eq("user_id", userId)
-    .maybeSingle<{ account_id: string }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_memberships.isMemberServiceRole failed: ${error.message}`);
   }
@@ -245,11 +245,12 @@ export async function getRoleServiceRole(
     .select("role")
     .eq("account_id", accountId)
     .eq("user_id", userId)
-    .maybeSingle<{ role: MembershipRole }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_memberships.getRoleServiceRole failed: ${error.message}`);
   }
-  return data?.role ?? null;
+  if (!data || data.role === null) return null;
+  return MembershipRoleSchema.parse(data.role);
 }
 
 /**
@@ -313,11 +314,12 @@ export async function getRole(
     .select("role")
     .eq("account_id", accountId)
     .eq("user_id", userId)
-    .maybeSingle<{ role: MembershipRole }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_memberships.getRole failed: ${error.message}`);
   }
-  return data?.role ?? null;
+  if (!data || data.role === null) return null;
+  return MembershipRoleSchema.parse(data.role);
 }
 
 /**

@@ -12,7 +12,8 @@
     "",
     "Batch 1A scope: account billing + entitlement state, account lifecycle and",
     "deletion, ownership and membership, and the ledger/usage tables those",
-    "repositories write through."
+    "repositories write through.",
+    "Batch 1B scope: the workflow-run persistence + queue boundary (runs, lifecycle, queue, diagnostics), including decision-driving trigger_event validation."
   ],
   "migratedFiles": [
     "repositories/accountBilling.ts",
@@ -23,6 +24,10 @@
     "repositories/accountMemberships.ts",
     "repositories/accountInvitations.ts",
     "repositories/ledgerAnonymization.ts",
-    "repositories/taskUsageEvents.ts"
+    "repositories/taskUsageEvents.ts",
+    "repositories/workflowRuns.ts",
+    "repositories/workflowRunsLifecycle.ts",
+    "repositories/workflowRunsQueue.ts",
+    "repositories/workflowRunsDiagnostics.ts"
   ]
 }

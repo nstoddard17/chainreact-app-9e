@@ -5,6 +5,14 @@ import type {
   WorkflowRunFatalError,
   WorkflowRunTriggeredBy,
 } from "./workflowRuns";
+import { asTypedDb } from "./supabase/typedDb";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import type { TableColumns } from "@/types/tables";
+import { narrowColumn } from "@/core/database/columnNarrowing";
+import {
+  WORKFLOW_RUN_TRIGGERED_BY,
+  parseTriggerEvent,
+} from "@/core/database/workflowRunColumns";
 
 /**
  * Durable run queue (Slice 6.DURABLE-QUEUE-1).
@@ -58,14 +66,15 @@ export async function createQueuedWorkflowRun(
   const supabase = getServiceRoleClient(
     `enqueue: createQueuedWorkflowRun ${input.runId} (workflow ${input.workflowId})`,
   );
-  const { error } = await supabase.from("workflow_runs").insert({
+  const db = asTypedDb(supabase);
+  const { error } = await db.from("workflow_runs").insert({
     id: input.runId,
     workflow_id: input.workflowId,
     account_id: input.accountId,
     triggered_by_user_id: input.triggeredByUserId,
     status: "queued",
     trigger_node_id: input.triggerNodeId,
-    trigger_event: input.triggerEvent,
+    trigger_event: toJsonColumn("workflow_runs.trigger_event", input.triggerEvent),
     steps: [],
     started_at: input.enqueuedAt,
     finished_at: null,
@@ -115,7 +124,8 @@ export async function claimQueuedWorkflowRun(
   const supabase = getServiceRoleClient(
     `processor: claimQueuedWorkflowRun ${input.runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .update({
       status: "running",
@@ -147,26 +157,37 @@ export interface QueuedRunDispatch {
 const QUEUED_DISPATCH_COLUMNS =
   "id,workflow_id,trigger_node_id,trigger_event,is_test,triggered_by,triggered_by_user_id,triggered_by_api_key_id,triggered_by_api_key_prefix";
 
-interface QueuedDispatchRow {
-  id: string;
-  workflow_id: string;
-  trigger_node_id: string;
-  trigger_event: TriggerEvent;
-  is_test: boolean;
-  triggered_by: WorkflowRunTriggeredBy;
-  triggered_by_user_id: string | null;
-  triggered_by_api_key_id: string | null;
-  triggered_by_api_key_prefix: string | null;
-}
+/**
+ * SUPABASE-TABLE-TYPING-1B — the dispatch envelope the ENGINE executes.
+ * `trigger_event` is decision-driving jsonb and was previously asserted through
+ * a handwritten row interface; it is now validated, so a malformed stored event
+ * fails closed instead of being replayed.
+ */
+type QueuedDispatchProjection = TableColumns<
+  "workflow_runs",
+  | "id"
+  | "workflow_id"
+  | "trigger_node_id"
+  | "trigger_event"
+  | "is_test"
+  | "triggered_by"
+  | "triggered_by_user_id"
+  | "triggered_by_api_key_id"
+  | "triggered_by_api_key_prefix"
+>;
 
-function dispatchRowToEnvelope(row: QueuedDispatchRow): QueuedRunDispatch {
+function dispatchRowToEnvelope(row: QueuedDispatchProjection): QueuedRunDispatch {
   return {
     runId: row.id,
     workflowId: row.workflow_id,
     triggerNodeId: row.trigger_node_id,
-    triggerEvent: row.trigger_event,
+    triggerEvent: parseTriggerEvent(`workflow_runs.trigger_event(${row.id})`, row.trigger_event),
     isTest: row.is_test,
-    triggeredBy: row.triggered_by,
+    triggeredBy: narrowColumn(
+      "workflow_runs.triggered_by",
+      WORKFLOW_RUN_TRIGGERED_BY,
+      row.triggered_by,
+    ),
     triggeredByUserId: row.triggered_by_user_id,
     triggeredByApiKeyId: row.triggered_by_api_key_id,
     triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
@@ -186,12 +207,13 @@ export async function getQueuedRunForDispatch(
   const supabase = getServiceRoleClient(
     `processor: getQueuedRunForDispatch ${runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .select(QUEUED_DISPATCH_COLUMNS)
     .eq("id", runId)
     .eq("status", "queued")
-    .maybeSingle<QueuedDispatchRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_runs.getQueuedRunForDispatch failed: ${error.message}`);
   }
@@ -210,8 +232,9 @@ export async function listQueuedWorkflowRunsForDispatch(
   const supabase = getServiceRoleClient(
     "processor: listQueuedWorkflowRunsForDispatch",
   );
+  const db = asTypedDb(supabase);
   const capped = Math.min(Math.max(limit, 1), 500);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("workflow_runs")
     .select(QUEUED_DISPATCH_COLUMNS)
     .eq("status", "queued")
@@ -222,7 +245,7 @@ export async function listQueuedWorkflowRunsForDispatch(
       `workflow_runs.listQueuedWorkflowRunsForDispatch failed: ${error.message}`,
     );
   }
-  return (data ?? []).map((r) => dispatchRowToEnvelope(r as QueuedDispatchRow));
+  return (data ?? []).map(dispatchRowToEnvelope);
 }
 
 export interface SweepStaleQueuedWorkflowRunsInput {
@@ -262,10 +285,11 @@ export async function sweepStaleQueuedWorkflowRuns(
   const supabase = getServiceRoleClient(
     `cron: sweepStaleQueuedWorkflowRuns (cutoff ${input.cutoff})`,
   );
+  const db = asTypedDb(supabase);
 
   let limitIds: string[] | null = null;
   if (input.limit !== undefined) {
-    const sel = await supabase
+    const sel = await db
       .from("workflow_runs")
       .select("id")
       .eq("status", "queued")
@@ -277,19 +301,22 @@ export async function sweepStaleQueuedWorkflowRuns(
         `workflow_runs.sweepStaleQueuedWorkflowRuns (select) failed: ${sel.error.message}`,
       );
     }
-    limitIds = (sel.data ?? []).map((r) => (r as { id: string }).id);
+    limitIds = (sel.data ?? []).map((r) => r.id);
     if (limitIds.length === 0) {
       return { sweptCount: 0, runIds: [], cutoff: input.cutoff };
     }
   }
 
-  let query = supabase
+  let query = db
     .from("workflow_runs")
     .update({
       status: "failed",
       finished_at: input.finishedAt,
-      fatal_error: input.fatalError,
-      error_classification: input.errorClassification,
+      fatal_error: toJsonColumn("workflow_runs.fatal_error", input.fatalError),
+      error_classification: toJsonColumn(
+        "workflow_runs.error_classification",
+        input.errorClassification,
+      ),
     })
     .eq("status", "queued")
     .lt("started_at", input.cutoff);
@@ -299,7 +326,7 @@ export async function sweepStaleQueuedWorkflowRuns(
   if (error) {
     throw new Error(`workflow_runs.sweepStaleQueuedWorkflowRuns failed: ${error.message}`);
   }
-  const runIds = (data ?? []).map((r) => (r as { id: string }).id);
+  const runIds = (data ?? []).map((r) => r.id);
   return { sweptCount: runIds.length, runIds, cutoff: input.cutoff };
 }
 
@@ -328,12 +355,16 @@ export async function failQueuedRunIfStillQueued(
   const supabase = getServiceRoleClient(
     `processor: failQueuedRunIfStillQueued ${input.runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .update({
       status: "failed",
-      fatal_error: input.fatalError,
-      error_classification: input.errorClassification,
+      fatal_error: toJsonColumn("workflow_runs.fatal_error", input.fatalError),
+      error_classification: toJsonColumn(
+        "workflow_runs.error_classification",
+        input.errorClassification,
+      ),
       finished_at: input.finishedAt,
     })
     .eq("id", input.runId)

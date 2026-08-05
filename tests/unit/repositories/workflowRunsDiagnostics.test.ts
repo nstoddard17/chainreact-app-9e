@@ -85,7 +85,16 @@ const runningRow = {
   triggered_by_user_id: null,
   status: "running",
   trigger_node_id: "trigger-1",
-  trigger_event: { type: "manual" },
+  // The canonical envelope (contracts/triggerEvent.ts) — `{ type: "manual" }`
+  // was never a valid persisted trigger event.
+  trigger_event: {
+    provider: "manual",
+    eventType: "manual_run",
+    eventId: "manual-1",
+    occurredAt: "2026-06-01T00:00:00Z",
+    providerAccountId: "acct-1",
+    payload: {},
+  },
   steps: [],
   fatal_error: null,
   error_classification: null,

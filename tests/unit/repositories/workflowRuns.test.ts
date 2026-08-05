@@ -270,6 +270,13 @@ describe("workflowRuns.listByWorkflow", () => {
       started_at: "2026-05-07T00:00:00Z",
       finished_at: "2026-05-07T00:00:01Z",
       created_at: "2026-05-07T00:00:00Z",
+      // SUPABASE-TABLE-TYPING-1B — `select("*")` always returns these; the
+      // fixture previously omitted them, claiming a row the database never
+      // produces.
+      is_test: false,
+      triggered_by: "manual",
+      triggered_by_api_key_id: null,
+      triggered_by_api_key_prefix: null,
     };
     const state: ChainState = { filters: [], resultData: [row], resultError: null };
     mockServiceRole.current = makeMockClient(state);
@@ -316,6 +323,11 @@ describe("workflowRuns.getById", () => {
     started_at: "2026-05-07T00:00:00Z",
     finished_at: "2026-05-07T00:00:01Z",
     created_at: "2026-05-07T00:00:00Z",
+    // SUPABASE-TABLE-TYPING-1B — `select("*")` always returns these.
+    is_test: false,
+    triggered_by: "manual",
+    triggered_by_api_key_id: null,
+    triggered_by_api_key_prefix: null,
   };
 
   it("returns the record when the row exists", async () => {

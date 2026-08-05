@@ -559,6 +559,34 @@ Durable rules for a migrating repository:
   untyped client's row generic is `any`. Add a file to the manifest only once it
   genuinely uses the typed client; a stale or duplicate entry fails too.
 
+### Writing to, and reading from, a `jsonb` column (SUPABASE-TABLE-TYPING-1B)
+
+- **Reading: a decision-driving JSON column is validated, never cast.** The generated
+  type is `Json`, a union with no field information, so `row.trigger_event as
+  TriggerEvent` asserts a shape nothing checked — on the value the engine replays. Parse
+  it with the EXISTING contract schema
+  ([`core/database/workflowRunColumns.ts`](../../core/database/workflowRunColumns.ts)),
+  and let a malformed row fail closed. The guard rejects direct casts of
+  `trigger_event` / `steps` / `fatal_error` / `error_classification` / run input/output.
+- **Validate the stable envelope; keep a provider payload opaque.** `TriggerEventSchema`
+  requires the five envelope fields and leaves `payload` as an opaque record, because
+  providers extend it. Validating its interior would either reject legitimate providers
+  or invent a contract they never agreed to.
+- **A validation error may name the field; never the value.** `trigger_event.payload` is
+  an unmodified provider body and can hold tokens, addresses and message text. Report
+  the zod path + issue code only.
+- **Writing: construct the JSON, don't assert it.** A domain object is not assignable to
+  `Json`. Use `toJsonColumn` ([`core/database/jsonColumn.ts`](../../core/database/jsonColumn.ts)),
+  which reproduces `JSON.stringify` semantics exactly — so the bytes reaching Postgres
+  are unchanged — rather than `value as Json`.
+- **A `.neq()` filter does not narrow a type.** Where a reader is terminal-only by query,
+  assert the invariant explicitly (throw) instead of declaring a narrower union and
+  hoping; and where a reader genuinely returns non-terminal rows, make the domain type
+  honestly nullable rather than asserting `finishedAt`.
+- **Never drop a manual `.single<T>()` generic on an RPC call.** PostgREST function
+  results are not inferred from `Database`, so `RpcRow<"fn">` there is required — the
+  guard only bans that generic on `.from()` chains.
+
 ## Open questions
 
 No open questions remain that block Slice 1.

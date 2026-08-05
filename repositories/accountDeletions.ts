@@ -244,7 +244,7 @@ export async function getPendingOwnerForOrphanedAccount(
     .eq("status", "pending")
     .order("requested_at", { ascending: false })
     .limit(1)
-    .maybeSingle<{ owner_user_id: string }>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `account_deletions.getPendingOwnerForOrphanedAccount failed: ${error.message}`,

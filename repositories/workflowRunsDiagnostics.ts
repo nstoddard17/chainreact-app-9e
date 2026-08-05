@@ -8,6 +8,16 @@ import type {
   WorkflowRunErrorClassification,
   WorkflowRunTriggeredBy,
 } from "./workflowRuns";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableRow } from "@/types/tables";
+import { narrowColumn } from "@/core/database/columnNarrowing";
+import {
+  WORKFLOW_RUN_TRIGGERED_BY,
+  parseErrorClassification,
+  parseFatalError,
+  parseRunSteps,
+  parseTriggerEvent,
+} from "@/core/database/workflowRunColumns";
 
 /**
  * Sessionless, service-role run readers for the INTERNAL DIAGNOSTICS surface
@@ -44,32 +54,19 @@ export type DiagnosticsRunStatus = WorkflowRunStatus | "running" | "queued";
  * the diagnostics route narrows this to a sanitized DTO; the raw record (which
  * still carries `steps`/`triggerEvent`/`fatalError`) NEVER leaves the app.
  */
-export type DiagnosticsRunRecord = Omit<WorkflowRunRecord, "status"> & {
+export type DiagnosticsRunRecord = Omit<WorkflowRunRecord, "status" | "finishedAt"> & {
   status: DiagnosticsRunStatus;
+  /**
+   * SUPABASE-TABLE-TYPING-1B — NULL while the run is still queued/running.
+   * `WorkflowRunRecord.finishedAt` is non-null because its readers filter to
+   * terminal rows; these diagnostics readers deliberately do NOT, so the field
+   * is genuinely nullable here and is no longer asserted otherwise.
+   */
+  finishedAt: string | null;
 };
 
 /** Row shape with the widened status (the column can hold `running`). */
-interface DiagnosticsRunRow {
-  id: string;
-  workflow_id: string;
-  account_id: string;
-  triggered_by_user_id: string | null;
-  status: DiagnosticsRunStatus;
-  trigger_node_id: string;
-  trigger_event: TriggerEvent;
-  steps: WorkflowRunStep[];
-  fatal_error: WorkflowRunFatalError | null;
-  error_classification: WorkflowRunErrorClassification | null;
-  started_at: string;
-  finished_at: string;
-  created_at: string;
-  is_test: boolean;
-  triggered_by: WorkflowRunTriggeredBy;
-  triggered_by_api_key_id: string | null;
-  triggered_by_api_key_prefix: string | null;
-}
-
-function rowToDiagnosticsRecord(row: DiagnosticsRunRow): DiagnosticsRunRecord {
+function rowToDiagnosticsRecord(row: TableRow<"workflow_runs">): DiagnosticsRunRecord {
   return {
     id: row.id,
     workflowId: row.workflow_id,
@@ -77,15 +74,22 @@ function rowToDiagnosticsRecord(row: DiagnosticsRunRow): DiagnosticsRunRecord {
     triggeredByUserId: row.triggered_by_user_id,
     status: row.status,
     triggerNodeId: row.trigger_node_id,
-    triggerEvent: row.trigger_event,
-    steps: row.steps,
-    fatalError: row.fatal_error,
-    errorClassification: row.error_classification,
+    triggerEvent: parseTriggerEvent(`workflow_runs.trigger_event(${row.id})`, row.trigger_event),
+    steps: parseRunSteps(`workflow_runs.steps(${row.id})`, row.steps),
+    fatalError: parseFatalError(`workflow_runs.fatal_error(${row.id})`, row.fatal_error),
+    errorClassification: parseErrorClassification(
+      `workflow_runs.error_classification(${row.id})`,
+      row.error_classification,
+    ),
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
     isTest: row.is_test,
-    triggeredBy: row.triggered_by,
+    triggeredBy: narrowColumn(
+      "workflow_runs.triggered_by",
+      WORKFLOW_RUN_TRIGGERED_BY,
+      row.triggered_by,
+    ),
     triggeredByApiKeyId: row.triggered_by_api_key_id,
     triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
   };
@@ -104,11 +108,12 @@ export async function getByIdServiceRole(
   const supabase = getServiceRoleClient(
     `diagnostics: workflowRuns.getByIdServiceRole ${runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .select("*")
     .eq("id", runId)
-    .maybeSingle<DiagnosticsRunRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_runs.getByIdServiceRole failed: ${error.message}`);
   }
@@ -137,8 +142,9 @@ export async function listByWorkflowServiceRole(
   const supabase = getServiceRoleClient(
     `diagnostics: workflowRuns.listByWorkflowServiceRole ${workflowId}`,
   );
+  const db = asTypedDb(supabase);
   const limit = Math.min(opts.limit ?? 25, 100);
-  let query = supabase
+  let query = db
     .from("workflow_runs")
     .select("*")
     .eq("workflow_id", workflowId);
@@ -155,5 +161,5 @@ export async function listByWorkflowServiceRole(
       `workflow_runs.listByWorkflowServiceRole failed: ${error.message}`,
     );
   }
-  return (data ?? []).map((r) => rowToDiagnosticsRecord(r as DiagnosticsRunRow));
+  return (data ?? []).map(rowToDiagnosticsRecord);
 }

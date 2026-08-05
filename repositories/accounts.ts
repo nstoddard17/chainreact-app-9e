@@ -352,11 +352,11 @@ export async function getDeletionStatusServiceRole(
     .from("accounts")
     .select("deletion_status")
     .eq("id", accountId)
-    .maybeSingle<{ deletion_status: DeletionStatus }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`accounts.getDeletionStatusServiceRole failed: ${error.message}`);
   }
-  return data ? data.deletion_status : null;
+  return data ? DeletionStatusSchema.parse(data.deletion_status) : null;
 }
 
 /**

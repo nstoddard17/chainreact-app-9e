@@ -4,6 +4,17 @@ import type { TriggerEvent } from "@/contracts/triggerEvent";
 // read record/row types carry the 4-value lifecycle status (queued/running/
 // succeeded/failed). Terminal-only write/input types keep `WorkflowRunStatus`.
 import type { WorkflowRunLifecycleStatus } from "./workflowRunsLifecycle";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableRow } from "@/types/tables";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import { narrowColumn } from "@/core/database/columnNarrowing";
+import {
+  WORKFLOW_RUN_TRIGGERED_BY,
+  parseErrorClassification,
+  parseFatalError,
+  parseRunSteps,
+  parseTriggerEvent,
+} from "@/core/database/workflowRunColumns";
 
 /**
  * Repository for workflow_runs.
@@ -15,7 +26,7 @@ import type { WorkflowRunLifecycleStatus } from "./workflowRunsLifecycle";
  * UI path (getById / listByWorkflow / listByAccountForDisplay) ALSO reads via
  * service-role as of V2-READY-51: `authenticated` no longer holds a direct
  * Data API SELECT on `workflow_runs` (the grant was revoked so a member can't
- * `supabase.from('workflow_runs').select('trigger_event, steps, fatal_error')`
+ * `db.from('workflow_runs').select('trigger_event, steps, fatal_error')`
  * directly via PostgREST). These readers are therefore NON-AUTHORIZING — they
  * bypass RLS. Every caller MUST gate access itself before returning anything to
  * a client: the run-history routes resolve the caller's own account; the
@@ -119,27 +130,26 @@ export interface WorkflowRunRecord {
   triggeredByApiKeyPrefix: string | null;
 }
 
-interface WorkflowRunsRow {
-  id: string;
-  workflow_id: string;
-  account_id: string;
-  triggered_by_user_id: string | null;
-  status: WorkflowRunStatus;
-  trigger_node_id: string;
-  trigger_event: TriggerEvent;
-  steps: WorkflowRunStep[];
-  fatal_error: WorkflowRunFatalError | null;
-  error_classification: WorkflowRunErrorClassification | null;
-  started_at: string;
-  finished_at: string;
-  created_at: string;
-  is_test: boolean;
-  triggered_by: WorkflowRunTriggeredBy;
-  triggered_by_api_key_id: string | null;
-  triggered_by_api_key_prefix: string | null;
-}
-
-function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
+// SUPABASE-TABLE-TYPING-1B — the row shape is the GENERATED one. `status` is a
+// real Postgres enum so the generator already types it exactly; the four jsonb
+// columns and the two CHECK-constrained text columns are parsed/narrowed here
+// rather than asserted, so a malformed stored run fails closed instead of being
+// replayed by the engine.
+function rowToRecord(row: TableRow<"workflow_runs">): WorkflowRunRecord {
+  // Both readers filter `.neq(status,'running').neq(status,'queued')`, so this
+  // record is TERMINAL by construction — but a `.neq()` filter cannot narrow a
+  // type, and the record's contract (terminal status + non-null finishedAt)
+  // would otherwise be an unchecked assumption. Assert the invariant instead:
+  // a non-terminal row here means a query lost its filter, and must fail rather
+  // than be mislabelled as a finished run.
+  if (row.status !== "succeeded" && row.status !== "failed") {
+    throw new Error(
+      `workflow_runs(${row.id}): expected a terminal run, got status "${row.status}"`,
+    );
+  }
+  if (row.finished_at === null) {
+    throw new Error(`workflow_runs(${row.id}): terminal run has no finished_at`);
+  }
   return {
     id: row.id,
     workflowId: row.workflow_id,
@@ -147,15 +157,22 @@ function rowToRecord(row: WorkflowRunsRow): WorkflowRunRecord {
     triggeredByUserId: row.triggered_by_user_id,
     status: row.status,
     triggerNodeId: row.trigger_node_id,
-    triggerEvent: row.trigger_event,
-    steps: row.steps,
-    fatalError: row.fatal_error,
-    errorClassification: row.error_classification,
+    triggerEvent: parseTriggerEvent(`workflow_runs.trigger_event(${row.id})`, row.trigger_event),
+    steps: parseRunSteps(`workflow_runs.steps(${row.id})`, row.steps),
+    fatalError: parseFatalError(`workflow_runs.fatal_error(${row.id})`, row.fatal_error),
+    errorClassification: parseErrorClassification(
+      `workflow_runs.error_classification(${row.id})`,
+      row.error_classification,
+    ),
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
     isTest: row.is_test,
-    triggeredBy: row.triggered_by,
+    triggeredBy: narrowColumn(
+      "workflow_runs.triggered_by",
+      WORKFLOW_RUN_TRIGGERED_BY,
+      row.triggered_by,
+    ),
     triggeredByApiKeyId: row.triggered_by_api_key_id,
     triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
   };
@@ -206,17 +223,21 @@ export async function recordRun(input: RecordRunInput): Promise<void> {
   const supabase = getServiceRoleClient(
     `engine: recordRun ${input.runId} (workflow ${input.workflowId})`,
   );
-  const { error } = await supabase.from("workflow_runs").insert({
+  const db = asTypedDb(supabase);
+  const { error } = await db.from("workflow_runs").insert({
     id: input.runId,
     workflow_id: input.workflowId,
     account_id: input.accountId,
     triggered_by_user_id: input.triggeredByUserId,
     status: input.status,
     trigger_node_id: input.triggerNodeId,
-    trigger_event: input.triggerEvent,
-    steps: input.steps as readonly WorkflowRunStep[],
-    fatal_error: input.fatalError ?? null,
-    error_classification: input.errorClassification ?? null,
+    trigger_event: toJsonColumn("workflow_runs.trigger_event", input.triggerEvent),
+    steps: toJsonColumn("workflow_runs.steps", input.steps),
+    fatal_error: toJsonColumn("workflow_runs.fatal_error", input.fatalError ?? null),
+    error_classification: toJsonColumn(
+      "workflow_runs.error_classification",
+      input.errorClassification ?? null,
+    ),
     started_at: input.startedAt,
     finished_at: input.finishedAt,
     is_test: input.isTest,
@@ -255,7 +276,8 @@ export async function claimNotificationFanout(runId: string): Promise<boolean> {
   const supabase = getServiceRoleClient(
     `notifications: claimNotificationFanout ${runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .update({ error_notifications_sent_at: new Date().toISOString() })
     .eq("id", runId)
@@ -281,7 +303,8 @@ export async function claimNotificationFanout(runId: string): Promise<boolean> {
  */
 export async function getById(runId: string): Promise<WorkflowRunRecord | null> {
   const supabase = getServiceRoleClient(`runs: getById ${runId}`);
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .select("*")
     // COST-15C — hide in-progress (pre-run/crashed) rows from the UI detail
@@ -300,7 +323,7 @@ export async function getById(runId: string): Promise<WorkflowRunRecord | null> 
     throw new Error(`workflow_runs.getById failed: ${error.message}`);
   }
   if (!data) return null;
-  return rowToRecord(data as WorkflowRunsRow);
+  return rowToRecord(data);
 }
 
 /**
@@ -318,8 +341,9 @@ export async function listByWorkflow(
   opts: ListRunsOptions = {},
 ): Promise<readonly WorkflowRunRecord[]> {
   const supabase = getServiceRoleClient(`runs: listByWorkflow ${workflowId}`);
+  const db = asTypedDb(supabase);
   const limit = Math.min(opts.limit ?? 25, 100);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("workflow_runs")
     .select("*")
     .eq("workflow_id", workflowId)
@@ -333,7 +357,7 @@ export async function listByWorkflow(
   if (error) {
     throw new Error(`workflow_runs.listByWorkflow failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowRunsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -349,7 +373,8 @@ export async function hasSucceededRunServiceRole(
   const supabase = getServiceRoleClient(
     `onboarding: hasSucceededRun ${workflowId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .select("id")
     .eq("workflow_id", workflowId)
@@ -389,7 +414,8 @@ export async function hasSucceededRunByUserInAccountServiceRole(input: {
   const supabase = getServiceRoleClient(
     `collabOnboarding: hasSucceededRunByUser ${input.accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .select("id")
     .eq("account_id", input.accountId)
@@ -453,18 +479,6 @@ export interface WorkflowRunDisplayRecord {
   errorClassification: WorkflowRunErrorClassification | null;
 }
 
-interface WorkflowRunDisplayRow {
-  id: string;
-  workflow_id: string;
-  status: WorkflowRunLifecycleStatus;
-  is_test: boolean;
-  triggered_by: WorkflowRunTriggeredBy;
-  triggered_by_api_key_prefix: string | null;
-  started_at: string;
-  finished_at: string | null;
-  error_classification: WorkflowRunErrorClassification | null;
-}
-
 const DISPLAY_RUN_COLUMNS =
   "id,workflow_id,status,is_test,triggered_by,triggered_by_api_key_prefix,started_at,finished_at,error_classification";
 
@@ -480,8 +494,9 @@ export async function listByAccountForDisplay(
   const supabase = getServiceRoleClient(
     `runs: listByAccountForDisplay account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const limit = Math.min(opts.limit ?? 50, 200);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("workflow_runs")
     .select(DISPLAY_RUN_COLUMNS)
     .eq("account_id", accountId)
@@ -494,20 +509,26 @@ export async function listByAccountForDisplay(
   if (error) {
     throw new Error(`workflow_runs.listByAccountForDisplay failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => {
-    const row = r as WorkflowRunDisplayRow;
-    return {
-      id: row.id,
-      workflowId: row.workflow_id,
-      status: row.status,
-      isTest: row.is_test,
-      triggeredBy: row.triggered_by,
-      triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-      errorClassification: row.error_classification,
-    };
-  });
+  // The projection is INFERRED from DISPLAY_RUN_COLUMNS — it is not a full row,
+  // and must not be typed as one. Only the broad columns need narrowing.
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    workflowId: row.workflow_id,
+    status: row.status,
+    isTest: row.is_test,
+    triggeredBy: narrowColumn(
+      "workflow_runs.triggered_by",
+      WORKFLOW_RUN_TRIGGERED_BY,
+      row.triggered_by,
+    ),
+    triggeredByApiKeyPrefix: row.triggered_by_api_key_prefix,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    errorClassification: parseErrorClassification(
+      `workflow_runs.error_classification(${row.id})`,
+      row.error_classification,
+    ),
+  }));
 }
 
 // ── Analytics aggregation reader (service-role, windowed, narrow columns) ─────
@@ -547,8 +568,9 @@ export async function listForAnalytics(
   const supabase = getServiceRoleClient(
     `runs: listForAnalytics account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const limit = Math.min(opts.limit ?? 5000, 20000);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("workflow_runs")
     .select("id,workflow_id,status,started_at,finished_at,is_test")
     .eq("account_id", accountId)
@@ -564,15 +586,15 @@ export async function listForAnalytics(
   if (error) {
     throw new Error(`workflow_runs.listForAnalytics failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => {
-    const row = r as {
-      id: string;
-      workflow_id: string;
-      status: WorkflowRunStatus;
-      started_at: string;
-      finished_at: string | null;
-      is_test: boolean;
-    };
+  // Inferred projection — ANALYTICS_RUN_COLUMNS is a partial select, not a row.
+  return (data ?? []).map((row) => {
+    // Terminal-only by query (.neq running/queued). A `.neq()` filter cannot
+    // narrow the enum, so the invariant is asserted rather than assumed.
+    if (row.status !== "succeeded" && row.status !== "failed") {
+      throw new Error(
+        `workflow_runs(${row.id}): analytics expects a terminal run, got status "${row.status}"`,
+      );
+    }
     return {
       id: row.id,
       workflowId: row.workflow_id,

@@ -7,6 +7,11 @@ import type {
   WorkflowRunStep,
   WorkflowRunTriggeredBy,
 } from "./workflowRuns";
+import { asTypedDb } from "./supabase/typedDb";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import { narrowNullableColumn } from "@/core/database/columnNarrowing";
+import { WORKFLOW_RUN_BILLING_STATUSES } from "@/core/database/workflowRunColumns";
+import type { TableUpdate } from "@/types/tables";
 
 /**
  * Pre-run row lifecycle helpers + billing projection + stale-run sweep.
@@ -107,14 +112,15 @@ export async function createWorkflowRunStart(
   const supabase = getServiceRoleClient(
     `engine: createWorkflowRunStart ${input.runId} (workflow ${input.workflowId})`,
   );
-  const { error } = await supabase.from("workflow_runs").insert({
+  const db = asTypedDb(supabase);
+  const { error } = await db.from("workflow_runs").insert({
     id: input.runId,
     workflow_id: input.workflowId,
     account_id: input.accountId,
     triggered_by_user_id: input.triggeredByUserId,
     status: "running",
     trigger_node_id: input.triggerNodeId,
-    trigger_event: input.triggerEvent,
+    trigger_event: toJsonColumn("workflow_runs.trigger_event", input.triggerEvent),
     steps: [],
     started_at: input.startedAt,
     finished_at: null,
@@ -173,11 +179,15 @@ export async function finalizeWorkflowRun(
   const supabase = getServiceRoleClient(
     `engine: finalizeWorkflowRun ${input.runId}`,
   );
-  const update: Record<string, unknown> = {
+  const db = asTypedDb(supabase);
+  const update: TableUpdate<"workflow_runs"> = {
     status: input.status,
-    steps: input.steps as readonly WorkflowRunStep[],
-    fatal_error: input.fatalError ?? null,
-    error_classification: input.errorClassification ?? null,
+    steps: toJsonColumn("workflow_runs.steps", input.steps),
+    fatal_error: toJsonColumn("workflow_runs.fatal_error", input.fatalError ?? null),
+    error_classification: toJsonColumn(
+      "workflow_runs.error_classification",
+      input.errorClassification ?? null,
+    ),
     finished_at: input.finishedAt,
   };
   // Only overwrite cost columns when supplied (undefined ⇒ leave untouched).
@@ -190,7 +200,7 @@ export async function finalizeWorkflowRun(
   if (input.taskCostPolicyVersion !== undefined) {
     update.task_cost_policy_version = input.taskCostPolicyVersion;
   }
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("workflow_runs")
     .update(update)
     .eq("id", input.runId)
@@ -225,12 +235,16 @@ export async function markWorkflowRunFailedBeforeExecution(
   const supabase = getServiceRoleClient(
     `engine: markWorkflowRunFailedBeforeExecution ${input.runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .update({
       status: "failed",
-      fatal_error: input.fatalError,
-      error_classification: input.errorClassification ?? null,
+      fatal_error: toJsonColumn("workflow_runs.fatal_error", input.fatalError),
+      error_classification: toJsonColumn(
+        "workflow_runs.error_classification",
+        input.errorClassification ?? null,
+      ),
       finished_at: input.finishedAt,
     })
     .eq("id", input.runId)
@@ -272,23 +286,6 @@ export interface WorkflowRunBillingRecord {
   finishedAt: string | null;
 }
 
-interface WorkflowRunBillingRow {
-  id: string;
-  account_id: string;
-  workflow_id: string;
-  status: WorkflowRunLifecycleStatus;
-  is_test: boolean;
-  billing_status: WorkflowRunBillingStatus;
-  reserved_task_cost: number | null;
-  reconciled_task_cost: number | null;
-  estimated_task_cost: number | null;
-  actual_task_cost: number | null;
-  reservation_id: string | null;
-  reservation_expires_at: string | null;
-  billing_reconciled_at: string | null;
-  finished_at: string | null;
-}
-
 /**
  * Read a run's billing/lifecycle projection (service-role). For the future
  * engine/settlement layer (COST-15C/D) + tests. Returns null when the row is
@@ -300,13 +297,14 @@ export async function getWorkflowRunForBilling(
   const supabase = getServiceRoleClient(
     `billing: getWorkflowRunForBilling ${runId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .select(
       "id, account_id, workflow_id, status, is_test, billing_status, reserved_task_cost, reconciled_task_cost, estimated_task_cost, actual_task_cost, reservation_id, reservation_expires_at, billing_reconciled_at, finished_at",
     )
     .eq("id", runId)
-    .maybeSingle<WorkflowRunBillingRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_runs.getWorkflowRunForBilling failed: ${error.message}`);
   }
@@ -317,7 +315,13 @@ export async function getWorkflowRunForBilling(
     workflowId: data.workflow_id,
     status: data.status,
     isTest: data.is_test,
-    billingStatus: data.billing_status,
+    // CHECK-constrained nullable text column: NULL is a real state (no billing
+    // interaction yet), an unrecognised value is not.
+    billingStatus: narrowNullableColumn(
+      "workflow_runs.billing_status",
+      WORKFLOW_RUN_BILLING_STATUSES,
+      data.billing_status,
+    ),
     reservedTaskCost: data.reserved_task_cost,
     reconciledTaskCost: data.reconciled_task_cost,
     estimatedTaskCost: data.estimated_task_cost,
@@ -375,10 +379,11 @@ export async function sweepStaleRunningWorkflowRuns(
   const supabase = getServiceRoleClient(
     `cron: sweepStaleRunningWorkflowRuns (cutoff ${input.cutoff})`,
   );
+  const db = asTypedDb(supabase);
 
   let limitIds: string[] | null = null;
   if (input.limit !== undefined) {
-    const sel = await supabase
+    const sel = await db
       .from("workflow_runs")
       .select("id")
       .eq("status", "running")
@@ -391,19 +396,22 @@ export async function sweepStaleRunningWorkflowRuns(
         `workflow_runs.sweepStaleRunningWorkflowRuns (select) failed: ${sel.error.message}`,
       );
     }
-    limitIds = (sel.data ?? []).map((r) => (r as { id: string }).id);
+    limitIds = (sel.data ?? []).map((r) => r.id);
     if (limitIds.length === 0) {
       return { sweptCount: 0, runIds: [], cutoff: input.cutoff };
     }
   }
 
-  let query = supabase
+  let query = db
     .from("workflow_runs")
     .update({
       status: "failed",
       finished_at: input.finishedAt,
-      fatal_error: input.fatalError,
-      error_classification: input.errorClassification,
+      fatal_error: toJsonColumn("workflow_runs.fatal_error", input.fatalError),
+      error_classification: toJsonColumn(
+        "workflow_runs.error_classification",
+        input.errorClassification,
+      ),
       // NOTE: no billing_status / reserved_task_cost / reconciled_task_cost /
       // reservation_* / billing_reconciled_at — billing state is left intact.
     })
@@ -419,6 +427,6 @@ export async function sweepStaleRunningWorkflowRuns(
       `workflow_runs.sweepStaleRunningWorkflowRuns failed: ${error.message}`,
     );
   }
-  const runIds = (data ?? []).map((r) => (r as { id: string }).id);
+  const runIds = (data ?? []).map((r) => r.id);
   return { sweptCount: runIds.length, runIds, cutoff: input.cutoff };
 }

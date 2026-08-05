@@ -28,6 +28,22 @@ import ts from "typescript";
 const ROOT = resolve(import.meta.dirname, "..", "..");
 const DEFAULT_MANIFEST = "scripts/ci/typed-db-manifest.json";
 
+/**
+ * Decision-driving jsonb columns. A cast of one of these into a trusted domain
+ * type is banned outright — the generated type is `Json`, so the cast asserts
+ * structure nothing verified, on values that drive execution, retries and the
+ * failure UI.
+ */
+const JSON_COLUMN_ACCESSORS = [
+  ".trigger_event",
+  ".steps",
+  ".fatal_error",
+  ".error_classification",
+  ".run_input",
+  ".run_output",
+  ".error_detail",
+];
+
 function fail(message) {
   console.error(`TYPED-DB FAIL — ${message}`);
   process.exit(1);
@@ -159,6 +175,42 @@ export function inspectMigratedFile(relPath, source, tableColumns) {
     }
     if (ts.isTypeReferenceNode(node) && node.getText(sf).replace(/\s+/g, "") === "SupabaseClient<any>") {
       violations.push(`${relPath}:${line(node)}: SupabaseClient<any> defeats the typed client`);
+    }
+
+    // 2b. SUPABASE-TABLE-TYPING-1B — a decision-driving jsonb column cast
+    // straight into a trusted domain type. `trigger_event` is what the engine
+    // replays; run input/output/error drive retries and the failure UI. The
+    // generated type for all of them is `Json`, which carries no field
+    // information, so `row.trigger_event as TriggerEvent` asserts a shape
+    // nothing has checked. Validation belongs in
+    // core/database/workflowRunColumns.ts.
+    if (ts.isAsExpression(node)) {
+      const operand = node.expression.getText(sf);
+      const target = node.type.getText(sf).replace(/\s+/g, " ").trim();
+      const touchesJsonColumn = JSON_COLUMN_ACCESSORS.some((c) => operand.includes(c));
+      const trusted = target !== "Json" && target !== "unknown" && !/^Json\b/.test(target);
+      if (touchesJsonColumn && trusted) {
+        violations.push(
+          `${relPath}:${line(node)}: casts a decision-driving JSON column (${operand}) to \`${target}\` — validate it instead (core/database/workflowRunColumns.ts)`,
+        );
+      }
+    }
+    // The same assertion wearing a `.single<T>()` / `.maybeSingle<T>()` generic.
+    // Scoped to TABLE chains: an `.rpc(...).single<RpcRow<"fn">>()` generic is
+    // correct and required, because PostgREST function results are not inferred
+    // from the Database type the way `.from()` projections are.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      (node.expression.name.text === "single" || node.expression.name.text === "maybeSingle") &&
+      (node.typeArguments?.length ?? 0) > 0
+    ) {
+      const chain = node.expression.expression.getText(sf);
+      if (chain.includes(".from(") && !chain.includes(".rpc(")) {
+        violations.push(
+          `${relPath}:${line(node)}: .${node.expression.name.text}<...>() overrides the generated inference on a table query — drop the type argument and let the query describe its own shape`,
+        );
+      }
     }
 
     // 3. A handwritten interface that duplicates a generated table Row.

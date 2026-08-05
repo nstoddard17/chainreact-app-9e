@@ -478,11 +478,12 @@ export async function getPlan(accountId: string): Promise<PlanTier | null> {
     .from("account_billing")
     .select("plan")
     .eq("account_id", accountId)
-    .maybeSingle<{ plan: PlanTier }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_billing.getPlan failed: ${error.message}`);
   }
-  return data?.plan ?? null;
+  if (!data || data.plan === null) return null;
+  return narrowColumn("account_billing.plan", PLAN_TIERS, data.plan);
 }
 
 /** Plan tier + billing status pair for entitlement decisions (BRANCH-ENT-1). */
@@ -508,12 +509,15 @@ export async function getPlanState(
     .from("account_billing")
     .select("plan, plan_status")
     .eq("account_id", accountId)
-    .maybeSingle<{ plan: PlanTier; plan_status: PlanStatus }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_billing.getPlanState failed: ${error.message}`);
   }
   if (!data) return null;
-  return { plan: data.plan, planStatus: data.plan_status };
+  return {
+    plan: narrowColumn("account_billing.plan", PLAN_TIERS, data.plan),
+    planStatus: narrowColumn("account_billing.plan_status", PLAN_STATUSES, data.plan_status),
+  };
 }
 
 /**
@@ -534,14 +538,17 @@ export async function getPlanStateServiceRole(
     .from("account_billing")
     .select("plan, plan_status")
     .eq("account_id", accountId)
-    .maybeSingle<{ plan: PlanTier; plan_status: PlanStatus }>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `account_billing.getPlanStateServiceRole failed: ${error.message}`,
     );
   }
   if (!data) return null;
-  return { plan: data.plan, planStatus: data.plan_status };
+  return {
+    plan: narrowColumn("account_billing.plan", PLAN_TIERS, data.plan),
+    planStatus: narrowColumn("account_billing.plan_status", PLAN_STATUSES, data.plan_status),
+  };
 }
 
 // ─── Internal billing entitlement (BIE-1) — service-role ONLY ────────────────
@@ -554,7 +561,8 @@ export async function getPlanStateServiceRole(
 // the toggle is service-role only. The setter writes all four internal columns
 // together to satisfy the `account_billing_internal_consistency` CHECK.
 
-export type BillingMode = "standard" | "internal_free";
+export const BILLING_MODES = ["standard", "internal_free"] as const;
+export type BillingMode = (typeof BILLING_MODES)[number];
 
 /** Allowed values for `internal_reason` (mirrors the migration CHECK set). */
 export const INTERNAL_BILLING_REASONS = [
@@ -588,11 +596,14 @@ export async function getBillingModeServiceRole(
     .from("account_billing")
     .select("billing_mode")
     .eq("account_id", accountId)
-    .maybeSingle<BillingModeRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_billing.getBillingModeServiceRole failed: ${error.message}`);
   }
-  return data?.billing_mode ?? "standard";
+  // The column default is 'standard'; an absent ROW means standard too. An
+  // unrecognised stored mode must not silently grant internal-free billing.
+  if (!data || data.billing_mode === null) return "standard";
+  return narrowColumn("account_billing.billing_mode", BILLING_MODES, data.billing_mode);
 }
 
 /**
