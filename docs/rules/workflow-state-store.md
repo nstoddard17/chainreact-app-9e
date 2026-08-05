@@ -94,7 +94,7 @@ Each slice is a small Zustand store (≤ 300 lines as a target, hard cap < 500 l
 ## Edge cases
 
 - **Optimistic update + server failure:** the slice action snapshots the previous state, applies the optimistic update, calls the typed client API, and rolls back on error. Surface a toast through `uiStore`. The slice's UI re-renders with the rolled-back state.
-- **Concurrent edits in two browser tabs:** slice does not cross-tab broadcast (auth slice does, per PR-AUTH-1). On save, the server returns `409 Conflict` with the latest revision id; the action surfaces a "this workflow was modified elsewhere" prompt and offers reload.
+- **Concurrent edits in two browser tabs:** slice does not cross-tab broadcast (auth slice does, per PR-AUTH-1). IMPLEMENTED (WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1): `graphSlice.hydratedRevision` is the optimistic-concurrency token every authoritative save sends as `expectedRevision`; a typed `409 WORKFLOW_REVISION_CONFLICT` sets `graphSlice.conflict` (local pending edits fully preserved, no auto-hydrate, no 409 retry loop) and the shared `WorkflowConflictDialog` offers "Keep my changes here" / confirmed "Reload latest version". Full contract: [`workflow-revision-concurrency.md`](./workflow-revision-concurrency.md).
 - **Hydration race:** workflow open dispatches hydration; user clicks before hydration completes. Slice exposes `isHydrated` flag; components show skeletons until ready.
 - **Subscription cleanup:** services that subscribe to a slice (e.g. an execution status watcher) must clean up on workflow close. The orchestrator owns the subscription lifecycle.
 - **Selectors used at render time vs computed once:** memoize expensive selectors. Use `useShallow` for object selectors to avoid re-render churn.
