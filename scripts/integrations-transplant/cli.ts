@@ -48,6 +48,9 @@ const ARTIFACT_DIR = path.join("artifacts", "transplant");
 
 interface CliArgs {
   init: boolean;
+  resolve: boolean;
+  sourceEmail: string | null;
+  destEmail: string | null;
   configPath: string;
   dryRun: boolean;
   apply: boolean;
@@ -57,6 +60,9 @@ interface CliArgs {
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     init: false,
+    resolve: false,
+    sourceEmail: null,
+    destEmail: null,
     configPath: DEFAULT_CONFIG_PATH,
     dryRun: false,
     apply: false,
@@ -65,6 +71,9 @@ function parseArgs(argv: string[]): CliArgs {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--init") args.init = true;
+    else if (a === "--resolve") args.resolve = true;
+    else if (a === "--source-email") args.sourceEmail = argv[++i] ?? null;
+    else if (a === "--dest-email") args.destEmail = argv[++i] ?? null;
     else if (a === "--dry-run") args.dryRun = true;
     else if (a === "--apply") args.apply = true;
     else if (a === "--config") args.configPath = argv[++i] ?? args.configPath;
@@ -146,6 +155,38 @@ async function main(): Promise<number> {
     }
     writeFileSync(args.configPath, CONFIG_TEMPLATE, "utf8");
     console.log(`wrote placeholder config to ${args.configPath} (gitignored).`);
+    return 0;
+  }
+
+  if (args.resolve) {
+    // READ-ONLY endpoint discovery (see resolveEndpoints.ts) — no config file
+    // needed; prints ids/names/roles/providers only, never credentials.
+    if (!args.sourceEmail || !args.destEmail) {
+      console.error("--resolve requires --source-email <email> and --dest-email <email>.");
+      return 1;
+    }
+    const { resolveEndpoints } = await import("./resolveEndpoints");
+    const resolved = await resolveEndpoints(
+      {
+        resolveDbTarget,
+        parseRefFromSupabaseUrl,
+        productionRef: PRODUCTION_PROJECT_REF,
+        protectedRefs: PROTECTED_REFS,
+      },
+      mergedEnv(),
+      { sourceEmail: args.sourceEmail, destEmail: args.destEmail },
+    );
+    console.log(`SOURCE user id: ${resolved.sourceUserId}`);
+    for (const account of resolved.sourceAccounts) {
+      console.log(`SOURCE account: ${JSON.stringify(account)}`);
+    }
+    if (resolved.sourceAccounts.length === 0) {
+      console.log("SOURCE: user belongs to no accounts.");
+    }
+    console.log(`DEST user id: ${resolved.destUserId}`);
+    for (const account of resolved.destPersonalAccounts) {
+      console.log(`DEST personal account: ${JSON.stringify(account)}`);
+    }
     return 0;
   }
 
