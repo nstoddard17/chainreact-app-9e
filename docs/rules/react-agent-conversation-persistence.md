@@ -53,23 +53,83 @@ Never store a stage. Never let localStorage alone resume setup.
 ## Preview reconciliation
 
 Every restored proposal is re-judged by `core/workflows/reactAgentPreviewReconciliation.ts`
-against three present-tense inputs — the change-history status, the proposal's
-`baseGraphVersion`, and the workflow's current saved revision:
+against present-tense inputs — the change-history status, the proposal's
+`baseGraphVersion`, and the **current graph fingerprint**:
 
 | Situation | Label | Reopen? |
 |---|---|---|
 | shown, never applied, still fits | Not applied | yes |
 | applied to the draft, never saved | **Not saved** | yes (if it still fits) |
-| applied and saved | Applied | no |
+| applied and saved, still the current state | Applied | no |
+| applied and saved, workflow moved on since | Applied (superseded) | no |
 | saved workflow changed since | **Stale** | no — regenerate first |
+| base version not confirmable | **Can't verify** | no — regenerate first |
 | discarded / undone / kept-as-preview | Discarded | no |
 | apply failed | Not applied | no |
 
 An **unpinned** proposal (a new-workflow additive skeleton, which has no
 `baseGraphVersion` by construction) is judged on its own terms — never called
-stale. A **pinned** proposal whose saved revision is unknown fails **closed**.
-While the change-history timeline is still loading, show **no** badge: a wrong
-label reads as data loss.
+stale. While the change-history timeline is still loading, show **no** badge: a
+wrong label reads as data loss.
+
+### Freshness is fingerprint-to-fingerprint (RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1)
+
+Two different "version" spaces meet in the builder and they are **not**
+interchangeable:
+
+| Value | What it is | Produced by | Right question for |
+|---|---|---|---|
+| `baseGraphVersion` | 8-char content **fingerprint** of the draft the proposal was built against | `computeEditableGraphVersion` | "is this the same graph?" |
+| `graphSlice.hydratedRevision` | the workflow's `updatedAt` **timestamp** | server save/hydrate | "did the saved workflow move?" |
+
+The builder used to hand `hydratedRevision` to the reconciliation as the value to
+compare against `baseGraphVersion`. A timestamp can never equal a fingerprint, so
+**every** restored edit proposal was reconciled as "the workflow moved on" —
+permanently badged Stale with Apply withdrawn, even when nothing had changed.
+(New-workflow proposals were unaffected: they are unpinned.)
+
+The canonical contract is therefore:
+
+- **One function, both sides.** `computeEditableGraphVersion` stamps the proposal's
+  base *and* derives the current version. There is no second hashing scheme, and
+  no client/server divergence.
+- **Compare the PENDING graph**, not the saved one — it is the same graph
+  `replaceGraphLocal` re-checks at Apply time, so the badge and Apply can never
+  disagree with each other.
+- **Fail closed on anything that is not a fingerprint.** `isEditableGraphVersion`
+  validates both sides; a malformed or missing value yields **`version_unknown`**
+  ("Can't verify"), never `stale`. "We can't check" is not "your workflow changed",
+  and saying the second when we mean the first is a false accusation.
+- **Applied-and-saved is judged by the proposal's END state** (`proposedGraphVersion`),
+  never by its base. The base is the graph *before* the change, so judging by it
+  would tell every user their workflow had changed since — when the only thing that
+  changed it was their own apply.
+
+**Fingerprint contents.** Included: node id / kind / provider / type / config
+(keys and values) / `displayName`, and edge id / from / to / label. Node and edge
+**order is normalized** (sorted by id) — a graph is a set, so serialization order
+must never register as a change. Object keys are sorted recursively. Excluded:
+everything not in the definition — transient builder state, selection, readiness,
+loading, conversation and proposal state, and non-semantic database metadata.
+
+**Layout is semantic — deliberately.** Positions are part of the fingerprint,
+because Apply replaces the whole definition including positions: a node the user
+moved is a real edit a stale proposal must not silently clobber. Moving a node
+therefore makes a pending proposal stale, and that is the intended trade.
+
+**Legacy.** No migration was needed: `base_graph_version` has always stored a
+fingerprint, so stored proposals reconcile correctly under the fixed comparison.
+Any value that is not a well-formed fingerprint fails closed to "Can't verify".
+
+**Client checks are not the last word.** The badge is a UI affordance; the
+enforcement is `replaceGraphLocal`'s `expectedBaseVersion` guard, which refuses to
+replace a draft whose fingerprint has drifted. Note that the builder's ordinary
+Save is still last-write-wins (`updateDraftDefinition`); cross-session save
+concurrency is a separate, pre-existing gap tracked outside this contract.
+
+Diagnostics: `describeProposalReconciliation` emits presence booleans, the
+comparison enum, the resulting state, and **4-character** fingerprint prefixes —
+never a workflow definition, config value, prompt, or full digest.
 
 ## Storage rules
 
