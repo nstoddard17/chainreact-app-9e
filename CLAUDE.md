@@ -500,6 +500,14 @@ specific home.
   [`chainreactv2-mcp-context`](./.claude/skills/chainreactv2-mcp-context/SKILL.md) skill is
   the shared routing procedure (when/what to pull, and the hard scope limits). MCP is
   orientation only; repo files, commits, and code remain the source of truth.
+- **Integration credential transplant** (owner-operated, production-source →
+  hosted-development destination, for dev/React-Agent certification without
+  reconnecting every provider by hand): [`scripts/integrations-transplant/`](./scripts/integrations-transplant/)
+  → `npm run integrations:transplant`. Source is read-only, destination is the
+  guarded dev project only, credentials are re-encrypted across environment
+  keys, and trigger/webhook/polling state is never copied. Every real run needs
+  Marcus's explicit per-run authorization and a reviewed dry-run. Procedure +
+  provider classification: [`docs/runbooks/integration-transplant.md`](./docs/runbooks/integration-transplant.md).
 
 ## Reminders
 
