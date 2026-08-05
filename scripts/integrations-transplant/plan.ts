@@ -6,6 +6,7 @@
  */
 import { redactLabel } from "./redact";
 import { computePlanFingerprint, type FingerprintItem } from "./report";
+import { evaluateScopes, type ScopeStatus } from "./scopeAssertion";
 import {
   TransplantRefusalError,
   type DestIntegrationRecord,
@@ -24,6 +25,7 @@ export interface PlanItem {
   intendedAction: "insert" | "update-existing" | "skip" | "refuse";
   conflict: TransplantItemReport["conflict"];
   verificationSupport: TransplantItemReport["verificationSupport"];
+  scopeStatus: ScopeStatus;
   status: TransplantItemStatus;
   reason: TransplantItemReason;
   existingDest: DestIntegrationRecord | null;
@@ -50,6 +52,7 @@ export function toReportItem(item: PlanItem): TransplantItemReport {
     intendedAction: item.intendedAction,
     conflict: item.conflict,
     verificationSupport: item.verificationSupport,
+    scopeStatus: item.scopeStatus,
     status: item.status,
     reason: item.reason,
   };
@@ -143,9 +146,18 @@ export async function buildPlan(
     }
 
     const classification = deps.classify(row.provider);
+    // SCOPE-GATE-REFINEMENT-1: provider-specific scope-assertion semantics —
+    // absent metadata is reported honestly instead of being read as proof of a
+    // deficient credential (see scopeAssertion.ts for per-provider evidence).
+    const scopeEval = evaluateScopes({
+      provider: row.provider,
+      requiredScopes: info.requiredScopes,
+      grantedScopes: row.scopes,
+    });
     const base = {
       row,
       classification,
+      scopeStatus: scopeEval.status,
       existingDest: null as DestIntegrationRecord | null,
     };
 
@@ -195,9 +207,12 @@ export async function buildPlan(
       continue;
     }
 
-    // Static credential viability (plaintext-free checks).
-    const missingScopes = info.requiredScopes.filter((s) => !row.scopes.includes(s));
-    if (missingScopes.length > 0) {
+    // Static credential viability (plaintext-free checks). Only a TRUSTWORTHY
+    // scope record showing a genuine gap blocks the transplant;
+    // `scopes_not_asserted` carries no evidence, so the credential is judged by
+    // the read-only identity probe instead (strict mode already refuses any
+    // provider that has no probe at all).
+    if (scopeEval.status === "scopes_missing") {
       items.push(refuse("reconnect_required", "missing_required_scopes"));
       continue;
     }

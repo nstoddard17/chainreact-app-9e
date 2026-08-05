@@ -299,6 +299,9 @@ export interface TransplantCrypto {
   decryptDestRuntime(ciphertext: string): string;
 }
 
+import type { ScopeStatus } from "./scopeAssertion";
+export type { ScopeStatus } from "./scopeAssertion";
+
 /** Dependency bundle for the orchestrator (ports + registry facts + clock). */
 export interface OrchestratorDeps {
   source: TransplantSourceReader;
@@ -329,6 +332,13 @@ export interface TransplantItemReport {
   intendedAction: "insert" | "update-existing" | "skip" | "refuse";
   conflict: "none" | "same_connection_exists" | "ambiguous" | "single_account_provider_occupied";
   verificationSupport: "identity" | "token_only" | "none";
+  /**
+   * Provider-specific scope-assertion verdict (SCOPE-GATE-REFINEMENT-1).
+   * `scopes_not_asserted` means the app holds NO trustworthy scope evidence for
+   * this provider — it is not a pass; the read-only identity probe must succeed
+   * at apply.
+   */
+  scopeStatus: ScopeStatus;
   status: TransplantItemStatus;
   reason: TransplantItemReason;
   destinationIntegrationId?: string;
