@@ -12,6 +12,7 @@ import {
   type GuidanceConversationPersistence,
 } from "@/features/workflows/useGuidanceConversation";
 import { reconcilePersistedPreview } from "@/core/workflows/reactAgentPreviewReconciliation";
+import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 
 /**
  * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — how a RESTORED transcript renders.
@@ -22,8 +23,21 @@ import { reconcilePersistedPreview } from "@/core/workflows/reactAgentPreviewRec
  * live one — no auto-show on the canvas, no Apply on a stale suggestion.
  */
 
-const V1 = "2026-07-29T10:00:00.000Z";
-const V2 = "2026-07-29T11:00:00.000Z";
+/**
+ * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — REAL canonical graph fingerprints, not timestamps.
+ * These fixtures used to be ISO timestamps, which is what let the hash-vs-timestamp defect hide:
+ * timestamp-to-timestamp compares equal, so the harness agreed with itself while production
+ * compared a fingerprint against `hydratedRevision` and marked every restored edit proposal stale.
+ */
+const GRAPH_A = {
+  nodes: [
+    { id: "t1", kind: "trigger", provider: "stripe", type: "event_received", config: {}, position: { x: 0, y: 0 } },
+    { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: {}, position: { x: 0, y: 120 } },
+  ],
+  edges: [{ id: "e1", from: "t1", to: "a1" }],
+};
+const V1 = computeEditableGraphVersion(GRAPH_A);
+const V2 = computeEditableGraphVersion({ ...GRAPH_A, edges: [] });
 const CHANGE = "11111111-1111-4111-8111-111111111111";
 
 const plan = { schemaVersion: 1, title: "Payment alert", steps: [] } as never;
@@ -52,7 +66,7 @@ function persistenceOf(
 /** Render the rail with an injected, already-restored conversation. */
 function Harness(props: {
   readonly onPreviewToCanvas?: jest.Mock;
-  readonly savedGraphVersion: string | null;
+  readonly currentGraphVersion: string | null;
   readonly changeStatus: Parameters<typeof reconcilePersistedPreview>[0]["changeStatus"];
   readonly messages?: readonly GuidanceChatMessage[];
 }) {
@@ -72,7 +86,7 @@ function Harness(props: {
           ...(m.agentChangeId ? { agentChangeId: m.agentChangeId } : {}),
           changeStatus: props.changeStatus,
           baseGraphVersion: m.baseGraphVersion ?? null,
-          savedGraphVersion: props.savedGraphVersion,
+          currentGraphVersion: props.currentGraphVersion,
           hasProposalPayload: m.hasProposalPayload,
         })
       }
@@ -85,7 +99,7 @@ beforeEach(() => {
 });
 
 it("restores the transcript and labels an applied-but-unsaved proposal 'Not saved'", async () => {
-  render(<Harness savedGraphVersion={V1} changeStatus="preview_applied" />);
+  render(<Harness currentGraphVersion={V1} changeStatus="preview_applied" />);
 
   expect(await screen.findByText("post Stripe payments to Slack")).toBeInTheDocument();
   expect(screen.getByText("Here's the workflow.")).toBeInTheDocument();
@@ -101,7 +115,7 @@ it("never auto-shows a restored proposal on the canvas", async () => {
   const onPreviewToCanvas = jest.fn();
   render(
     <Harness
-      savedGraphVersion={V1}
+      currentGraphVersion={V1}
       changeStatus="preview_applied"
       onPreviewToCanvas={onPreviewToCanvas}
     />,
@@ -117,7 +131,7 @@ it("offers an explicit reopen for a still-compatible proposal, carrying its life
   const onPreviewToCanvas = jest.fn();
   render(
     <Harness
-      savedGraphVersion={V1}
+      currentGraphVersion={V1}
       changeStatus="preview_applied"
       onPreviewToCanvas={onPreviewToCanvas}
     />,
@@ -134,7 +148,7 @@ it("marks the proposal STALE and withdraws reopen when the saved workflow change
   const onPreviewToCanvas = jest.fn();
   render(
     <Harness
-      savedGraphVersion={V2}
+      currentGraphVersion={V2}
       changeStatus="preview_created"
       onPreviewToCanvas={onPreviewToCanvas}
     />,
@@ -150,7 +164,7 @@ it("keeps a discarded proposal in history with no way to act on it", async () =>
   const onPreviewToCanvas = jest.fn();
   render(
     <Harness
-      savedGraphVersion={V1}
+      currentGraphVersion={V1}
       changeStatus="preview_discarded"
       onPreviewToCanvas={onPreviewToCanvas}
     />,
@@ -165,7 +179,7 @@ it("keeps a discarded proposal in history with no way to act on it", async () =>
 });
 
 it("labels an applied AND saved proposal 'Applied'", async () => {
-  render(<Harness savedGraphVersion={V1} changeStatus="applied_saved" />);
+  render(<Harness currentGraphVersion={V1} changeStatus="applied_saved" />);
   const badge = await screen.findByTestId("workflow-guidance-restored-preview");
   expect(badge).toHaveAttribute("data-state", "applied");
   expect(screen.getByTestId("workflow-guidance-restored-preview-label")).toHaveTextContent(

@@ -70,6 +70,11 @@ supabase/.temp
 # 5.DUAL-BUILDER-1 CS-7B — local owner-review screenshot artifacts (uncommitted)
 owner-review/
 
+# DEV-CONNECTION-TRANSPLANT-UTILITY-1 — owner-local transplant selection config
+# (non-secret by contract, but account/integration ids stay out of git).
+# `.env.transplant.local` (the secret env file) is already covered by .env*.
+scripts/integrations-transplant/*.local.json
+
 # DB-CI-COVERAGE-GAP-1 — db-ci suite-group run artifacts (per-run evidence,
 # uploaded by CI, never committed).
 jest-db-*-raw.json

@@ -1,4 +1,5 @@
 import type { AgentChangeStatus } from "@/contracts/agentChangeHistory";
+import { isEditableGraphVersion } from "./editableGraphVersion";
 
 /**
  * REACT-AGENT-CONVERSATION-PERSISTENCE-1 — reconcile a RESTORED React Agent
@@ -28,6 +29,14 @@ import type { AgentChangeStatus } from "@/contracts/agentChangeHistory";
 export type PersistedPreviewState =
   /** Shown, never applied — pure history. */
   | "not_applied"
+  /**
+   * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — a base version was recorded but ChainReact cannot
+   * confirm what it refers to (the current graph fingerprint isn't available, or one of the two
+   * values isn't a canonical fingerprint at all). Distinct from `stale` on purpose: "we can't
+   * check" is not "your workflow changed", and telling the user the second when we mean the first
+   * is a false accusation about their own workflow.
+   */
+  | "version_unknown"
   /** Applied to the draft but the draft was never saved: those nodes do not exist. */
   | "not_saved"
   /** Applied AND saved into the workflow revision that is still current. */
@@ -46,10 +55,33 @@ export interface ReconcilePersistedPreviewInput {
   readonly agentChangeId?: string | null;
   /** Lifecycle status read from `agent_change_history`, or null when no row exists. */
   readonly changeStatus?: AgentChangeStatus | null;
-  /** The saved-draft revision the proposal was validated against. */
+  /**
+   * The canonical GRAPH FINGERPRINT (`computeEditableGraphVersion`) of the draft the proposal was
+   * built and validated against. Persisted with the turn; never re-derived on restore.
+   */
   readonly baseGraphVersion?: string | null;
-  /** The workflow's CURRENT saved revision (graph slice `hydratedRevision`). */
-  readonly savedGraphVersion: string | null;
+  /**
+   * The canonical GRAPH FINGERPRINT of the graph as it stands right now — the SAME graph and the
+   * SAME function `replaceGraphLocal` checks at Apply time, so this verdict and Apply can never
+   * disagree.
+   *
+   * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — this used to be `savedGraphVersion`, fed from
+   * `graphSlice.hydratedRevision`, which is the workflow's `updatedAt` TIMESTAMP. Comparing a
+   * timestamp to a content fingerprint is never equal, so every restored edit proposal was marked
+   * Stale even when nothing had changed. The name now states which value space it belongs to.
+   */
+  readonly currentGraphVersion: string | null;
+  /**
+   * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — the canonical fingerprint of the proposal's END
+   * STATE (`proposedDefinition`), when one survived persistence.
+   *
+   * Only the APPLIED-and-saved branch uses it, and it is the only value that can answer that
+   * branch's real question. `baseGraphVersion` is the graph BEFORE the change, so once the change
+   * is applied the base can never match the current graph — judging "applied" by the base would
+   * tell every user their workflow had changed since, when the only thing that changed it was the
+   * apply itself.
+   */
+  readonly proposedGraphVersion?: string | null;
   /** True when the proposal payload survived persistence intact enough to reopen. */
   readonly hasProposalPayload: boolean;
 }
@@ -103,11 +135,18 @@ type ProposalPinning = "matches" | "moved_on" | "unknown" | "unpinned";
 
 function pinningOf(
   baseGraphVersion: string | null | undefined,
-  savedGraphVersion: string | null,
+  currentGraphVersion: string | null,
 ): ProposalPinning {
   if (!baseGraphVersion) return "unpinned";
-  if (!savedGraphVersion) return "unknown";
-  return baseGraphVersion === savedGraphVersion ? "matches" : "moved_on";
+  if (!currentGraphVersion) return "unknown";
+  // RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — both sides MUST be canonical graph fingerprints.
+  // Anything else (most importantly an `updatedAt` timestamp, which is what used to arrive here)
+  // is not comparable, and an incomparable pair must never be reported as "your workflow changed".
+  // Fail CLOSED to `unknown`: Apply stays disabled, but the user is told the truth.
+  if (!isEditableGraphVersion(baseGraphVersion) || !isEditableGraphVersion(currentGraphVersion)) {
+    return "unknown";
+  }
+  return baseGraphVersion === currentGraphVersion ? "matches" : "moved_on";
 }
 
 /** Does the proposal still fit the saved workflow well enough to act on? */
@@ -115,17 +154,33 @@ function stillFits(pinning: ProposalPinning): boolean {
   return pinning === "matches" || pinning === "unpinned";
 }
 
+/**
+ * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — "we cannot confirm this proposal matches your current
+ * workflow". Deliberately NOT the stale copy: it makes no claim about the user's workflow having
+ * changed, because nothing established that. Apply stays unavailable (fail closed) and the honest
+ * next step is to ask React again. Fixed copy — no ids, hashes, timestamps, or values.
+ */
+const VERSION_UNKNOWN_VERDICT: PersistedPreviewVerdict = {
+  state: "version_unknown",
+  label: "Can't verify",
+  detail:
+    "ChainReact can't confirm this suggestion still matches your current workflow, so it can't be applied as-is. Ask React to suggest it again.",
+  canReopen: false,
+  appliedToSavedWorkflow: false,
+};
+
 export function reconcilePersistedPreview(
   input: ReconcilePersistedPreviewInput,
 ): PersistedPreviewVerdict {
   const {
     changeStatus,
     baseGraphVersion,
-    savedGraphVersion,
+    currentGraphVersion,
+    proposedGraphVersion,
     hasProposalPayload,
   } = input;
 
-  const pinning = pinningOf(baseGraphVersion, savedGraphVersion);
+  const pinning = pinningOf(baseGraphVersion, currentGraphVersion);
   const stillPinned = stillFits(pinning);
 
   if (changeStatus === "apply_failed" || changeStatus === "test_failed") {
@@ -151,14 +206,18 @@ export function reconcilePersistedPreview(
   if (changeStatus === "applied_saved" || changeStatus === "tested") {
     // The change reached the SAVED workflow, so the guided journey may resume
     // from it either way. Whether it is still the NEWEST saved state only
-    // changes what we tell the user.
+    // changes what we tell the user — and that is answered by the proposal's END
+    // state, never by the base (see `proposedGraphVersion`). When the end state
+    // isn't available we make NO claim about later changes rather than a wrong one.
+    const endStateKnown =
+      isEditableGraphVersion(proposedGraphVersion) && isEditableGraphVersion(currentGraphVersion);
+    const superseded = endStateKnown && proposedGraphVersion !== currentGraphVersion;
     return {
-      state: pinning === "matches" ? "applied" : "applied_superseded",
+      state: superseded ? "applied_superseded" : "applied",
       label: "Applied",
-      detail:
-        pinning === "matches"
-          ? "This change was applied and saved to your workflow."
-          : "This change was applied and saved. Your workflow has changed since.",
+      detail: superseded
+        ? "This change was applied and saved. Your workflow has changed since."
+        : "This change was applied and saved to your workflow.",
       canReopen: false,
       appliedToSavedWorkflow: true,
     };
@@ -167,6 +226,7 @@ export function reconcilePersistedPreview(
   if (changeStatus === "preview_applied") {
     // Applied to the DRAFT only. The draft was abandoned without a save, so
     // those nodes do not exist in the workflow that just loaded.
+    if (pinning === "unknown") return VERSION_UNKNOWN_VERDICT;
     if (!stillPinned) {
       return {
         state: "stale",
@@ -189,6 +249,7 @@ export function reconcilePersistedPreview(
 
   // No lifecycle row, or still at preview_created: the proposal was shown and
   // never acted on. Whether it can be reopened is purely a staleness question.
+  if (pinning === "unknown") return VERSION_UNKNOWN_VERDICT;
   if (!stillPinned) {
     return {
       state: "stale",
@@ -214,6 +275,53 @@ export function reconcilePersistedPreview(
  * SAVED workflow? This — and only this — is what lets a returning user resume
  * the guided journey; history alone never does.
  */
+/**
+ * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — a SAFE, structured description of one reconciliation,
+ * for diagnosing "why did my proposal say that?" without reading any workflow content.
+ *
+ * Carries only presence booleans, enums, and a TRUNCATED fingerprint prefix — never a workflow
+ * definition, node config, variable value, prompt, model response, credential, or full digest.
+ */
+export interface ProposalReconciliationDiagnostic {
+  readonly proposalId: string | null;
+  readonly versionStrategy: "graph_fingerprint";
+  readonly baseVersionPresent: boolean;
+  readonly currentVersionPresent: boolean;
+  /** Whether each side had the canonical fingerprint SHAPE (a timestamp would be false). */
+  readonly baseVersionWellFormed: boolean;
+  readonly currentVersionWellFormed: boolean;
+  /** First 4 chars only — enough to correlate two log lines, not to reconstruct a graph. */
+  readonly baseVersionPrefix: string | null;
+  readonly currentVersionPrefix: string | null;
+  readonly comparison: ProposalPinning;
+  readonly state: PersistedPreviewState;
+  readonly canReopen: boolean;
+}
+
+const PREFIX_LEN = 4;
+const prefixOf = (v: string | null | undefined): string | null =>
+  typeof v === "string" && v.length > 0 ? v.slice(0, PREFIX_LEN) : null;
+
+/** Build the safe diagnostic for a reconciliation that has already been computed. */
+export function describeProposalReconciliation(
+  input: ReconcilePersistedPreviewInput,
+  verdict: PersistedPreviewVerdict,
+): ProposalReconciliationDiagnostic {
+  return {
+    proposalId: input.agentChangeId ?? null,
+    versionStrategy: "graph_fingerprint",
+    baseVersionPresent: !!input.baseGraphVersion,
+    currentVersionPresent: !!input.currentGraphVersion,
+    baseVersionWellFormed: isEditableGraphVersion(input.baseGraphVersion),
+    currentVersionWellFormed: isEditableGraphVersion(input.currentGraphVersion),
+    baseVersionPrefix: prefixOf(input.baseGraphVersion),
+    currentVersionPrefix: prefixOf(input.currentGraphVersion),
+    comparison: pinningOf(input.baseGraphVersion, input.currentGraphVersion),
+    state: verdict.state,
+    canReopen: verdict.canReopen,
+  };
+}
+
 export function transcriptHasAppliedSavedChange(
   verdicts: readonly PersistedPreviewVerdict[],
 ): boolean {

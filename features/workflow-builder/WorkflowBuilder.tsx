@@ -78,6 +78,7 @@ import { useConnectionReadiness } from "./hooks/useConnectionReadiness";
 import { useGuidedConnect } from "./hooks/useGuidedConnect";
 import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
+import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import { useGuidedBuildSession } from "./hooks/useGuidedBuildSession";
 import { useGuidedBuild } from "./hooks/useGuidedBuild";
 import { useAgentConversationPersistence } from "./hooks/useAgentConversationPersistence";
@@ -1010,6 +1011,27 @@ export function WorkflowBuilder({
   const savedGraphVersion = useGraphSlice((s) => s.hydratedRevision);
   const savedWorkflowEmpty = useGraphSlice((s) => s.savedNodes.length === 0);
 
+  /**
+   * RESTORED-EDIT-PROPOSAL-STALE-MISMATCH-1 — the canonical GRAPH FINGERPRINT of the graph as it
+   * stands right now, for restored-proposal reconciliation.
+   *
+   * `hydratedRevision` (above) is the workflow's `updatedAt` TIMESTAMP. It is the right token for
+   * "did the saved workflow move" (the guided session uses it for exactly that), but it was ALSO
+   * being compared against a proposal's `baseGraphVersion`, which is a content fingerprint from
+   * `computeEditableGraphVersion`. A timestamp never equals a fingerprint, so every restored EDIT
+   * proposal was reconciled as "the workflow moved on" and permanently badged Stale, with Apply
+   * withdrawn — even when nothing had changed.
+   *
+   * This fingerprints the PENDING graph deliberately: it is the same graph, via the same function,
+   * that `replaceGraphLocal` re-checks at Apply time, so the badge and Apply can never disagree.
+   * On a fresh reopen pending === saved; if the user then edits the canvas the proposal correctly
+   * becomes stale, which is exactly what Apply would enforce anyway.
+   */
+  const currentGraphVersion = useMemo(
+    () => computeEditableGraphVersion({ nodes: pendingNodes, edges: pendingEdges }),
+    [pendingNodes, pendingEdges],
+  );
+
   // REACT-AGENT-GUIDED-BUILD-1 — the guided build session switch. Starts on a
   // React Agent apply (new review session while the notice is up).
   // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — it now persists ONLY once the
@@ -1068,6 +1090,7 @@ export function WorkflowBuilder({
     (message: {
       readonly agentChangeId?: string;
       readonly baseGraphVersion?: string | null;
+      readonly proposedDefinition?: WorkflowDefinition | null;
       readonly hasProposalPayload: boolean;
     }): PersistedPreviewVerdict | null => {
       // While the timeline is still loading we do not yet know what happened to
@@ -1082,11 +1105,16 @@ export function WorkflowBuilder({
         ...(message.agentChangeId ? { agentChangeId: message.agentChangeId } : {}),
         changeStatus: row?.status ?? null,
         baseGraphVersion: message.baseGraphVersion ?? null,
-        savedGraphVersion,
+        currentGraphVersion,
+        // The proposal's END state, so an applied+saved change is only called "superseded" when
+        // something OTHER than this apply changed the workflow (see reconcilePersistedPreview).
+        proposedGraphVersion: message.proposedDefinition
+          ? computeEditableGraphVersion(message.proposedDefinition)
+          : null,
         hasProposalPayload: message.hasProposalPayload,
       });
     },
-    [agentChanges, agentChangesLoading, savedGraphVersion],
+    [agentChanges, agentChangesLoading, currentGraphVersion],
   );
 
   // REACT-AGENT-APPLY-MODES-1 — deterministic availability of the three apply modes for the active
