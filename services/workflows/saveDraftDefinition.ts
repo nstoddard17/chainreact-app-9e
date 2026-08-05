@@ -1,4 +1,5 @@
 import type { WorkflowDefinition, WorkflowNode, WorkflowState } from "@/contracts/workflow";
+import * as workflowsRepo from "@/repositories/workflows";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import { triggerChanged } from "@/core/workflows/triggerChange";
 import { getTriggerMeta } from "@/services/discovery/_registry";
@@ -61,12 +62,44 @@ export interface SaveDraftDefinitionInput {
   previousDefinition: WorkflowDefinition;
   nextDefinition: WorkflowDefinition;
   /**
-   * Persist strategy (caller-owned so optimistic concurrency is preserved): PATCH uses the
-   * unguarded `updateDraftDefinition`; AI-apply uses `updateDraftDefinitionIfRevisionMatches`,
-   * which returns `null` when the revision moved under it. A `null` result means the write did
-   * NOT land — nothing is deactivated and `null` is returned for the caller to map (STALE).
+   * Persist strategy (caller-owned so optimistic concurrency is preserved). Every
+   * authoritative caller (manual PATCH, AI-apply, template replace, checkpoint restore) now
+   * writes through `updateDraftDefinitionIfRevisionMatches` — the atomic compare-and-swap —
+   * which returns `null` when the revision moved under it
+   * (WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1). A `null` result means the write did
+   * NOT land — nothing is deactivated, no lifecycle/trigger side effect runs, and `null` is
+   * returned for the caller to classify via `classifyStaleDraftWrite`.
    */
   write: () => Promise<WorkflowRecord | null>;
+}
+
+/**
+ * Classify a compare-and-swap miss (a `null` from the guarded write) safely.
+ * The workflow row is re-read through the caller's RLS-scoped client:
+ *   - gone / soft-deleted / not visible to this member → `not_found` (the same
+ *     shape a non-member sees — no existence leak),
+ *   - still visible → a genuine revision conflict; carry the CURRENT server
+ *     revision token so the client can offer reload/rebase recovery.
+ * Deliberately NO definition content in the result — a conflict response must
+ * not become a data channel.
+ */
+export type StaleDraftWriteClassification =
+  | { kind: "not_found" }
+  | { kind: "conflict"; latestRevision: string };
+
+export async function classifyStaleDraftWrite(
+  workflowId: string,
+): Promise<StaleDraftWriteClassification> {
+  let current: WorkflowRecord | null;
+  try {
+    current = await workflowsRepo.getById(workflowId);
+  } catch {
+    // Read failed AFTER a zero-row CAS: report not_found rather than invent a
+    // revision we didn't observe. The client's recovery (reload) is the same.
+    return { kind: "not_found" };
+  }
+  if (!current || current.state === "deleted") return { kind: "not_found" };
+  return { kind: "conflict", latestRevision: current.updatedAt };
 }
 
 /**

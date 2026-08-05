@@ -346,23 +346,6 @@ export async function updateFolder(
   return rowToRecord(data);
 }
 
-export async function updateDraftDefinition(
-  workflowId: string,
-  definition: WorkflowDefinition,
-): Promise<WorkflowRecord> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("workflows")
-    .update({ draft_definition: definition })
-    .eq("id", workflowId)
-    .select()
-    .single<WorkflowsRow>();
-  if (error || !data) {
-    throw new Error(`workflows.updateDraftDefinition failed: ${error?.message ?? "no row returned"}`);
-  }
-  return rowToRecord(data);
-}
-
 export interface UpdateDraftDefinitionGuardedInput {
   /** Owning account (the caller's resolved account) — the ownership guard. */
   accountId: string;
@@ -373,18 +356,24 @@ export interface UpdateDraftDefinitionGuardedInput {
 }
 
 /**
- * Write-time optimistic-concurrency variant of `updateDraftDefinition`. The
- * UPDATE only matches when (id, account_id, updated_at) all equal the caller's
- * expectation, so a workflow that changed after the caller read + validated it
- * is NOT overwritten, and a workflow in another account is never touched
- * (4.ACCOUNT-MODEL-7 — the guard is now account-scoped, not user-scoped).
- * Returns `null` when nothing matched (stale revision OR cross-account) —
- * mirrors `applyTransition`'s `.eq(state)` guard pattern.
+ * THE canonical writer for `workflows.draft_definition`
+ * (WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the former unguarded
+ * `updateDraftDefinition` is deliberately gone; there is no unconditional
+ * fallback). The UPDATE only matches when (id, account_id, updated_at) all
+ * equal the caller's expectation — an atomic compare-and-swap in one
+ * statement, safe across serverless instances — so a workflow that changed
+ * after the caller read + validated it is NOT overwritten, and a workflow in
+ * another account is never touched (4.ACCOUNT-MODEL-7). Returns `null` when
+ * nothing matched (stale revision OR cross-account OR deleted) — the caller
+ * classifies via a follow-up read; mirrors `applyTransition`'s `.eq(state)`
+ * guard pattern.
  *
  * The `set_updated_at` trigger bumps `updated_at` on the matched row, so the
- * returned record carries the NEW revision token. Used by the AI patch apply
- * service (Slice 4.AI-6B); `updateDraftDefinition` stays unchanged for other
- * callers that don't need the guard.
+ * returned record carries the NEW revision token — the client must adopt it
+ * from the response; it never invents the next token. Callers: the manual
+ * builder save (PATCH /api/workflows/[id]), AI patch apply (Slice 4.AI-6B),
+ * template replace, and checkpoint restore — one concurrency rule for every
+ * authoritative definition save.
  */
 export async function updateDraftDefinitionIfRevisionMatches(
   input: UpdateDraftDefinitionGuardedInput,

@@ -3,6 +3,14 @@
 All notable changes to this package are documented here. Published versions
 are immutable; every publish gets an entry BEFORE it is tagged.
 
+## Unreleased
+
+- `MOBILE_ERROR_CODES`: adds `WORKFLOW_REVISION_CONFLICT`
+  (WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1) — the typed 409 returned
+  when an authoritative workflow-definition save's optimistic-concurrency
+  check finds a newer revision. Mobile does not edit definitions yet; the code
+  is reserved so the parity pin stays complete.
+
 ## 0.2.0 — 2026-08-02 (unpublished)
 
 M1 endpoint contracts (MOBILE-COMPANION-M1-MOBILE-READ-API-1). Pre-1.0:

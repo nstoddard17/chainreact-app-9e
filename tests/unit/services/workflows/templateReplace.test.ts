@@ -26,10 +26,12 @@ const repo = {
 jest.mock("@/repositories/workflowTemplates", () => repo);
 
 const mockGetWorkflow = jest.fn();
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the replace writes through
+// the canonical guarded compare-and-swap (no unguarded writer exists any more).
 const mockUpdateDraftDefinition = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
   getById: (...a: unknown[]) => mockGetWorkflow(...a),
-  updateDraftDefinition: (...a: unknown[]) => mockUpdateDraftDefinition(...a),
+  updateDraftDefinitionIfRevisionMatches: (...a: unknown[]) => mockUpdateDraftDefinition(...a),
 }));
 
 const mockIsMember = jest.fn();
@@ -46,8 +48,10 @@ jest.mock("@/services/accounts/accountAuthz", () => ({
 // service test asserts DELEGATION (not saveDraftDefinition's own internals, which have their own test).
 // The default impl runs the caller's `write()` so the "overwrites the draft" assertion stays meaningful.
 const mockSaveDraftDefinition = jest.fn();
+const mockClassifyStale = jest.fn();
 jest.mock("@/services/workflows/saveDraftDefinition", () => ({
   saveDraftDefinition: (...a: unknown[]) => mockSaveDraftDefinition(...a),
+  classifyStaleDraftWrite: (...a: unknown[]) => mockClassifyStale(...a),
 }));
 
 // Checkpoint + History services are reused verbatim; assert the AI path calls them (and the modal path
@@ -68,6 +72,8 @@ const WF = "wf-1";
 const WF_ACCOUNT = "acct-1";
 const TPL = "tpl-1";
 const CP_ID = "c0ffee00-0000-4000-8000-0000000000cc";
+/** The revision the caller's builder session loaded (matches workflowRecord.updatedAt). */
+const REV = "2026-06-07T00:00:00Z";
 
 const VALID_DEF = {
   nodes: [
@@ -125,8 +131,9 @@ beforeEach(() => {
   mockGetWorkflow.mockResolvedValue(workflowRecord());
   mockIsMember.mockResolvedValue(true);
   repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(templateRecord());
-  mockUpdateDraftDefinition.mockImplementation(async (_id: string, def: unknown) =>
-    workflowRecord({ draftDefinition: def, updatedAt: "2026-06-08T00:00:00Z" }),
+  mockUpdateDraftDefinition.mockImplementation(
+    async (input: { draftDefinition: unknown }) =>
+      workflowRecord({ draftDefinition: input.draftDefinition, updatedAt: "2026-06-08T00:00:00Z" }),
   );
   // Default: delegate to the caller's write (mirrors the real save for a non-trigger-changing edit).
   mockSaveDraftDefinition.mockImplementation(async (input: { write: () => Promise<unknown> }) => input.write());
@@ -137,7 +144,7 @@ beforeEach(() => {
 describe("replaceWorkflowWithTemplate — authorization", () => {
   it("missing / deleted workflow → workflow_not_found (template never resolved)", async () => {
     mockGetWorkflow.mockResolvedValue(null);
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r).toEqual({ ok: false, reason: "workflow_not_found" });
     expect(repo.getTemplateByIdAnyAccountServiceRole).not.toHaveBeenCalled();
     expect(mockSaveDraftDefinition).not.toHaveBeenCalled();
@@ -145,7 +152,7 @@ describe("replaceWorkflowWithTemplate — authorization", () => {
 
   it("non-member of the workflow's account → workflow_not_found (no existence leak, no write)", async () => {
     mockIsMember.mockResolvedValue(false);
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r).toEqual({ ok: false, reason: "workflow_not_found" });
     expect(mockIsMember).toHaveBeenCalledWith(ACTOR, WF_ACCOUNT);
     expect(repo.getTemplateByIdAnyAccountServiceRole).not.toHaveBeenCalled();
@@ -156,7 +163,7 @@ describe("replaceWorkflowWithTemplate — authorization", () => {
 describe("replaceWorkflowWithTemplate — template resolution + validation", () => {
   it("inaccessible / missing template → template_not_found (no write)", async () => {
     repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(null);
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r).toEqual({ ok: false, reason: "template_not_found" });
     expect(mockSaveDraftDefinition).not.toHaveBeenCalled();
   });
@@ -164,7 +171,7 @@ describe("replaceWorkflowWithTemplate — template resolution + validation", () 
   it("private template + non-member of the OWNING account → template_not_found", async () => {
     repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(templateRecord({ visibility: "private", accountId: "tpl-acct" }));
     mockRequireRole.mockResolvedValue({ ok: false, reason: "not_member" });
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r).toEqual({ ok: false, reason: "template_not_found" });
     expect(mockSaveDraftDefinition).not.toHaveBeenCalled();
   });
@@ -181,15 +188,59 @@ describe("replaceWorkflowWithTemplate — template resolution + validation", () 
         },
       }),
     );
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r).toEqual({ ok: false, reason: "invalid_template" });
     expect(mockSaveDraftDefinition).not.toHaveBeenCalled();
   });
 });
 
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — a stale builder session
+// must never replace a newer workflow with a template.
+describe("replaceWorkflowWithTemplate — optimistic concurrency", () => {
+  it("rejects a stale expectedRevision BEFORE any side effect (no template resolve, no checkpoint, no write)", async () => {
+    mockGetWorkflow.mockResolvedValue(workflowRecord({ updatedAt: "2026-06-09T00:00:00Z" }));
+    const r = await replaceWorkflowWithTemplate({
+      workflowId: WF,
+      templateId: TPL,
+      actorUserId: ACTOR,
+      expectedRevision: REV, // older than the row
+      recordHistory: true,
+    });
+    expect(r).toEqual({
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: "2026-06-09T00:00:00Z",
+    });
+    expect(repo.getTemplateByIdAnyAccountServiceRole).not.toHaveBeenCalled();
+    expect(mockCreateCheckpoint).not.toHaveBeenCalled();
+    expect(mockSaveDraftDefinition).not.toHaveBeenCalled();
+    expect(mockRecordAgentChange).not.toHaveBeenCalled();
+  });
+
+  it("classifies a compare-and-swap miss as revision_conflict (write did not land)", async () => {
+    // The guarded write misses: the row moved between the read-time check and the UPDATE.
+    mockUpdateDraftDefinition.mockResolvedValue(null);
+    mockClassifyStale.mockResolvedValue({
+      kind: "conflict",
+      latestRevision: "2026-06-10T00:00:00Z",
+    });
+    const r = await replaceWorkflowWithTemplate({
+      workflowId: WF,
+      templateId: TPL,
+      actorUserId: ACTOR,
+      expectedRevision: REV,
+    });
+    expect(r).toEqual({
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: "2026-06-10T00:00:00Z",
+    });
+  });
+});
+
 describe("replaceWorkflowWithTemplate — canonical save delegation (modal path: no history)", () => {
   it("overwrites ONLY the draft through saveDraftDefinition; template untouched; no checkpoint/history", async () => {
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r.ok).toBe(true);
 
     // The write goes through the ONE canonical path, with the prior state + before/after definitions.
@@ -199,9 +250,16 @@ describe("replaceWorkflowWithTemplate — canonical save delegation (modal path:
     expect(saveArg.previousDefinition).toEqual(PRE_DRAFT);
     expect(JSON.stringify(saveArg.nextDefinition)).toContain("__REDACTED__"); // sanitized markers travel
 
-    // saveDraftDefinition ran the caller's write against the CURRENT workflow only.
+    // saveDraftDefinition ran the caller's write against the CURRENT workflow
+    // only, through the guarded compare-and-swap keyed on the caller's revision.
     expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
-    expect(mockUpdateDraftDefinition.mock.calls[0]![0]).toBe(WF);
+    expect(mockUpdateDraftDefinition.mock.calls[0]![0]).toEqual(
+      expect.objectContaining({
+        workflowId: WF,
+        accountId: WF_ACCOUNT,
+        expectedUpdatedAt: REV,
+      }),
+    );
 
     // Modal path (no recordHistory) — no restore point, no History row.
     expect(mockCreateCheckpoint).not.toHaveBeenCalled();
@@ -220,7 +278,7 @@ describe("replaceWorkflowWithTemplate — canonical save delegation (modal path:
     mockSaveDraftDefinition.mockResolvedValue(
       workflowRecord({ state: "disabled", disabledReason: "manual_admin" }),
     );
-    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR });
+    const r = await replaceWorkflowWithTemplate({ workflowId: WF, templateId: TPL, actorUserId: ACTOR, expectedRevision: REV });
     expect(r.ok).toBe(true);
     expect(mockSaveDraftDefinition.mock.calls[0]![0]!.previousState).toBe("active");
     // The service returns whatever the canonical path resolved (disabled here) — no bespoke disable.
@@ -246,6 +304,7 @@ describe("replaceWorkflowWithTemplate — AI origin (recordHistory) checkpoint +
       workflowId: WF,
       templateId: TPL,
       actorUserId: ACTOR,
+      expectedRevision: REV,
       recordHistory: true,
     });
     expect(r.ok).toBe(true);
@@ -283,6 +342,7 @@ describe("replaceWorkflowWithTemplate — AI origin (recordHistory) checkpoint +
       workflowId: WF,
       templateId: TPL,
       actorUserId: ACTOR,
+      expectedRevision: REV,
       recordHistory: true,
     });
     expect(r.ok).toBe(true);
@@ -297,6 +357,7 @@ describe("replaceWorkflowWithTemplate — AI origin (recordHistory) checkpoint +
       workflowId: WF,
       templateId: TPL,
       actorUserId: ACTOR,
+      expectedRevision: REV,
       recordHistory: true,
     });
     expect(r.ok).toBe(true);

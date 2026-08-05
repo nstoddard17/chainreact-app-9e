@@ -101,7 +101,10 @@ export async function listCheckpoints(
 
 export type RestoreCheckpointResult =
   | { ok: true; record: WorkflowRecord }
-  | { ok: false; reason: "checkpoint_not_found" };
+  | { ok: false; reason: "checkpoint_not_found" }
+  /** WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the workflow moved past
+   *  the revision the caller loaded; nothing was restored, no side effect ran. */
+  | { ok: false; reason: "revision_conflict"; latestRevision: string };
 
 /**
  * Restore a checkpoint: write its captured definition as the workflow's new
@@ -111,11 +114,25 @@ export type RestoreCheckpointResult =
  * workflow is never restorable here), then go through `saveDraftDefinition`
  * so the active-trigger-change deactivation rule applies identically to a
  * normal draft save.
+ *
+ * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — a restore is an
+ * authoritative definition save, so it follows the same compare-and-swap
+ * contract: `expectedRevision` is the revision the caller's builder session
+ * loaded, and a stale session gets a typed conflict instead of clobbering a
+ * newer draft another session just saved.
  */
 export async function restoreCheckpoint(input: {
   workflow: WorkflowRecord;
   checkpointId: string;
+  expectedRevision: string;
 }): Promise<RestoreCheckpointResult> {
+  if (input.workflow.updatedAt !== input.expectedRevision) {
+    return {
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: input.workflow.updatedAt,
+    };
+  }
   const checkpoint = await checkpointsRepo.getByIdForWorkflow(
     input.checkpointId,
     input.workflow.id,
@@ -128,8 +145,23 @@ export async function restoreCheckpoint(input: {
     previousDefinition: input.workflow.draftDefinition,
     nextDefinition: checkpoint.definition,
     write: () =>
-      workflowsRepo.updateDraftDefinition(input.workflow.id, checkpoint.definition),
+      workflowsRepo.updateDraftDefinitionIfRevisionMatches({
+        accountId: input.workflow.accountId,
+        workflowId: input.workflow.id,
+        draftDefinition: checkpoint.definition,
+        expectedUpdatedAt: input.expectedRevision,
+      }),
   });
-  // Unguarded write never returns null; fall back to the loaded record defensively.
-  return { ok: true, record: saved ?? input.workflow };
+  if (!saved) {
+    // CAS missed between the route's load and the UPDATE: nothing was written,
+    // nothing deactivated. Re-read for the current token (fall back to the
+    // loaded record's if the row vanished — route maps by reason, not record).
+    const current = await workflowsRepo.getById(input.workflow.id);
+    return {
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: current?.updatedAt ?? input.workflow.updatedAt,
+    };
+  }
+  return { ok: true, record: saved };
 }

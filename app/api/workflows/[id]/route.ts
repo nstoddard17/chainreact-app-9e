@@ -3,7 +3,10 @@ import { UpdateWorkflowRequestSchema } from "@/contracts/workflow";
 import * as workflowsRepo from "@/repositories/workflows";
 import { moveWorkflowToFolder } from "@/services/workflowFolders/folderService";
 import { deleteWorkflow } from "@/services/workflowFolders/trashService";
-import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
+import {
+  classifyStaleDraftWrite,
+  saveDraftDefinition,
+} from "@/services/workflows/saveDraftDefinition";
 import {
   isPlanFeatureRequiredError,
   planFeatureRequiredBody,
@@ -15,6 +18,7 @@ import {
   requireWorkflowAccountMember,
   toWorkflowDetail,
   workflowNotFoundResponse,
+  workflowRevisionConflictResponse,
   workflowUsesPrivateCredentialResponse,
 } from "../_shared";
 import { workflowUsesPrivateCredential } from "@/core/integrations/workflowCredentialScope";
@@ -81,14 +85,18 @@ export async function PATCH(
 
   // Slice 1I extends PATCH beyond name-only with draftDefinition. Each
   // field is independent and skipped when unchanged (no-op writes are
-  // noise). Both updates land before the response — the final read of the
+  // noise). All updates land before the response — the final read of the
   // row reflects every applied change.
+  //
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the DEFINITION write
+  // runs FIRST: it is the compare-and-swap keyed on the client's
+  // expectedRevision, and a preceding name write would bump `updated_at` and
+  // falsely fail it. Name/folder metadata writes follow the definition save.
   let next = loaded.record;
-  if (parsed.data.name !== undefined && parsed.data.name !== loaded.record.name) {
-    next = await workflowsRepo.updateName(id, parsed.data.name);
-  }
   if (parsed.data.draftDefinition !== undefined) {
     const definition = parsed.data.draftDefinition;
+    // The schema refine guarantees this is present alongside draftDefinition.
+    const expectedRevision = parsed.data.expectedRevision!;
     // WF-RUNPERM — credential-bound edit gate. A non-creator may not save the
     // definition of a private-credential workflow, nor turn a workflow private
     // (which would bind it to the creator's identity). Name/folder edits above
@@ -104,10 +112,29 @@ export async function PATCH(
     ) {
       return workflowUsesPrivateCredentialResponse();
     }
-    // Shared save path: writes the draft, and if an ACTIVE workflow's ACTIVATABLE trigger
-    // changed (stale trigger_resources / provider subscription), deactivates it so the
-    // teardown runs and the user re-registers via Reactivate → Resume. Manual-trigger and
-    // action/label/layout/edge edits stay live. The unguarded write never returns null.
+    // Read-time freshness check (mirrors the AI-apply flow): the record we just
+    // loaded IS the current revision — if it already moved past the client's
+    // expectation, fail fast with the typed conflict before any validation or
+    // write. The CAS below remains the write-time enforcement for the race
+    // window between this read and the UPDATE.
+    if (loaded.record.updatedAt !== expectedRevision) {
+      return workflowRevisionConflictResponse({
+        workflowId: id,
+        accountId: loaded.record.accountId,
+        actorUserId: auth.userId,
+        latestRevision: loaded.record.updatedAt,
+        savePath: "builder_patch",
+        expectedRevisionPresent: true,
+      });
+    }
+    // Shared save path: writes the draft via the ATOMIC compare-and-swap
+    // (id + account + expectedRevision must all still match), and if an ACTIVE
+    // workflow's ACTIVATABLE trigger changed (stale trigger_resources / provider
+    // subscription), deactivates it so the teardown runs and the user
+    // re-registers via Reactivate → Resume. Manual-trigger and
+    // action/label/layout/edge edits stay live. A `null` result means the row
+    // moved between our read and the UPDATE — nothing was written, no lifecycle
+    // side effect ran; classify and return the typed 409 (or 404 if it vanished).
     // BRANCH-ENT-1 C5 — the shared path also enforces the advanced-branching
     // plan gate on the PROPOSED definition (membership was already verified
     // above, so the typed 403 leaks nothing). Nothing is persisted on reject.
@@ -117,15 +144,37 @@ export async function PATCH(
         previousState: loaded.record.state,
         previousDefinition: loaded.record.draftDefinition,
         nextDefinition: definition,
-        write: () => workflowsRepo.updateDraftDefinition(id, definition),
+        write: () =>
+          workflowsRepo.updateDraftDefinitionIfRevisionMatches({
+            accountId: loaded.record.accountId,
+            workflowId: id,
+            draftDefinition: definition,
+            expectedUpdatedAt: expectedRevision,
+          }),
       });
-      if (saved) next = saved;
+      if (saved) {
+        next = saved;
+      } else {
+        const classified = await classifyStaleDraftWrite(id);
+        if (classified.kind === "not_found") return workflowNotFoundResponse();
+        return workflowRevisionConflictResponse({
+          workflowId: id,
+          accountId: loaded.record.accountId,
+          actorUserId: auth.userId,
+          latestRevision: classified.latestRevision,
+          savePath: "builder_patch",
+          expectedRevisionPresent: true,
+        });
+      }
     } catch (err) {
       if (isPlanFeatureRequiredError(err)) {
         return NextResponse.json(planFeatureRequiredBody(err), { status: 403 });
       }
       throw err;
     }
+  }
+  if (parsed.data.name !== undefined && parsed.data.name !== loaded.record.name) {
+    next = await workflowsRepo.updateName(id, parsed.data.name);
   }
   // 4.WORKFLOW-FOLDERS-3 / WF-2 — move into a folder or uncategorize (null). The
   // service validates the folder is live + same-account; the DB trigger backstops.

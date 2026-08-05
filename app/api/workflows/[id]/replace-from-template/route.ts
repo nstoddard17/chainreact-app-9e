@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { replaceWorkflowWithTemplate } from "@/services/workflows/templateManagement";
 import { planFeatureRequiredBody } from "@/services/workflows/planFeatureGate";
-import { parseJsonBody, requireUser, toWorkflowDetail } from "../../_shared";
+import {
+  parseJsonBody,
+  requireUser,
+  toWorkflowDetail,
+  workflowRevisionConflictResponse,
+} from "../../_shared";
 
 /**
  * POST /api/workflows/[id]/replace-from-template — in-builder "Replace the current
@@ -20,6 +25,14 @@ import { parseJsonBody, requireUser, toWorkflowDetail } from "../../_shared";
 const BodySchema = z
   .object({
     templateId: z.string().uuid("templateId is required."),
+    /**
+     * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the workflow revision
+     * (`updatedAt`) the builder session loaded. Required: replacing a workflow
+     * is an authoritative definition save, so it follows the same
+     * compare-and-swap contract as PATCH; a stale session gets a typed 409
+     * instead of clobbering a newer workflow.
+     */
+    expectedRevision: z.string().min(1, "expectedRevision is required."),
     /**
      * AI-TEMPLATE-APPLY-CURRENT — origin of the replace. `react_agent` (the "apply to current
      * workflow" choice on a React-Agent template suggestion) opts into a pre-replace checkpoint +
@@ -45,6 +58,7 @@ export async function POST(
     workflowId: id,
     templateId: body.data.templateId,
     actorUserId: auth.userId,
+    expectedRevision: body.data.expectedRevision,
     ...(body.data.origin === "react_agent" ? { recordHistory: true } : {}),
   });
 
@@ -52,6 +66,16 @@ export async function POST(
     switch (result.reason) {
       case "workflow_not_found":
         return NextResponse.json({ error: "Workflow not found.", code: "WORKFLOW_NOT_FOUND" }, { status: 404 });
+      case "revision_conflict":
+        // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — stale builder
+        // session; nothing was replaced, no lifecycle side effect ran.
+        return workflowRevisionConflictResponse({
+          workflowId: id,
+          actorUserId: auth.userId,
+          latestRevision: result.latestRevision,
+          savePath: "template_replace",
+          expectedRevisionPresent: true,
+        });
       case "template_not_found":
         return NextResponse.json({ error: "No such template.", code: "TEMPLATE_NOT_FOUND" }, { status: 404 });
       case "invalid_template":

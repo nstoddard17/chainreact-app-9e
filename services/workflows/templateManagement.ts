@@ -13,7 +13,10 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 import * as userProfilesRepo from "@/repositories/userProfiles";
 import { isMember } from "@/repositories/accountMemberships";
 import { createTemplateFromWorkflow } from "@/services/workflows/createTemplateFromWorkflow";
-import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
+import {
+  classifyStaleDraftWrite,
+  saveDraftDefinition,
+} from "@/services/workflows/saveDraftDefinition";
 import {
   assertDefinitionPlanEntitlement,
   isPlanFeatureRequiredError,
@@ -405,6 +408,10 @@ export type ReplaceWorkflowWithTemplateResult =
   | { ok: false; reason: "workflow_not_found" }
   | { ok: false; reason: "template_not_found" }
   | { ok: false; reason: "invalid_template" }
+  /** WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the workflow moved past
+   *  the revision the caller loaded; NOTHING was replaced, no lifecycle side
+   *  effect ran. `latestRevision` lets the client offer reload recovery. */
+  | { ok: false; reason: "revision_conflict"; latestRevision: string }
   /** BRANCH-ENT-1 C5 — the template uses advanced branching and the workflow's
    *  owning account isn't entitled; nothing was persisted. */
   | { ok: false; reason: "plan_feature_required"; error: PlanFeatureRequiredError };
@@ -415,6 +422,14 @@ export interface ReplaceWorkflowWithTemplateInput {
   /** The template to apply. */
   templateId: string;
   actorUserId: string;
+  /**
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the server revision
+   * token (`updatedAt`) the caller's builder session loaded. The replace only
+   * persists when the workflow still carries this exact revision (same atomic
+   * compare-and-swap as the manual save), so a stale tab can never replace a
+   * newer workflow with a template.
+   */
+  expectedRevision: string;
   /**
    * AI-TEMPLATE-APPLY-CURRENT — when true, capture a restorable pre-replace CHECKPOINT (of the
    * current draft) BEFORE the mutation and record a React-Agent HISTORY row linked to it, so the
@@ -448,6 +463,15 @@ export async function replaceWorkflowWithTemplate(
   if (!workflow || workflow.state === "deleted") return { ok: false, reason: "workflow_not_found" };
   const member = await isMember(input.actorUserId, workflow.accountId);
   if (!member) return { ok: false, reason: "workflow_not_found" };
+
+  // 1.5. WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — read-time freshness
+  //      check BEFORE any side effect (template resolve is read-only, but the
+  //      pre-replace checkpoint below is not): a stale builder session gets the
+  //      typed conflict and nothing happens. The guarded write below remains
+  //      the write-time enforcement for the remaining race window.
+  if (workflow.updatedAt !== input.expectedRevision) {
+    return { ok: false, reason: "revision_conflict", latestRevision: workflow.updatedAt };
+  }
 
   // 2. Template must be accessible to the caller; resolve is READ-ONLY (template untouched).
   const tpl = await resolveTemplateForAccess(input.templateId, input.actorUserId);
@@ -495,7 +519,13 @@ export async function replaceWorkflowWithTemplate(
       previousState: workflow.state,
       previousDefinition: workflow.draftDefinition,
       nextDefinition: parsed.data,
-      write: () => workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data),
+      write: () =>
+        workflowsRepo.updateDraftDefinitionIfRevisionMatches({
+          accountId: workflow.accountId,
+          workflowId: input.workflowId,
+          draftDefinition: parsed.data,
+          expectedUpdatedAt: input.expectedRevision,
+        }),
     });
   } catch (err) {
     // BRANCH-ENT-1 C5 — branching template into a non-entitled account: typed
@@ -506,8 +536,16 @@ export async function replaceWorkflowWithTemplate(
     }
     throw err;
   }
-  // The unguarded write never returns null; fall back to the loaded record defensively.
-  const updated = saved ?? workflow;
+  // A null result = the compare-and-swap missed: the workflow moved (or vanished)
+  // between our read-time check and the UPDATE. Nothing was written, no lifecycle
+  // side effect ran; classify and surface the typed conflict. The pre-replace
+  // checkpoint (when recorded) is a harmless snapshot of a real prior draft.
+  if (!saved) {
+    const classified = await classifyStaleDraftWrite(input.workflowId);
+    if (classified.kind === "not_found") return { ok: false, reason: "workflow_not_found" };
+    return { ok: false, reason: "revision_conflict", latestRevision: classified.latestRevision };
+  }
+  const updated = saved;
 
   // 6. AI-TEMPLATE-APPLY-CURRENT — record the change on the React Agent History timeline, linked to
   //    the pre-replace checkpoint so the row offers "Restore". Reuses the SAME history service the

@@ -161,6 +161,51 @@ export function workflowNotFoundResponse(): NextResponse {
 }
 
 /**
+ * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the typed 409 returned when
+ * an authoritative definition save's compare-and-swap found a newer revision.
+ * The caller is ALWAYS an already-authorized account member at this point (the
+ * membership gate runs first), so revealing "a newer version exists" plus the
+ * current opaque revision token is safe; the body deliberately carries NO
+ * workflow definition, no editor identity, and no account detail. Also emits
+ * the structured conflict diagnostic (safe fields only — never definitions,
+ * config, or token values).
+ */
+export function workflowRevisionConflictResponse(input: {
+  workflowId: string;
+  /** Omitted when the route delegated the load to a service and only knows the id. */
+  accountId?: string;
+  actorUserId: string;
+  latestRevision: string;
+  /** Which authoritative save surface hit the conflict. */
+  savePath: "builder_patch" | "template_replace" | "checkpoint_restore";
+  /** Whether the request supplied an expected revision (schema makes it required). */
+  expectedRevisionPresent: boolean;
+}): NextResponse {
+  console.warn(
+    JSON.stringify({
+      event: "workflow.save.revision_conflict",
+      workflowId: input.workflowId,
+      ...(input.accountId ? { accountId: input.accountId } : {}),
+      actorUserId: input.actorUserId,
+      savePath: input.savePath,
+      expectedRevisionPresent: input.expectedRevisionPresent,
+      currentRevisionPresent: true,
+      comparison: "stale",
+    }),
+  );
+  return NextResponse.json(
+    {
+      error:
+        "This workflow was changed elsewhere after you loaded it. Your changes have not been saved.",
+      code: "WORKFLOW_REVISION_CONFLICT",
+      workflowId: input.workflowId,
+      latestRevision: input.latestRevision,
+    },
+    { status: 409 },
+  );
+}
+
+/**
  * 4.TEAM-WORKFLOWS-1 (TW-1) — explicit route-layer authorization for a
  * workflow's account. The detail + lifecycle routes load a workflow by id and
  * call this with the workflow's own `accountId`; a caller who is NOT a member

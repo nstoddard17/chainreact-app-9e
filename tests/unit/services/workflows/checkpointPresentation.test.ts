@@ -16,9 +16,12 @@ jest.mock("@/repositories/workflowCheckpoints", () => ({
   getByIdForWorkflow: (...a: unknown[]) => mockGetByIdForWorkflow(...a),
   pruneToRecent: (...a: unknown[]) => mockPrune(...a),
 }));
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restore writes through the
+// canonical guarded compare-and-swap.
 const mockUpdateDraftDefinition = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
-  updateDraftDefinition: (...a: unknown[]) => mockUpdateDraftDefinition(...a),
+  updateDraftDefinitionIfRevisionMatches: (...a: unknown[]) => mockUpdateDraftDefinition(...a),
+  getById: jest.fn(),
 }));
 
 import { createCheckpoint, restoreCheckpoint } from "@/services/workflows/checkpoints";
@@ -42,6 +45,7 @@ function workflow(): WorkflowRecord {
     state: "draft",
     draftDefinition: { nodes: [], edges: [] },
     createdByUserId: "u1",
+    updatedAt: "2026-07-21T00:00:00Z",
   } as unknown as WorkflowRecord;
 }
 
@@ -70,8 +74,13 @@ it("restore writes the checkpoint's presentation back to the draft", async () =>
     id: "cp1", workflowId: "wf1", definition: DEF_WITH_SECTIONS,
   });
   mockUpdateDraftDefinition.mockResolvedValue({ ...workflow(), draftDefinition: DEF_WITH_SECTIONS });
-  const res = await restoreCheckpoint({ workflow: workflow(), checkpointId: "cp1" });
+  const res = await restoreCheckpoint({
+    workflow: workflow(),
+    checkpointId: "cp1",
+    expectedRevision: "2026-07-21T00:00:00Z",
+  });
   expect(res.ok).toBe(true);
-  const written = mockUpdateDraftDefinition.mock.calls[0]![1] as WorkflowDefinition;
+  const written = (mockUpdateDraftDefinition.mock.calls[0]![0] as { draftDefinition: WorkflowDefinition })
+    .draftDefinition;
   expect(written.presentation?.sections[0]!.title).toBe("Group");
 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { restoreCheckpoint } from "@/services/workflows/checkpoints";
 import {
   isPlanFeatureRequiredError,
@@ -9,8 +10,10 @@ import { LifecycleError } from "@/core/workflows/lifecycle";
 import {
   lifecycleErrorResponse,
   loadWorkflowForMember,
+  parseJsonBody,
   requireUser,
   toWorkflowDetail,
+  workflowRevisionConflictResponse,
   workflowUsesPrivateCredentialResponse,
 } from "../../../../_shared";
 
@@ -26,12 +29,26 @@ import {
  * deactivates exactly as a normal save would.
  */
 
+/**
+ * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restoring rewrites the
+ * draft definition, so the request must carry the revision the builder session
+ * loaded; a stale session gets the typed 409 instead of clobbering newer work.
+ */
+const BodySchema = z
+  .object({
+    expectedRevision: z.string().min(1, "expectedRevision is required."),
+  })
+  .strict();
+
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string; checkpointId: string }> },
 ) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
+
+  const body = await parseJsonBody(request, BodySchema);
+  if (!body.ok) return body.response;
 
   const { id, checkpointId } = await params;
   const loaded = await loadWorkflowForMember(id, auth.userId);
@@ -50,8 +67,19 @@ export async function POST(
     const result = await restoreCheckpoint({
       workflow: loaded.record,
       checkpointId,
+      expectedRevision: body.data.expectedRevision,
     });
     if (!result.ok) {
+      if (result.reason === "revision_conflict") {
+        return workflowRevisionConflictResponse({
+          workflowId: id,
+          accountId: loaded.record.accountId,
+          actorUserId: auth.userId,
+          latestRevision: result.latestRevision,
+          savePath: "checkpoint_restore",
+          expectedRevisionPresent: true,
+        });
+      }
       return NextResponse.json(
         { error: "Checkpoint not found.", code: "CHECKPOINT_NOT_FOUND" },
         { status: 404 },

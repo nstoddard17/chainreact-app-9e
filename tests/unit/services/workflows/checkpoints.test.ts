@@ -27,9 +27,13 @@ jest.mock("@/repositories/workflowCheckpoints", () => ({
   pruneToRecent: (...a: unknown[]) => mockPrune(...a),
 }));
 
-const mockUpdateDraftDefinition = jest.fn();
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restore writes through the
+// canonical guarded compare-and-swap (there is no unguarded writer any more).
+const mockGuardedUpdate = jest.fn();
+const mockGetById = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
-  updateDraftDefinition: (...a: unknown[]) => mockUpdateDraftDefinition(...a),
+  updateDraftDefinitionIfRevisionMatches: (...a: unknown[]) => mockGuardedUpdate(...a),
+  getById: (...a: unknown[]) => mockGetById(...a),
 }));
 
 import {
@@ -172,20 +176,28 @@ describe("restoreCheckpoint", () => {
       definition: PRE_CHANGE, createdAt: "2026-07-15T01:00:00Z",
     });
     // Echo what saveDraftDefinition writes so we can assert the restored graph.
-    mockUpdateDraftDefinition.mockImplementation(async (_id: string, def: WorkflowDefinition) =>
-      baseWorkflow({ draftDefinition: def, updatedAt: "2026-07-15T03:00:00Z" }),
+    mockGuardedUpdate.mockImplementation(
+      async (input: { draftDefinition: WorkflowDefinition }) =>
+        baseWorkflow({ draftDefinition: input.draftDefinition, updatedAt: "2026-07-15T03:00:00Z" }),
     );
 
     const result = await restoreCheckpoint({
       workflow: baseWorkflow({ draftDefinition: CURRENT_DRAFT }),
       checkpointId: "cp-1",
+      expectedRevision: "2026-07-15T00:00:00Z",
     });
 
     expect(result.ok).toBe(true);
     // The checkpoint id was scoped to THIS workflow when read.
     expect(mockGetByIdForWorkflow).toHaveBeenCalledWith("cp-1", "wf-1");
-    // The write persisted the checkpoint's captured graph, not the current draft.
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", PRE_CHANGE);
+    // The write persisted the checkpoint's captured graph via the GUARDED
+    // compare-and-swap, keyed on the caller's expected revision.
+    expect(mockGuardedUpdate).toHaveBeenCalledWith({
+      accountId: "acct-1",
+      workflowId: "wf-1",
+      draftDefinition: PRE_CHANGE,
+      expectedUpdatedAt: "2026-07-15T00:00:00Z",
+    });
     if (result.ok) {
       expect(result.record.draftDefinition).toEqual(PRE_CHANGE);
       expect(result.record.draftDefinition).not.toEqual(CURRENT_DRAFT);
@@ -197,9 +209,48 @@ describe("restoreCheckpoint", () => {
     const result = await restoreCheckpoint({
       workflow: baseWorkflow(),
       checkpointId: "cp-other",
+      expectedRevision: "2026-07-15T00:00:00Z",
     });
     expect(result).toEqual({ ok: false, reason: "checkpoint_not_found" });
-    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
+  });
+
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — a stale session must
+  // never restore over a newer draft another session just saved.
+  it("rejects a stale expectedRevision BEFORE reading the checkpoint (no write, typed conflict)", async () => {
+    const result = await restoreCheckpoint({
+      workflow: baseWorkflow({ updatedAt: "2026-07-15T02:00:00Z" }),
+      checkpointId: "cp-1",
+      expectedRevision: "2026-07-15T00:00:00Z", // older than the loaded row
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: "2026-07-15T02:00:00Z",
+    });
+    expect(mockGetByIdForWorkflow).not.toHaveBeenCalled();
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
+  });
+
+  it("classifies a compare-and-swap miss as revision_conflict with the CURRENT server token", async () => {
+    mockGetByIdForWorkflow.mockResolvedValue({
+      id: "cp-1", workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "react_agent", name: "Before React Agent change", prompt: null, summary: null,
+      definition: PRE_CHANGE, createdAt: "2026-07-15T01:00:00Z",
+    });
+    mockGuardedUpdate.mockResolvedValue(null); // row moved between load and UPDATE
+    mockGetById.mockResolvedValue(baseWorkflow({ updatedAt: "2026-07-15T06:00:00Z" }));
+
+    const result = await restoreCheckpoint({
+      workflow: baseWorkflow(),
+      checkpointId: "cp-1",
+      expectedRevision: "2026-07-15T00:00:00Z",
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: "2026-07-15T06:00:00Z",
+    });
   });
 });
 
@@ -249,17 +300,21 @@ describe("RECONV-1 — diamond definition round-trip", () => {
       source: "manual", name: "Before rewire", prompt: null, summary: null,
       definition: DIAMOND, createdAt: "2026-07-15T04:00:00Z",
     });
-    mockUpdateDraftDefinition.mockImplementation(async (_id: string, def: WorkflowDefinition) =>
-      baseWorkflow({ draftDefinition: def, updatedAt: "2026-07-15T05:00:00Z" }),
+    mockGuardedUpdate.mockImplementation(
+      async (input: { draftDefinition: WorkflowDefinition }) =>
+        baseWorkflow({ draftDefinition: input.draftDefinition, updatedAt: "2026-07-15T05:00:00Z" }),
     );
 
     const result = await restoreCheckpoint({
       workflow: baseWorkflow({ draftDefinition: CURRENT_DRAFT }),
       checkpointId: "cp-d",
+      expectedRevision: "2026-07-15T00:00:00Z",
     });
 
     expect(result.ok).toBe(true);
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", DIAMOND);
+    expect(mockGuardedUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowId: "wf-1", draftDefinition: DIAMOND }),
+    );
     if (result.ok) {
       expect(result.record.draftDefinition.edges).toEqual(DIAMOND.edges);
       expect(result.record.draftDefinition).toEqual(DIAMOND);

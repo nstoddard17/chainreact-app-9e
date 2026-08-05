@@ -73,7 +73,6 @@ import {
   getById,
   listByAccount,
   updateName,
-  updateDraftDefinition,
   updateDraftDefinitionIfRevisionMatches,
   createRevision,
   setActiveRevision,
@@ -187,29 +186,20 @@ describe("repositories/workflows.updateName", () => {
   });
 });
 
-describe("repositories/workflows.updateDraftDefinition", () => {
-  it("writes the full definition to draft_definition", async () => {
-    const def = {
-      nodes: [
-        {
-          id: "n1",
-          kind: "trigger" as const,
-          provider: "slack",
-          type: "message_received",
-          config: {},
-          position: { x: 0, y: 0 },
-        },
-      ],
-      edges: [],
-    };
-    const state = freshState({ ...baseRow, draft_definition: def });
-    mockSupabase.current = makeMockClient(state);
-    await updateDraftDefinition("wf-1", def);
-    expect(state.updatePayload).toEqual({ draft_definition: def });
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the unguarded
+// `updateDraftDefinition` is deliberately GONE: every definition write goes
+// through the compare-and-swap below. This pin fails if an unconditional
+// definition writer ever reappears in the repository.
+describe("repositories/workflows has no unconditional definition writer", () => {
+  it("does not export updateDraftDefinition", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const repo = require("@/repositories/workflows") as Record<string, unknown>;
+    expect(repo.updateDraftDefinition).toBeUndefined();
+    expect(typeof repo.updateDraftDefinitionIfRevisionMatches).toBe("function");
   });
 });
 
-describe("repositories/workflows.updateDraftDefinitionIfRevisionMatches (AI-6B guarded)", () => {
+describe("repositories/workflows.updateDraftDefinitionIfRevisionMatches (canonical guarded save)", () => {
   const def = { nodes: [], edges: [] };
 
   it("updates + returns the record when (id, account_id, updated_at) all match", async () => {

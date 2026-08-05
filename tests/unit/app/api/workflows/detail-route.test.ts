@@ -18,13 +18,18 @@ jest.mock("@/utils/supabase/server", () => ({
 
 const mockGetById = jest.fn();
 const mockUpdateName = jest.fn();
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the route writes through
+// the canonical guarded compare-and-swap; there is no unguarded writer.
 const mockUpdateDraftDefinition = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
   updateName: (...args: unknown[]) => mockUpdateName(...args),
-  updateDraftDefinition: (...args: unknown[]) =>
+  updateDraftDefinitionIfRevisionMatches: (...args: unknown[]) =>
     mockUpdateDraftDefinition(...args),
 }));
+
+/** The revision the client loaded — matches baseRecord.updatedAt. */
+const REV = "2026-05-06T00:00:00Z";
 
 // 4.TEAM-WORKFLOWS-1 (TW-1): the route now authorizes by account membership.
 const mockIsMember = jest.fn();
@@ -246,14 +251,16 @@ describe("PATCH /api/workflows/[id]", () => {
       ...baseRecord,
       draftDefinition: validDef,
     });
-    const res = await PATCH(patchRequest({ draftDefinition: validDef }), {
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: validDef }), {
       params: Promise.resolve({ id: "wf-1" }),
     });
     expect(res.status).toBe(200);
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith(
-      "wf-1",
-      expect.objectContaining({ nodes: expect.any(Array), edges: [] }),
-    );
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith({
+      accountId: "acct-user-1",
+      workflowId: "wf-1",
+      draftDefinition: expect.objectContaining({ nodes: expect.any(Array), edges: [] }),
+      expectedUpdatedAt: REV,
+    });
     const body = await res.json();
     expect(body.draftDefinition.nodes[0].id).toBe("n1");
   });
@@ -270,6 +277,7 @@ describe("PATCH /api/workflows/[id]", () => {
     };
     const res = await PATCH(
       patchRequest({
+        expectedRevision: REV,
         draftDefinition: {
           nodes: [trigger, { ...trigger, id: "n2" }],
           edges: [],
@@ -306,12 +314,14 @@ describe("PATCH /api/workflows/[id]", () => {
       draftDefinition: validDef,
     });
     const res = await PATCH(
-      patchRequest({ name: "Renamed", draftDefinition: validDef }),
+      patchRequest({ name: "Renamed", expectedRevision: REV, draftDefinition: validDef }),
       { params: Promise.resolve({ id: "wf-1" }) },
     );
     expect(res.status).toBe(200);
     expect(mockUpdateName).toHaveBeenCalledWith("wf-1", "Renamed");
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", validDef);
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowId: "wf-1", draftDefinition: validDef, expectedUpdatedAt: REV }),
+    );
   });
 });
 
@@ -340,10 +350,12 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
       draftDefinition: newDef,
     });
 
-    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: newDef }), params);
     expect(res.status).toBe(200);
     // Draft written BEFORE disable.
-    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", newDef);
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowId: "wf-1", draftDefinition: newDef, expectedUpdatedAt: REV }),
+    );
     expect(mockDisable).toHaveBeenCalledWith({
       workflowId: "wf-1",
       reason: "manual_admin",
@@ -364,7 +376,7 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
     const newDef = defWith({ provider: "gmail", type: "new_email" });
     mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
     mockDisable.mockResolvedValueOnce({ ...activeRecord, state: "disabled", draftDefinition: newDef });
-    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: newDef }), params);
     expect(res.status).toBe(200);
     expect(mockDisable).toHaveBeenCalledTimes(1);
   });
@@ -375,7 +387,7 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
     const newDef = { nodes: [], edges: [] };
     mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
     mockDisable.mockResolvedValueOnce({ ...activeRecord, state: "disabled", draftDefinition: newDef });
-    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: newDef }), params);
     expect(res.status).toBe(200);
     expect(mockDisable).toHaveBeenCalledTimes(1);
   });
@@ -388,7 +400,7 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
     });
     mockGetById.mockResolvedValueOnce({ ...baseRecord, state: "active", draftDefinition: manual({ a: 1 }) });
     mockUpdateDraftDefinition.mockResolvedValueOnce({ ...baseRecord, state: "active", draftDefinition: manual({ a: 2 }) });
-    const res = await PATCH(patchRequest({ draftDefinition: manual({ a: 2 }) }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: manual({ a: 2 }) }), params);
     expect(res.status).toBe(200);
     expect(mockDisable).not.toHaveBeenCalled();
     expect((await res.json()).state).toBe("active");
@@ -406,7 +418,7 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
       edges: [{ id: "e1", from: "t1", to: "a1" }],
     };
     mockUpdateDraftDefinition.mockResolvedValueOnce({ ...activeRecord, draftDefinition: newDef });
-    const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: newDef }), params);
     expect(res.status).toBe(200);
     expect(mockUpdateDraftDefinition).toHaveBeenCalledTimes(1);
     expect(mockDisable).not.toHaveBeenCalled();
@@ -420,7 +432,7 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
       mockGetById.mockResolvedValueOnce({ ...baseRecord, state, draftDefinition: defWith() });
       const newDef = defWith({ config: { channel: "C2" } });
       mockUpdateDraftDefinition.mockResolvedValueOnce({ ...baseRecord, state, draftDefinition: newDef });
-      const res = await PATCH(patchRequest({ draftDefinition: newDef }), params);
+      const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: newDef }), params);
       expect(res.status).toBe(200);
       expect(mockDisable).not.toHaveBeenCalled();
     },
@@ -430,7 +442,7 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
     authedUser();
     mockGetById.mockResolvedValueOnce({ ...activeRecord, accountId: "acct-team-B" });
     mockIsMember.mockResolvedValueOnce(false);
-    const res = await PATCH(patchRequest({ draftDefinition: defWith({ config: { channel: "C2" } }) }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: defWith({ config: { channel: "C2" } }) }), params);
     expect(res.status).toBe(404);
     expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
     expect(mockDisable).not.toHaveBeenCalled();
@@ -440,9 +452,97 @@ describe("PATCH /api/workflows/[id] — active-edit stale-trigger deactivation",
     authedUser();
     // Two triggers → fails WorkflowDefinitionSchema at parse, before any load/write.
     const invalid = { nodes: [{ ...slackTrigger }, { ...slackTrigger, id: "t2" }], edges: [] };
-    const res = await PATCH(patchRequest({ draftDefinition: invalid }), params);
+    const res = await PATCH(patchRequest({ expectedRevision: REV, draftDefinition: invalid }), params);
     expect(res.status).toBe(400);
     expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
     expect(mockDisable).not.toHaveBeenCalled();
+  });
+});
+
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — optimistic concurrency on
+// the interactive builder save.
+describe("PATCH /api/workflows/[id] — revision conflict protection", () => {
+  function patchRequest(body: unknown): Request {
+    return new Request("http://x/wf-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+  const params = { params: Promise.resolve({ id: "wf-1" }) };
+  const validDef = { nodes: [], edges: [] };
+
+  it("requires expectedRevision for interactive builder saves (400, nothing loaded or written)", async () => {
+    authedUser();
+    const res = await PATCH(patchRequest({ draftDefinition: validDef }), params);
+    expect(res.status).toBe(400);
+    expect(mockGetById).not.toHaveBeenCalled();
+    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+  });
+
+  it("returns typed 409 WORKFLOW_REVISION_CONFLICT when the loaded row already moved past expectedRevision (read-time), with NO write and NO lifecycle side effect", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, updatedAt: "2026-05-07T00:00:00Z" });
+    const res = await PATCH(
+      patchRequest({ expectedRevision: REV, draftDefinition: validDef }),
+      params,
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_REVISION_CONFLICT");
+    expect(body.latestRevision).toBe("2026-05-07T00:00:00Z");
+    expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
+  });
+
+  it("classifies a write-time compare-and-swap miss as 409 with the CURRENT server revision; newer definition unchanged", async () => {
+    authedUser();
+    // Read-time check passes (row matches the client token)…
+    mockGetById.mockResolvedValueOnce(baseRecord);
+    // …but the CAS misses (another writer landed between read and UPDATE).
+    mockUpdateDraftDefinition.mockResolvedValueOnce(null);
+    // The classify re-read reports the newer revision.
+    mockGetById.mockResolvedValueOnce({ ...baseRecord, updatedAt: "2026-05-08T00:00:00Z" });
+    const res = await PATCH(
+      patchRequest({ expectedRevision: REV, draftDefinition: validDef }),
+      params,
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_REVISION_CONFLICT");
+    expect(body.latestRevision).toBe("2026-05-08T00:00:00Z");
+    expect(mockDisable).not.toHaveBeenCalled();
+  });
+
+  it("conflict response carries NO workflow definition or account/creator identifiers", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce({
+      ...baseRecord,
+      updatedAt: "2026-05-07T00:00:00Z",
+      draftDefinition: defWith({ config: { channel: "SECRET-CHANNEL" } }),
+    });
+    const res = await PATCH(
+      patchRequest({ expectedRevision: REV, draftDefinition: validDef }),
+      params,
+    );
+    expect(res.status).toBe(409);
+    const raw = JSON.stringify(await res.json());
+    expect(raw).not.toContain("draftDefinition");
+    expect(raw).not.toContain("SECRET-CHANNEL");
+    expect(raw).not.toContain("acct-user-1");
+    expect(raw).not.toContain("user-1");
+  });
+
+  it("classifies a CAS miss on a row that vanished as 404 (not a conflict)", async () => {
+    authedUser();
+    mockGetById.mockResolvedValueOnce(baseRecord);
+    mockUpdateDraftDefinition.mockResolvedValueOnce(null);
+    mockGetById.mockResolvedValueOnce(null); // gone by classify time
+    const res = await PATCH(
+      patchRequest({ expectedRevision: REV, draftDefinition: validDef }),
+      params,
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("WORKFLOW_NOT_FOUND");
   });
 });

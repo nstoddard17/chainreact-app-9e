@@ -165,17 +165,48 @@ describe("GET /api/workflows/[id]/checkpoints", () => {
   });
 });
 
+function restoreRequest(body: unknown = { expectedRevision: "2026-07-15T00:00:00Z" }): Request {
+  return new Request("http://localhost/r", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 describe("POST /api/workflows/[id]/checkpoints/[checkpointId]/restore", () => {
   it("is blocked with a 404 no-leak for a non-member and never restores", async () => {
     mockIsMember.mockResolvedValue(false);
-    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    const res = await RESTORE(restoreRequest(), { params: restoreParams });
     expect(res.status).toBe(404);
     expect(mockRestoreCheckpoint).not.toHaveBeenCalled();
   });
 
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restore is an
+  // authoritative definition save: it requires the session's revision and maps
+  // a conflict to the same typed 409 the builder save uses.
+  it("returns 400 when the body has no expectedRevision (nothing restored)", async () => {
+    const res = await RESTORE(restoreRequest({}), { params: restoreParams });
+    expect(res.status).toBe(400);
+    expect(mockRestoreCheckpoint).not.toHaveBeenCalled();
+  });
+
+  it("maps a revision_conflict to typed 409 WORKFLOW_REVISION_CONFLICT (no definition in body)", async () => {
+    mockRestoreCheckpoint.mockResolvedValue({
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: "2026-07-15T09:00:00Z",
+    });
+    const res = await RESTORE(restoreRequest(), { params: restoreParams });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { code: string; latestRevision: string };
+    expect(body.code).toBe("WORKFLOW_REVISION_CONFLICT");
+    expect(body.latestRevision).toBe("2026-07-15T09:00:00Z");
+    expect(JSON.stringify(body)).not.toContain("draftDefinition");
+  });
+
   it("surfaces CHECKPOINT_NOT_FOUND (404) with a useful message when the checkpoint is missing", async () => {
     mockRestoreCheckpoint.mockResolvedValue({ ok: false, reason: "checkpoint_not_found" });
-    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    const res = await RESTORE(restoreRequest(), { params: restoreParams });
     expect(res.status).toBe(404);
     const body = (await res.json()) as { code: string; error: string };
     expect(body.code).toBe("CHECKPOINT_NOT_FOUND");
@@ -189,7 +220,7 @@ describe("POST /api/workflows/[id]/checkpoints/[checkpointId]/restore", () => {
       updatedAt: "2026-07-15T03:00:00Z",
     };
     mockRestoreCheckpoint.mockResolvedValue({ ok: true, record: restored });
-    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    const res = await RESTORE(restoreRequest(), { params: restoreParams });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { draftDefinition: typeof PRE_CHANGE; updatedAt: string };
     expect(body.draftDefinition).toEqual(PRE_CHANGE);
@@ -197,6 +228,7 @@ describe("POST /api/workflows/[id]/checkpoints/[checkpointId]/restore", () => {
     expect(mockRestoreCheckpoint).toHaveBeenCalledWith({
       workflow: baseWorkflow,
       checkpointId: "cp-1",
+      expectedRevision: "2026-07-15T00:00:00Z",
     });
   });
 
@@ -207,7 +239,7 @@ describe("POST /api/workflows/[id]/checkpoints/[checkpointId]/restore", () => {
     mockRestoreCheckpoint.mockRejectedValue(
       new LifecycleError("LIFECYCLE_CONFLICT", "another lifecycle op is in progress"),
     );
-    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    const res = await RESTORE(restoreRequest(), { params: restoreParams });
     expect(res.status).toBe(409); // LIFECYCLE_CONFLICT → 409
     const body = (await res.json()) as { code: string };
     expect(body.code).toBe("LIFECYCLE_CONFLICT");
@@ -218,7 +250,7 @@ describe("POST /api/workflows/[id]/checkpoints/[checkpointId]/restore", () => {
   it("returns a safe CHECKPOINT_RESTORE_FAILED body for an unexpected throw, without leaking the internal message", async () => {
     const rawSecret = "workflows.updateDraftDefinition failed: relation account_secrets violated constraint xyz";
     mockRestoreCheckpoint.mockRejectedValue(new Error(rawSecret));
-    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    const res = await RESTORE(restoreRequest(), { params: restoreParams });
     expect(res.status).toBe(500);
     const body = (await res.json()) as { code: string; error: string };
     expect(body.code).toBe("CHECKPOINT_RESTORE_FAILED");

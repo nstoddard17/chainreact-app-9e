@@ -37,6 +37,8 @@ const WF = "11111111-1111-1111-1111-111111111111";
 const WF_ACCOUNT = "22222222-2222-2222-2222-222222222222";
 const CALLER = "33333333-3333-3333-3333-333333333333";
 const TPL = "44444444-4444-4444-4444-444444444444";
+/** WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the session's loaded revision. */
+const REV = "2026-06-07T00:00:00Z";
 
 function params() {
   return { params: Promise.resolve({ id: WF }) };
@@ -126,7 +128,7 @@ describe("POST /api/workflows/[id]/create-from-template", () => {
 describe("POST /api/workflows/[id]/replace-from-template", () => {
   it("401 when unauthenticated", async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
-    const res = await replacePost(req({ templateId: TPL }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
     expect(res.status).toBe(401);
     expect(mockReplaceWithTemplate).not.toHaveBeenCalled();
   });
@@ -134,7 +136,7 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
   it("workflow_not_found → 404 (covers missing + non-member, no leak)", async () => {
     signedIn();
     mockReplaceWithTemplate.mockResolvedValueOnce({ ok: false, reason: "workflow_not_found" });
-    const res = await replacePost(req({ templateId: TPL }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
     expect(res.status).toBe(404);
     expect((await res.json()).code).toBe("WORKFLOW_NOT_FOUND");
   });
@@ -142,7 +144,7 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
   it("invalid_template → 422", async () => {
     signedIn();
     mockReplaceWithTemplate.mockResolvedValueOnce({ ok: false, reason: "invalid_template" });
-    const res = await replacePost(req({ templateId: TPL }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
     expect(res.status).toBe(422);
     expect((await res.json()).code).toBe("INVALID_TEMPLATE");
   });
@@ -150,7 +152,7 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
   it("happy path → 200 WorkflowDetail; NO raw account/user id leaks", async () => {
     signedIn();
     mockReplaceWithTemplate.mockResolvedValueOnce({ ok: true, workflow: workflowRecord() });
-    const res = await replacePost(req({ templateId: TPL }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
     expect(res.status).toBe(200);
     const body = await res.json();
     // Returns the updated workflow detail (so the builder can re-hydrate).
@@ -170,7 +172,7 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
   it("origin 'react_agent' → recordHistory:true forwarded to the service (AI apply-to-current)", async () => {
     signedIn();
     mockReplaceWithTemplate.mockResolvedValueOnce({ ok: true, workflow: workflowRecord() });
-    const res = await replacePost(req({ templateId: TPL, origin: "react_agent" }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV, origin: "react_agent" }), params());
     expect(res.status).toBe(200);
     expect(mockReplaceWithTemplate).toHaveBeenCalledWith(
       expect.objectContaining({ workflowId: WF, templateId: TPL, actorUserId: CALLER, recordHistory: true }),
@@ -180,7 +182,7 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
   it("no origin (in-builder modal) → recordHistory is NOT set (keeps the modal's no-checkpoint behavior)", async () => {
     signedIn();
     mockReplaceWithTemplate.mockResolvedValueOnce({ ok: true, workflow: workflowRecord() });
-    const res = await replacePost(req({ templateId: TPL }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
     expect(res.status).toBe(200);
     expect(mockReplaceWithTemplate).toHaveBeenCalledTimes(1);
     expect(mockReplaceWithTemplate.mock.calls[0]![0]).not.toHaveProperty("recordHistory");
@@ -188,9 +190,33 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
 
   it("rejects an unknown origin value (strict body)", async () => {
     signedIn();
-    const res = await replacePost(req({ templateId: TPL, origin: "hacker" }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV, origin: "hacker" }), params());
     expect(res.status).toBe(400);
     expect(mockReplaceWithTemplate).not.toHaveBeenCalled();
+  });
+
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — a stale session's replace
+  // is a typed 409 and the request must carry the session's loaded revision.
+  it("requires expectedRevision (400, service never called)", async () => {
+    signedIn();
+    const res = await replacePost(req({ templateId: TPL }), params());
+    expect(res.status).toBe(400);
+    expect(mockReplaceWithTemplate).not.toHaveBeenCalled();
+  });
+
+  it("maps revision_conflict → typed 409 WORKFLOW_REVISION_CONFLICT with the latest token", async () => {
+    signedIn();
+    mockReplaceWithTemplate.mockResolvedValueOnce({
+      ok: false,
+      reason: "revision_conflict",
+      latestRevision: "2026-06-09T00:00:00Z",
+    });
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("WORKFLOW_REVISION_CONFLICT");
+    expect(body.latestRevision).toBe("2026-06-09T00:00:00Z");
+    expect(JSON.stringify(body)).not.toContain("draftDefinition");
   });
 
   it("surfaces the disabled state when replacing an active workflow (service deactivated it)", async () => {
@@ -199,7 +225,7 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
       ok: true,
       workflow: workflowRecord({ state: "disabled", disabledReason: "manual_admin" }),
     });
-    const res = await replacePost(req({ templateId: TPL }), params());
+    const res = await replacePost(req({ templateId: TPL, expectedRevision: REV }), params());
     expect(res.status).toBe(200);
     const body = await res.json();
     // The builder reads this to reflect that the workflow is no longer active.

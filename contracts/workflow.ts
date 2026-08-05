@@ -382,6 +382,17 @@ export const UpdateWorkflowRequestSchema = z
   .object({
     name: z.string().trim().min(1, "Workflow name is required.").max(120).optional(),
     draftDefinition: WorkflowDefinitionSchema.optional(),
+    /**
+     * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the server revision
+     * token (`updatedAt`) the caller's definition edits are based on. REQUIRED
+     * whenever `draftDefinition` is present: the server only persists the
+     * definition when the row still carries this exact revision (atomic
+     * compare-and-swap), returning a typed 409 WORKFLOW_REVISION_CONFLICT
+     * otherwise. Opaque — clients must echo the server-issued value verbatim,
+     * never construct or advance it locally. Name/folder-only updates don't
+     * carry it (metadata last-write-wins is acceptable; the definition is not).
+     */
+    expectedRevision: z.string().min(1).optional(),
     // 4.WORKFLOW-FOLDERS-3 / WF-2 — move into a folder, or null to uncategorize.
     // `undefined` = leave membership unchanged; explicit `null` = uncategorized.
     folderId: z.string().uuid().nullable().optional(),
@@ -389,5 +400,9 @@ export const UpdateWorkflowRequestSchema = z
   .refine(
     (v) => v.name !== undefined || v.draftDefinition !== undefined || v.folderId !== undefined,
     { message: "At least one field must be provided." },
-  );
+  )
+  .refine((v) => v.draftDefinition === undefined || v.expectedRevision !== undefined, {
+    message:
+      "expectedRevision is required when saving draftDefinition — reload the workflow to get its current revision.",
+  });
 export type UpdateWorkflowRequest = z.infer<typeof UpdateWorkflowRequestSchema>;

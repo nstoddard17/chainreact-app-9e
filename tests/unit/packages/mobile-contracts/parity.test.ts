@@ -101,6 +101,7 @@ describe("mobile-contracts parity with web contracts", () => {
       LIFECYCLE_CONFLICT: "LIFECYCLE_CONFLICT",
       ACCOUNT_PENDING_DELETION: "ACCOUNT_PENDING_DELETION",
       CONFIRMATION_REQUIRED: "CONFIRMATION_REQUIRED",
+      WORKFLOW_REVISION_CONFLICT: "WORKFLOW_REVISION_CONFLICT",
       SERVER_ERROR: "SERVER_ERROR",
     };
     for (const mobileCode of Object.values(coverage)) {
