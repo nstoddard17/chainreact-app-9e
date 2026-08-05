@@ -4,7 +4,7 @@ If the saved workflow changes after a session loaded it, ChainReact must not
 silently overwrite those newer changes. The user is told the workflow changed
 elsewhere and given a safe recovery path. This document is the durable contract;
 the reproduction, audit tables, and certification evidence live in
-[`docs/slices/phase-5/workflow-changed-elsewhere-conflict-protection.md`](../slices/phase-5/workflow-changed-elsewhere-conflict-protection.md).
+[`docs/slices/phase-5/workflow-changed-elsewhere/workflow-changed-elsewhere-conflict-protection.md`](../slices/phase-5/workflow-changed-elsewhere/workflow-changed-elsewhere-conflict-protection.md).
 
 ## The canonical token
 
