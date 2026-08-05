@@ -1,6 +1,7 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { RateLimitCounts } from "@/core/apiKeys/rateLimitPolicy";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
+import { apiKeyRateLimitRowSchema, parseRpcResult } from "@/core/database/rpcResultSchemas";
 
 /**
  * Durable rate-limit counter repository (Slice 4.API-KEYS-RATE-LIMIT-1).
@@ -51,7 +52,13 @@ export async function incrementApiKeyRateLimitWindowsServiceRole(
     );
   }
   // A TABLE-returning function comes back as an array of rows.
-  const row = (Array.isArray(data) ? data[0] : data) as IncrementRow | undefined;
+  // PostgREST returns an array for a TABLE-returning function; a single
+  // object is tolerated too (pinned by the repository unit tests).
+  const rows: RpcRows<"increment_api_key_rate_limits"> = Array.isArray(data) ? data : data ? [data] : [];
+  const first = rows[0];
+  const row = first
+    ? parseRpcResult("increment_api_key_rate_limits", apiKeyRateLimitRowSchema, first)
+    : undefined;
   if (!row) {
     throw new Error(
       "api_key_rate_limits.incrementApiKeyRateLimitWindowsServiceRole failed: no row returned",

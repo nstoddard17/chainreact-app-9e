@@ -1,5 +1,9 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRow } from "@/types/rpc";
+import {
+  parseRpcResult,
+  scheduleAccountDeletionRowSchema,
+} from "@/core/database/rpcResultSchemas";
 
 /**
  * Repository for `account_deletions` — the durable deletion audit ledger
@@ -123,18 +127,23 @@ export async function scheduleAccountDeletionAtomic(input: {
       p_challenge_session_binding: input.challenge?.sessionBinding ?? null,
       p_challenge_email_binding: input.challenge?.emailBinding ?? null,
     } satisfies RpcArgs<"schedule_account_deletion">)
-    .single<ScheduleDeletionRow>();
+    .single<RpcRow<"schedule_account_deletion">>();
   if (error || !data) {
     throw new Error(
       `account_deletions.scheduleAccountDeletionAtomic failed: ${error?.message ?? "no row"}`,
     );
   }
+  const row = parseRpcResult(
+    "schedule_account_deletion",
+    scheduleAccountDeletionRowSchema,
+    data,
+  );
   return {
-    outcome: data.out_outcome,
-    accountId: data.out_account_id,
-    deletionStatus: data.out_deletion_status,
-    deletionRequestedAt: data.out_deletion_requested_at,
-    purgeAfter: data.out_purge_after,
+    outcome: row.out_outcome,
+    accountId: row.out_account_id,
+    deletionStatus: row.out_deletion_status,
+    deletionRequestedAt: row.out_deletion_requested_at,
+    purgeAfter: row.out_purge_after,
   };
 }
 

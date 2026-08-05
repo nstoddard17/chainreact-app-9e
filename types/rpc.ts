@@ -51,5 +51,40 @@ type NullPermitting<T> = { [P in keyof T]: T[P] | null };
  */
 export type RpcArgs<K extends PublicRpcName> = NullPermitting<RpcArgsStrict<K>>;
 
-/** The return payload for a public RPC, exactly as the database declares it. */
+/** The return payload for a public RPC, exactly as Supabase generates it. */
 export type RpcReturns<K extends PublicRpcName> = Database["public"]["Functions"][K]["Returns"];
+
+/**
+ * RPC-RETURN-CONTRACT-GUARD-1 — the RESULT side.
+ *
+ * Two facts drive everything below, and both are proved against the catalog by
+ * `scripts/ci/rpc-signature-guard.mjs`:
+ *
+ * 1. A `jsonb`-returning function generates `Returns: Json`. `Json` is a union
+ *    (string | number | boolean | null | object | array), so it carries NO field
+ *    information — `RpcReturns<"apply_business_upgrade">` cannot be dotted into.
+ *    A compile-time type therefore CANNOT protect these results; only runtime
+ *    validation can. Those live in `core/database/rpcResultSchemas.ts`.
+ *
+ * 2. For `TABLE(...)`-returning functions the generator emits precise column
+ *    types but marks every column NON-nullable. PostgreSQL does not track
+ *    nullability of function output columns at all, so that non-nullability is
+ *    an artifact of the generator, not a database guarantee — several of these
+ *    functions genuinely return NULL columns (`get_account_member_identities.email`,
+ *    `schedule_account_deletion.out_account_id`). Taking `RpcReturns` literally
+ *    would LOSE null-safety the previous handwritten casts had, so row helpers
+ *    below re-permit null. Same reasoning as `RpcArgs`.
+ */
+/** One row of a set-returning (`TABLE(...)` / `SETOF`) RPC, nulls permitted. */
+export type RpcRow<K extends PublicRpcName> =
+  RpcReturns<K> extends readonly (infer R)[] ? NullPermitting<R> : never;
+
+/** The rows of a set-returning RPC. PostgREST returns an array, possibly empty. */
+export type RpcRows<K extends PublicRpcName> = ReadonlyArray<RpcRow<K>>;
+
+/**
+ * A scalar-returning RPC's value. A SQL function may always return NULL (and
+ * these do — `find_user_id_by_email` returns NULL for an unknown address), which
+ * the generator does not express.
+ */
+export type RpcScalar<K extends PublicRpcName> = RpcReturns<K> | null;

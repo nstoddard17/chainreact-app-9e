@@ -7,7 +7,11 @@ import {
   type LiveTestFailureCode,
   type LiveTestSessionStatus,
 } from "@/core/workflows/liveTest/liveTestSessionLifecycle";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
+import {
+  authorizeLiveTestRunRowSchema,
+  parseRpcResult,
+} from "@/core/database/rpcResultSchemas";
 
 /**
  * Repository for `workflow_live_test_sessions` (WORKFLOW-LIVE-TEST-3 §1).
@@ -369,10 +373,16 @@ export async function authorizeExecution(input: {
   if (error) {
     throw new Error(`workflow_live_test_sessions.authorize failed: ${error.message}`);
   }
-  const row = (Array.isArray(data) ? data[0] : data) as
-    | { outcome: string; run_id: string | null }
-    | undefined;
-  if (!row) throw new Error("workflow_live_test_sessions.authorize returned no outcome row.");
+  // PostgREST returns an array for a TABLE-returning function; a single
+  // object is tolerated too, matching the previous behaviour.
+  const rows: RpcRows<"authorize_live_test_run"> = Array.isArray(data)
+    ? data
+    : data
+      ? [data]
+      : [];
+  const first = rows[0];
+  if (!first) throw new Error("workflow_live_test_sessions.authorize returned no outcome row.");
+  const row = parseRpcResult("authorize_live_test_run", authorizeLiveTestRunRowSchema, first);
   switch (row.outcome) {
     case "authorized":
       return { ok: true, runId: row.run_id!, alreadyAuthorized: false };

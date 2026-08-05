@@ -1,0 +1,1 @@
+{ "$comment": ["RPC-RETURN-CONTRACT-GUARD-1 — Postgres RETURN types with no TypeScript mapping, reviewed one at a time. An undeclared unmapped type FAILS the guard rather than being assumed compatible. Empty today: every function the catalog reports maps cleanly."], "unmappedReturnTypes": [] }

@@ -321,15 +321,27 @@ describe("db-ci.yml — loopback-only, zero cloud credentials", () => {
     expect(guardStep).not.toContain("secrets.");
   });
 
-  it("triggers db-ci when the guard, its manifest, or the RPC type contract changes", () => {
+  it("triggers db-ci when the guard, its manifests, or the RPC type contract changes", () => {
     for (const p of [
       '"scripts/ci/rpc-signature-guard.mjs"',
       '"scripts/ci/rpc-dynamic-callers.json"',
+      // RPC-RETURN-CONTRACT-GUARD-1 — the result-side manifests decide what
+      // handling is approved, so editing one must re-run the guard.
+      '"scripts/ci/rpc-result-contracts.json"',
+      '"scripts/ci/rpc-return-compat.json"',
       '"types/rpc.ts"',
       '"types/database.types.ts"',
     ]) {
       expect(text).toContain(p);
     }
+  });
+
+  it("the single guard step covers BOTH the argument and the result contract", () => {
+    // One `run` invocation performs inventory + callers + check, and `check` is
+    // what compares return types and classifies every result flow. A future
+    // split into a partial command would drop half the protection silently.
+    expect(text).toContain("rpc-signature-guard.mjs run");
+    expect(text).not.toMatch(/rpc-signature-guard\.mjs (inventory|callers)\b/);
   });
 
   it("introduces no retries, no failure masking, and no pass-with-no-tests", () => {

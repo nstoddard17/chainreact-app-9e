@@ -4,7 +4,7 @@ import type {
   AccountMembershipRecord,
   MembershipRole,
 } from "@/contracts/accounts";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
 
 /**
  * Repository for `account_memberships`.
@@ -127,16 +127,15 @@ export async function listMemberIdentities(
       `account_memberships.listMemberIdentities failed: ${error.message}`,
     );
   }
-  const rows = (data ?? []) as Array<{
-    user_id: string;
-    email: string | null;
-    display_name: string | null;
-  }>;
-  return rows.map((r) => ({
-    userId: r.user_id,
-    email: r.email,
-    displayName: r.display_name,
-  }));
+  const rows: RpcRows<"get_account_member_identities"> = data ?? [];
+  // RpcRows models the columns as nullable because PostgreSQL does not
+  // declare nullability for function output columns. A row with no user_id is
+  // not an identity, so it is dropped rather than asserted away.
+  return rows.flatMap((r) =>
+    r.user_id === null
+      ? []
+      : [{ userId: r.user_id, email: r.email, displayName: r.display_name }],
+  );
 }
 
 export async function listByUser(

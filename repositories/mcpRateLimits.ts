@@ -1,6 +1,7 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { McpRateLimitCounts } from "@/core/mcp/rateLimitPolicy";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
+import { mcpRateLimitRowSchema, parseRpcResult } from "@/core/database/rpcResultSchemas";
 
 /**
  * Durable rate-limit counter repository for the public MCP server
@@ -48,7 +49,13 @@ export async function incrementMcpRateLimitWindowsServiceRole(
       `mcp_rate_limits.incrementMcpRateLimitWindowsServiceRole failed: ${error.message}`,
     );
   }
-  const row = (Array.isArray(data) ? data[0] : data) as IncrementRow | undefined;
+  // PostgREST returns an array for a TABLE-returning function; a single
+  // object is tolerated too (pinned by the repository unit tests).
+  const rows: RpcRows<"increment_mcp_rate_limits"> = Array.isArray(data) ? data : data ? [data] : [];
+  const first = rows[0];
+  const row = first
+    ? parseRpcResult("increment_mcp_rate_limits", mcpRateLimitRowSchema, first)
+    : undefined;
   if (!row) {
     throw new Error(
       "mcp_rate_limits.incrementMcpRateLimitWindowsServiceRole failed: no row returned",

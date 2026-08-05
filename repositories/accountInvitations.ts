@@ -1,5 +1,6 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcReturns } from "@/types/rpc";
+import { accountInvitationRowSchema, parseRpcResult } from "@/core/database/rpcResultSchemas";
 
 /**
  * Repository for `account_invitations` (4.ACCOUNT-MODEL-15).
@@ -295,7 +296,7 @@ export async function replaceInvitationServiceRole(input: {
       p_invited_by_user_id: input.invitedByUserId,
       p_now: input.nowIso,
     } satisfies RpcArgs<"replace_account_invitation">)
-    .single<AccountInvitationsRow>();
+    .single<RpcReturns<"replace_account_invitation">>();
   if (error) {
     if (error.message?.includes("INVITATION_NOT_PENDING")) {
       throw new Error(REPLACE_NOT_PENDING);
@@ -310,7 +311,11 @@ export async function replaceInvitationServiceRole(input: {
   if (!data) {
     throw new Error("account_invitations.replaceInvitationServiceRole failed: no row");
   }
-  return rowToRecord(data);
+  // The generated composite widens role/status to `string`; narrow them against
+  // the same closed sets the database CHECK constraints enforce.
+  return rowToRecord(
+    parseRpcResult("replace_account_invitation", accountInvitationRowSchema, data),
+  );
 }
 
 /**

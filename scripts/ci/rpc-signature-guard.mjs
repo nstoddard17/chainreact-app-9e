@@ -67,6 +67,8 @@ export const SCAN_DIRS = [
 
 const DEFAULT_TYPES = "types/database.types.ts";
 const DEFAULT_DYNAMIC = "scripts/ci/rpc-dynamic-callers.json";
+const DEFAULT_CONTRACTS = "scripts/ci/rpc-result-contracts.json";
+const DEFAULT_COMPAT = "scripts/ci/rpc-return-compat.json";
 
 /**
  * Postgres type -> the TypeScript type Supabase's generator emits. Used ONLY to
@@ -130,6 +132,7 @@ const INVENTORY_SQL = `
 WITH fns AS (
   SELECT p.oid, n.nspname AS schema, p.proname AS name,
          p.pronargs, p.pronargdefaults, p.prosecdef,
+         p.prorettype, p.proretset,
          pg_get_function_identity_arguments(p.oid) AS identity_args,
          pg_get_function_result(p.oid) AS returns,
          COALESCE(p.proallargtypes::oid[], p.proargtypes::oid[]) AS all_types,
@@ -149,6 +152,28 @@ inputs AS (
   SELECT oid, ord, argname, argtype,
          row_number() OVER (PARTITION BY oid ORDER BY ord) AS in_pos
   FROM expanded WHERE argmode IN ('i','b','v')
+),
+-- OUT / TABLE columns: the structural half of the RETURN contract.
+outcols AS (
+  SELECT oid, ord, argname, argtype,
+         row_number() OVER (PARTITION BY oid ORDER BY ord) AS out_pos
+  FROM expanded WHERE argmode IN ('t','o')
+),
+-- A function returning a named composite (e.g. account_invitations) has no
+-- OUT columns; its structure comes from the type's own attributes.
+compcols AS (
+  SELECT f.oid, a.attnum AS out_pos, a.attname AS argname,
+         format_type(a.atttypid, a.atttypmod) AS argtype
+  FROM fns f
+  JOIN pg_type t ON t.oid = f.prorettype
+  JOIN pg_class c ON c.oid = t.typrelid AND c.relkind IN ('r','c','v','m','p','f')
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE NOT EXISTS (SELECT 1 FROM outcols o WHERE o.oid = f.oid)
+),
+allout AS (
+  SELECT oid, out_pos, argname, argtype FROM outcols
+  UNION ALL
+  SELECT oid, out_pos, argname, argtype FROM compcols
 )
 SELECT COALESCE(json_agg(row_to_json(r) ORDER BY r.name, r."identityArgs"), '[]'::json)
 FROM (
@@ -163,6 +188,10 @@ FROM (
                      'name', i.argname, 'type', i.argtype,
                      'required', i.in_pos <= (f.pronargs - f.pronargdefaults)) ORDER BY i.in_pos)
                    FROM inputs i WHERE i.oid = f.oid), '[]'::json) AS args,
+         f.proretset AS "returnsSetof",
+         COALESCE((SELECT json_agg(json_build_object('name', o.argname, 'type', o.argtype)
+                                   ORDER BY o.out_pos)
+                   FROM allout o WHERE o.oid = f.oid), 'null'::json) AS "returnColumns",
          json_build_object(
            'anon', has_function_privilege('anon', f.oid, 'EXECUTE'),
            'authenticated', has_function_privilege('authenticated', f.oid, 'EXECUTE'),
@@ -277,6 +306,7 @@ export function extractRpcCalls(fileName, sourceText) {
   // A name declared twice with different literals is AMBIGUOUS (stored as
   // null): resolving it by name could silently check the wrong key set.
   const localObjects = new Map();
+  const localContracts = new Map();
   const collectLocals = (node) => {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
       let init = node.initializer;
@@ -285,6 +315,16 @@ export function extractRpcCalls(fileName, sourceText) {
         init = init.expression;
       }
       const name = node.name.text;
+      // Remember a `satisfies RpcArgs<"fn">` (or an explicit type annotation)
+      // carried by the declaration, so an identifier argument keeps its
+      // compile-time contract when the call site references it.
+      const contractText = [
+        ts.isSatisfiesExpression?.(node.initializer) ? node.initializer.type.getText(sf) : null,
+        node.type ? node.type.getText(sf) : null,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (contractText) localContracts.set(name, contractText);
       if (ts.isObjectLiteralExpression(init)) {
         localObjects.set(name, localObjects.has(name) ? null : init);
       } else {
@@ -319,6 +359,156 @@ export function extractRpcCalls(fileName, sourceText) {
     return keys;
   };
 
+  /**
+   * How the caller handles the RPC RESULT. RPC-RETURN-CONTRACT-GUARD-1: the
+   * input side being typed proves nothing about the value coming back — a
+   * changed return shape still compiles behind `data as { ... }`.
+   *
+   * Buckets (every call lands in exactly one):
+   *   ignored   — `data` is never bound; the caller cannot misuse it.
+   *   contract  — the result is described by RpcReturns<"fn"> (an `as`, a type
+   *               annotation, or a `.single<...>()` type argument mentioning it).
+   *   validated — the result is passed to a registered runtime validator/mapper.
+   *   cast      — a HANDWRITTEN `as { ... }` / `.single<HandRolled>()`. This is
+   *               the gap: it silently survives a return-shape change.
+   *   inferred  — `data` is bound and used with no explicit contract at all.
+   */
+  const classifyResult = (callNode) => {
+    // Walk out through the postgrest chain: .rpc(...).single<T>() etc.
+    let outer = callNode;
+    const chain = [];
+    const chainTypeArgs = [];
+    for (;;) {
+      const parent = outer.parent;
+      if (parent && ts.isPropertyAccessExpression(parent) && parent.expression === outer) {
+        const callParent = parent.parent;
+        if (callParent && ts.isCallExpression(callParent) && callParent.expression === parent) {
+          chain.push(parent.name.text);
+          for (const ta of callParent.typeArguments ?? []) chainTypeArgs.push(ta.getText(sf));
+          outer = callParent;
+          continue;
+        }
+      }
+      break;
+    }
+    for (const ta of callNode.typeArguments ?? []) chainTypeArgs.push(ta.getText(sf));
+
+    // Walk out through `await` / parentheses to the variable declaration.
+    let expr = outer;
+    while (expr.parent && (ts.isAwaitExpression(expr.parent) || ts.isParenthesizedExpression(expr.parent))) {
+      expr = expr.parent;
+    }
+    const decl = expr.parent && ts.isVariableDeclaration(expr.parent) ? expr.parent : null;
+
+    let dataBinding = null;
+    if (decl && ts.isObjectBindingPattern(decl.name)) {
+      for (const el of decl.name.elements) {
+        const source = el.propertyName ?? el.name;
+        if ((ts.isIdentifier(source) || ts.isStringLiteral(source)) && source.text === "data") {
+          if (ts.isIdentifier(el.name)) dataBinding = el.name.text;
+        }
+      }
+    } else if (decl && ts.isIdentifier(decl.name)) {
+      // `const res = await client.rpc(...)` — res.data is the result.
+      dataBinding = decl.name.text;
+    }
+
+    // Any generated-type-backed result contract counts: RpcReturns (raw),
+    // RpcRow / RpcRows (set-returning, nulls permitted), RpcScalar.
+    const mentionsContract = (text) =>
+      /\bRpc(Returns|Rows|Row|Scalar)\s*</.test(text ?? "");
+    const explicitTypes = [...chainTypeArgs];
+
+    if (dataBinding === null) {
+      return { kind: "ignored", chain, explicitTypes };
+    }
+
+    // Scope the search to the ENCLOSING FUNCTION. `data` is rebound in every
+    // repository function, so a file-wide walk would attribute one function's
+    // cast to a sibling's call and make the classification meaningless.
+    let scope = decl ?? outer;
+    for (let n = scope; n; n = n.parent) {
+      if (
+        ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n) ||
+        ts.isMethodDeclaration(n) || ts.isConstructorDeclaration(n) || ts.isSourceFile(n)
+      ) {
+        scope = n;
+        break;
+      }
+    }
+
+    // Follow ALIASES of the result within the scope. Repositories routinely do
+    //   const rows: RpcRows<"fn"> = Array.isArray(data) ? data : [];
+    //   const first = rows[0];
+    //   const row = parseRpcResult("fn", schema, first);
+    // Tracking only `data` would miss both the contract and the validation and
+    // report a validated call as unprotected.
+    const tracked = new Set([dataBinding]);
+    for (let pass = 0; pass < 5; pass++) {
+      const before = tracked.size;
+      const alias = (n) => {
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+          const init = n.initializer.getText(sf);
+          for (const t of tracked) {
+            if (new Set(init.split(/[^A-Za-z0-9_$]+/)).has(t)) {
+              tracked.add(n.name.text);
+              break;
+            }
+          }
+        }
+        ts.forEachChild(n, alias);
+      };
+      alias(scope);
+      if (tracked.size === before) break;
+    }
+
+    // Collect every explicit typing / consumption of the tracked bindings.
+    const casts = [];
+    const annotations = [];
+    const passedTo = [];
+    const collect = (n) => {
+      if (ts.isIdentifier(n) && tracked.has(n.text)) {
+        const p = n.parent;
+        if (p && ts.isAsExpression(p) && p.expression === n) casts.push(p.type.getText(sf));
+        else if (p && ts.isSatisfiesExpression?.(p) && p.expression === n) annotations.push(p.type.getText(sf));
+        else if (p && ts.isCallExpression(p) && p.arguments.includes(n) && ts.isIdentifier(p.expression)) {
+          passedTo.push(p.expression.text);
+        } else if (p && ts.isCallExpression(p) && p.arguments.includes(n) && ts.isPropertyAccessExpression(p.expression)) {
+          passedTo.push(p.expression.name.text);
+        }
+      }
+      // `const row: RpcReturns<"fn"> = data` / `(data ?? []) as X`
+      const mentionsTracked = (text) => {
+        const tokens = new Set(String(text).split(/[^A-Za-z0-9_$]+/));
+        return [...tracked].some((t) => tokens.has(t));
+      };
+      if (ts.isVariableDeclaration(n) && n.type && n.initializer) {
+        if (mentionsTracked(n.initializer.getText(sf))) annotations.push(n.type.getText(sf));
+      }
+      if (ts.isAsExpression(n) && mentionsTracked(n.expression.getText(sf))) {
+        casts.push(n.type.getText(sf));
+      }
+      ts.forEachChild(n, collect);
+    };
+    collect(scope);
+
+    const uniq = (a) => [...new Set(a)];
+    const allTypeText = [...explicitTypes, ...casts, ...annotations];
+    const base = {
+      chain,
+      explicitTypes: uniq(explicitTypes),
+      casts: uniq(casts),
+      annotations: uniq(annotations),
+      passedTo: uniq(passedTo),
+    };
+
+    if (allTypeText.some(mentionsContract)) return { kind: "contract", ...base };
+    const handwritten = [...explicitTypes, ...casts].filter((t) => !mentionsContract(t));
+    if (handwritten.length > 0) return { kind: "cast", ...base, handwritten: uniq(handwritten) };
+    if (base.passedTo.length > 0) return { kind: "validated", ...base };
+    return { kind: "inferred", ...base };
+  };
+
   const visit = (node) => {
     if (
       ts.isCallExpression(node) &&
@@ -327,7 +517,28 @@ export function extractRpcCalls(fileName, sourceText) {
     ) {
       const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
       const [nameArg, rawArgsArg] = node.arguments;
-      const base = { file: toRepoRelative(fileName), line };
+      // Does the argument object carry its `satisfies RpcArgs<"fn">` contract —
+      // inline, or on the file-local const it references?
+      const argContractTexts = [];
+      for (let n = rawArgsArg; n; ) {
+        if (ts.isSatisfiesExpression?.(n) || ts.isAsExpression(n)) {
+          argContractTexts.push(n.type.getText(sf));
+          n = n.expression;
+        } else if (ts.isParenthesizedExpression(n)) {
+          n = n.expression;
+        } else {
+          if (ts.isIdentifier(n) && localContracts.has(n.text)) {
+            argContractTexts.push(localContracts.get(n.text));
+          }
+          break;
+        }
+      }
+      const base = {
+        file: toRepoRelative(fileName),
+        line,
+        argsContract: argContractTexts.find((t) => /\bRpcArgs\s*</.test(t)) ?? null,
+        result: classifyResult(node),
+      };
       // `{...} satisfies RpcArgs<"fn">` — the compile-time contract this guard
       // wants callers to carry — still describes the same object literal.
       let argsArg = rawArgsArg;
@@ -447,7 +658,34 @@ export function parseGeneratedFunctions(sourceText, fileName = "database.types.t
       // e.g. `Args: Record<string, never>` — no named arguments.
       argsResolvable = argsType !== null;
     }
-    out[fnName] = { args, argsResolvable };
+    const returnsType = memberNamed(m.type, "Returns");
+    let returnsIsArray = false;
+    let returnsMembers = null;
+    let base = returnsType;
+    if (base && ts.isArrayTypeNode(base)) {
+      returnsIsArray = true;
+      base = base.elementType;
+    }
+    if (base && ts.isTypeLiteralNode(base)) {
+      returnsMembers = [];
+      for (const rm of base.members) {
+        if (!ts.isPropertySignature(rm) || !rm.name) continue;
+        const rn = ts.isIdentifier(rm.name) || ts.isStringLiteral(rm.name) ? rm.name.text : null;
+        if (!rn) continue;
+        returnsMembers.push({
+          name: rn,
+          tsType: rm.type ? rm.type.getText(sf).replace(/\s+/g, " ").trim() : "unknown",
+        });
+      }
+    }
+    out[fnName] = {
+      args,
+      argsResolvable,
+      // Normalized to single-spaced text so it can be compared structurally.
+      returnsText: returnsType ? returnsType.getText(sf).replace(/\s+/g, " ").trim() : null,
+      returnsIsArray,
+      returnsMembers,
+    };
   }
   return out;
 }
@@ -606,6 +844,225 @@ export function compareCallersToInventory(callers, inventory, dynamic) {
   return violations;
 }
 
+/* ────────── RPC-RETURN-CONTRACT-GUARD-1: the RESULT side ────────────────── */
+
+/** Drop `| null` / `| undefined` members and collapse spacing. */
+export function normalizeTsType(text) {
+  return String(text ?? "")
+    .split("|")
+    .map((p) => p.trim())
+    .filter((p) => p !== "null" && p !== "undefined" && p !== "")
+    .join(" | ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Catalog RETURN types vs the generated `Returns`. Pure; exported for testing.
+ *
+ * The two sides spell the same contract differently, so the comparison is
+ * STRUCTURAL, never raw-text:
+ *   void                    -> `undefined`
+ *   scalar                  -> the mapped scalar (uuid -> string)
+ *   json / jsonb            -> `Json`
+ *   TABLE(...) / SETOF comp -> an ARRAY of an object with those columns
+ *   named composite         -> an object with the type's attributes
+ *
+ * NULLABILITY IS DELIBERATELY NOT COMPARED. PostgreSQL does not record
+ * nullability for function output columns, and the generator emits table
+ * columns with `| null` but function OUT columns without it — neither side is
+ * authoritative, so comparing it would produce noise, not signal. That gap is
+ * closed by RpcRow/RpcRows re-permitting null, and is stated in types/rpc.ts.
+ *
+ * An unmapped Postgres type FAILS CLOSED unless declared in the reviewed
+ * compatibility manifest.
+ */
+export function compareReturnsToInventory(inventory, generated, compat) {
+  const violations = [];
+  const declared = new Map((compat?.unmappedReturnTypes ?? []).map((e) => [e.pgType, e]));
+  const usedDeclarations = new Set();
+
+  const mapType = (pgType, where) => {
+    const mapped = pgTypeToTs(pgType);
+    if (mapped !== null) return mapped;
+    const entry = declared.get(pgType);
+    if (entry) {
+      usedDeclarations.add(pgType);
+      return entry.generatedAs;
+    }
+    violations.push(
+      `${where}: Postgres type "${pgType}" has no TypeScript mapping and is not declared in the return-compatibility manifest — refusing to assume it matches`,
+    );
+    return null;
+  };
+
+  for (const fn of inventory.functions) {
+    const g = generated[fn.name];
+    if (!g) continue; // absence is reported by the name comparison
+    if (fn.overloadCount > 1) continue; // ambiguous; reported separately
+    const got = normalizeTsType(g.returnsText);
+
+    // 1. void
+    if (fn.returns === "void") {
+      if (got !== "" && got !== "undefined") {
+        violations.push(`${fn.name}: database returns void but generated types say ${g.returnsText}`);
+      }
+      continue;
+    }
+
+    // 2. structured: TABLE(...), SETOF composite, or a named composite
+    if (Array.isArray(fn.returnColumns) && fn.returnColumns.length > 0) {
+      if (Boolean(g.returnsIsArray) !== Boolean(fn.returnsSetof)) {
+        violations.push(
+          `${fn.name}: database ${fn.returnsSetof ? "is set-returning (rows)" : "returns a single composite"} but generated types say ${g.returnsText}`,
+        );
+        continue;
+      }
+      if (!g.returnsMembers) {
+        violations.push(
+          `${fn.name}: database returns columns (${fn.returnColumns.map((c) => c.name).join(", ")}) but generated types say ${g.returnsText}`,
+        );
+        continue;
+      }
+      const genByName = new Map(g.returnsMembers.map((m) => [m.name, m]));
+      for (const col of fn.returnColumns) {
+        const gm = genByName.get(col.name);
+        if (!gm) {
+          violations.push(`${fn.name}: returned column ${col.name} is absent from the generated Returns`);
+          continue;
+        }
+        const expected = mapType(col.type, `${fn.name}.${col.name}`);
+        if (expected === null) continue;
+        if (normalizeTsType(gm.tsType) !== normalizeTsType(expected)) {
+          violations.push(
+            `${fn.name}.${col.name}: database type ${col.type} maps to ${expected} but generated Returns say ${gm.tsType}`,
+          );
+        }
+      }
+      for (const gm of g.returnsMembers) {
+        if (!fn.returnColumns.some((c) => c.name === gm.name)) {
+          violations.push(
+            `${fn.name}: generated Returns declare column ${gm.name}, which the database does not return`,
+          );
+        }
+      }
+      continue;
+    }
+
+    // 3. scalar / json
+    const expected = mapType(fn.returns, fn.name);
+    if (expected === null) continue;
+    const want = normalizeTsType(fn.returnsSetof ? `${expected}[]` : expected);
+    if (got !== want) {
+      violations.push(
+        `${fn.name}: database returns ${fn.returns} (expected ${want}) but generated types say ${g.returnsText}`,
+      );
+    }
+  }
+
+  for (const [pgType, entry] of declared) {
+    if (!usedDeclarations.has(pgType)) {
+      violations.push(
+        `return-compatibility manifest declares "${pgType}" (${entry.reason ?? "no reason given"}) but no function returns it — the manifest is stale`,
+      );
+    }
+  }
+  return violations;
+}
+
+/**
+ * How every static caller HANDLES its result. Pure; exported for testing.
+ *
+ * A typed argument object proves nothing about the value coming back: before
+ * this arc, 18 of 19 production callers asserted their result with a
+ * handwritten `data as { ... }` that no compiler and no database ever checked.
+ *
+ * Enforced:
+ *   - a handwritten cast is a violation ANYWHERE (production or test);
+ *   - a production caller that binds `data` must describe it with an
+ *     RpcReturns/RpcRow/RpcRows/RpcScalar contract, or pass it to an approved
+ *     runtime validator;
+ *   - `passedTo` only counts when the callee is an APPROVED validator, so
+ *     `expect(data)` in a test can never masquerade as validation;
+ *   - a caller that never binds `data` is `ignored` and needs no fake variable;
+ *   - a high-risk function listed in the manifest MUST be runtime-validated —
+ *     compile-time typing alone is not sufficient;
+ *   - exemptions must name a real call site (stale entries fail).
+ */
+export function verifyResultFlows(callers, contracts) {
+  const violations = [];
+  const approved = new Set(contracts?.approvedValidators ?? []);
+  const requireValidation = new Set(contracts?.requireRuntimeValidation ?? []);
+  const exemptions = new Map((contracts?.exemptions ?? []).map((e) => [`${e.file}::${e.rpc}`, e]));
+  const matchedExemptions = new Set();
+  const counts = { ignored: 0, contract: 0, validated: 0, cast: 0, inferred: 0, unresolved: 0 };
+
+  for (const call of callers.calls) {
+    if (!call.resolved) {
+      counts.unresolved += 1;
+      continue;
+    }
+    const where = `${call.file}:${call.line}`;
+    const isTest = call.file.startsWith("tests/");
+    const r = call.result ?? { kind: "inferred" };
+    const key = `${call.file}::${call.rpc}`;
+    const exemption = exemptions.get(key);
+    if (exemption) matchedExemptions.add(key);
+
+    // A site may be BOTH typed and validated — that is the ideal, so an approved
+    // validator always wins the label. `passedTo` alone never counts: passing
+    // `data` to `expect` is an assertion, not a contract.
+    // ARGUMENT contract. The guard already proves the argument NAMES against the
+    // catalog, but only `satisfies RpcArgs<"fn">` makes the compiler check the
+    // argument VALUE TYPES — so a new call site must not silently opt out.
+    if ((call.argNames ?? []).length > 0 && !call.argsContract && !exemption) {
+      violations.push(
+        `${where}: ${call.rpc}() passes an argument object with no \`satisfies RpcArgs<"${call.rpc}">\` contract — its argument value types are unchecked`,
+      );
+    }
+
+    const validatedBy = (r.passedTo ?? []).filter((n) => approved.has(n));
+    const kind =
+      validatedBy.length > 0
+        ? "validated"
+        : r.kind === "passed" || r.kind === "validated"
+          ? "inferred"
+          : r.kind;
+    counts[kind] = (counts[kind] ?? 0) + 1;
+
+    if (kind === "cast") {
+      if (!exemption) {
+        violations.push(
+          `${where}: ${call.rpc}() result is asserted with a handwritten type (${(r.handwritten ?? []).join(", ")}) — use RpcReturns/RpcRow/RpcRows/RpcScalar or an approved validator`,
+        );
+      }
+      continue;
+    }
+
+    if (!isTest && requireValidation.has(call.rpc) && kind !== "validated" && kind !== "ignored" && !exemption) {
+      violations.push(
+        `${where}: ${call.rpc}() is a high-risk result and must be validated at runtime by an approved validator, not typed alone (saw "${kind}")`,
+      );
+      continue;
+    }
+
+    if (!isTest && kind === "inferred" && !exemption) {
+      violations.push(
+        `${where}: ${call.rpc}() binds its result with no contract — annotate it with RpcReturns/RpcRow/RpcRows/RpcScalar or validate it`,
+      );
+    }
+  }
+
+  for (const [key, entry] of exemptions) {
+    if (!matchedExemptions.has(key)) {
+      violations.push(
+        `result-contract exemption ${key} (${entry.reason ?? "no reason given"}) matches no call site — the manifest is stale`,
+      );
+    }
+  }
+  return { violations, counts };
+}
+
 /* ─────────────────────────────── check / run ────────────────────────────── */
 
 function readJson(path, label) {
@@ -617,7 +1074,7 @@ function readJson(path, label) {
   }
 }
 
-function runCheck({ inventoryPath, callersPath, typesPath, dynamicPath }) {
+function runCheck({ inventoryPath, callersPath, typesPath, dynamicPath, contractsPath, compatPath }) {
   const inventory = readJson(inventoryPath, "inventory");
   const callers = readJson(callersPath, "callers");
   if (!Array.isArray(inventory.functions) || inventory.functions.length === 0) {
@@ -626,13 +1083,18 @@ function runCheck({ inventoryPath, callersPath, typesPath, dynamicPath }) {
   if (!Array.isArray(callers.calls)) fail("callers artifact has no call list");
   if (!existsSync(typesPath)) fail(`generated database types missing: ${typesPath}`);
   const dynamic = existsSync(dynamicPath) ? readJson(dynamicPath, "dynamic-caller manifest") : { unresolvedCallers: [] };
+  if (!existsSync(contractsPath)) fail(`result-contract manifest missing: ${contractsPath}`);
+  const contracts = readJson(contractsPath, "result-contract manifest");
+  const compat = existsSync(compatPath) ? readJson(compatPath, "return-compatibility manifest") : { unmappedReturnTypes: [] };
 
   const generated = parseGeneratedFunctions(readFileSync(typesPath, "utf8"), typesPath);
   const { violations: typeViolations, unchecked } = compareTypesToInventory(inventory, generated);
   const callerViolations = compareCallersToInventory(callers, inventory, dynamic);
+  const returnViolations = compareReturnsToInventory(inventory, generated, compat);
+  const { violations: resultViolations, counts } = verifyResultFlows(callers, contracts);
 
   const overloaded = inventory.functions.filter((f) => f.overloadCount > 1);
-  const all = [...typeViolations, ...callerViolations];
+  const all = [...typeViolations, ...callerViolations, ...returnViolations, ...resultViolations];
 
   if (all.length > 0) {
     for (const v of all) console.error(`RPC-GUARD FAIL — ${v}`);
@@ -649,6 +1111,10 @@ function runCheck({ inventoryPath, callersPath, typesPath, dynamicPath }) {
   console.log(`    statically resolved:   ${resolved.length} (covering ${calledFns.size} distinct functions)`);
   console.log(`    declared unresolved:   ${unresolved} (every one accounted for in the manifest)`);
   console.log(`  overloaded functions:    ${overloaded.length}${overloaded.length ? ` (${overloaded.map((f) => f.name).join(", ")})` : ""}`);
+  console.log(`  RETURN types:            compared structurally against the catalog for all ${inventory.functions.length} functions`);
+  console.log(
+    `  result flows:            ${counts.contract} typed contract / ${counts.validated} runtime-validated / ${counts.ignored} result ignored / ${counts.inferred} inferred (tests) / ${counts.cast} handwritten casts`,
+  );
   if (unchecked.length > 0) {
     console.log(`  argument types NOT compared (no TS mapping): ${unchecked.length}`);
     for (const u of unchecked) console.log(`    - ${u}`);
@@ -661,6 +1127,8 @@ function cmdCheck() {
     callersPath: arg("callers"),
     typesPath: resolve(ROOT, arg("types", DEFAULT_TYPES)),
     dynamicPath: resolve(ROOT, arg("dynamic", DEFAULT_DYNAMIC)),
+    contractsPath: resolve(ROOT, arg("contracts", DEFAULT_CONTRACTS)),
+    compatPath: resolve(ROOT, arg("compat", DEFAULT_COMPAT)),
   });
 }
 
@@ -679,6 +1147,8 @@ function cmdRun() {
     callersPath,
     typesPath: resolve(ROOT, DEFAULT_TYPES),
     dynamicPath: resolve(ROOT, DEFAULT_DYNAMIC),
+    contractsPath: resolve(ROOT, DEFAULT_CONTRACTS),
+    compatPath: resolve(ROOT, DEFAULT_COMPAT),
   });
 }
 

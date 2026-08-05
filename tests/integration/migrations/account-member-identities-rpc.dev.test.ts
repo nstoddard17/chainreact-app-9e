@@ -20,7 +20,7 @@ import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -50,12 +50,6 @@ if (!RUN) {
   console.log(
     "SKIP 4.TEAM-PAGE-2 member-identities RPC — set ALLOW_DB_INTEGRATION_TESTS=true with URL + SERVICE_ROLE + ANON keys (DESTRUCTIVE).",
   );
-}
-
-interface IdentityRow {
-  user_id: string;
-  email: string | null;
-  display_name: string | null;
 }
 
 describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
@@ -179,7 +173,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
       p_account_id: team1,
     } satisfies RpcArgs<"get_account_member_identities">);
     expect(error).toBeNull();
-    const rows = (data ?? []) as IdentityRow[];
+    const rows: RpcRows<"get_account_member_identities"> = data ?? [];
     expect(rows.length).toBe(2);
 
     const ownerRow = rows.find((r) => r.user_id === owner1.userId)!;
@@ -195,7 +189,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
       p_account_id: team2,
     } satisfies RpcArgs<"get_account_member_identities">);
     expect(error).toBeNull();
-    const rows = (data ?? []) as IdentityRow[];
+    const rows: RpcRows<"get_account_member_identities"> = data ?? [];
     const ownerRow = rows.find((r) => r.user_id === owner2.userId)!;
     expect(ownerRow.display_name).toBe("Dana Metadata");
   });

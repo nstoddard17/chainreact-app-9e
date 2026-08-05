@@ -72,6 +72,7 @@ describe("claimAccountTrialServiceRole", () => {
   it("calls the claim RPC with the account + origin plan + end, and maps claimed:true", async () => {
     rec.rpcData = {
       claimed: true,
+      trial_consumed_at: "2026-07-29T00:00:00.000Z",
       trial_ends_at: "2026-07-29T00:00:00.000Z",
       trial_origin_plan: "pro",
     };
@@ -88,6 +89,7 @@ describe("claimAccountTrialServiceRole", () => {
   it("maps claimed:false (already consumed) with the pre-existing end", async () => {
     rec.rpcData = {
       claimed: false,
+      trial_consumed_at: "2026-07-01T00:00:00.000Z",
       trial_ends_at: "2026-07-15T00:00:00.000Z",
       trial_origin_plan: "team",
     };
@@ -106,8 +108,8 @@ describe("claimAccountTrialServiceRole", () => {
 describe("getTrialStateServiceRole", () => {
   it("maps the trial columns", async () => {
     rec.selectData = {
-      trial_consumed_at: "2026-07-01T00:00:00.000Z",
       trial_started_at: "2026-07-01T00:00:00.000Z",
+      trial_consumed_at: "2026-07-01T00:00:00.000Z",
       trial_ends_at: "2026-07-15T00:00:00.000Z",
       trial_origin_plan: "pro",
     };

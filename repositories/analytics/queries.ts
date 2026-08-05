@@ -1,5 +1,5 @@
 import { getServiceRoleClient } from "../supabase/serviceRoleClient";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
 
 /**
  * Repository for the flexible analytics query path
@@ -89,7 +89,8 @@ export async function aggregateRuns(
   if (error) {
     throw new Error(`analytics_runs_aggregate failed: ${error.message}`);
   }
-  return ((data ?? []) as RpcRow[]).map((r) => ({
+  const rows: RpcRows<"analytics_runs_aggregate"> = data ?? [];
+  return rows.map((r) => ({
     bucketStart: r.bucket_start,
     groupKey: r.group_key,
     runs: Number(r.runs),

@@ -1,5 +1,9 @@
 import { getServiceRoleClient } from "../supabase/serviceRoleClient";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcRows } from "@/types/rpc";
+import {
+  analyticsProviderRateLimitRowSchema,
+  parseRpcResult,
+} from "@/core/database/rpcResultSchemas";
 
 /**
  * Repository for `analytics_provider_rate_limits` (CD-2, migration
@@ -32,9 +36,17 @@ export async function incrementProviderRateBuckets(input: {
   if (error) {
     throw new Error(`analytics_provider_rate_limits increment failed: ${error.message}`);
   }
-  const row = (Array.isArray(data) ? data[0] : data) as
-    | { account_count: number; source_count: number }
-    | undefined;
+  // PostgREST returns an array for a TABLE-returning function; a single
+  // object is tolerated too (pinned by the repository unit tests).
+  const rows: RpcRows<"increment_analytics_provider_rate_limits"> = Array.isArray(data)
+    ? data
+    : data
+      ? [data]
+      : [];
+  const first = rows[0];
+  const row = first
+    ? parseRpcResult("increment_analytics_provider_rate_limits", analyticsProviderRateLimitRowSchema, first)
+    : undefined;
   if (!row) throw new Error("analytics_provider_rate_limits increment returned no row");
   return { accountCount: Number(row.account_count), sourceCount: Number(row.source_count) };
 }

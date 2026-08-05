@@ -1,5 +1,5 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
-import type { RpcArgs } from "@/types/rpc";
+import type { RpcArgs, RpcScalar } from "@/types/rpc";
 
 /**
  * Repository for auth-user lookups that the app can't do through normal tables
@@ -22,5 +22,6 @@ export async function findUserIdByEmailServiceRole(
     throw new Error(`users.findUserIdByEmailServiceRole failed: ${error.message}`);
   }
   // The RPC returns the uuid scalar (or null).
-  return (data as string | null) ?? null;
+  const userId: RpcScalar<"find_user_id_by_email"> = data;
+  return userId ?? null;
 }

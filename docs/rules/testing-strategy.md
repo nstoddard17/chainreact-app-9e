@@ -432,6 +432,47 @@ Durable rules:
   database-touching code triggers the gate without anyone remembering to extend a list.
   Documentation-only changes do not trigger it.
 
+### The RESULT side too (RPC-RETURN-CONTRACT-GUARD-1)
+
+Typing the arguments proved nothing about the value coming back: 18 of 19 production
+callers asserted their result with a handwritten `data as { ok: boolean; ... }` that
+neither the compiler nor the database ever checked, so a changed return shape would have
+compiled and run. Both halves are now enforced by the same guard step.
+
+Which protection applies is decided by what the database actually returns — check the
+catalog, do not guess:
+
+| Postgres return | Generated `Returns` | The contract to use |
+| --- | --- | --- |
+| `jsonb` / `json` | `Json` (a union — **no field information**) | a zod schema in [`core/database/rpcResultSchemas.ts`](../../core/database/rpcResultSchemas.ts), parsed through `parseRpcResult` |
+| `TABLE(...)` / `SETOF` | precise `{ col: type }[]` | `RpcRows<"fn">` / `RpcRow<"fn">` |
+| scalar | the mapped scalar | `RpcScalar<"fn">` |
+| named composite | the row object | `RpcReturns<"fn">` (validate when a column is narrowed) |
+| `void` | `undefined` | ignore the result — no fake variable |
+
+Durable rules:
+
+- **A `jsonb` result CANNOT be protected by a type.** `RpcReturns<"apply_business_upgrade">`
+  is `Json`; it cannot be dotted into. Anything reading fields out of a jsonb result must
+  parse it at runtime.
+- **High-risk results must be runtime-validated**, not merely typed — billing balances,
+  entitlements, authorization outcomes, ownership, deletion, and rate-limit counters. The
+  enforced list lives in [`scripts/ci/rpc-result-contracts.json`](../../scripts/ci/rpc-result-contracts.json).
+- **Never default a missing security- or billing-relevant field.** A missing rate-limit
+  count must throw, not become `0` — a zero compares as "under the ceiling" and silently
+  turns the limiter into a no-op.
+- **Schemas are `.strict()`.** An unexpected key means the function's contract changed
+  and nobody updated the caller — the exact drift class this arc exists to stop.
+- **`RpcRow`/`RpcRows` re-permit null.** PostgreSQL does not record nullability for
+  function output columns, and the generator emits them as non-null; taking that
+  literally would lose null-safety the handwritten casts had. For the same reason the
+  guard compares return *types* but deliberately not *nullability*.
+- **Enforcement is fail-closed and opt-out-proof:** a handwritten result cast fails
+  anywhere, a production caller that binds `data` without a contract fails, an argument
+  object without `satisfies RpcArgs<"fn">` fails, and passing `data` to an unapproved
+  callee (notably `expect`) never counts as validation. A genuinely exceptional call site
+  needs a reviewed entry in the result-contract manifest, and a stale entry fails too.
+
 ## RPC signatures may never drift from their callers (RPC-SIGNATURE-DRIFT-GUARD-1)
 
 Migration `20260808000000` added `p_ai_credits_limit` to `apply_business_upgrade` /

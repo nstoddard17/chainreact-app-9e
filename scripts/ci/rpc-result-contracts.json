@@ -1,0 +1,43 @@
+{
+  "$comment": [
+    "RPC-RETURN-CONTRACT-GUARD-1 — how every statically resolved .rpc() call is",
+    "allowed to handle its RESULT. A typed argument object proves nothing about",
+    "the value coming back: before this arc, 18 of 19 production callers asserted",
+    "their result with a handwritten `data as { ... }` that neither the compiler",
+    "nor the database ever checked, so a changed return shape compiled and ran.",
+    "",
+    "approvedValidators — functions that genuinely validate an RPC result at",
+    "  runtime. ONLY these count as validation; passing `data` to anything else",
+    "  (notably `expect`) does not. Keep this list tiny and reviewed.",
+    "",
+    "requireRuntimeValidation — functions whose result decides billing balances,",
+    "  entitlements, authorization, ownership or destructive actions. For these a",
+    "  compile-time type is NOT sufficient, and it usually cannot help at all:",
+    "  every jsonb-returning function generates `Returns: Json`, which carries no",
+    "  field information. Schemas live in core/database/rpcResultSchemas.ts.",
+    "",
+    "exemptions — a call site that legitimately does none of the above. Each needs",
+    "  a reason and the expected handling, and a stale entry fails the guard.",
+    "  A call that never binds `data` is classified `ignored` and needs NO entry:",
+    "  a caller cannot misuse a result it never took."
+  ],
+  "approvedValidators": ["parseRpcResult"],
+  "requireRuntimeValidation": [
+    "apply_business_upgrade",
+    "apply_business_downgrade",
+    "deduct_tasks_if_available",
+    "deduct_ai_credits_if_available",
+    "reserve_tasks_if_available",
+    "reconcile_task_reservation",
+    "release_task_reservation",
+    "release_expired_reservations",
+    "claim_account_trial",
+    "schedule_account_deletion",
+    "authorize_live_test_run",
+    "replace_account_invitation",
+    "increment_api_key_rate_limits",
+    "increment_mcp_rate_limits",
+    "increment_analytics_provider_rate_limits"
+  ],
+  "exemptions": []
+}

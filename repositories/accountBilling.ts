@@ -2,6 +2,16 @@ import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import { planLimitsFor, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import type { RpcArgs } from "@/types/rpc";
+import {
+  businessTransitionResultSchema,
+  claimAccountTrialResultSchema,
+  deductResultSchema,
+  parseRpcResult,
+  reconcileReservationResultSchema,
+  releaseExpiredResultSchema,
+  releaseReservationResultSchema,
+  reserveTasksResultSchema,
+} from "@/core/database/rpcResultSchemas";
 
 /**
  * Atomic Team → Business upgrade (Slice 4.BILLING-BUSINESS-UPGRADE-2 / BU-1). Service-role
@@ -59,7 +69,7 @@ export async function applyBusinessUpgradeServiceRole(
   if (error) {
     throw new Error(`apply_business_upgrade RPC failed: ${error.message}`);
   }
-  const row = data as { ok: boolean; applied: boolean; reason: string };
+  const row = parseRpcResult("apply_business_upgrade", businessTransitionResultSchema, data);
   return { ok: row.ok, applied: row.applied, reason: row.reason };
 }
 
@@ -109,7 +119,7 @@ export async function applyBusinessDowngradeServiceRole(
   if (error) {
     throw new Error(`apply_business_downgrade RPC failed: ${error.message}`);
   }
-  const row = data as { ok: boolean; applied: boolean; reason: string };
+  const row = parseRpcResult("apply_business_downgrade", businessTransitionResultSchema, data);
   return { ok: row.ok, applied: row.applied, reason: row.reason };
 }
 
@@ -207,7 +217,7 @@ export async function deductTasks(
   if (error) {
     throw new Error(`deduct_tasks_if_available RPC failed: ${error.message}`);
   }
-  const response = data as DeductRpcResponse;
+  const response = parseRpcResult("deduct_tasks_if_available", deductResultSchema, data);
   return response.ok
     ? { ok: true, used: response.used, limit: response.limit }
     : { ok: false, used: response.used, limit: response.limit };
@@ -276,7 +286,7 @@ export async function reserveTasks(
   if (error) {
     throw new Error(`reserve_tasks_if_available RPC failed: ${error.message}`);
   }
-  return data as ReserveTasksResult;
+  return parseRpcResult("reserve_tasks_if_available", reserveTasksResultSchema, data);
 }
 
 /** Convert `runId`'s hold into a charge of `actual` (release the remainder). */
@@ -296,7 +306,7 @@ export async function reconcileReservation(
   if (error) {
     throw new Error(`reconcile_task_reservation RPC failed: ${error.message}`);
   }
-  return data as ReconcileReservationResult;
+  return parseRpcResult("reconcile_task_reservation", reconcileReservationResultSchema, data);
 }
 
 /** Release `runId`'s full hold without charging (fatal-before-execution). */
@@ -314,7 +324,7 @@ export async function releaseReservation(
   if (error) {
     throw new Error(`release_task_reservation RPC failed: ${error.message}`);
   }
-  return data as ReleaseReservationResult;
+  return parseRpcResult("release_task_reservation", releaseReservationResultSchema, data);
 }
 
 /** Sweep orphaned holds past their expiry (service/cron intended; sweeps all). */
@@ -330,7 +340,7 @@ export async function releaseExpiredReservations(
   if (error) {
     throw new Error(`release_expired_reservations RPC failed: ${error.message}`);
   }
-  const row = data as { released_count: number; released_tasks: number; ok: boolean };
+  const row = parseRpcResult("release_expired_reservations", releaseExpiredResultSchema, data);
   return {
     ok: row.ok,
     releasedCount: row.released_count,
@@ -863,15 +873,17 @@ export async function claimAccountTrialServiceRole(
   if (error) {
     throw new Error(`claim_account_trial RPC failed: ${error.message}`);
   }
-  const row = data as {
-    claimed: boolean;
-    trial_ends_at: string | null;
-    trial_origin_plan: "pro" | "team" | null;
-  };
+  const row = parseRpcResult("claim_account_trial", claimAccountTrialResultSchema, data);
+  // The RPC echoes whatever tier was recorded; narrow to the tiers the domain
+  // models and treat anything else as "no origin" rather than trusting a cast.
+  const claimedOriginPlan =
+    row.trial_origin_plan === "pro" || row.trial_origin_plan === "team"
+      ? row.trial_origin_plan
+      : null;
   return {
     claimed: row.claimed,
     trialEndsAt: row.trial_ends_at,
-    originPlan: row.trial_origin_plan,
+    originPlan: claimedOriginPlan,
   };
 }
 
