@@ -237,7 +237,28 @@ export function classifyPreviewFirst(input: ClassifyPreviewFirstInput): PreviewF
 export function buildPreviewFirstRepairGoal(input: {
   readonly safeGoalText: string;
   readonly namedProviders: readonly string[];
+  /**
+   * REACT-AGENT-LIVE-BROWSER-CERTIFICATION-RUN-1 — the `provider:type` keys the previous reply used
+   * that ChainReact's registry REJECTED. When present, the previous reply did NOT withhold a plan —
+   * it returned one built on capabilities that do not exist — so the repair must correct THAT
+   * instead of ordering a plan the model already tried to give.
+   */
+  readonly invalidCapabilityKeys?: readonly string[];
 }): string {
+  // The plan was returned but died on capability validation. Telling this model "you withheld the
+  // plan, return it now" made it re-emit the SAME invented id and fail identically (observed live in
+  // browser certification: PLAN_CAPABILITY_INVALID on both the initial and the repair attempt).
+  if (input.invalidCapabilityKeys && input.invalidCapabilityKeys.length > 0) {
+    return [
+      "Your previous answer returned a workflow plan, but ChainReact rejected it: one or more steps used a provider:type id that does not exist in the capability catalog.",
+      `Rejected ids: ${input.invalidCapabilityKeys.join(", ")}. Do not use them again.`,
+      "Return the SAME workflow shape, but replace every rejected step with the closest id that is ACTUALLY listed in the capability catalog above. Copy each id character-for-character from that list — never abbreviate, generalize, or invent one (for example, a generic 'send message' id is wrong when the catalog lists distinct direct-message and channel-message ids; pick the one the user's request describes).",
+      "Return the structured workflowPlan json block NOW. Keep prose to one or two sentences before it. Do not ask conversational questions.",
+      "Leave every unresolved configuration value out of config and list its field key in that step's requiredInputs.",
+      "",
+      `The user's request: ${input.safeGoalText}`,
+    ].join("\n");
+  }
   return [
     "Your previous answer withheld the workflow plan and asked configuration questions instead.",
     "Those questions (which form/board/audience/list, who to send to, which connected account, a required enum such as consent status or duplicate handling, or formatting) are SETUP VALUES — ChainReact collects them with its own setup form after the user reviews the shape. They must never block the plan.",

@@ -143,6 +143,8 @@ function logPreviewFirstDecision(info: {
   initialTruncationSuspected?: boolean | undefined;
   repairPlanStage?: string | undefined;
   repairResponseChars?: number | undefined;
+  /** Public `provider:type` ids the model invented (registry-rejected). Never user data. */
+  invalidCapabilityKeys?: readonly string[] | undefined;
 }): void {
   console.info(
     `[workflow-guidance] preview_first requestId=${info.requestId} initialHadPlan=${info.initialHadPlan} ` +
@@ -152,6 +154,7 @@ function logPreviewFirstDecision(info: {
       `repairAttempted=${info.repairAttempted} repairSkipped=${info.repairSkippedReason ?? "n/a"} ` +
       `repairHadPlan=${info.repairHadPlan ?? "n/a"} ` +
       `repairPlanStage=${info.repairPlanStage ?? "n/a"} repairResponseChars=${info.repairResponseChars ?? "n/a"} ` +
+      `invalidCapabilityKeys=${info.invalidCapabilityKeys?.join("|") ?? "none"} ` +
       `clarificationAllowed=${info.clarificationAllowed} ` +
       `finalOutcome=${info.finalOutcome} elapsedMs=${info.elapsedMs}`,
   );
@@ -242,6 +245,12 @@ export async function enforcePreviewFirst(
           goalText: buildPreviewFirstRepairGoal({
             safeGoalText,
             namedProviders: classification.namedProviders,
+            // REACT-AGENT-LIVE-BROWSER-CERTIFICATION-RUN-1 — when the first reply DID return a plan
+            // that failed capability validation, repair that specific failure (name the rejected
+            // ids) rather than ordering a plan the model already tried to give.
+            ...(initialResult.planDiagnostics?.invalidCapabilityKeys?.length
+              ? { invalidCapabilityKeys: initialResult.planDiagnostics.invalidCapabilityKeys }
+              : {}),
           }),
           // The original request + the withheld first reply travel as conversation turns, so the
           // repair prompt carries everything the model needs to correct itself. Both are already
@@ -313,6 +322,7 @@ export async function enforcePreviewFirst(
     initialTruncationSuspected: initialResult.planDiagnostics?.truncationSuspected,
     repairPlanStage,
     repairResponseChars,
+    invalidCapabilityKeys: initialResult.planDiagnostics?.invalidCapabilityKeys,
   });
 
   if (!clarificationAllowed && !finalHasPlan) {

@@ -163,6 +163,46 @@ describe("classifyPreviewFirst — non-alternating 'or' does not misfire", () =>
   });
 });
 
+/**
+ * REACT-AGENT-LIVE-BROWSER-CERTIFICATION-RUN-1 — reproduced LIVE in browser certification: on the
+ * clarification-answer turn the model returned a plan that used a provider:type id which does not
+ * exist, `validateWorkflowPlan` rejected it (PLAN_CAPABILITY_INVALID), and the repair call then told
+ * the model "you withheld the plan" — the wrong correction. It re-emitted the same invented id and
+ * the turn ended in PREVIEW_PLAN_MISSING with a blank canvas, exactly the owner-reported shape.
+ */
+describe("buildPreviewFirstRepairGoal — capability-invalid correction", () => {
+  const keys = ["slack:send_message"];
+  const goal = buildPreviewFirstRepairGoal({
+    safeGoalText: "gmail",
+    namedProviders: ["gmail", "slack"],
+    invalidCapabilityKeys: keys,
+  });
+
+  it("names the rejected ids and forbids reusing them", () => {
+    expect(goal).toContain("slack:send_message");
+    expect(goal).toMatch(/do not use them again/i);
+  });
+
+  it("corrects the ACTUAL failure — it must not claim the model withheld the plan", () => {
+    expect(goal).not.toMatch(/withheld the workflow plan/i);
+    expect(goal).toMatch(/rejected it|does not exist in the capability catalog/i);
+  });
+
+  it("orders the same shape back with catalog-exact ids, still plan-first and question-free", () => {
+    expect(goal).toMatch(/SAME workflow shape/i);
+    expect(goal).toMatch(/character-for-character/i);
+    expect(goal).toMatch(/Return the structured workflowPlan json block NOW/i);
+    expect(goal).toMatch(/Do not ask conversational questions/i);
+    expect(goal).toContain("gmail");
+  });
+
+  it("falls back to the withheld-plan instruction when no ids were rejected", () => {
+    const plain = buildPreviewFirstRepairGoal({ safeGoalText: "gmail", namedProviders: ["gmail", "slack"] });
+    expect(plain).toMatch(/withheld the workflow plan/i);
+    expect(plain).not.toContain("Rejected ids");
+  });
+});
+
 describe("buildPreviewFirstRepairGoal", () => {
   const goal = buildPreviewFirstRepairGoal({
     safeGoalText: "Add [[EMAIL_1]] to Mailchimp and Gmail me",

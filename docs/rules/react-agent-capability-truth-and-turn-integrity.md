@@ -49,6 +49,21 @@ Root causes (both proven by focused reproduction, `tests/unit/app/api/accounts/a
   either/or counts only while unanswered. Assistant turns never count as the user naming a
   provider — this also holds for the provider-selection guard's context (the route passes
   user-role turns only).
+- **A plan is not discarded over a formatting slip (REACT-AGENT-LIVE-BROWSER-CERTIFICATION-RUN-1).**
+  Live browser certification caught the model writing the full capability id into a step's `type`
+  field (`{provider:"gmail", type:"gmail:new_email"}` → validated as `gmail:gmail:new_email`).
+  `validateWorkflowPlan` correctly rejected it and the whole plan was thrown away, leaving a blank
+  canvas on the turn the user had just answered a clarification. Three rules now apply:
+  - `normalizePlanCapabilityKeys` strips a redundant `"<provider>:"` prefix before validation. It
+    rewrites a key **only** when the original is unregistered AND the stripped key IS registered
+    (role-respecting), so a valid plan is never altered and no capability is ever invented or
+    substituted. Fail-closed behavior for genuinely unknown capabilities is unchanged.
+  - The repair call must correct the ACTUAL failure. When the previous reply's plan failed capability
+    validation, the repair names the rejected ids and asks for the same shape with catalog-exact ids
+    — it must NOT claim the model "withheld the plan" (that instruction made the model re-emit the
+    same invalid id, and the turn died in `PREVIEW_PLAN_MISSING`).
+  - `invalidCapabilityKeys` / `normalizedCapabilityKeys` (public `provider:type` ids only) are
+    carried in diagnostics and logged, so this failure class names the offending id in production.
 
 **Turn integrity**
 

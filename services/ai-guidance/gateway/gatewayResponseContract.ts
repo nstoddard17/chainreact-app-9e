@@ -24,6 +24,7 @@ import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession
 import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
 import type { PatchOperation } from "@/services/workflows/patch/types";
 import { summarizeInvalidPlan, validateWorkflowPlan } from "../validateWorkflowPlan";
+import { normalizePlanCapabilityKeys } from "../normalizePlanCapabilityKeys";
 import {
   diagnosePlanExtraction,
   extractMutationOperationsFromText,
@@ -44,7 +45,24 @@ export interface GatewayPlanDiagnostics extends Omit<PlanExtractionDiagnostics, 
   readonly stage: GatewayPlanStage;
   /** Steps rejected by `validateWorkflowPlan` (unknown provider:type claims). */
   readonly invalidCapabilityCount?: number;
+  /**
+   * REACT-AGENT-LIVE-BROWSER-CERTIFICATION-RUN-1 — the exact `provider:type` keys `validateWorkflowPlan`
+   * rejected. These are PUBLIC capability identities the MODEL emitted (never user data, config, or
+   * values), and they are what makes a capability-invalid plan actionable: production can name the
+   * invented key, and the repair call can tell the model precisely which id to replace. Bounded so a
+   * pathological reply can't bloat a log line.
+   */
+  readonly invalidCapabilityKeys?: readonly string[];
+  /**
+   * Keys that were MECHANICALLY repaired before validation (the `provider:provider:type`
+   * duplication) — public ids, recorded so a formatting regression in the model stays visible
+   * instead of being silently absorbed.
+   */
+  readonly normalizedCapabilityKeys?: readonly string[];
 }
+
+/** Cap on rejected keys carried in diagnostics / the repair instruction. */
+export const MAX_INVALID_CAPABILITY_KEYS = 6;
 
 /**
  * Legacy generic warning. RETAINED for back-compat only — the normalizer no longer emits it. When an
@@ -198,9 +216,13 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   //    An invalid plan fails CLOSED (never accept arbitrary JSON as a plan). The de-identified
   //    capability KEYS are folded into the internal `reason` for server logs/dev only (no secrets,
   //    no model JSON) — the route maps any `ok:false` to a generic user-facing message.
+  // REACT-AGENT-LIVE-BROWSER-CERTIFICATION-RUN-1 — repair the mechanical `provider:provider:type`
+  // duplication BEFORE validating, so a correctly-shaped plan isn't discarded over a formatting slip.
+  // The normalizer only ever turns an UNREGISTERED key into a REGISTERED one (see its header).
   const planCandidate = extractPlanCandidate(raw);
   if (planCandidate) {
-    const validation = validateWorkflowPlan(planCandidate);
+    const normalizedCandidate = normalizePlanCapabilityKeys(planCandidate);
+    const validation = validateWorkflowPlan(normalizedCandidate.plan);
     if (!validation.ok) {
       const keys = summarizeInvalidPlan(validation.invalidSteps).invalidCapabilityKeys;
       return {
@@ -236,7 +258,9 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   // embedded as a fenced ```json block in the guidance text. This is BEST-EFFORT and degrades
   // gracefully (unlike the strict sibling-object path): an invalid embedded plan does NOT fail the
   // whole response — we keep the guidance text, drop the plan, and add a safe warning.
-  let workflowPlan: WorkflowPlan | null = planCandidate ?? null;
+  let workflowPlan: WorkflowPlan | null = planCandidate
+    ? normalizePlanCapabilityKeys(planCandidate).plan
+    : null;
   if (workflowPlan) {
     planDiagnostics = { ...extractionDiagnostics, stage: "PLAN_OK", parsedStepCount: workflowPlan.steps.length };
   }
@@ -247,14 +271,28 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
       // to show when the plan was rejected. Fall back to a neutral lead-in if nothing else remains.
       const stripped = stripSourceBlock(guidanceText, extracted.sourceBlock);
       guidanceText = stripped ?? PLAN_ONLY_FALLBACK_TEXT;
-      const validation = validateWorkflowPlan(extracted.plan);
+      // Same mechanical repair as the sibling-object path above, before capability validation.
+      const normalizedExtracted = normalizePlanCapabilityKeys(extracted.plan);
+      const validation = validateWorkflowPlan(normalizedExtracted.plan);
       if (validation.ok) {
-        workflowPlan = extracted.plan; // capability-checked → safe to surface (advisory only)
+        workflowPlan = normalizedExtracted.plan; // capability-checked → safe to surface (advisory only)
+        if (normalizedExtracted.repairedKeys.length > 0) {
+          planDiagnostics = {
+            ...extractionDiagnostics,
+            stage: "PLAN_OK",
+            parsedStepCount: normalizedExtracted.plan.steps.length,
+            normalizedCapabilityKeys: normalizedExtracted.repairedKeys,
+          };
+        }
       } else {
         planDiagnostics = {
           ...extractionDiagnostics,
           stage: "PLAN_CAPABILITY_INVALID",
           invalidCapabilityCount: validation.invalidSteps.length,
+          // Public capability identities the model invented — the repair call names them back to it.
+          invalidCapabilityKeys: validation.invalidSteps
+            .map((s) => s.capabilityKey)
+            .slice(0, MAX_INVALID_CAPABILITY_KEYS),
         };
         // The model returned a plan it can't actually build (hallucinated capabilities) AND prose that
         // may over-claim the flow is "straightforward / ready". We must NOT let that over-claim stand
