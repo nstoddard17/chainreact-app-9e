@@ -664,7 +664,11 @@ export function useBuilderPreview({
     (checkpointId: string) => {
       void restoreCheckpoint(checkpointId)
         .then((detail) => {
-          useGraphSlice.getState().hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
+          // EXPLICIT hydrate: the CheckpointsPanel confirmation already warned that
+          // unsaved changes are discarded (WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1).
+          useGraphSlice
+            .getState()
+            .hydrate(workflowId, detail.draftDefinition, detail.updatedAt, { source: "explicit" });
           useConfigSlice.getState().closeNode();
           setAppliedNodeIds([]);
           setApplyNotice("Checkpoint restored — your draft was returned to that earlier state.");

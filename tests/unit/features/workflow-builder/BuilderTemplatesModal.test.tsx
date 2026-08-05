@@ -31,8 +31,17 @@ const mockRefresh = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, refresh: mockRefresh }) }));
 
 const mockHydrate = jest.fn();
+const mockFlagConflict = jest.fn();
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the replace reads the
+// session's loaded revision and hands conflicts to the shared experience.
 jest.mock("@/features/workflow-builder/state/graphSlice", () => ({
-  useGraphSlice: { getState: () => ({ hydrate: mockHydrate }) },
+  useGraphSlice: {
+    getState: () => ({
+      hydrate: mockHydrate,
+      flagConflict: mockFlagConflict,
+      hydratedRevision: "2026-06-08T00:00:00Z",
+    }),
+  },
 }));
 
 import { BuilderTemplatesModal } from "@/features/workflow-builder/panels/BuilderTemplatesModal";
@@ -200,8 +209,8 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     await screen.findByText("Failed payment recovery");
     await user.click(screen.getByTestId("builder-template-replace-tpl-1"));
     await user.click(screen.getByTestId("builder-templates-replace-confirm-button"));
-    await waitFor(() => expect(api.replaceCurrentWorkflowFromTemplate).toHaveBeenCalledWith(WF, "tpl-1"));
-    expect(mockHydrate).toHaveBeenCalledWith(WF, newDef, "2026-06-09T00:00:00Z");
+    await waitFor(() => expect(api.replaceCurrentWorkflowFromTemplate).toHaveBeenCalledWith(WF, "tpl-1", { expectedRevision: "2026-06-08T00:00:00Z" }));
+    expect(mockHydrate).toHaveBeenCalledWith(WF, newDef, "2026-06-09T00:00:00Z", { source: "explicit" });
     // Refresh pulls the (possibly now-disabled) lifecycle state from the server.
     expect(mockRefresh).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -247,6 +256,23 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     expect(await screen.findByTestId("builder-templates-action-error")).toHaveTextContent(/workflow not found/i);
     expect(mockHydrate).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — a stale session's replace
+  // is blocked server-side; the modal hands off to the SHARED conflict
+  // experience instead of a modal-local error, and never hydrates.
+  it("routes a WORKFLOW_REVISION_CONFLICT to the shared conflict experience (no hydrate, modal closes)", async () => {
+    api.replaceCurrentWorkflowFromTemplate.mockRejectedValue(
+      new TemplateApiError("This workflow was changed elsewhere.", "WORKFLOW_REVISION_CONFLICT", 409),
+    );
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+    await screen.findByText("Failed payment recovery");
+    await user.click(screen.getByTestId("builder-template-replace-tpl-1"));
+    await user.click(screen.getByTestId("builder-templates-replace-confirm-button"));
+    await waitFor(() => expect(mockFlagConflict).toHaveBeenCalledWith({ source: "template_replace" }));
+    expect(mockHydrate).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("shows a derived preview line (trigger kind · step count · chain) when card meta is present", async () => {

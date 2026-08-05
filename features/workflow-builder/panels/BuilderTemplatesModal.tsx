@@ -108,16 +108,40 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
     setBusyId(confirmReplace.id);
     setActionError(null);
     try {
-      const detail = await replaceCurrentWorkflowFromTemplate(workflowId, confirmReplace.id);
-      // Re-hydrate the canvas to the template at a clean, server-confirmed baseline. The
-      // fresh `updatedAt` clears the revision guard so this isn't treated as stale.
-      useGraphSlice.getState().hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
+      // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the replace carries
+      // this session's loaded revision; a stale session gets a typed 409
+      // instead of replacing a newer workflow another tab/member just saved.
+      const expectedRevision = useGraphSlice.getState().hydratedRevision;
+      if (expectedRevision === null) {
+        throw new TemplateApiError(
+          "This workflow hasn't finished loading. Try again in a moment.",
+          "WORKFLOW_REVISION_UNKNOWN",
+          409,
+        );
+      }
+      const detail = await replaceCurrentWorkflowFromTemplate(workflowId, confirmReplace.id, {
+        expectedRevision,
+      });
+      // Re-hydrate the canvas to the template at a clean, server-confirmed baseline. The user
+      // explicitly confirmed replacing this workflow, so this hydrate is EXPLICIT.
+      useGraphSlice
+        .getState()
+        .hydrate(workflowId, detail.draftDefinition, detail.updatedAt, { source: "explicit" });
       // Refresh the server-rendered lifecycle state: replacing an ACTIVE workflow deactivates
       // it server-side, so the header's state pill / activate controls must re-read from the
       // server (the lifecycle state is a server prop, not graph-slice state).
       router.refresh();
       onClose();
     } catch (err) {
+      if (err instanceof TemplateApiError && err.code === "WORKFLOW_REVISION_CONFLICT") {
+        // The workflow changed elsewhere: nothing was replaced. Hand off to the
+        // shared builder conflict experience and close the modal.
+        useGraphSlice.getState().flagConflict({ source: "template_replace" });
+        setBusyId(null);
+        setConfirmReplace(null);
+        onClose();
+        return;
+      }
       setActionError(err instanceof TemplateApiError ? err.message : "Couldn't replace the workflow.");
       setBusyId(null);
       setConfirmReplace(null);

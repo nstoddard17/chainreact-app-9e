@@ -21,6 +21,7 @@ jest.mock("@/lib/api/workflowCheckpoints", () => ({
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useWorkflowCheckpoints } from "@/features/workflow-builder/hooks/useWorkflowCheckpoints";
+import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { WorkflowApiError } from "@/lib/api/workflows";
 import type { WorkflowCheckpoint } from "@/contracts/workflowCheckpoint";
 
@@ -39,6 +40,12 @@ const EXISTING: WorkflowCheckpoint = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockList.mockResolvedValue([EXISTING]);
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restore reads the
+  // builder session's loaded revision from the graph slice.
+  useGraphSlice.getState().reset();
+  useGraphSlice
+    .getState()
+    .hydrate("wf-1", { nodes: [], edges: [] }, "2026-07-15T00:00:00Z");
 });
 
 describe("useWorkflowCheckpoints", () => {

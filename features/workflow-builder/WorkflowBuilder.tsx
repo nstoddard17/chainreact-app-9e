@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { replaceCurrentWorkflowFromTemplate } from "@/lib/api/workflowTemplates";
+import { TemplateApiError, replaceCurrentWorkflowFromTemplate } from "@/lib/api/workflowTemplates";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
@@ -24,6 +24,7 @@ import { useResourceLabelCache } from "./state/resourceLabelCache";
 import { PreviewReviewPanel } from "./panels/PreviewReviewPanel";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
 import { BuilderTemplatesModal } from "./panels/BuilderTemplatesModal";
+import { WorkflowConflictDialog } from "./panels/WorkflowConflictDialog";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -89,7 +90,7 @@ import {
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import { buildCheckReviewContext } from "./validation/buildCheckReviewContext";
-import { activateWorkflow } from "@/lib/api/workflows";
+import { activateWorkflow, isRevisionConflictError } from "@/lib/api/workflows";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
 import { useDestructivePreview } from "./hooks/useDestructivePreview";
 import {
@@ -1207,7 +1208,18 @@ export function WorkflowBuilder({
   const draftIsDirty = useGraphSlice((s) => s.isDirty);
   const handleGuidedTest = useCallback(async () => {
     const gs = useGraphSlice.getState();
-    if (gs.isDirty) await gs.save();
+    if (gs.isDirty) {
+      try {
+        await gs.save();
+      } catch (err) {
+        // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — a revision
+        // conflict means the save did NOT land; never run the test against the
+        // stale saved draft. The shared conflict dialog (graphSlice.conflict)
+        // takes over; abort quietly here.
+        if (isRevisionConflictError(err)) return;
+        throw err;
+      }
+    }
     await builderRunControls.handleTestWorkflow();
     // builderRunControls captures dispatch errors into runError (safe copy).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1221,6 +1233,8 @@ export function WorkflowBuilder({
   const handleGuidedActivate = useCallback(
     async (confirmationText?: string) => {
       const gs = useGraphSlice.getState();
+      // Conflict throws propagate to the guided card's catch (typed message);
+      // the save NOT landing means activation must not proceed either.
       if (gs.isDirty) await gs.save();
       await activateWorkflow(
         workflow.id,
@@ -1354,12 +1368,29 @@ export function WorkflowBuilder({
   // Not wired for the logged-out local-only builder (no server workflow → the anonymous rail is used).
   const handleTemplateApplyToCurrent = useCallback(
     async ({ templateId, templateName }: { templateId: string; templateName: string }): Promise<void> => {
-      const detail = await replaceCurrentWorkflowFromTemplate(workflow.id, templateId, {
-        origin: "react_agent",
-      });
+      // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the replace carries this
+      // session's loaded revision; a stale session receives a typed 409 instead of
+      // replacing a newer workflow. On conflict the shared builder conflict
+      // experience takes over (the dialog rethrow keeps the template dialog honest).
+      const expectedRevision = useGraphSlice.getState().hydratedRevision;
+      if (expectedRevision === null) {
+        throw new Error("This workflow hasn't finished loading. Try again in a moment.");
+      }
+      let detail: WorkflowDetail;
+      try {
+        detail = await replaceCurrentWorkflowFromTemplate(workflow.id, templateId, {
+          origin: "react_agent",
+          expectedRevision,
+        });
+      } catch (err) {
+        if (err instanceof TemplateApiError && err.code === "WORKFLOW_REVISION_CONFLICT") {
+          useGraphSlice.getState().flagConflict({ source: "template_replace" });
+        }
+        throw err;
+      }
       // Reconcile client state from the server-confirmed baseline (not an authoritative write — the
-      // server already persisted). The fresh updatedAt clears the revision guard so it isn't stale.
-      hydrate(workflow.id, detail.draftDefinition, detail.updatedAt);
+      // server already persisted). The user explicitly chose the replace, so this hydrate is EXPLICIT.
+      hydrate(workflow.id, detail.draftDefinition, detail.updatedAt, { source: "explicit" });
       closeNode();
       // REACT-AGENT-CONVERSATION-PERSISTENCE-1 — the workflow was REPLACED, so any
       // guided session is describing a graph that no longer exists. End it (and
@@ -1859,6 +1890,12 @@ export function WorkflowBuilder({
             onClose={() => setEmptyStateTemplatesOpen(false)}
           />
         ) : null}
+        {/* WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the shared
+            "changed elsewhere" conflict dialog + persistent reminder. Driven by
+            graphSlice.conflict, so Visual/Document/header/guided flows all
+            resolve through one experience. Never rendered in local-only mode
+            (no server saves → no conflicts). */}
+        {!localOnly ? <WorkflowConflictDialog /> : null}
       </div>
     </BuilderShell>
     </BuilderTeamProvider>

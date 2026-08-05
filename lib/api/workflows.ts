@@ -29,6 +29,7 @@ export type WorkflowApiErrorCode =
   | "LIFECYCLE_CONFLICT"
   | "ACCOUNT_PENDING_DELETION"
   | "CONFIRMATION_REQUIRED"
+  | "WORKFLOW_REVISION_CONFLICT"
   | "SERVER_ERROR"
   | "UNKNOWN";
 
@@ -120,6 +121,42 @@ export function isConfirmationRequiredError(
   return true;
 }
 
+/**
+ * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — thrown when an
+ * authoritative definition save (builder PATCH / template replace / checkpoint
+ * restore) returns the typed 409 WORKFLOW_REVISION_CONFLICT: the workflow
+ * changed elsewhere after this session loaded it, and NOTHING was written.
+ * `detail.latestRevision` is the server's CURRENT opaque revision token —
+ * recovery flows fetch the latest workflow and only then adopt it; the client
+ * never invents or advances a token itself.
+ */
+export interface WorkflowRevisionConflictDetail {
+  readonly workflowId?: string;
+  readonly latestRevision?: string;
+}
+
+export class WorkflowRevisionConflictError extends WorkflowApiError {
+  readonly detail: WorkflowRevisionConflictDetail;
+  constructor(message: string, status: number, detail: WorkflowRevisionConflictDetail) {
+    super(message, "WORKFLOW_REVISION_CONFLICT", status);
+    this.name = "WorkflowRevisionConflictError";
+    this.detail = detail;
+  }
+}
+
+/**
+ * Type guard for the revision conflict. Accepts errors whose prototype was
+ * lost across module boundaries by falling back to a code check — callers must
+ * branch on THIS, never by parsing error text (typed-contract rule).
+ */
+export function isRevisionConflictError(
+  err: unknown,
+): err is WorkflowRevisionConflictError {
+  if (err instanceof WorkflowRevisionConflictError) return true;
+  if (!(err instanceof Error)) return false;
+  return (err as { code?: unknown }).code === "WORKFLOW_REVISION_CONFLICT";
+}
+
 interface ServerErrorBody {
   error?: string;
   code?: string;
@@ -134,6 +171,9 @@ interface ServerErrorBody {
     displayName?: string;
     riskDescription?: string;
   }>;
+  // WORKFLOW_REVISION_CONFLICT body shape (sibling fields).
+  workflowId?: string;
+  latestRevision?: string;
 }
 
 async function parseError(res: Response): Promise<WorkflowApiError> {
@@ -181,6 +221,16 @@ async function parseError(res: Response): Promise<WorkflowApiError> {
       requiresConfirmation: true,
       confirmationText: body.confirmationText,
       actions,
+    });
+  }
+
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — typed conflict so
+  // callers branch on the code (never on message text) and read the current
+  // server revision for recovery.
+  if (body.code === "WORKFLOW_REVISION_CONFLICT") {
+    return new WorkflowRevisionConflictError(message, res.status, {
+      ...(typeof body.workflowId === "string" ? { workflowId: body.workflowId } : {}),
+      ...(typeof body.latestRevision === "string" ? { latestRevision: body.latestRevision } : {}),
     });
   }
 

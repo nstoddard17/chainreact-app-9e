@@ -143,14 +143,28 @@ export async function createWorkflowFromTemplateForCurrent(
 export async function replaceCurrentWorkflowFromTemplate(
   currentWorkflowId: string,
   templateId: string,
-  opts: { origin?: "react_agent" } = {},
+  opts: {
+    origin?: "react_agent";
+    /**
+     * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the workflow revision
+     * (`updatedAt`) this builder session loaded (graphSlice.hydratedRevision).
+     * Required by the server: a stale session receives a 409 with code
+     * `WORKFLOW_REVISION_CONFLICT` (surfaced here as `TemplateApiError.code`)
+     * instead of replacing a newer workflow.
+     */
+    expectedRevision: string;
+  },
 ): Promise<WorkflowDetail> {
   const res = await fetch(
     `/api/workflows/${encodeURIComponent(currentWorkflowId)}/replace-from-template`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ templateId, ...(opts.origin ? { origin: opts.origin } : {}) }),
+      body: JSON.stringify({
+        templateId,
+        expectedRevision: opts.expectedRevision,
+        ...(opts.origin ? { origin: opts.origin } : {}),
+      }),
     },
   );
   if (!res.ok) throw await parseError(res);

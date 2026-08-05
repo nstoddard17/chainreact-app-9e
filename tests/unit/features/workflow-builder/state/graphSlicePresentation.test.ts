@@ -9,9 +9,14 @@
  * nodes; the save payload omits presentation when empty.
  */
 const mockUpdateWorkflow = jest.fn();
+const mockGetWorkflowApi = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
   const actual = jest.requireActual("@/lib/api/workflows");
-  return { ...actual, updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args) };
+  return {
+    ...actual,
+    updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
+    getWorkflow: (...args: unknown[]) => mockGetWorkflowApi(...args),
+  };
 });
 
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -35,6 +40,21 @@ const withSections = (): WorkflowDefinition => ({
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — legacy revision-less
+  // hydrates adopt a server token via getWorkflow before saving; serve the
+  // current saved baseline (no concurrent writer).
+  mockGetWorkflowApi.mockReset();
+  mockGetWorkflowApi.mockImplementation(async (id: string) => ({
+    id,
+    draftDefinition: {
+      nodes: useGraphSlice.getState().savedNodes,
+      edges: useGraphSlice.getState().savedEdges,
+      ...(useGraphSlice.getState().savedPresentation
+        ? { presentation: useGraphSlice.getState().savedPresentation }
+        : {}),
+    },
+    updatedAt: "2026-05-06T00:00:00Z",
+  }));
   useGraphSlice.getState().reset();
 });
 

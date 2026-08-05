@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkflowCheckpoint } from "@/contracts/workflowCheckpoint";
 import type { WorkflowDefinition, WorkflowDetail } from "@/contracts/workflow";
-import { WorkflowApiError } from "@/lib/api/workflows";
+import { WorkflowApiError, isRevisionConflictError } from "@/lib/api/workflows";
 import {
   createWorkflowCheckpoint,
   listWorkflowCheckpoints,
   restoreWorkflowCheckpoint,
 } from "@/lib/api/workflowCheckpoints";
+import { useGraphSlice } from "../state/graphSlice";
 
 /**
  * CHECKPOINTS-1 — feature hook that owns the builder's recent-checkpoints state.
@@ -103,8 +104,30 @@ export function useWorkflowCheckpoints(
       setRestoringId(checkpointId);
       setRestoreError(null);
       try {
-        return await restoreWorkflowCheckpoint(workflowId, checkpointId);
+        // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restore carries
+        // this session's loaded revision; a stale session gets a typed 409
+        // instead of clobbering a newer draft another session just saved.
+        const expectedRevision = useGraphSlice.getState().hydratedRevision;
+        if (expectedRevision === null) {
+          throw new WorkflowApiError(
+            "This workflow hasn't finished loading. Try again in a moment.",
+            "UNKNOWN",
+            409,
+          );
+        }
+        return await restoreWorkflowCheckpoint(workflowId, checkpointId, expectedRevision);
       } catch (err) {
+        if (isRevisionConflictError(err)) {
+          // Nothing was restored — the workflow changed elsewhere. Hand off to
+          // the shared conflict experience (banner/dialog) instead of the
+          // checkpoint-specific error row.
+          useGraphSlice.getState().flagConflict({
+            source: "checkpoint_restore",
+            latestRevision: err.detail.latestRevision ?? null,
+          });
+          setRestoreError("This workflow changed elsewhere — resolve that first, then restore.");
+          throw err;
+        }
         // A 404 means the checkpoint is gone (deleted / pruned / never persisted). The server body
         // carries CHECKPOINT_NOT_FOUND, but the typed client maps ANY 404 to WORKFLOW_NOT_FOUND, so
         // branch on the status (authoritative) + that code. Drop the stale row so the broken restore

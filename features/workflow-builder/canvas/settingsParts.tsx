@@ -3,6 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { updateWorkflow } from "@/lib/api/workflows";
 import { deleteWorkflow } from "@/lib/api/trash";
+import { useGraphSlice } from "../state/graphSlice";
 
 /**
  * Slice 4.BUILDER-SETTINGS-2 — presentational + stateful pieces for the workflow
@@ -122,7 +123,17 @@ export function NameEditor({
     try {
       // PATCH name only — never sends draftDefinition, so it can't race the graph
       // save and never activates / publishes / runs.
-      await updateWorkflow(workflowId, { name: next });
+      const detail = await updateWorkflow(workflowId, { name: next });
+      // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the rename bumped the
+      // row's revision. Feed the response through the EXTERNAL hydrate path: if
+      // the definition is unchanged (the normal case) the builder just adopts
+      // the fresh token so the next graph save doesn't false-conflict; if the
+      // definition really moved elsewhere, the shared conflict experience shows.
+      if (detail?.draftDefinition && detail.updatedAt) {
+        useGraphSlice
+          .getState()
+          .hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
+      }
       setSavedName(next);
       setStatus("saved");
       onSaved?.(next);

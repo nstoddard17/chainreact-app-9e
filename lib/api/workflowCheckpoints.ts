@@ -4,7 +4,11 @@ import type {
   WorkflowCheckpoint,
 } from "@/contracts/workflowCheckpoint";
 import type { WorkflowDetail } from "@/contracts/workflow";
-import { WorkflowApiError, type WorkflowApiErrorCode } from "./workflows";
+import {
+  WorkflowApiError,
+  WorkflowRevisionConflictError,
+  type WorkflowApiErrorCode,
+} from "./workflows";
 
 /**
  * Typed client for the workflow-checkpoints API (CHECKPOINTS-1).
@@ -25,11 +29,21 @@ function pickCode(status: number): WorkflowApiErrorCode {
 
 async function parseError(res: Response): Promise<WorkflowApiError> {
   let message = `Checkpoint request failed (HTTP ${res.status}).`;
+  let body: { error?: string; code?: string; workflowId?: string; latestRevision?: string } = {};
   try {
-    const body = (await res.json()) as { error?: string };
+    body = (await res.json()) as typeof body;
     if (typeof body.error === "string" && body.error.length > 0) message = body.error;
   } catch {
     /* not json */
+  }
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — restore is an
+  // authoritative definition save; surface its 409 as the SAME typed conflict
+  // the builder save uses so one recovery flow handles both.
+  if (body.code === "WORKFLOW_REVISION_CONFLICT") {
+    return new WorkflowRevisionConflictError(message, res.status, {
+      ...(typeof body.workflowId === "string" ? { workflowId: body.workflowId } : {}),
+      ...(typeof body.latestRevision === "string" ? { latestRevision: body.latestRevision } : {}),
+    });
   }
   return new WorkflowApiError(message, pickCode(res.status), res.status);
 }
@@ -63,10 +77,20 @@ export async function createWorkflowCheckpoint(
 export async function restoreWorkflowCheckpoint(
   workflowId: string,
   checkpointId: string,
+  /**
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the workflow revision
+   * (`updatedAt`) this builder session loaded. The server only restores when
+   * the row still carries it; a stale session gets 409 WORKFLOW_REVISION_CONFLICT.
+   */
+  expectedRevision: string,
 ): Promise<WorkflowDetail> {
   const res = await fetch(
     `${base(workflowId)}/${encodeURIComponent(checkpointId)}/restore`,
-    { method: "POST" },
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ expectedRevision }),
+    },
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as WorkflowDetail;

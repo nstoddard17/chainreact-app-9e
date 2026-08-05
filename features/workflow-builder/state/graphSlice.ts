@@ -25,6 +25,9 @@ import { classifyRouteLabelEdit, type RouteLike } from "@/core/workflows/routeLa
 import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import {
   WorkflowApiError,
+  WorkflowRevisionConflictError,
+  getWorkflow,
+  isRevisionConflictError,
   updateWorkflow,
 } from "@/lib/api/workflows";
 import {
@@ -93,8 +96,26 @@ export interface GraphSliceState {
    * the SAME workflow carrying a STRICTLY-OLDER revision is ignored, so a
    * stale/late prop-driven hydrate can never clobber a freshly-applied graph.
    * `null` when unknown (legacy hydrate with no revision, or after reset).
+   *
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — this is ALSO the
+   * optimistic-concurrency token every authoritative save sends as
+   * `expectedRevision`. It only ever holds a server-issued value (hydrate /
+   * save response / verified-unchanged adoption) — the client never invents
+   * or advances it locally.
    */
   hydratedRevision: string | null;
+
+  /**
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — set when a save (or
+   * template replace / checkpoint restore / external refresh) discovered the
+   * SAVED workflow moved past this session's revision AND the local edits are
+   * based on the older content. Local pending edits are PRESERVED — nothing is
+   * hydrated over them — until the user explicitly resolves (reload latest, or
+   * a successful save after the server content proved unchanged). Cleared by
+   * hydrate-accept / reset / workflow switch / reloadLatest / save success.
+   * Carries NO workflow content — safe metadata only.
+   */
+  conflict: WorkflowSaveConflict | null;
 
   /**
    * BUILDER-TOPBAR-UNDO-REDO — bounded draft-edit history. `past` holds prior
@@ -106,6 +127,26 @@ export interface GraphSliceState {
    */
   past: readonly GraphSnapshot[];
   future: readonly GraphSnapshot[];
+}
+
+/**
+ * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — safe conflict metadata.
+ * NEVER holds definitions, node config, tokens, or user identity: revision
+ * tokens are opaque server timestamps and stay internal (the conflict UI never
+ * renders them).
+ */
+export interface WorkflowSaveConflict {
+  readonly workflowId: string;
+  /** The stale token this session tried to save with (null if it had none). */
+  readonly expectedRevision: string | null;
+  /** The server's current token at detection time (null when unknown). */
+  readonly latestRevision: string | null;
+  readonly detectedAt: number;
+  readonly source:
+    | "manual_save"
+    | "template_replace"
+    | "checkpoint_restore"
+    | "external_refresh";
 }
 
 /** One bounded draft-graph snapshot for undo/redo (kept by reference for cheap dirty-vs-saved checks). */
@@ -133,9 +174,43 @@ export interface GraphSliceActions {
    * prop-driven mount effect re-firing after a React Agent apply already
    * hydrated the newer draft) is IGNORED. Omitting `revision` keeps the legacy
    * always-accept behavior (used by tests / non-revisioned callers).
+   *
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — `options.source`:
+   *   - `"external"` (default): an unrequested refresh (RSC prop re-render,
+   *     metadata-save echo). When the draft is DIRTY and the incoming revision
+   *     is strictly newer, local edits are NEVER clobbered: if the incoming
+   *     DEFINITION matches the saved baseline (only metadata moved — rename,
+   *     folder, lifecycle state), just adopt the newer token; if the
+   *     definition really differs, record a conflict and leave the local
+   *     draft fully intact.
+   *   - `"explicit"`: the user (or a flow they confirmed) asked for this exact
+   *     server state (reload-latest, checkpoint restore, template replace,
+   *     apply pipelines). Always accepted; clears any conflict.
    */
-  hydrate(workflowId: string, def: WorkflowDefinition, revision?: string): void;
+  hydrate(
+    workflowId: string,
+    def: WorkflowDefinition,
+    revision?: string,
+    options?: { source?: "external" | "explicit" },
+  ): void;
   reset(): void;
+  /**
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — record a conflict
+   * detected by a NON-save mutation surface (template replace / checkpoint
+   * restore returning the typed 409). Pending edits are untouched; the shared
+   * conflict experience takes over.
+   */
+  flagConflict(input: {
+    source: WorkflowSaveConflict["source"];
+    latestRevision?: string | null;
+  }): void;
+  /**
+   * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the EXPLICIT
+   * "Reload latest" recovery: fetch the current server workflow and hydrate it
+   * (discarding local edits — the UI must confirm with the user FIRST). The
+   * conflict clears only after the fresh server state hydrates successfully.
+   */
+  reloadLatest(): Promise<void>;
   addTrigger(input: AddNodeInput): WorkflowNode;
   addAction(input: AddNodeInput): WorkflowNode;
   /**
@@ -500,6 +575,7 @@ const INITIAL_STATE: GraphSliceState = Object.freeze({
   isSaving: false,
   saveError: null,
   hydratedRevision: null,
+  conflict: null,
   past: [],
   future: [],
 });
@@ -534,6 +610,36 @@ function isStrictlyNewerRevision(incoming: string | undefined, current: string |
   const b = Date.parse(current);
   if (Number.isNaN(a) || Number.isNaN(b)) return false;
   return a > b;
+}
+
+/**
+ * WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — does an incoming server
+ * definition carry the SAME content as this session's saved baseline? Used to
+ * distinguish "only row metadata moved" (rename / folder / lifecycle bumped
+ * `updated_at` — safe to adopt the newer token and keep editing) from "the
+ * definition itself changed elsewhere" (a real conflict). Compares the
+ * canonical graph fingerprint (nodes + edges, config + positions included)
+ * plus the normalized presentation block, so a presentation-only change made
+ * elsewhere is still detected as a real difference.
+ */
+function definitionMatchesSavedBaseline(
+  state: Pick<GraphSliceState, "savedNodes" | "savedEdges" | "savedPresentation">,
+  def: WorkflowDefinition,
+): boolean {
+  const baselineFp = computeEditableGraphVersion({
+    nodes: state.savedNodes,
+    edges: state.savedEdges,
+  });
+  const incomingFp = computeEditableGraphVersion({ nodes: def.nodes, edges: def.edges });
+  if (baselineFp !== incomingFp) return false;
+  const incomingPresentation = normalizePresentation(
+    def.presentation,
+    new Set(def.nodes.map((n) => n.id)),
+  );
+  return (
+    JSON.stringify(incomingPresentation ?? null) ===
+    JSON.stringify(state.savedPresentation ?? null)
+  );
 }
 
 /**
@@ -696,13 +802,16 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   return {
   ...INITIAL_STATE,
 
-  hydrate(workflowId, def, revision) {
+  hydrate(workflowId, def, revision, options) {
     const state = get();
     const sameWorkflow = state.workflowId === workflowId;
+    const explicit = options?.source === "explicit";
     // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — refuse a STALE re-hydrate for the
     // same workflow so a late/older prop hydrate can't overwrite a freshly
-    // applied (newer) graph. A different workflow id always hydrates.
-    if (sameWorkflow && isStaleRevision(revision, state.hydratedRevision)) {
+    // applied (newer) graph. A different workflow id always hydrates; an
+    // EXPLICIT hydrate (user-confirmed reload / restore / replace) always
+    // applies — it IS the requested server truth.
+    if (sameWorkflow && !explicit && isStaleRevision(revision, state.hydratedRevision)) {
       return;
     }
     // Launch-blocker BUILDER-SAVE-WIPE-1 — never let a re-hydrate that is NOT
@@ -710,13 +819,42 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     // same still-empty server draft (equal revision) would otherwise wipe the
     // nodes the user just added, and the next Save would persist the empty graph
     // (observed in prod: PATCH 200 carrying an empty draftDefinition; workflow
-    // empty on reopen). Strictly-newer revisions still apply (AI apply / genuine
-    // external write); a fresh mount is unaffected because isDirty is false.
+    // empty on reopen). A fresh mount is unaffected because isDirty is false.
     if (
       sameWorkflow &&
+      !explicit &&
       state.isDirty &&
       !isStrictlyNewerRevision(revision, state.hydratedRevision)
     ) {
+      return;
+    }
+    // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — an EXTERNAL hydrate
+    // carrying a strictly-newer revision used to silently REPLACE a dirty
+    // draft, erasing local work. Now:
+    //   - newer revision, SAME definition content (rename / folder / lifecycle
+    //     bumped the row) → adopt the newer token, keep the local draft;
+    //   - newer revision, DIFFERENT content → the workflow really changed
+    //     elsewhere: record a conflict, preserve every local edit, hydrate
+    //     nothing. The user resolves via the conflict UI (explicit reload).
+    if (
+      sameWorkflow &&
+      !explicit &&
+      state.isDirty &&
+      isStrictlyNewerRevision(revision, state.hydratedRevision)
+    ) {
+      if (definitionMatchesSavedBaseline(state, def)) {
+        set({ hydratedRevision: revision ?? state.hydratedRevision });
+      } else {
+        set({
+          conflict: {
+            workflowId,
+            expectedRevision: state.hydratedRevision,
+            latestRevision: revision ?? null,
+            detectedAt: Date.now(),
+            source: "external_refresh",
+          },
+        });
+      }
       return;
     }
     const nextRevision = sameWorkflow
@@ -745,10 +883,37 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
       isSaving: false,
       saveError: null,
       hydratedRevision: nextRevision,
+      // Accepting fresh server state resolves any recorded conflict.
+      conflict: null,
       // BUILDER-TOPBAR-UNDO-REDO — a fresh baseline (initial load / strictly-newer external revision)
       // starts a clean history; you can't undo across a hydrate.
       past: [],
       future: [],
+    });
+  },
+
+  flagConflict(input) {
+    const { workflowId, hydratedRevision } = get();
+    if (!workflowId) return;
+    set({
+      conflict: {
+        workflowId,
+        expectedRevision: hydratedRevision,
+        latestRevision: input.latestRevision ?? null,
+        detectedAt: Date.now(),
+        source: input.source,
+      },
+    });
+  },
+
+  async reloadLatest() {
+    const { workflowId } = get();
+    if (!workflowId) return;
+    const detail = await getWorkflow(workflowId);
+    // Explicit: the user confirmed discarding local edits; hydrate clears the
+    // conflict only after this fresh state lands.
+    get().hydrate(workflowId, detail.draftDefinition, detail.updatedAt, {
+      source: "explicit",
     });
   },
 
@@ -1211,11 +1376,23 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   },
 
   async save() {
-    const { workflowId, pendingNodes, pendingEdges, pendingPresentation, isSaving } = get();
+    const { workflowId, pendingNodes, pendingEdges, pendingPresentation, isSaving, conflict } =
+      get();
     if (!workflowId) {
       throw new Error("graphSlice.save() called before hydrate().");
     }
     if (isSaving) return; // single-flight
+    // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — an unresolved conflict
+    // whose token hasn't moved can never succeed; refuse up-front (typed) so
+    // callers (guided Test/Activate, apply-and-test) abort instead of looping
+    // 409s or proceeding against a stale save.
+    if (conflict && conflict.expectedRevision === get().hydratedRevision) {
+      throw new WorkflowRevisionConflictError(
+        "This workflow was changed elsewhere. Resolve the conflict before saving.",
+        409,
+        { workflowId },
+      );
+    }
     set({ isSaving: true, saveError: null });
     try {
       // CS-4 — include presentation ONLY when non-empty (normalized against the
@@ -1226,13 +1403,78 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
         pendingPresentation,
         new Set(pendingNodes.map((n) => n.id)),
       );
-      const updated = await updateWorkflow(workflowId, {
-        draftDefinition: {
-          nodes: [...pendingNodes],
-          edges: [...pendingEdges],
-          ...(outboundPresentation ? { presentation: outboundPresentation } : {}),
-        },
-      });
+      const draftDefinition = {
+        nodes: [...pendingNodes],
+        edges: [...pendingEdges],
+        ...(outboundPresentation ? { presentation: outboundPresentation } : {}),
+      };
+      const attempt = (expectedRevision: string) =>
+        updateWorkflow(workflowId, { draftDefinition, expectedRevision });
+      /**
+       * Adopt the server's CURRENT token when (and only when) the server
+       * definition still matches this session's saved baseline — i.e. only row
+       * METADATA moved (rename / folder move / lifecycle transition bumped
+       * `updated_at`), so retrying with the fresh token overwrites nothing.
+       * A real content difference returns the latest token for the conflict
+       * record instead; local edits are never touched either way.
+       */
+      const tryAdoptUnchangedServerRevision = async (): Promise<
+        { ok: true; token: string } | { ok: false; latestRevision: string }
+      > => {
+        const latest = await getWorkflow(workflowId);
+        if (definitionMatchesSavedBaseline(get(), latest.draftDefinition)) {
+          set({ hydratedRevision: latest.updatedAt });
+          return { ok: true, token: latest.updatedAt };
+        }
+        return { ok: false, latestRevision: latest.updatedAt };
+      };
+      /** Record the conflict (preserving all local edits) and build the typed throw. */
+      const conflictError = (latestRevision: string | null): WorkflowRevisionConflictError => {
+        set({
+          isSaving: false,
+          conflict: {
+            workflowId,
+            expectedRevision: get().hydratedRevision,
+            latestRevision,
+            detectedAt: Date.now(),
+            source: "manual_save",
+          },
+        });
+        return new WorkflowRevisionConflictError(
+          "This workflow was changed elsewhere. Your changes have not been saved.",
+          409,
+          { workflowId, ...(latestRevision ? { latestRevision } : {}) },
+        );
+      };
+
+      let expectedRevision = get().hydratedRevision;
+      if (expectedRevision === null) {
+        // Legacy hydrate with no revision: obtain a server token first, but
+        // only proceed when the server content is what this session edited on.
+        const adopted = await tryAdoptUnchangedServerRevision();
+        if (!adopted.ok) throw conflictError(adopted.latestRevision);
+        expectedRevision = adopted.token;
+      }
+
+      let updated: WorkflowDetail;
+      try {
+        updated = await attempt(expectedRevision);
+      } catch (err) {
+        if (!isRevisionConflictError(err)) throw err;
+        // One rebase-and-retry, ONLY for the provably-safe case (definition
+        // unchanged server-side — the 409 came from a metadata bump). Anything
+        // else is a real conflict.
+        const adopted = await tryAdoptUnchangedServerRevision();
+        if (!adopted.ok) throw conflictError(adopted.latestRevision);
+        try {
+          updated = await attempt(adopted.token);
+        } catch (err2) {
+          if (isRevisionConflictError(err2)) {
+            throw conflictError(err2.detail.latestRevision ?? null);
+          }
+          throw err2;
+        }
+      }
       // CS-4 — reconcile saved presentation from the server-echoed definition,
       // re-normalized against the echoed nodes (defensive; the read path casts).
       const savedPresentation = normalizePresentation(
@@ -1261,9 +1503,19 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
             }
           : { isDirty: true }),
         isSaving: false,
+        // A save that landed against the latest revision resolves any conflict.
+        conflict: null,
       });
       return updated;
     } catch (err) {
+      // Revision conflicts have their own channel (conflict state + typed
+      // throw, set by enterConflict) — never render them through the generic
+      // save-error banner, and never let a network/validation failure display
+      // conflict copy.
+      if (isRevisionConflictError(err)) {
+        set({ isSaving: false });
+        throw err;
+      }
       const message =
         err instanceof WorkflowApiError ? err.message : "Failed to save workflow.";
       set({ isSaving: false, saveError: message });

@@ -102,9 +102,15 @@ export function AnonymousDraftRestorer({ reason }: { reason?: AnonGateReason }) 
       // Reuse a pending restore target from a prior failed attempt when it's
       // still accessible; otherwise create a fresh workflow exactly once.
       let targetId = readRestoreTarget();
+      // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — definition saves
+      // require the server revision the writer is based on. The just-created /
+      // just-verified workflow's `updatedAt` IS that revision; a retry re-reads
+      // it, so a stale token never sticks across attempts.
+      let expectedRevision: string | null = null;
       if (targetId) {
         try {
-          await getWorkflow(targetId); // accessible → reuse it
+          const existing = await getWorkflow(targetId); // accessible → reuse it
+          expectedRevision = existing.updatedAt;
         } catch (verifyErr) {
           if (isUnusableTargetError(verifyErr)) {
             clearRestoreTarget(); // confirmed gone → safe to create a new one
@@ -117,11 +123,15 @@ export function AnonymousDraftRestorer({ reason }: { reason?: AnonGateReason }) 
       if (!targetId) {
         const created = await createWorkflow({ name: deriveWorkflowName(draft.prompt) });
         targetId = created.id;
+        expectedRevision = created.updatedAt;
         // Persist BEFORE the PATCH so a failed import retries against this id.
         setRestoreTarget(targetId);
       }
-      if (draft.nodes.length > 0) {
-        await updateWorkflow(targetId, { draftDefinition: toDefinition(draft) });
+      if (draft.nodes.length > 0 && expectedRevision !== null) {
+        await updateWorkflow(targetId, {
+          draftDefinition: toDefinition(draft),
+          expectedRevision,
+        });
       }
       // Park prompt + reason for the real builder (composer seed + next-action banner).
       setRestoredContext(targetId, { prompt: draft.prompt, ...(reason ? { reason } : {}) });

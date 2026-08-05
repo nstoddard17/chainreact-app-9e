@@ -17,11 +17,13 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateWorkflow = jest.fn();
+const mockGetWorkflowApi = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
   const actual = jest.requireActual("@/lib/api/workflows");
   return {
     ...actual,
     updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
+    getWorkflow: (...args: unknown[]) => mockGetWorkflowApi(...args),
   };
 });
 
@@ -57,10 +59,15 @@ import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockGetWorkflowApi.mockReset();
   mockPush.mockReset();
   mockRefresh.mockReset();
   useGraphSlice.getState().reset();
-  useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+  // Hydrate WITH a server revision — matches the real builder mount, and the
+  // save contract requires a server-issued expectedRevision.
+  useGraphSlice
+    .getState()
+    .hydrate("wf-1", { nodes: [], edges: [] }, "2026-05-06T00:00:00Z");
 });
 
 describe("BuilderHeader — render contract", () => {

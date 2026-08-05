@@ -15,11 +15,16 @@
  */
 
 const mockUpdateWorkflow = jest.fn();
+// WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — save() may fetch the
+// latest workflow (conflict rebase / missing-token adoption); mock it too so
+// no test ever touches the network.
+const mockGetWorkflowApi = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
   const actual = jest.requireActual("@/lib/api/workflows");
   return {
     ...actual,
     updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
+    getWorkflow: (...args: unknown[]) => mockGetWorkflowApi(...args),
   };
 });
 
@@ -45,6 +50,19 @@ const TRIGGER_DEF: WorkflowDefinition = {
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockGetWorkflowApi.mockReset();
+  // Default: the server's current definition equals this session's saved
+  // baseline (no concurrent writer). Legacy hydrates with no revision then
+  // adopt this token before saving — matching the real contract, where every
+  // definition save must carry a server-issued expectedRevision.
+  mockGetWorkflowApi.mockImplementation(async (id: string) => ({
+    id,
+    draftDefinition: {
+      nodes: useGraphSlice.getState().savedNodes,
+      edges: useGraphSlice.getState().savedEdges,
+    },
+    updatedAt: "2026-05-06T00:00:00Z",
+  }));
   useGraphSlice.getState().reset();
 });
 
@@ -187,10 +205,48 @@ describe("graphSlice.hydrate — unsaved-edit protection (BUILDER-SAVE-WIPE-1)",
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
   });
 
-  it("still applies a strictly-NEWER revision even with edits (external write wins)", () => {
+  // WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — an EXTERNAL strictly-newer
+  // hydrate no longer clobbers dirty edits ("external write wins" was silent
+  // data loss). Different content → conflict recorded, edits preserved; same
+  // content (metadata-only bump) → token adopted, edits preserved.
+  it("does NOT hydrate a strictly-newer EXTERNAL revision over dirty edits — records a conflict instead", () => {
     hydrateEmptyThenAddTwoNodes(REV);
+    const before = useGraphSlice.getState().pendingNodes;
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, "2027-01-01T00:00:00.000Z");
-    expect(useGraphSlice.getState().pendingNodes).toEqual(TRIGGER_DEF.nodes);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toBe(before); // local edits untouched, by reference
+    expect(s.conflict).not.toBeNull();
+    expect(s.conflict!.source).toBe("external_refresh");
+    expect(s.hydratedRevision).toBe(REV); // stale token kept — save still conflicts honestly
+  });
+
+  it("adopts the newer token (keeping dirty edits) when the newer revision carries the SAME definition (metadata-only bump)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, REV);
+    const node = useGraphSlice.getState().pendingNodes[0]!;
+    useGraphSlice.getState().updateNodeConfig(node.id, { channel: "C9" });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+    // Rename/lifecycle bumped updated_at; the definition itself is the saved baseline.
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, "2027-01-01T00:00:00.000Z");
+    const s = useGraphSlice.getState();
+    expect(s.conflict).toBeNull();
+    expect(s.hydratedRevision).toBe("2027-01-01T00:00:00.000Z");
+    expect(s.isDirty).toBe(true);
+    expect((s.pendingNodes[0]!.config as { channel?: string }).channel).toBe("C9");
+  });
+
+  it("an EXPLICIT hydrate (user-confirmed reload/restore/replace) still applies over dirty edits and clears any conflict", () => {
+    hydrateEmptyThenAddTwoNodes(REV);
+    // Record a conflict first (external newer, different content).
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF, "2027-01-01T00:00:00.000Z");
+    expect(useGraphSlice.getState().conflict).not.toBeNull();
+    useGraphSlice
+      .getState()
+      .hydrate("wf-1", TRIGGER_DEF, "2027-01-01T00:00:00.000Z", { source: "explicit" });
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toEqual(TRIGGER_DEF.nodes);
+    expect(s.isDirty).toBe(false);
+    expect(s.conflict).toBeNull();
+    expect(s.hydratedRevision).toBe("2027-01-01T00:00:00.000Z");
   });
 });
 
@@ -453,7 +509,7 @@ describe("graphSlice.removeNode", () => {
 
 describe("graphSlice.save", () => {
   it("calls updateWorkflow with the pending definition and reconciles saved* on success", async () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     useGraphSlice.getState().addTrigger({ provider: "slack" });
     const pending = useGraphSlice.getState().pendingNodes;
     mockUpdateWorkflow.mockResolvedValueOnce({
@@ -485,7 +541,7 @@ describe("graphSlice.save", () => {
   });
 
   it("captures WorkflowApiError into saveError; pending* untouched", async () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     useGraphSlice.getState().addTrigger({ provider: "slack" });
     const before = useGraphSlice.getState().pendingNodes;
     mockUpdateWorkflow.mockRejectedValueOnce(
@@ -503,7 +559,7 @@ describe("graphSlice.save", () => {
   });
 
   it("uses generic message for non-WorkflowApiError failures", async () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     useGraphSlice.getState().addTrigger({ provider: "slack" });
     mockUpdateWorkflow.mockRejectedValueOnce(new Error("network"));
 
@@ -518,7 +574,7 @@ describe("graphSlice.save", () => {
   });
 
   it("single-flights concurrent saves (second call is a no-op)", async () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     useGraphSlice.getState().addTrigger({ provider: "slack" });
     let resolveCall: (v: unknown) => void = () => {};
     mockUpdateWorkflow.mockImplementationOnce(
@@ -606,7 +662,7 @@ describe("graphSlice.addActionFromMeta", () => {
   });
 
   it("refuses to add an action before a trigger exists (delegates to addAction)", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     expect(() =>
       useGraphSlice.getState().addActionFromMeta(httpRequestMeta),
     ).toThrow(/trigger/i);
@@ -667,7 +723,7 @@ describe("deriveDefaultConfig — TriggerMeta variant", () => {
 
 describe("graphSlice.addTriggerFromMeta", () => {
   it("creates a trigger node with provider/type from the meta and default config", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const node = useGraphSlice
       .getState()
       .addTriggerFromMeta(scheduledTriggerMeta);
@@ -682,7 +738,7 @@ describe("graphSlice.addTriggerFromMeta", () => {
   });
 
   it("creates a manual trigger with empty config", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const node = useGraphSlice
       .getState()
       .addTriggerFromMeta(manualTriggerMeta);
@@ -821,7 +877,7 @@ describe("graphSlice.addTriggerFromMeta — recovery auto-connect", () => {
   });
 
   it("creates no edge for the empty-canvas first-trigger flow (no actions)", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     useGraphSlice.getState().addTriggerFromMeta(manualTriggerMeta);
     const s = useGraphSlice.getState();
     expect(s.pendingNodes).toHaveLength(1);
@@ -856,7 +912,7 @@ describe("findSoleRootActionId", () => {
 
 describe("graphSlice.addTrigger — config passthrough (Slice 3.3)", () => {
   it("uses the supplied config when provided", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const node = useGraphSlice.getState().addTrigger({
       provider: "native",
       type: "schedule.fired",
@@ -866,7 +922,7 @@ describe("graphSlice.addTrigger — config passthrough (Slice 3.3)", () => {
   });
 
   it("defaults to empty config when not supplied (Slice 1I.2 behavior preserved)", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const node = useGraphSlice.getState().addTrigger({ provider: "slack" });
     expect(node.config).toEqual({});
   });
@@ -1595,7 +1651,7 @@ describe("graphSlice — applyAdditivePatch (HERMES-AGENT-APPLY-PREVIEW-PATCH)",
   };
 
   it("blank graph: adds the proposed nodes + edges with EMPTY config, marks dirty, mints real ids", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const outcome = useGraphSlice.getState().applyAdditivePatch(ADDITIVE_PATCH);
     const s = useGraphSlice.getState();
     expect(outcome.ok).toBe(true);
@@ -1636,7 +1692,7 @@ describe("graphSlice — applyAdditivePatch (HERMES-AGENT-APPLY-PREVIEW-PATCH)",
   });
 
   it("empty patch → ok:false, no mutation", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const outcome = useGraphSlice.getState().applyAdditivePatch({ kind: "additive", nodes: [], edges: [] });
     expect(outcome.ok).toBe(false);
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
@@ -1655,7 +1711,7 @@ describe("graphSlice — applyAdditivePatch (HERMES-AGENT-APPLY-PREVIEW-PATCH)",
   });
 
   it("blank graph → placement 'blank'", () => {
-    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF, "2026-05-06T00:00:00Z");
     const outcome = useGraphSlice.getState().applyAdditivePatch(ADDITIVE_PATCH);
     expect(outcome.ok && outcome.placement).toBe("blank");
   });
