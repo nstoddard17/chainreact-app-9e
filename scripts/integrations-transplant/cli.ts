@@ -233,6 +233,20 @@ async function main(): Promise<number> {
   process.env.TOKEN_ENCRYPTION_KEY = env.TRANSPLANT_DEST_TOKEN_ENCRYPTION_KEY;
   delete process.env.SUPABASE_ACCESS_TOKEN;
 
+  // Provider-probe configuration. A few read-only identity probes need
+  // DEPLOYMENT-level provider config in addition to the integration's own
+  // credential — Trello authenticates every API call as a (API key, user
+  // token) PAIR, so its probe needs the same TRELLO_CLIENT_ID the dev runtime
+  // uses. Narrow, explicit allowlist sourced ONLY from the merged
+  // transplant/development env files (the production env file is never
+  // loaded), never logged, and absent values are left unset so the probe fails
+  // closed rather than authenticating with a wrong key.
+  const PROBE_CONFIG_VARS = ["TRELLO_CLIENT_ID"] as const;
+  for (const name of PROBE_CONFIG_VARS) {
+    const value = env[name];
+    if (value) process.env[name] = value;
+  }
+
   // Deferred import so the canonical repositories are first evaluated AFTER
   // the global env is pinned (their service-role client is constructed on
   // first call either way; this keeps the ordering obvious and testable).
