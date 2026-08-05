@@ -102,6 +102,12 @@ export async function listCheckpoints(
 export type RestoreCheckpointResult =
   | { ok: true; record: WorkflowRecord }
   | { ok: false; reason: "checkpoint_not_found" }
+  /** SUPABASE-TABLE-TYPING-1D — the checkpoint's persisted snapshot failed
+   *  schema validation, so its in-memory definition is the safe EMPTY fallback.
+   *  Restoring it would overwrite a live workflow with an empty canvas, which
+   *  is exactly the data loss the restore feature exists to undo. Nothing was
+   *  written and no side effect ran. */
+  | { ok: false; reason: "checkpoint_definition_invalid" }
   /** WORKFLOW-CHANGED-ELSEWHERE-CONFLICT-PROTECTION-1 — the workflow moved past
    *  the revision the caller loaded; nothing was restored, no side effect ran. */
   | { ok: false; reason: "revision_conflict"; latestRevision: string };
@@ -138,6 +144,12 @@ export async function restoreCheckpoint(input: {
     input.workflow.id,
   );
   if (!checkpoint) return { ok: false, reason: "checkpoint_not_found" };
+  // Fail closed BEFORE the compare-and-swap. `definition` is the safe empty
+  // fallback whenever the persisted snapshot did not validate, and writing
+  // that over a live workflow is destruction, not restoration.
+  if (checkpoint.definitionInvalid) {
+    return { ok: false, reason: "checkpoint_definition_invalid" };
+  }
 
   const saved = await saveDraftDefinition({
     accountId: input.workflow.accountId,

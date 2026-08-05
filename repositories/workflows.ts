@@ -1,5 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import { requireColumn } from "@/core/database/columnNarrowing";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import type { TableInsert, TableRow, TableUpdate } from "@/types/tables";
 import type {
   WorkflowState,
   WorkflowDisabledReason,
@@ -13,6 +17,19 @@ import { normalizePersistedWorkflowDefinition } from "@/contracts/workflowDefini
  * Per docs/rules/database-security.md: server-side only. Lifecycle transition
  * logic lives in core/workflows/lifecycle.ts and services/workflows/lifecycleOrchestrator.ts;
  * this layer only persists what those decide.
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1D). Table access runs through
+ * `asTypedDb`, so the table name and every selected column are compile-time
+ * checked. Three things are worth stating because typing changed what this
+ * file CLAIMS, not what it does:
+ *
+ *   - `state` / `disabled_reason` are real Postgres ENUMS, so the generator
+ *     already types them exactly — no narrowing helper is needed or used, and
+ *     an invalid lifecycle value cannot reach this layer in the first place.
+ *   - `created_by_user_id` is NULLABLE in the schema; see `rowToRecord`.
+ *   - `draft_definition` is decision-driving JSON and is NEVER cast: it is
+ *     normalized through the authoritative contract on read and CONSTRUCTED
+ *     with `toJsonColumn` on write.
  */
 
 export interface WorkflowRecord {
@@ -75,32 +92,14 @@ export interface WorkflowRevisionRecord {
   createdAt: string;
 }
 
-export interface WorkflowsRow {
-  id: string;
-  account_id: string;
-  created_by_user_id: string;
-  name: string;
-  state: WorkflowState;
-  disabled_reason: WorkflowDisabledReason | null;
-  disabled_context: string | null;
-  active_revision_id: string | null;
-  draft_definition: unknown;
-  deleted_at: string | null;
-  folder_id: string | null;
-  deleted_by_user_id: string | null;
-  purge_after: string | null;
-  deleted_from_folder_id: string | null;
-  delete_operation_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface WorkflowRevisionsRow {
-  id: string;
-  workflow_id: string;
-  definition: unknown;
-  created_at: string;
-}
+/**
+ * The generated row. Kept as an exported ALIAS (not a handwritten copy) so
+ * `workflowsTrash.ts` — which maps the same table through `rowToRecord` — keeps
+ * importing one name, while the shape itself comes from the generator and can
+ * no longer silently disagree with the database.
+ */
+export type WorkflowsRow = TableRow<"workflows">;
+type WorkflowRevisionsRow = TableRow<"workflow_revisions">;
 
 export function rowToRecord(row: WorkflowsRow): WorkflowRecord {
   // Normalization boundary: NEVER cast persisted JSON. Schema-valid input
@@ -116,7 +115,13 @@ export function rowToRecord(row: WorkflowsRow): WorkflowRecord {
   return {
     id: row.id,
     accountId: row.account_id,
-    createdByUserId: row.created_by_user_id,
+    // NULLABLE in the schema (`ON DELETE SET NULL`), non-null in this record —
+    // and now that gap is CHECKED rather than declared away. See the field's
+    // doc comment: null is unreachable today and only becomes reachable with
+    // Phase D team-member deletion, at which point this throw is the signal
+    // that the billing-attribution rescope has to land with it. Failing here
+    // is strictly safer than handing the engine `undefined` typed as `string`.
+    createdByUserId: requireColumn("workflows.created_by_user_id", row.created_by_user_id),
     name: row.name,
     state: row.state,
     disabledReason: row.disabled_reason,
@@ -163,7 +168,7 @@ export interface CreateWorkflowInput {
 }
 
 export async function create(input: CreateWorkflowInput): Promise<WorkflowRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   // 4.ACCOUNT-MODEL-7: supply account_id + created_by_user_id directly. The
   // foundation compat trigger that used to derive these from user_id is
   // dropped in this slice's migration. The INSERT must satisfy the
@@ -175,10 +180,13 @@ export async function create(input: CreateWorkflowInput): Promise<WorkflowRecord
       account_id: input.accountId,
       created_by_user_id: input.createdByUserId,
       name: input.name,
-      draft_definition: input.draftDefinition ?? { nodes: [], edges: [] },
-    })
+      draft_definition: toJsonColumn(
+        "workflows.draft_definition",
+        input.draftDefinition ?? { nodes: [], edges: [] },
+      ),
+    } satisfies TableInsert<"workflows">)
     .select()
-    .single<WorkflowsRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflows.create failed: ${error?.message ?? "no row returned"}`);
   }
@@ -186,12 +194,12 @@ export async function create(input: CreateWorkflowInput): Promise<WorkflowRecord
 }
 
 export async function getById(workflowId: string): Promise<WorkflowRecord | null> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("*")
     .eq("id", workflowId)
-    .maybeSingle<WorkflowsRow>();
+    .maybeSingle();
   if (error) throw new Error(`workflows.getById failed: ${error.message}`);
   return data ? rowToRecord(data) : null;
 }
@@ -207,14 +215,14 @@ export async function listByAccount(
   accountId: string,
   opts: { includeDeleted?: boolean } = {},
 ): Promise<readonly WorkflowRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   let query = supabase.from("workflows").select("*").eq("account_id", accountId);
   if (!opts.includeDeleted) {
     query = query.neq("state", "deleted");
   }
   const { data, error } = await query.order("updated_at", { ascending: false });
   if (error) throw new Error(`workflows.listByAccount failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -234,7 +242,7 @@ export async function listNamesByIds(
   ids: readonly string[],
 ): Promise<readonly { id: string; name: string }[]> {
   if (ids.length === 0) return [];
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("id,name")
@@ -242,7 +250,7 @@ export async function listNamesByIds(
   if (error) {
     throw new Error(`workflows.listNamesByIds failed: ${error.message}`);
   }
-  return (data ?? []) as readonly { id: string; name: string }[];
+  return data ?? [];
 }
 
 /**
@@ -270,7 +278,7 @@ export async function listByIdsForAccount(
   ids: readonly string[],
 ): Promise<readonly WorkflowAnalyticsRef[]> {
   if (ids.length === 0) return [];
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("id,name,state")
@@ -279,7 +287,7 @@ export async function listByIdsForAccount(
   if (error) {
     throw new Error(`workflows.listByIdsForAccount failed: ${error.message}`);
   }
-  return (data ?? []) as readonly WorkflowAnalyticsRef[];
+  return data ?? [];
 }
 
 /**
@@ -293,7 +301,7 @@ export async function listByIdsForAccount(
 export async function listSummariesByAccount(
   accountId: string,
 ): Promise<readonly WorkflowAnalyticsRef[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("id,name,state")
@@ -302,20 +310,20 @@ export async function listSummariesByAccount(
   if (error) {
     throw new Error(`workflows.listSummariesByAccount failed: ${error.message}`);
   }
-  return (data ?? []) as readonly WorkflowAnalyticsRef[];
+  return data ?? [];
 }
 
 export async function updateName(
   workflowId: string,
   name: string,
 ): Promise<WorkflowRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .update({ name })
     .eq("id", workflowId)
     .select()
-    .single<WorkflowsRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflows.updateName failed: ${error?.message ?? "no row returned"}`);
   }
@@ -333,13 +341,13 @@ export async function updateFolder(
   workflowId: string,
   folderId: string | null,
 ): Promise<WorkflowRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .update({ folder_id: folderId })
     .eq("id", workflowId)
     .select()
-    .single<WorkflowsRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflows.updateFolder failed: ${error?.message ?? "no row returned"}`);
   }
@@ -378,15 +386,22 @@ export interface UpdateDraftDefinitionGuardedInput {
 export async function updateDraftDefinitionIfRevisionMatches(
   input: UpdateDraftDefinitionGuardedInput,
 ): Promise<WorkflowRecord | null> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
-    .update({ draft_definition: input.draftDefinition })
+    .update({
+      draft_definition: toJsonColumn(
+        "workflows.draft_definition",
+        input.draftDefinition,
+      ),
+    } satisfies TableUpdate<"workflows">)
+    // The compare-and-swap predicate — id AND owning account AND the revision
+    // token the caller validated. Typing does not relax it by one column.
     .eq("id", input.workflowId)
     .eq("account_id", input.accountId)
     .eq("updated_at", input.expectedUpdatedAt)
     .select()
-    .maybeSingle<WorkflowsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflows.updateDraftDefinitionIfRevisionMatches failed: ${error.message}`);
   }
@@ -403,7 +418,7 @@ export interface CreateRevisionInput {
 export async function createRevision(
   input: CreateRevisionInput,
 ): Promise<WorkflowRevisionRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   // 4.ACCOUNT-MODEL-7: workflow_revisions.user_id is dropped. The row's
   // account scope is implicit via its workflow_id FK; RLS
   // (workflow_revisions_insert_account_member) gates the INSERT by joining
@@ -412,10 +427,10 @@ export async function createRevision(
     .from("workflow_revisions")
     .insert({
       workflow_id: input.workflowId,
-      definition: input.definition,
-    })
+      definition: toJsonColumn("workflow_revisions.definition", input.definition),
+    } satisfies TableInsert<"workflow_revisions">)
     .select()
-    .single<WorkflowRevisionsRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `workflow_revisions.create failed: ${error?.message ?? "no row returned"}`,
@@ -428,13 +443,13 @@ export async function setActiveRevision(
   workflowId: string,
   revisionId: string,
 ): Promise<WorkflowRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .update({ active_revision_id: revisionId })
     .eq("id", workflowId)
     .select()
-    .single<WorkflowsRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflows.setActiveRevision failed: ${error?.message ?? "no row returned"}`);
   }
@@ -454,14 +469,14 @@ export async function setActiveRevision(
 export async function getRevisionByIdServiceRole(
   revisionId: string,
 ): Promise<WorkflowRevisionRecord | null> {
-  const supabase = getServiceRoleClient(
+  const supabase = asTypedDb(getServiceRoleClient(
     `workflow execution: getRevisionByIdServiceRole ${revisionId}`,
-  );
+  ));
   const { data, error } = await supabase
     .from("workflow_revisions")
     .select("*")
     .eq("id", revisionId)
-    .maybeSingle<WorkflowRevisionsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `workflows.getRevisionByIdServiceRole failed: ${error.message}`,
@@ -522,14 +537,14 @@ export interface ApplyTransitionInput {
 export async function getByIdServiceRole(
   workflowId: string,
 ): Promise<WorkflowRecord | null> {
-  const supabase = getServiceRoleClient(
+  const supabase = asTypedDb(getServiceRoleClient(
     `workflow execution: getByIdServiceRole ${workflowId}`,
-  );
+  ));
   const { data, error } = await supabase
     .from("workflows")
     .select("*")
     .eq("id", workflowId)
-    .maybeSingle<WorkflowsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflows.getByIdServiceRole failed: ${error.message}`);
   }
@@ -549,9 +564,9 @@ export async function listByAccountServiceRole(
   accountId: string,
   opts: { limit?: number } = {},
 ): Promise<readonly WorkflowRecord[]> {
-  const supabase = getServiceRoleClient(
+  const supabase = asTypedDb(getServiceRoleClient(
     `mcp: listByAccountServiceRole ${accountId}`,
-  );
+  ));
   const limit = Math.min(opts.limit ?? 100, 200);
   const { data, error } = await supabase
     .from("workflows")
@@ -563,7 +578,7 @@ export async function listByAccountServiceRole(
   if (error) {
     throw new Error(`workflows.listByAccountServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -575,14 +590,14 @@ export async function listByAccountServiceRole(
 export async function getStateForDispatch(
   workflowId: string,
 ): Promise<WorkflowState | null> {
-  const supabase = getServiceRoleClient(
+  const supabase = asTypedDb(getServiceRoleClient(
     `webhook dispatcher: state lookup ${workflowId}`,
-  );
+  ));
   const { data, error } = await supabase
     .from("workflows")
     .select("state")
     .eq("id", workflowId)
-    .maybeSingle<{ state: WorkflowState }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflows.getStateForDispatch failed: ${error.message}`);
   }
@@ -609,14 +624,14 @@ export interface WorkflowDispatchInfo {
 export async function getDispatchInfo(
   workflowId: string,
 ): Promise<WorkflowDispatchInfo | null> {
-  const supabase = getServiceRoleClient(
+  const supabase = asTypedDb(getServiceRoleClient(
     `polling scheduler: state+account lookup ${workflowId}`,
-  );
+  ));
   const { data, error } = await supabase
     .from("workflows")
     .select("state, account_id")
     .eq("id", workflowId)
-    .maybeSingle<{ state: WorkflowState; account_id: string }>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflows.getDispatchInfo failed: ${error.message}`);
   }
@@ -627,8 +642,13 @@ export async function getDispatchInfo(
 export async function applyTransition(
   input: ApplyTransitionInput,
 ): Promise<WorkflowRecord | null> {
-  const supabase = await createClient();
-  const update: Record<string, unknown> = { state: input.toState };
+  const supabase = asTypedDb(await createClient());
+  // Sparse by design — an absent key must stay untouched, so this is the
+  // generated Update contract. It was a bare `Record<string, unknown>`, which
+  // is assignable to almost anything and therefore checked nothing: a
+  // misspelled lifecycle column or a wrong-typed trash timestamp passed
+  // silently on the one statement that moves a workflow's state.
+  const update: TableUpdate<"workflows"> = { state: input.toState };
   if (input.disabledReason !== undefined) {
     update.disabled_reason = input.disabledReason;
   }
@@ -654,7 +674,7 @@ export async function applyTransition(
     .eq("id", input.workflowId)
     .eq("state", input.expectedFromState)
     .select()
-    .maybeSingle<WorkflowsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflows.applyTransition failed: ${error.message}`);
   }

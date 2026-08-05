@@ -73,11 +73,23 @@ describe("typed-db guard — fail-closed corruption proofs", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  /** Write a crafted repository + manifest under the REPO, then run the guard. */
-  function check(source: string, { file = "repositories/__guard_probe.ts" } = {}) {
-    const abs = resolve(ROOT, file);
+  /**
+   * Write a crafted repository + manifest, then run the guard against them.
+   *
+   * The probe lives in this suite's OWN temp directory, never under
+   * `repositories/`. It used to be written to `repositories/__guard_probe.ts`
+   * and deleted in a `finally`, which raced every other suite that walks the
+   * source tree — a dozen files in `tests/structure/` glob `repositories/**`,
+   * list the probe, and then crash with ENOENT when this suite removes it
+   * mid-read. The guard resolves manifest entries with `resolve(ROOT, rel)`,
+   * so an absolute path outside the repo works exactly the same and the probe
+   * is invisible to anything that scans the project.
+   */
+  function check(source: string, { file = "" } = {}) {
+    const abs = file ? resolve(ROOT, file) : join(dir, "__guard_probe.ts");
+    const entry = file || abs;
     const manifestPath = join(dir, "manifest.json");
-    writeFileSync(manifestPath, JSON.stringify({ migratedFiles: [file] }));
+    writeFileSync(manifestPath, JSON.stringify({ migratedFiles: [entry] }));
     writeFileSync(abs, source);
     try {
       return spawnSync(process.execPath, [GUARD, "check", "--manifest", manifestPath], {
@@ -414,6 +426,97 @@ export function describe2(o: Record<string, unknown>) {
     }
     // Pure-RPC, no table access — listing it would fail the check by design.
     expect(files).not.toContain("repositories/analytics/queries.ts");
+  });
+
+  // ── SUPABASE-TABLE-TYPING-1D: the workflow graph ─────────────────────────
+
+  it.each([
+    ["draft_definition", "row.draft_definition as WorkflowDefinition"],
+    ["checkpoint definition", "row.definition as WorkflowDefinition"],
+    ["template definition", "row.definition as TemplateDefinition"],
+  ])("fails when %s is cast into a trusted graph type", (_col, expr) => {
+    const r = check(`${GOOD_SOURCE}
+export function bad(row: { draft_definition: unknown; definition: unknown }) {
+  return ${expr};
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("decision-driving JSON column");
+  });
+
+  it("fails on the `?? empty-graph` cast that hid a corrupt snapshot", () => {
+    // The exact expression 1D removed from workflowCheckpoints/workflowTemplates.
+    const r = check(`${GOOD_SOURCE}
+export function bad(row: { definition: unknown }) {
+  return (row.definition ?? { nodes: [], edges: [] }) as WorkflowDefinition;
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("decision-driving JSON column");
+  });
+
+  it("still allows a workflow definition column to stay opaque", () => {
+    const r = check(`${GOOD_SOURCE}
+export function fine(row: { draft_definition: unknown }) {
+  return row.draft_definition as Json;
+}
+`);
+    expect(r.status).toBe(0);
+  });
+
+  it("fails on `as Json` in a workflow insert payload", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+export async function save(definition: unknown) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  await db.from("workflows").insert({ account_id: "a", name: "n", draft_definition: definition as Json });
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("asserts JSON-encodability");
+  });
+
+  it("fails on a workflow lifecycle update payload typed Record<string, unknown>", () => {
+    const r = check(`
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+export async function transition(id: string, to: string) {
+  const db = asTypedDb(getServiceRoleClient("reason"));
+  const update: Record<string, unknown> = { state: to };
+  await db.from("workflows").update(update).eq("id", id);
+}
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("defeats the generated Insert/Update contract");
+  });
+
+  it("fails on a handwritten workflows row duplicate", () => {
+    const r = check(`${GOOD_SOURCE}
+interface WorkflowsRow {
+  id: string;
+  account_id: string;
+  created_by_user_id: string;
+  name: string;
+  state: string;
+}
+export type Keep = WorkflowsRow;
+`);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("duplicates the generated `workflows` Row");
+  });
+
+  it("covers the workflow definition + lifecycle family in the committed manifest", () => {
+    const files: string[] = JSON.parse(readFileSync(MANIFEST, "utf8")).migratedFiles;
+    for (const expected of [
+      "repositories/workflows.ts",
+      "repositories/workflowsTrash.ts",
+      "repositories/workflowFolders.ts",
+      "repositories/workflowCheckpoints.ts",
+      "repositories/workflowTemplates.ts",
+    ]) {
+      expect(files).toContain(expected);
+    }
   });
 
   it("covers the workflow-run family in the committed manifest", () => {

@@ -51,6 +51,16 @@ const JSON_COLUMN_ACCESSORS = [
   ".error_detail",
   ".widgets",
   ".result",
+  // 1D — the workflow graph, in all three places it is persisted. These are the
+  // highest-stakes JSON columns in the schema: `draft_definition` is what the
+  // builder edits and the engine walks, a checkpoint `definition` is written
+  // BACK over a live workflow by restore, and a template `definition` becomes a
+  // new workflow. Each one used to be reached with `?? {nodes:[],edges:[]} as
+  // WorkflowDefinition` — an unchecked shape assertion wrapped around a silent
+  // empty-graph substitution. All three now go through the authoritative
+  // contracts (normalizePersistedWorkflowDefinition / TemplateDefinitionSchema).
+  ".draft_definition",
+  ".definition",
 ];
 
 function fail(message) {

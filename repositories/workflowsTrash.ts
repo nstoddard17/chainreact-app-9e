@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
-import { rowToRecord, type WorkflowRecord, type WorkflowsRow } from "./workflows";
+import { rowToRecord, type WorkflowRecord } from "./workflows";
+import { asTypedDb } from "./supabase/typedDb";
 
 /**
  * Workflow trash queries (Slice 4.WORKFLOW-FOLDERS-4 / WF-3 + WF-4).
@@ -17,6 +18,14 @@ import { rowToRecord, type WorkflowRecord, type WorkflowsRow } from "./workflows
  * builder_agent_threads) and SET-NULLs the billing ledgers (task_usage_events /
  * ai_cost_events) — so billing history survives a purge with workflow_id nulled,
  * no anonymization step needed.
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1D). Table access runs through
+ * `asTypedDb`. Deletion semantics are UNCHANGED and deliberately so: the
+ * session-client helpers still only ever soft-delete or reparent, and the two
+ * service-role helpers are still the only hard delete, still gated on
+ * `deleted_at IS NOT NULL AND purge_after <= now`. Typing touched the row
+ * shapes and the id projection, never a predicate — a purge query that lost a
+ * filter would now be a compile error rather than a silent widening.
  */
 
 // ── session-client (RLS) helpers ────────────────────────────────────────────
@@ -30,14 +39,14 @@ export async function listByFolderIds(
   folderIds: readonly string[],
 ): Promise<readonly WorkflowRecord[]> {
   if (folderIds.length === 0) return [];
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("*")
     .in("folder_id", folderIds as string[])
     .neq("state", "deleted");
   if (error) throw new Error(`workflowsTrash.listByFolderIds failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -49,7 +58,7 @@ export async function reparentWorkflows(
   fromFolderId: string,
   toFolderId: string | null,
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { error } = await supabase
     .from("workflows")
     .update({ folder_id: toFolderId })
@@ -62,13 +71,13 @@ export async function reparentWorkflows(
 export async function listByDeleteOperation(
   deleteOperationId: string,
 ): Promise<readonly WorkflowRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("*")
     .eq("delete_operation_id", deleteOperationId);
   if (error) throw new Error(`workflowsTrash.listByDeleteOperation failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -78,7 +87,7 @@ export async function listByDeleteOperation(
 export async function listTrashedByAccount(
   accountId: string,
 ): Promise<readonly WorkflowRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflows")
     .select("*")
@@ -88,7 +97,7 @@ export async function listTrashedByAccount(
     .gt("purge_after", new Date().toISOString())
     .order("deleted_at", { ascending: false });
   if (error) throw new Error(`workflowsTrash.listTrashedByAccount failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 // ── service-role purge helpers (WF-4) ───────────────────────────────────────
@@ -102,7 +111,7 @@ export async function listTrashedByAccount(
 export async function listPurgeableWorkflowIdsServiceRole(
   nowIso: string,
 ): Promise<readonly string[]> {
-  const supabase = getServiceRoleClient("workflow trash purge: list purgeable workflows");
+  const supabase = asTypedDb(getServiceRoleClient("workflow trash purge: list purgeable workflows"));
   const { data, error } = await supabase
     .from("workflows")
     .select("id")
@@ -111,7 +120,7 @@ export async function listPurgeableWorkflowIdsServiceRole(
   if (error) {
     throw new Error(`workflowsTrash.listPurgeableWorkflowIdsServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => (r as { id: string }).id);
+  return (data ?? []).map((r) => r.id);
 }
 
 /**
@@ -122,7 +131,7 @@ export async function hardDeleteWorkflowsServiceRole(
   ids: readonly string[],
 ): Promise<void> {
   if (ids.length === 0) return;
-  const supabase = getServiceRoleClient("workflow trash purge: hard-delete workflows");
+  const supabase = asTypedDb(getServiceRoleClient("workflow trash purge: hard-delete workflows"));
   const { error } = await supabase.from("workflows").delete().in("id", ids as string[]);
   if (error) {
     throw new Error(`workflowsTrash.hardDeleteWorkflowsServiceRole failed: ${error.message}`);

@@ -13,6 +13,7 @@
 import {
   narrowColumn,
   narrowNullableColumn,
+  requireColumn,
   requireFiniteNumber,
 } from "@/core/database/columnNarrowing";
 import { PLAN_STATUSES, PLAN_TIERS } from "@/core/billing/planPolicy";
@@ -133,6 +134,54 @@ describe("requireFiniteNumber — analytics aggregates fail closed", () => {
       throw new Error("expected requireFiniteNumber to throw");
     } catch (e) {
       expect((e as Error).message).not.toContain("s3cret-looking-garbage");
+    }
+  });
+});
+
+/**
+ * SUPABASE-TABLE-TYPING-1D — a nullable column a domain invariant requires.
+ *
+ * `workflows.created_by_user_id` is `ON DELETE SET NULL` in the schema but was
+ * declared `string` in a handwritten row interface. That did not make it
+ * non-null; it only stopped TypeScript from mentioning it, and the value
+ * reached billing attribution and credential-owner resolution as `undefined`
+ * wearing the type `string`. This asserts the invariant instead.
+ */
+describe("requireColumn — a required value is checked, not asserted", () => {
+  const COL = "workflows.created_by_user_id";
+
+  it("returns a present value unchanged", () => {
+    expect(requireColumn(COL, "user-1")).toBe("user-1");
+  });
+
+  it("preserves falsy-but-real values (0, empty string, false)", () => {
+    // Only null/undefined are absence. A legitimate 0 must not be rejected.
+    expect(requireColumn("t.count", 0)).toBe(0);
+    expect(requireColumn("t.name", "")).toBe("");
+    expect(requireColumn("t.flag", false)).toBe(false);
+  });
+
+  it("throws on null rather than handing on `undefined` typed as a string", () => {
+    expect(() => requireColumn(COL, null)).toThrow(
+      /workflows\.created_by_user_id: expected a value, received null/,
+    );
+  });
+
+  it("throws on undefined (a projection that never selected the column)", () => {
+    expect(() => requireColumn(COL, undefined)).toThrow(
+      /workflows\.created_by_user_id: expected a value, received undefined/,
+    );
+  });
+
+  it("names the column but never echoes an identifier", () => {
+    // The values this guards are user / account ids.
+    try {
+      requireColumn(COL, null);
+      throw new Error("expected requireColumn to throw");
+    } catch (e) {
+      const message = (e as Error).message;
+      expect(message).toContain("workflows.created_by_user_id");
+      expect(message).toMatch(/received null$/);
     }
   });
 });

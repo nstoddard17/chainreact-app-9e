@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableColumns, TableInsert, TableUpdate } from "@/types/tables";
 
 /**
  * Repository for `public.workflow_folders` (Slice 4.WORKFLOW-FOLDERS-3 / WF-2).
@@ -36,21 +38,29 @@ export interface WorkflowFolderRecord {
   deleteOperationId: string | null;
 }
 
-interface WorkflowFoldersRow {
-  id: string;
-  account_id: string;
-  parent_folder_id: string | null;
-  name: string;
-  position: number;
-  created_by_user_id: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  deleted_by_user_id: string | null;
-  purge_after: string | null;
-  deleted_from_parent_folder_id: string | null;
-  delete_operation_id: string | null;
-}
+/**
+ * SUPABASE-TABLE-TYPING-1D — `SELECT_COLS` is the full generated row, so this
+ * is a `TableColumns<>` pick over exactly the columns the queries ask for.
+ * `parent_folder_id` stays NULLABLE end to end: null means ROOT, which is a
+ * real folder position, never a fallback this layer substitutes for a folder
+ * it could not resolve.
+ */
+type WorkflowFoldersRow = TableColumns<
+  "workflow_folders",
+  | "id"
+  | "account_id"
+  | "parent_folder_id"
+  | "name"
+  | "position"
+  | "created_by_user_id"
+  | "created_at"
+  | "updated_at"
+  | "deleted_at"
+  | "deleted_by_user_id"
+  | "purge_after"
+  | "deleted_from_parent_folder_id"
+  | "delete_operation_id"
+>;
 
 function rowToRecord(row: WorkflowFoldersRow): WorkflowFolderRecord {
   return {
@@ -82,7 +92,7 @@ export async function listByAccount(
   accountId: string,
   opts: { includeDeleted?: boolean } = {},
 ): Promise<readonly WorkflowFolderRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   let query = supabase
     .from("workflow_folders")
     .select(SELECT_COLS)
@@ -94,18 +104,18 @@ export async function listByAccount(
     .order("parent_folder_id", { ascending: true, nullsFirst: true })
     .order("position", { ascending: true });
   if (error) throw new Error(`workflow_folders.listByAccount failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowFoldersRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 export async function getById(
   folderId: string,
 ): Promise<WorkflowFolderRecord | null> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
     .select(SELECT_COLS)
     .eq("id", folderId)
-    .maybeSingle<WorkflowFoldersRow>();
+    .maybeSingle();
   if (error) throw new Error(`workflow_folders.getById failed: ${error.message}`);
   return data ? rowToRecord(data) : null;
 }
@@ -121,7 +131,7 @@ export interface CreateFolderInput {
 export async function create(
   input: CreateFolderInput,
 ): Promise<WorkflowFolderRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
     .insert({
@@ -130,9 +140,9 @@ export async function create(
       name: input.name,
       parent_folder_id: input.parentFolderId,
       position: input.position,
-    })
+    } satisfies TableInsert<"workflow_folders">)
     .select(SELECT_COLS)
-    .single<WorkflowFoldersRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflow_folders.create failed: ${error?.message ?? "no row returned"}`);
   }
@@ -143,13 +153,13 @@ export async function updateName(
   folderId: string,
   name: string,
 ): Promise<WorkflowFolderRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
-    .update({ name })
+    .update({ name } satisfies TableUpdate<"workflow_folders">)
     .eq("id", folderId)
     .select(SELECT_COLS)
-    .single<WorkflowFoldersRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflow_folders.updateName failed: ${error?.message ?? "no row returned"}`);
   }
@@ -161,13 +171,13 @@ export async function updateParentAndPosition(
   parentFolderId: string | null,
   position: number,
 ): Promise<WorkflowFolderRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
-    .update({ parent_folder_id: parentFolderId, position })
+    .update({ parent_folder_id: parentFolderId, position } satisfies TableUpdate<"workflow_folders">)
     .eq("id", folderId)
     .select(SELECT_COLS)
-    .single<WorkflowFoldersRow>();
+    .single();
   if (error || !data) {
     throw new Error(`workflow_folders.updateParentAndPosition failed: ${error?.message ?? "no row returned"}`);
   }
@@ -184,11 +194,11 @@ export async function updatePositions(
   updates: ReadonlyArray<{ id: string; position: number }>,
 ): Promise<void> {
   if (updates.length === 0) return;
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   for (const u of updates) {
     const { error } = await supabase
       .from("workflow_folders")
-      .update({ position: u.position })
+      .update({ position: u.position } satisfies TableUpdate<"workflow_folders">)
       .eq("id", u.id);
     if (error) {
       throw new Error(`workflow_folders.updatePositions failed: ${error.message}`);
@@ -216,7 +226,7 @@ export interface SoftDeleteFolderInput {
 export async function softDelete(
   input: SoftDeleteFolderInput,
 ): Promise<WorkflowFolderRecord | null> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
     .update({
@@ -225,11 +235,11 @@ export async function softDelete(
       purge_after: input.purgeAfter,
       deleted_from_parent_folder_id: input.deletedFromParentFolderId,
       delete_operation_id: input.deleteOperationId,
-    })
+    } satisfies TableUpdate<"workflow_folders">)
     .eq("id", input.folderId)
     .is("deleted_at", null)
     .select(SELECT_COLS)
-    .maybeSingle<WorkflowFoldersRow>();
+    .maybeSingle();
   if (error) throw new Error(`workflow_folders.softDelete failed: ${error.message}`);
   return data ? rowToRecord(data) : null;
 }
@@ -243,7 +253,7 @@ export async function restore(
   folderId: string,
   parentFolderId: string | null,
 ): Promise<WorkflowFolderRecord | null> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
     .update({
@@ -253,11 +263,11 @@ export async function restore(
       deleted_from_parent_folder_id: null,
       delete_operation_id: null,
       parent_folder_id: parentFolderId,
-    })
+    } satisfies TableUpdate<"workflow_folders">)
     .eq("id", folderId)
     .not("deleted_at", "is", null)
     .select(SELECT_COLS)
-    .maybeSingle<WorkflowFoldersRow>();
+    .maybeSingle();
   if (error) throw new Error(`workflow_folders.restore failed: ${error.message}`);
   return data ? rowToRecord(data) : null;
 }
@@ -266,20 +276,20 @@ export async function restore(
 export async function listByDeleteOperation(
   deleteOperationId: string,
 ): Promise<readonly WorkflowFolderRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
     .select(SELECT_COLS)
     .eq("delete_operation_id", deleteOperationId);
   if (error) throw new Error(`workflow_folders.listByDeleteOperation failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowFoldersRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /** Trashed folders still within the restore window for an account (the Trash listing). */
 export async function listTrashedByAccount(
   accountId: string,
 ): Promise<readonly WorkflowFolderRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_folders")
     .select(SELECT_COLS)
@@ -288,7 +298,7 @@ export async function listTrashedByAccount(
     .gt("purge_after", new Date().toISOString())
     .order("deleted_at", { ascending: false });
   if (error) throw new Error(`workflow_folders.listTrashedByAccount failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowFoldersRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 // ── WF-4 service-role purge helpers (purge-cron only) ──────────────────────────
@@ -307,7 +317,7 @@ export interface PurgeableFolder {
 export async function listPurgeableFoldersServiceRole(
   nowIso: string,
 ): Promise<readonly PurgeableFolder[]> {
-  const supabase = getServiceRoleClient("workflow trash purge: list purgeable folders");
+  const supabase = asTypedDb(getServiceRoleClient("workflow trash purge: list purgeable folders"));
   const { data, error } = await supabase
     .from("workflow_folders")
     .select("id, parent_folder_id")
@@ -316,10 +326,7 @@ export async function listPurgeableFoldersServiceRole(
   if (error) {
     throw new Error(`workflow_folders.listPurgeableFoldersServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => {
-    const row = r as { id: string; parent_folder_id: string | null };
-    return { id: row.id, parentFolderId: row.parent_folder_id };
-  });
+  return (data ?? []).map((r) => ({ id: r.id, parentFolderId: r.parent_folder_id }));
 }
 
 /**
@@ -328,7 +335,7 @@ export async function listPurgeableFoldersServiceRole(
  * parent_folder_id RESTRICT FK.
  */
 export async function hardDeleteFolderServiceRole(folderId: string): Promise<void> {
-  const supabase = getServiceRoleClient("workflow trash purge: hard-delete folder");
+  const supabase = asTypedDb(getServiceRoleClient("workflow trash purge: hard-delete folder"));
   const { error } = await supabase.from("workflow_folders").delete().eq("id", folderId);
   if (error) {
     throw new Error(`workflow_folders.hardDeleteFolderServiceRole failed: ${error.message}`);

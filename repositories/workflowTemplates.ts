@@ -1,4 +1,14 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import { narrowColumn } from "@/core/database/columnNarrowing";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import type { TableColumns, TableInsert, TableUpdate } from "@/types/tables";
+import {
+  TEMPLATE_SOURCES,
+  TEMPLATE_VISIBILITIES,
+  TEMPLATE_USAGE_EVENT_TYPES,
+  TemplateDefinitionSchema,
+} from "@/contracts/workflowTemplate";
 import type {
   WorkflowTemplateRecord,
   MarketplaceTemplateSummary,
@@ -9,6 +19,34 @@ import type {
   TemplateUsageEventType,
 } from "@/contracts/workflowTemplate";
 import { deriveTemplateCardMeta } from "@/core/workflows/templateCardMeta";
+
+/**
+ * SUPABASE-TABLE-TYPING-1D — the persisted template graph.
+ *
+ * `definition` used to be `(row.definition ?? {nodes:[],edges:[]}) as
+ * TemplateDefinition` in BOTH projections: an unchecked shape assertion plus a
+ * silent empty-graph substitution. The apply path in
+ * `services/workflows/templateManagement.ts` does re-validate before creating
+ * or replacing a workflow, so the product was protected — but the marketplace
+ * CARD is derived HERE, from this value, and a card derived from a fabricated
+ * empty graph would advertise a template that has no nodes.
+ *
+ * The authoritative `TemplateDefinitionSchema` now decides. An invalid graph is
+ * reported via `definitionInvalid` and yields an EMPTY definition — it is never
+ * presented as a valid template the user can apply.
+ */
+function parseTemplateDefinition(
+  templateId: string,
+  raw: unknown,
+): { definition: TemplateDefinition; invalid: boolean } {
+  const parsed = TemplateDefinitionSchema.safeParse(raw ?? {});
+  if (parsed.success) return { definition: parsed.data, invalid: false };
+  // Id + outcome only — never the stored graph or any node config.
+  console.warn(
+    `[workflow_templates] definition for template ${templateId} failed schema validation — not applicable (definitionInvalid=true).`,
+  );
+  return { definition: { nodes: [], edges: [] }, invalid: true };
+}
 
 /**
  * Repository for `workflow_templates` + `workflow_template_usage_events`
@@ -28,24 +66,61 @@ import { deriveTemplateCardMeta } from "@/core/workflows/templateCardMeta";
  * CS-XT-4B wires no caller; this repository changes no runtime behavior.
  */
 
-interface WorkflowTemplatesRow {
-  id: string;
-  account_id: string | null;
-  created_by_user_id: string | null;
-  name: string;
-  description: string | null;
-  source: TemplateSource;
-  visibility: TemplateVisibility;
-  definition: unknown;
-  schema_version: number;
-  published_at: string | null;
-  unpublished_at: string | null;
-  forked_from_template_id: string | null;
-  creator_display_name_snapshot: string | null;
-  usage_count: number;
-  fork_count: number;
-  created_at: string;
-  updated_at: string;
+type WorkflowTemplatesRow = TableColumns<
+  "workflow_templates",
+  | "id"
+  | "account_id"
+  | "created_by_user_id"
+  | "name"
+  | "description"
+  | "source"
+  | "visibility"
+  | "definition"
+  | "schema_version"
+  | "published_at"
+  | "unpublished_at"
+  | "forked_from_template_id"
+  | "creator_display_name_snapshot"
+  | "usage_count"
+  | "fork_count"
+  | "created_at"
+  | "updated_at"
+>;
+
+/**
+ * The PUBLIC-safe projection is genuinely narrower — `MARKETPLACE_COLUMNS`
+ * omits `account_id` and `created_by_user_id` precisely so no tenant identity
+ * can leak. It used to be typed as the full internal row, which meant the
+ * no-leak guarantee rested on a comment rather than the type. Now a marketplace
+ * query that started selecting `account_id` would not compile into this mapper.
+ */
+type MarketplaceTemplateRow = TableColumns<
+  "workflow_templates",
+  | "id"
+  | "name"
+  | "description"
+  | "source"
+  | "visibility"
+  | "creator_display_name_snapshot"
+  | "usage_count"
+  | "fork_count"
+  | "forked_from_template_id"
+  | "published_at"
+  | "schema_version"
+  | "created_at"
+  | "definition"
+>;
+
+function narrowSource(templateId: string, value: string): TemplateSource {
+  return narrowColumn(`workflow_templates.source(${templateId})`, TEMPLATE_SOURCES, value);
+}
+
+function narrowVisibility(templateId: string, value: string): TemplateVisibility {
+  return narrowColumn(
+    `workflow_templates.visibility(${templateId})`,
+    TEMPLATE_VISIBILITIES,
+    value,
+  );
 }
 
 /** Full (internal) column list. */
@@ -53,15 +128,17 @@ const TEMPLATE_COLUMNS =
   "id, account_id, created_by_user_id, name, description, source, visibility, definition, schema_version, published_at, unpublished_at, forked_from_template_id, creator_display_name_snapshot, usage_count, fork_count, created_at, updated_at";
 
 function rowToRecord(row: WorkflowTemplatesRow): WorkflowTemplateRecord {
+  const parsed = parseTemplateDefinition(row.id, row.definition);
   return {
     id: row.id,
     accountId: row.account_id,
     createdByUserId: row.created_by_user_id,
     name: row.name,
     description: row.description,
-    source: row.source,
-    visibility: row.visibility,
-    definition: (row.definition ?? { nodes: [], edges: [] }) as TemplateDefinition,
+    source: narrowSource(row.id, row.source),
+    visibility: narrowVisibility(row.id, row.visibility),
+    definition: parsed.definition,
+    definitionInvalid: parsed.invalid,
     schemaVersion: row.schema_version,
     publishedAt: row.published_at,
     unpublishedAt: row.unpublished_at,
@@ -82,14 +159,15 @@ function rowToRecord(row: WorkflowTemplatesRow): WorkflowTemplateRecord {
  * (providers, counts, category, trigger kind, preview chain) but not the JSON. See
  * {@link deriveTemplateCardMeta}.
  */
-function rowToMarketplaceSummary(row: WorkflowTemplatesRow): MarketplaceTemplateSummary {
+function rowToMarketplaceSummary(row: MarketplaceTemplateRow): MarketplaceTemplateSummary {
+  const source = narrowSource(row.id, row.source);
   return {
     id: row.id,
     name: row.name,
     description: row.description,
-    source: row.source,
-    isOfficial: row.source === "official",
-    visibility: row.visibility,
+    source,
+    isOfficial: source === "official",
+    visibility: narrowVisibility(row.id, row.visibility),
     creatorDisplayName: row.creator_display_name_snapshot,
     usageCount: row.usage_count,
     forkCount: row.fork_count,
@@ -97,9 +175,9 @@ function rowToMarketplaceSummary(row: WorkflowTemplatesRow): MarketplaceTemplate
     publishedAt: row.published_at,
     schemaVersion: row.schema_version,
     createdAt: row.created_at,
-    card: deriveTemplateCardMeta(
-      (row.definition ?? { nodes: [], edges: [] }) as TemplateDefinition,
-    ),
+    // The card is DERIVED from the validated definition — an unparseable graph
+    // yields an empty card rather than a card describing a fabricated graph.
+    card: deriveTemplateCardMeta(parseTemplateDefinition(row.id, row.definition).definition),
   };
 }
 
@@ -138,7 +216,7 @@ export interface CreateWorkflowTemplateInput {
 export async function createTemplateServiceRole(
   input: CreateWorkflowTemplateInput,
 ): Promise<WorkflowTemplateRecord> {
-  const supabase = getServiceRoleClient(`workflow_templates: create ${input.accountId ?? "official"}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: create ${input.accountId ?? "official"}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .insert({
@@ -148,14 +226,14 @@ export async function createTemplateServiceRole(
       description: input.description ?? null,
       source: input.source ?? "user",
       visibility: input.visibility ?? "private",
-      definition: input.definition,
+      definition: toJsonColumn("workflow_templates.definition", input.definition),
       schema_version: input.schemaVersion,
       forked_from_template_id: input.forkedFromTemplateId ?? null,
       creator_display_name_snapshot: input.creatorDisplayNameSnapshot ?? null,
       published_at: input.publishedAt ?? null,
-    })
+    } satisfies TableInsert<"workflow_templates">)
     .select(TEMPLATE_COLUMNS)
-    .single<WorkflowTemplatesRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `workflow_templates.createTemplateServiceRole failed: ${error?.message ?? "no row"}`,
@@ -168,7 +246,7 @@ export async function createTemplateServiceRole(
 export async function listTemplatesByAccountServiceRole(
   accountId: string,
 ): Promise<readonly WorkflowTemplateRecord[]> {
-  const supabase = getServiceRoleClient(`workflow_templates: listByAccount ${accountId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: listByAccount ${accountId}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .select(TEMPLATE_COLUMNS)
@@ -177,7 +255,7 @@ export async function listTemplatesByAccountServiceRole(
   if (error) {
     throw new Error(`workflow_templates.listTemplatesByAccountServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as WorkflowTemplatesRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -188,7 +266,7 @@ export async function listTemplatesByAccountServiceRole(
 export async function listMarketplaceTemplatesServiceRole(): Promise<
   readonly MarketplaceTemplateSummary[]
 > {
-  const supabase = getServiceRoleClient("workflow_templates: listMarketplace");
+  const supabase = asTypedDb(getServiceRoleClient("workflow_templates: listMarketplace"));
   const { data, error } = await supabase
     .from("workflow_templates")
     .select(MARKETPLACE_COLUMNS)
@@ -197,7 +275,7 @@ export async function listMarketplaceTemplatesServiceRole(): Promise<
   if (error) {
     throw new Error(`workflow_templates.listMarketplaceTemplatesServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToMarketplaceSummary(r as WorkflowTemplatesRow));
+  return (data ?? []).map(rowToMarketplaceSummary);
 }
 
 /**
@@ -210,7 +288,7 @@ export async function listMarketplaceTemplatesServiceRole(): Promise<
 export async function listOfficialTemplatesServiceRole(): Promise<
   readonly MarketplaceTemplateSummary[]
 > {
-  const supabase = getServiceRoleClient("workflow_templates: listOfficial");
+  const supabase = asTypedDb(getServiceRoleClient("workflow_templates: listOfficial"));
   const { data, error } = await supabase
     .from("workflow_templates")
     .select(MARKETPLACE_COLUMNS)
@@ -220,7 +298,7 @@ export async function listOfficialTemplatesServiceRole(): Promise<
   if (error) {
     throw new Error(`workflow_templates.listOfficialTemplatesServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToMarketplaceSummary(r as WorkflowTemplatesRow));
+  return (data ?? []).map(rowToMarketplaceSummary);
 }
 
 /**
@@ -231,13 +309,13 @@ export async function getTemplateByIdServiceRole(
   accountId: string,
   templateId: string,
 ): Promise<WorkflowTemplateRecord | null> {
-  const supabase = getServiceRoleClient(`workflow_templates: getById ${accountId}/${templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: getById ${accountId}/${templateId}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .select(TEMPLATE_COLUMNS)
     .eq("id", templateId)
     .eq("account_id", accountId)
-    .maybeSingle<WorkflowTemplatesRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_templates.getTemplateByIdServiceRole failed: ${error.message}`);
   }
@@ -252,13 +330,13 @@ export async function getTemplateByIdServiceRole(
 export async function getMarketplaceTemplateByIdServiceRole(
   templateId: string,
 ): Promise<WorkflowTemplateRecord | null> {
-  const supabase = getServiceRoleClient(`workflow_templates: getMarketplaceById ${templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: getMarketplaceById ${templateId}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .select(TEMPLATE_COLUMNS)
     .eq("id", templateId)
     .or("source.eq.official,visibility.eq.public,visibility.eq.unlisted")
-    .maybeSingle<WorkflowTemplatesRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_templates.getMarketplaceTemplateByIdServiceRole failed: ${error.message}`);
   }
@@ -276,12 +354,12 @@ export async function getMarketplaceTemplateByIdServiceRole(
 export async function getTemplateByIdAnyAccountServiceRole(
   templateId: string,
 ): Promise<WorkflowTemplateRecord | null> {
-  const supabase = getServiceRoleClient(`workflow_templates: getByIdAnyAccount ${templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: getByIdAnyAccount ${templateId}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .select(TEMPLATE_COLUMNS)
     .eq("id", templateId)
-    .maybeSingle<WorkflowTemplatesRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_templates.getTemplateByIdAnyAccountServiceRole failed: ${error.message}`);
   }
@@ -293,7 +371,7 @@ export async function getTemplateByIdAnyAccountServiceRole(
  * Service-role, exact head count.
  */
 export async function countTemplatesByAccountServiceRole(accountId: string): Promise<number> {
-  const supabase = getServiceRoleClient(`workflow_templates: countByAccount ${accountId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: countByAccount ${accountId}`));
   const { count, error } = await supabase
     .from("workflow_templates")
     .select("id", { count: "exact", head: true })
@@ -312,7 +390,7 @@ export async function deleteTemplateServiceRole(
   accountId: string,
   templateId: string,
 ): Promise<{ deleted: boolean }> {
-  const supabase = getServiceRoleClient(`workflow_templates: delete ${accountId}/${templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: delete ${accountId}/${templateId}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .delete()
@@ -346,7 +424,7 @@ export async function updateTemplateMetadataServiceRole(
   templateId: string,
   patch: UpdateTemplateMetadataPatch,
 ): Promise<WorkflowTemplateRecord | null> {
-  const update: Record<string, unknown> = {};
+  const update: TableUpdate<"workflow_templates"> = {};
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.description !== undefined) update.description = patch.description;
   if (patch.visibility !== undefined) update.visibility = patch.visibility;
@@ -356,14 +434,14 @@ export async function updateTemplateMetadataServiceRole(
     update.creator_display_name_snapshot = patch.creatorDisplayNameSnapshot;
   }
 
-  const supabase = getServiceRoleClient(`workflow_templates: update ${accountId}/${templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_templates: update ${accountId}/${templateId}`));
   const { data, error } = await supabase
     .from("workflow_templates")
     .update(update)
     .eq("id", templateId)
     .eq("account_id", accountId)
     .select(TEMPLATE_COLUMNS)
-    .maybeSingle<WorkflowTemplatesRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_templates.updateTemplateMetadataServiceRole failed: ${error.message}`);
   }
@@ -372,16 +450,17 @@ export async function updateTemplateMetadataServiceRole(
 
 // ── Usage ledger (service-role only) ─────────────────────────────────────────
 
-interface UsageEventRow {
-  id: string;
-  template_id: string;
-  actor_user_id: string | null;
-  target_account_id: string | null;
-  event_type: TemplateUsageEventType;
-  created_workflow_id: string | null;
-  created_template_id: string | null;
-  created_at: string;
-}
+type UsageEventRow = TableColumns<
+  "workflow_template_usage_events",
+  | "id"
+  | "template_id"
+  | "actor_user_id"
+  | "target_account_id"
+  | "event_type"
+  | "created_workflow_id"
+  | "created_template_id"
+  | "created_at"
+>;
 
 function rowToUsageEvent(row: UsageEventRow): WorkflowTemplateUsageEventRecord {
   return {
@@ -389,7 +468,13 @@ function rowToUsageEvent(row: UsageEventRow): WorkflowTemplateUsageEventRecord {
     templateId: row.template_id,
     actorUserId: row.actor_user_id,
     targetAccountId: row.target_account_id,
-    eventType: row.event_type,
+    // CHECK-constrained text, generated as `string` — narrowed fail-closed so
+    // an unrecognised ledger event can never be counted as a known one.
+    eventType: narrowColumn(
+      `workflow_template_usage_events.event_type(${row.id})`,
+      TEMPLATE_USAGE_EVENT_TYPES,
+      row.event_type,
+    ),
     createdWorkflowId: row.created_workflow_id,
     createdTemplateId: row.created_template_id,
     createdAt: row.created_at,
@@ -413,7 +498,7 @@ export interface RecordTemplateUsageEventInput {
 export async function recordTemplateUsageEventServiceRole(
   input: RecordTemplateUsageEventInput,
 ): Promise<WorkflowTemplateUsageEventRecord> {
-  const supabase = getServiceRoleClient(`workflow_template_usage_events: record ${input.templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_template_usage_events: record ${input.templateId}`));
   const { data, error } = await supabase
     .from("workflow_template_usage_events")
     .insert({
@@ -423,9 +508,9 @@ export async function recordTemplateUsageEventServiceRole(
       event_type: input.eventType,
       created_workflow_id: input.createdWorkflowId ?? null,
       created_template_id: input.createdTemplateId ?? null,
-    })
+    } satisfies TableInsert<"workflow_template_usage_events">)
     .select("id, template_id, actor_user_id, target_account_id, event_type, created_workflow_id, created_template_id, created_at")
-    .single<UsageEventRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `workflow_template_usage_events.recordTemplateUsageEventServiceRole failed: ${error?.message ?? "no row"}`,
@@ -439,7 +524,7 @@ export async function countUsageEventsByTemplateServiceRole(
   templateId: string,
   eventType?: TemplateUsageEventType,
 ): Promise<number> {
-  const supabase = getServiceRoleClient(`workflow_template_usage_events: count ${templateId}`);
+  const supabase = asTypedDb(getServiceRoleClient(`workflow_template_usage_events: count ${templateId}`));
   let query = supabase
     .from("workflow_template_usage_events")
     .select("id", { count: "exact", head: true })

@@ -321,3 +321,72 @@ describe("RECONV-1 — diamond definition round-trip", () => {
     }
   });
 });
+
+/**
+ * SUPABASE-TABLE-TYPING-1D — a checkpoint whose persisted snapshot did not
+ * validate carries the safe EMPTY definition plus `definitionInvalid`.
+ * Restoring it would overwrite a live workflow with an empty canvas, i.e.
+ * cause exactly the data loss the restore feature exists to undo.
+ */
+describe("restoreCheckpoint — a corrupt snapshot is refused, not restored", () => {
+  it("refuses before the compare-and-swap and writes nothing", async () => {
+    mockGetByIdForWorkflow.mockResolvedValue({
+      id: "cp-bad", workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "react_agent", name: "Damaged", prompt: null, summary: null,
+      definition: { nodes: [], edges: [] }, definitionInvalid: true,
+      createdAt: "2026-07-15T01:00:00Z",
+    });
+
+    const result = await restoreCheckpoint({
+      workflow: baseWorkflow({ draftDefinition: CURRENT_DRAFT }),
+      checkpointId: "cp-bad",
+      expectedRevision: "2026-07-15T00:00:00Z",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "checkpoint_definition_invalid" });
+    // The live workflow was never touched.
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
+  });
+
+  it("still restores a checkpoint that is genuinely EMPTY but valid", async () => {
+    // The distinction the old `?? { nodes: [], edges: [] }` cast destroyed:
+    // an empty checkpoint is a legitimate restore target.
+    mockGetByIdForWorkflow.mockResolvedValue({
+      id: "cp-empty", workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "manual", name: "Blank canvas", prompt: null, summary: null,
+      definition: { nodes: [], edges: [] }, definitionInvalid: false,
+      createdAt: "2026-07-15T01:00:00Z",
+    });
+    mockGuardedUpdate.mockImplementation(
+      async (input: { draftDefinition: WorkflowDefinition }) =>
+        baseWorkflow({ draftDefinition: input.draftDefinition, updatedAt: "2026-07-15T03:00:00Z" }),
+    );
+
+    const result = await restoreCheckpoint({
+      workflow: baseWorkflow({ draftDefinition: CURRENT_DRAFT }),
+      checkpointId: "cp-empty",
+      expectedRevision: "2026-07-15T00:00:00Z",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockGuardedUpdate).toHaveBeenCalled();
+  });
+
+  it("checks the revision conflict FIRST — a stale session is still a conflict", async () => {
+    mockGetByIdForWorkflow.mockResolvedValue({
+      id: "cp-bad", workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "react_agent", name: "Damaged", prompt: null, summary: null,
+      definition: { nodes: [], edges: [] }, definitionInvalid: true,
+      createdAt: "2026-07-15T01:00:00Z",
+    });
+
+    const result = await restoreCheckpoint({
+      workflow: baseWorkflow({ updatedAt: "2026-07-15T09:99:00Z" }),
+      checkpointId: "cp-bad",
+      expectedRevision: "2026-07-15T00:00:00Z",
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: "revision_conflict" });
+    expect(mockGuardedUpdate).not.toHaveBeenCalled();
+  });
+});

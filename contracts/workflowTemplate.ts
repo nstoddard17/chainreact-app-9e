@@ -69,22 +69,33 @@ export type TemplateDefinition = z.infer<typeof TemplateDefinitionSchema>;
  * platform/ChainReact-made ("official" badge). Official templates are platform-owned
  * (account-less).
  */
-export const TemplateSourceSchema = z.enum(["user", "official"]);
+/**
+ * The value sets below are exported as `as const` ARRAYS with the Zod schema
+ * derived from each (SUPABASE-TABLE-TYPING-1D). All three columns are
+ * CHECK-constrained text that the Supabase generator can only describe as
+ * `string`, and the repository narrows them fail-closed at the row boundary —
+ * `narrowColumn` needs the set itself, and it must be THIS set rather than a
+ * second copy that could drift from the schema these validate against.
+ */
+export const TEMPLATE_SOURCES = ["user", "official"] as const;
+export const TemplateSourceSchema = z.enum(TEMPLATE_SOURCES);
 export type TemplateSource = z.infer<typeof TemplateSourceSchema>;
 
 /**
  * Marketplace visibility (CS-XT-4B): 'private' (members only — default), 'public' (listed
  * in the marketplace), 'unlisted' (link-accessible, not listed).
  */
-export const TemplateVisibilitySchema = z.enum(["private", "public", "unlisted"]);
+export const TEMPLATE_VISIBILITIES = ["private", "public", "unlisted"] as const;
+export const TemplateVisibilitySchema = z.enum(TEMPLATE_VISIBILITIES);
 export type TemplateVisibility = z.infer<typeof TemplateVisibilitySchema>;
 
 /** Usage-ledger event kinds (CS-XT-4B) — the contributor-reward source of truth. */
-export const TemplateUsageEventTypeSchema = z.enum([
+export const TEMPLATE_USAGE_EVENT_TYPES = [
   "used_to_create_workflow",
   "forked",
   "saved_copy",
-]);
+] as const;
+export const TemplateUsageEventTypeSchema = z.enum(TEMPLATE_USAGE_EVENT_TYPES);
 export type TemplateUsageEventType = z.infer<typeof TemplateUsageEventTypeSchema>;
 
 /**
@@ -106,6 +117,14 @@ export interface WorkflowTemplateRecord {
   visibility: TemplateVisibility;
   /** The sanitized, credential-free graph. */
   definition: TemplateDefinition;
+  /**
+   * True when the PERSISTED definition failed `TemplateDefinitionSchema` and
+   * `definition` is the safe EMPTY fallback (SUPABASE-TABLE-TYPING-1D). Same
+   * contract as `WorkflowRecord.draftDefinitionInvalid`: a flagged template is
+   * corrupt, not an empty template, and must not be applied. Optional: absent
+   * ⇒ valid (the repository always sets it; hand-built fixtures need not).
+   */
+  definitionInvalid?: boolean;
   /** Export schema version the definition was produced under. */
   schemaVersion: number;
   /** Marketplace publish/unpublish timestamps (null until published). */

@@ -80,6 +80,21 @@ export async function POST(
           expectedRevisionPresent: true,
         });
       }
+      // SUPABASE-TABLE-TYPING-1D — the checkpoint exists but its stored
+      // snapshot does not validate, so it cannot be restored without replacing
+      // the live workflow with an empty canvas. A distinct code, because
+      // "not found" would tell the user to look for a checkpoint that is
+      // sitting right there in their list. No stored graph content is echoed.
+      if (result.reason === "checkpoint_definition_invalid") {
+        return NextResponse.json(
+          {
+            error:
+              "This checkpoint's saved version is damaged and can't be restored. Your current workflow has not been changed.",
+            code: "CHECKPOINT_DEFINITION_INVALID",
+          },
+          { status: 422 },
+        );
+      }
       return NextResponse.json(
         { error: "Checkpoint not found.", code: "CHECKPOINT_NOT_FOUND" },
         { status: 404 },

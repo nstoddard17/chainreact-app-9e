@@ -1,6 +1,12 @@
 import { createClient } from "@/utils/supabase/server";
-import type {
-  WorkflowCheckpointSource,
+import { asTypedDb } from "./supabase/typedDb";
+import { narrowColumn } from "@/core/database/columnNarrowing";
+import { toJsonColumn } from "@/core/database/jsonColumn";
+import { normalizePersistedWorkflowDefinition } from "@/contracts/workflowDefinition";
+import type { TableColumns, TableInsert, TableRow } from "@/types/tables";
+import {
+  WORKFLOW_CHECKPOINT_SOURCES,
+  type WorkflowCheckpointSource,
 } from "@/contracts/workflowCheckpoint";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 
@@ -11,6 +17,27 @@ import type { WorkflowDefinition } from "@/contracts/workflow";
  * only, DB access only — no business rules, no auth decisions (the service /
  * route owns membership authorization; RLS is the backstop). Mirrors the
  * patterns in repositories/workflows.ts.
+ *
+ * TABLE TYPING (SUPABASE-TABLE-TYPING-1D) — and this file is where typing
+ * found something real.
+ *
+ * `definition` USED TO BE CAST: `(row.definition ?? {nodes:[],edges:[]}) as
+ * WorkflowDefinition`. Two failures in one expression. The cast asserted a
+ * graph shape nothing had checked, and the `??` silently substituted an EMPTY
+ * WORKFLOW for a missing snapshot. `restoreCheckpoint` writes this value back
+ * as the workflow's new draft, so a corrupt checkpoint row could quietly
+ * REPLACE a user's workflow with an empty canvas — through the same
+ * compare-and-swap that exists to stop work being lost.
+ *
+ * It is now normalized through the SAME authoritative contract
+ * `repositories/workflows.ts` already uses (`normalizePersistedWorkflowDefinition`
+ * — no second schema), and the outcome is reported as `definitionInvalid`
+ * rather than hidden. The repository still returns the row; refusing to
+ * RESTORE an invalid one is the service's decision, and it makes it
+ * (`services/workflows/checkpoints.ts`).
+ *
+ * `source` is CHECK-constrained text the generator can only call `string`, so
+ * it is narrowed fail-closed against the contract's own constant set.
  */
 
 /** Full row including the (potentially large) draft snapshot. Used by restore. */
@@ -24,41 +51,74 @@ export interface WorkflowCheckpointRecord {
   prompt: string | null;
   summary: string | null;
   definition: WorkflowDefinition;
+  /**
+   * True when the persisted `definition` failed schema validation and
+   * `definition` is the safe EMPTY fallback — same contract as
+   * `WorkflowRecord.draftDefinitionInvalid`. A checkpoint flagged here is
+   * NOT restorable: restoring it would overwrite a live workflow with an
+   * empty canvas. Optional: absent ⇒ valid (rowToRecord always sets it;
+   * hand-built fixtures need not).
+   */
+  definitionInvalid?: boolean;
   createdAt: string;
 }
 
 /** Metadata projection (no `definition`) for the recent-checkpoints list. */
-export type WorkflowCheckpointMetaRecord = Omit<WorkflowCheckpointRecord, "definition">;
+export type WorkflowCheckpointMetaRecord = Omit<
+  WorkflowCheckpointRecord,
+  "definition" | "definitionInvalid"
+>;
 
-interface WorkflowCheckpointsRow {
-  id: string;
-  workflow_id: string;
-  account_id: string;
-  created_by_user_id: string | null;
-  source: WorkflowCheckpointSource;
-  name: string;
-  prompt: string | null;
-  summary: string | null;
-  definition: unknown;
-  created_at: string;
-}
+type WorkflowCheckpointsRow = TableRow<"workflow_checkpoints">;
 
-type WorkflowCheckpointsMetaRow = Omit<WorkflowCheckpointsRow, "definition">;
+/** The metadata PROJECTION — `META_COLUMNS` deliberately omits `definition`. */
+type WorkflowCheckpointsMetaRow = TableColumns<
+  "workflow_checkpoints",
+  | "id"
+  | "workflow_id"
+  | "account_id"
+  | "created_by_user_id"
+  | "source"
+  | "name"
+  | "prompt"
+  | "summary"
+  | "created_at"
+>;
 
 const META_COLUMNS =
   "id, workflow_id, account_id, created_by_user_id, source, name, prompt, summary, created_at";
 
+function narrowSource(row: { id: string; source: string }): WorkflowCheckpointSource {
+  return narrowColumn(
+    `workflow_checkpoints.source(${row.id})`,
+    WORKFLOW_CHECKPOINT_SOURCES,
+    row.source,
+  );
+}
+
 function rowToRecord(row: WorkflowCheckpointsRow): WorkflowCheckpointRecord {
+  // Normalization boundary — NEVER a cast. An invalid snapshot yields the safe
+  // empty definition WITH `definitionInvalid: true`, so a caller can tell
+  // "this checkpoint captured an empty canvas" from "this checkpoint is
+  // corrupt". Restore refuses the second; nothing may silently restore it.
+  const parsed = normalizePersistedWorkflowDefinition(row.definition);
+  if (parsed.invalid) {
+    // Ids and the outcome only — never the persisted graph or any node config.
+    console.warn(
+      `[workflow_checkpoints] definition for checkpoint ${row.id} (workflow ${row.workflow_id}) failed schema validation — not restorable (definitionInvalid=true).`,
+    );
+  }
   return {
     id: row.id,
     workflowId: row.workflow_id,
     accountId: row.account_id,
     createdByUserId: row.created_by_user_id,
-    source: row.source,
+    source: narrowSource(row),
     name: row.name,
     prompt: row.prompt,
     summary: row.summary,
-    definition: (row.definition ?? { nodes: [], edges: [] }) as WorkflowDefinition,
+    definition: parsed.definition,
+    definitionInvalid: parsed.invalid,
     createdAt: row.created_at,
   };
 }
@@ -69,7 +129,7 @@ function metaRowToRecord(row: WorkflowCheckpointsMetaRow): WorkflowCheckpointMet
     workflowId: row.workflow_id,
     accountId: row.account_id,
     createdByUserId: row.created_by_user_id,
-    source: row.source,
+    source: narrowSource(row),
     name: row.name,
     prompt: row.prompt,
     summary: row.summary,
@@ -91,7 +151,7 @@ export interface CreateCheckpointInput {
 export async function create(
   input: CreateCheckpointInput,
 ): Promise<WorkflowCheckpointRecord> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_checkpoints")
     .insert({
@@ -102,10 +162,10 @@ export async function create(
       name: input.name,
       prompt: input.prompt,
       summary: input.summary,
-      definition: input.definition,
-    })
+      definition: toJsonColumn("workflow_checkpoints.definition", input.definition),
+    } satisfies TableInsert<"workflow_checkpoints">)
     .select("*")
-    .single<WorkflowCheckpointsRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `workflow_checkpoints.create failed: ${error?.message ?? "no row returned"}`,
@@ -124,7 +184,7 @@ export async function listRecentByWorkflow(
   workflowId: string,
   opts: { limit?: number } = {},
 ): Promise<readonly WorkflowCheckpointMetaRecord[]> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const limit = Math.min(opts.limit ?? 20, 50);
   const { data, error } = await supabase
     .from("workflow_checkpoints")
@@ -135,7 +195,7 @@ export async function listRecentByWorkflow(
   if (error) {
     throw new Error(`workflow_checkpoints.listRecentByWorkflow failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => metaRowToRecord(r as WorkflowCheckpointsMetaRow));
+  return (data ?? []).map(metaRowToRecord);
 }
 
 /**
@@ -147,13 +207,13 @@ export async function getByIdForWorkflow(
   checkpointId: string,
   workflowId: string,
 ): Promise<WorkflowCheckpointRecord | null> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_checkpoints")
     .select("*")
     .eq("id", checkpointId)
     .eq("workflow_id", workflowId)
-    .maybeSingle<WorkflowCheckpointsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`workflow_checkpoints.getByIdForWorkflow failed: ${error.message}`);
   }
@@ -170,7 +230,7 @@ export async function pruneToRecent(
   workflowId: string,
   keep: number,
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = asTypedDb(await createClient());
   const { data, error } = await supabase
     .from("workflow_checkpoints")
     .select("id")
@@ -180,7 +240,7 @@ export async function pruneToRecent(
   if (error) {
     throw new Error(`workflow_checkpoints.pruneToRecent (select) failed: ${error.message}`);
   }
-  const stale = (data ?? []).map((r) => (r as { id: string }).id);
+  const stale = (data ?? []).map((r) => r.id);
   if (stale.length === 0) return;
   const { error: delError } = await supabase
     .from("workflow_checkpoints")

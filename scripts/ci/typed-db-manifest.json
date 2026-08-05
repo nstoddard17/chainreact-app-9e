@@ -21,7 +21,13 @@
     "table access at all (one .rpc() call), which by the 1A design stays on the",
     "untyped client guarded by RpcArgs/RpcRows + rpc-signature-guard.mjs. Listing it",
     "would fail the check, because the contract of an entry is that the file routes",
-    ".from() through asTypedDb."
+    ".from() through asTypedDb.",
+    "",
+    "Batch 1D scope: the workflow definition + lifecycle persistence family —",
+    "workflows and workflow_revisions, trash, folders, checkpoints, and templates",
+    "with their usage ledger. Six tables, including three decision-driving",
+    "definition columns validated through the authoritative workflow/template",
+    "contracts rather than cast."
   ],
   "migratedFiles": [
     "repositories/accountBilling.ts",
@@ -39,6 +45,11 @@
     "repositories/workflowRunsDiagnostics.ts",
     "repositories/analyticsDashboards.ts",
     "repositories/analyticsSourceSnapshots.ts",
-    "repositories/billingShadowComparisons.ts"
+    "repositories/billingShadowComparisons.ts",
+    "repositories/workflows.ts",
+    "repositories/workflowsTrash.ts",
+    "repositories/workflowFolders.ts",
+    "repositories/workflowCheckpoints.ts",
+    "repositories/workflowTemplates.ts"
   ]
 }

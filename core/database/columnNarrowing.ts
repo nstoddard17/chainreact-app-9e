@@ -42,6 +42,33 @@ export function narrowNullableColumn<T extends string>(
 }
 
 /**
+ * SUPABASE-TABLE-TYPING-1D — a NULLABLE column a domain invariant requires.
+ *
+ * Some columns are nullable in the schema for a reason that has not arrived
+ * yet: `workflows.created_by_user_id` is `ON DELETE SET NULL` so a future
+ * team-member deletion (Phase D) can clear it, while today the owning user
+ * cannot be deleted at all (`accounts.owner_user_id` is `ON DELETE RESTRICT`).
+ * The habit that grew around that gap was to declare the column non-null in a
+ * handwritten row interface — which does not make it non-null, it only stops
+ * TypeScript from mentioning it. The value then flowed into billing
+ * attribution and credential-owner resolution as `undefined` wearing the type
+ * `string`.
+ *
+ * This asserts the invariant at the boundary instead. It FAILS CLOSED: a
+ * workflow whose billing owner is unknown must not silently execute, be
+ * attributed, or resolve someone else's credentials — it must stop and say so.
+ * The value is never echoed (these are user/account identifiers).
+ */
+export function requireColumn<T>(column: string, value: T | null | undefined): T {
+  if (value === null || value === undefined) {
+    throw new Error(
+      `${column}: expected a value, received ${value === null ? "null" : "undefined"}`,
+    );
+  }
+  return value;
+}
+
+/**
  * SUPABASE-TABLE-TYPING-1C — a numeric aggregate arriving from PostgREST.
  *
  * `count(*)` and `sum(...)` are `bigint`/`numeric` in Postgres, and PostgREST
