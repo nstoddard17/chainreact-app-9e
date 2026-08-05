@@ -5,7 +5,10 @@ import type {
   AccountType,
   DeletionStatus,
 } from "@/contracts/accounts";
+import { AccountTypeSchema, DeletionStatusSchema } from "@/contracts/accounts";
 import type { RpcArgs } from "@/types/rpc";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableRow } from "@/types/tables";
 
 /**
  * Repository for `accounts`.
@@ -23,26 +26,18 @@ import type { RpcArgs } from "@/types/rpc";
  * read paths.
  */
 
-interface AccountsRow {
-  id: string;
-  type: AccountType;
-  name: string;
-  owner_user_id: string;
-  deletion_status: DeletionStatus;
-  deletion_requested_at: string | null;
-  deletion_requested_by: string | null;
-  purge_after: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-function rowToRecord(row: AccountsRow): AccountRecord {
+// SUPABASE-TABLE-TYPING-1A — the row shape is the GENERATED one. `type` and
+// `deletion_status` are plain text columns with CHECK constraints, so the
+// generator widens them to `string`; they are narrowed here with the contract
+// schemas that mirror those constraints, and an unknown value throws rather
+// than flowing into an ownership or deletion decision.
+function rowToRecord(row: TableRow<"accounts">): AccountRecord {
   return {
     id: row.id,
-    type: row.type,
+    type: AccountTypeSchema.parse(row.type),
     name: row.name,
     ownerUserId: row.owner_user_id,
-    deletionStatus: row.deletion_status,
+    deletionStatus: DeletionStatusSchema.parse(row.deletion_status),
     deletionRequestedAt: row.deletion_requested_at,
     purgeAfter: row.purge_after,
     createdAt: row.created_at,
@@ -52,11 +47,12 @@ function rowToRecord(row: AccountsRow): AccountRecord {
 
 export async function getById(accountId: string): Promise<AccountRecord | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("*")
     .eq("id", accountId)
-    .maybeSingle<AccountsRow>();
+    .maybeSingle();
   if (error) throw new Error(`accounts.getById failed: ${error.message}`);
   return data ? rowToRecord(data) : null;
 }
@@ -74,12 +70,13 @@ export async function getPersonalAccountForUser(
   userId: string,
 ): Promise<AccountRecord | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("*")
     .eq("type", "personal")
     .eq("owner_user_id", userId)
-    .maybeSingle<AccountsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`accounts.getPersonalAccountForUser failed: ${error.message}`);
   }
@@ -99,12 +96,13 @@ export async function listForUser(
   userId: string,
 ): Promise<readonly AccountRecord[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("*, account_memberships!inner(user_id)")
     .eq("account_memberships.user_id", userId);
   if (error) throw new Error(`accounts.listForUser failed: ${error.message}`);
-  return (data ?? []).map((r) => rowToRecord(r as AccountsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -127,14 +125,15 @@ export async function ensurePersonalAccountServiceRole(
   const supabase = getServiceRoleClient(
     `accounts: ensurePersonalAccount for user ${userId}`,
   );
+  const db = asTypedDb(supabase);
 
   // Fast path: row already exists.
-  const { data: existing, error: readErr } = await supabase
+  const { data: existing, error: readErr } = await db
     .from("accounts")
     .select("*")
     .eq("type", "personal")
     .eq("owner_user_id", userId)
-    .maybeSingle<AccountsRow>();
+    .maybeSingle();
   if (readErr) {
     throw new Error(
       `accounts.ensurePersonalAccountServiceRole read failed: ${readErr.message}`,
@@ -143,11 +142,11 @@ export async function ensurePersonalAccountServiceRole(
   if (existing) return rowToRecord(existing);
 
   // Insert the account.
-  const { data: inserted, error: insertErr } = await supabase
+  const { data: inserted, error: insertErr } = await db
     .from("accounts")
     .insert({ type: "personal", name: "Personal", owner_user_id: userId })
     .select()
-    .single<AccountsRow>();
+    .single();
   if (insertErr || !inserted) {
     throw new Error(
       `accounts.ensurePersonalAccountServiceRole insert failed: ${insertErr?.message ?? "no row"}`,
@@ -156,7 +155,7 @@ export async function ensurePersonalAccountServiceRole(
 
   // Insert the owner membership. The personal-invariants trigger enforces
   // user_id = inserted.owner_user_id and role = 'owner'.
-  const { error: memberErr } = await supabase
+  const { error: memberErr } = await db
     .from("account_memberships")
     .insert({ account_id: inserted.id, user_id: userId, role: "owner" });
   if (memberErr) {
@@ -192,11 +191,12 @@ export async function createTeamAccountServiceRole(input: {
   const supabase = getServiceRoleClient(
     `accounts: createTeamAccount for user ${input.ownerUserId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .insert({ type: "team", name: input.name, owner_user_id: input.ownerUserId })
     .select()
-    .single<AccountsRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `accounts.createTeamAccountServiceRole failed: ${error?.message ?? "no row"}`,
@@ -228,7 +228,8 @@ export async function listOwnedTeamOrgAccountSummaries(
   const supabase = getServiceRoleClient(
     `accounts: listOwnedTeamOrgSummaries for user ${userId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("id, name, type")
     .eq("owner_user_id", userId)
@@ -238,9 +239,11 @@ export async function listOwnedTeamOrgAccountSummaries(
       `accounts.listOwnedTeamOrgAccountSummaries failed: ${error.message}`,
     );
   }
-  return ((data ?? []) as Array<{ id: string; name: string; type: AccountType }>).map(
-    (r) => ({ id: r.id, name: r.name, type: r.type }),
-  );
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: AccountTypeSchema.parse(r.type),
+  }));
 }
 
 // ─── 4.ACCOUNT-MODEL-TRANSFER-LEAVE-2 / TL-1: owner transfer (service-role) ────
@@ -264,6 +267,7 @@ export async function transferAccountOwnershipServiceRole(input: {
   const supabase = getServiceRoleClient(
     `accounts: transferOwnership account ${input.accountId} -> user ${input.targetUserId}`,
   );
+  const db = asTypedDb(supabase);
   const { error } = await supabase.rpc("transfer_account_ownership", {
     p_account_id: input.accountId,
     p_current_owner_user_id: input.currentOwnerUserId,
@@ -287,11 +291,12 @@ export async function getByIdServiceRole(
   const supabase = getServiceRoleClient(
     `accounts: getByIdServiceRole for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("*")
     .eq("id", accountId)
-    .maybeSingle<AccountsRow>();
+    .maybeSingle();
   if (error) throw new Error(`accounts.getByIdServiceRole failed: ${error.message}`);
   return data ? rowToRecord(data) : null;
 }
@@ -315,12 +320,13 @@ export async function getPersonalAccountForUserServiceRole(
   const supabase = getServiceRoleClient(
     `accounts: getPersonalAccountForUser (service-role) for user ${userId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("*")
     .eq("type", "personal")
     .eq("owner_user_id", userId)
-    .maybeSingle<AccountsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `accounts.getPersonalAccountForUserServiceRole failed: ${error.message}`,
@@ -341,7 +347,8 @@ export async function getDeletionStatusServiceRole(
   const supabase = getServiceRoleClient(
     `accounts: getDeletionStatus for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("deletion_status")
     .eq("id", accountId)
@@ -367,7 +374,8 @@ export async function setDeletionPendingServiceRole(input: {
   const supabase = getServiceRoleClient(
     `accounts: setDeletionPending for account ${input.accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .update({
       deletion_status: "pending_deletion",
@@ -377,7 +385,7 @@ export async function setDeletionPendingServiceRole(input: {
     })
     .eq("id", input.accountId)
     .select()
-    .single<AccountsRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `accounts.setDeletionPendingServiceRole failed: ${error?.message ?? "no row"}`,
@@ -397,7 +405,8 @@ export async function clearDeletionServiceRole(
   const supabase = getServiceRoleClient(
     `accounts: clearDeletion for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .update({
       deletion_status: "active",
@@ -407,7 +416,7 @@ export async function clearDeletionServiceRole(
     })
     .eq("id", accountId)
     .select()
-    .single<AccountsRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `accounts.clearDeletionServiceRole failed: ${error?.message ?? "no row"}`,
@@ -430,12 +439,13 @@ export async function listByIdsServiceRole(
   const supabase = getServiceRoleClient(
     `accounts: listByIdsServiceRole (${accountIds.length} ids, mobile v1)`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("*")
     .in("id", accountIds as string[]);
   if (error) {
     throw new Error(`accounts.listByIdsServiceRole failed: ${error.message}`);
   }
-  return ((data ?? []) as AccountsRow[]).map(rowToRecord);
+  return (data ?? []).map(rowToRecord);
 }

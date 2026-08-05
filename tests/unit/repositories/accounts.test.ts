@@ -53,11 +53,19 @@ import {
   ensurePersonalAccountServiceRole,
 } from "@/repositories/accounts";
 
+// SUPABASE-TABLE-TYPING-1A — the fixture must match the real row: accounts
+// rows always carry deletion_status (NOT NULL, defaulted 'active') and the
+// nullable lifecycle timestamps. Omitting them made the mock claim a shape the
+// database never returns, which the row narrowing now catches.
 const baseAccountRow = {
   id: "acct-1",
   type: "personal" as const,
   name: "Personal",
   owner_user_id: "user-1",
+  deletion_status: "active" as const,
+  deletion_requested_at: null,
+  deletion_requested_by: null,
+  purge_after: null,
   created_at: "2026-05-30T00:00:00Z",
   updated_at: "2026-05-30T00:00:00Z",
 };
@@ -75,6 +83,9 @@ describe("accounts.getById", () => {
       type: "personal",
       name: "Personal",
       ownerUserId: "user-1",
+      deletionStatus: "active",
+      deletionRequestedAt: null,
+      purgeAfter: null,
       createdAt: "2026-05-30T00:00:00Z",
       updatedAt: "2026-05-30T00:00:00Z",
     });

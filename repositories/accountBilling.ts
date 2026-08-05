@@ -1,6 +1,12 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
-import { planLimitsFor, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
+import {
+  PLAN_STATUSES,
+  PLAN_TIERS,
+  planLimitsFor,
+  type PlanTier,
+  type PlanStatus,
+} from "@/core/billing/planPolicy";
 import type { RpcArgs } from "@/types/rpc";
 import {
   businessTransitionResultSchema,
@@ -12,6 +18,12 @@ import {
   releaseReservationResultSchema,
   reserveTasksResultSchema,
 } from "@/core/database/rpcResultSchemas";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableUpdate } from "@/types/tables";
+import { narrowColumn, narrowNullableColumn } from "@/core/database/columnNarrowing";
+
+/** The tiers a trial may originate from (see ClaimTrialResult.originPlan). */
+const TRIAL_ORIGIN_PLANS = ["pro", "team"] as const;
 
 /**
  * Atomic Team → Business upgrade (Slice 4.BILLING-BUSINESS-UPGRADE-2 / BU-1). Service-role
@@ -52,6 +64,7 @@ export async function applyBusinessUpgradeServiceRole(
   const supabase = getServiceRoleClient(
     `account upgrade: team→business for account ${input.accountId}`,
   );
+  const db = asTypedDb(supabase);
   // RPC-SIGNATURE-DRIFT-GUARD-1 — checked against the generated database
   // signature at compile time; a migration that renames, adds or drops a
   // parameter breaks the build here instead of at runtime.
@@ -110,6 +123,7 @@ export async function applyBusinessDowngradeServiceRole(
   const supabase = getServiceRoleClient(
     `account downgrade: organization→team for account ${input.accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("apply_business_downgrade", {
     p_account_id: input.accountId,
     p_plan_status: input.planStatus,
@@ -149,7 +163,7 @@ export async function applyBillingSubscriptionSyncServiceRole(
   accountId: string,
   fields: BillingSubscriptionSync,
 ): Promise<void> {
-  const patch: Record<string, unknown> = {};
+  const patch: TableUpdate<"account_billing"> = {};
   if ("plan" in fields) patch.plan = fields.plan;
   if ("planStatus" in fields) patch.plan_status = fields.planStatus;
   if ("currentPeriodEnd" in fields) patch.current_period_end = fields.currentPeriodEnd ?? null;
@@ -164,7 +178,8 @@ export async function applyBillingSubscriptionSyncServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: apply Stripe subscription sync for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_billing")
     .update(patch)
     .eq("account_id", accountId);
@@ -210,6 +225,7 @@ export async function deductTasks(
   const supabase = getServiceRoleClient(
     `billing gate: deductTasks ${amount} for account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("deduct_tasks_if_available", {
     p_account_id: accountId,
     p_amount: amount,
@@ -277,6 +293,7 @@ export async function reserveTasks(
   const supabase = getServiceRoleClient(
     `billing: reserveTasks ${amount} run ${runId} account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("reserve_tasks_if_available", {
     p_account_id: accountId,
     p_amount: amount,
@@ -298,6 +315,7 @@ export async function reconcileReservation(
   const supabase = getServiceRoleClient(
     `billing: reconcileReservation run ${runId} actual ${actual} account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("reconcile_task_reservation", {
     p_account_id: accountId,
     p_run_id: runId,
@@ -317,6 +335,7 @@ export async function releaseReservation(
   const supabase = getServiceRoleClient(
     `billing: releaseReservation run ${runId} account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("release_task_reservation", {
     p_account_id: accountId,
     p_run_id: runId,
@@ -334,6 +353,7 @@ export async function releaseExpiredReservations(
   const supabase = getServiceRoleClient(
     "billing: releaseExpiredReservations sweep",
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("release_expired_reservations", {
     p_now: now ?? new Date().toISOString(),
   } satisfies RpcArgs<"release_expired_reservations">);
@@ -362,16 +382,6 @@ export interface AccountBillingUsage {
   cancelAtPeriodEnd: boolean;
 }
 
-interface AccountBillingRow {
-  tasks_used: number;
-  tasks_limit: number;
-  period_started_at: string;
-  plan: PlanTier;
-  plan_status: PlanStatus;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-}
-
 /**
  * Service-role: initialize the free billing row for a freshly-created team/org
  * account (4.ACCOUNT-MODEL-13). All-defaults insert (tasks_limit 100, used 0,
@@ -387,6 +397,7 @@ export async function initAccountBillingServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: init for account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   // A new team/org account seeds its type's default plan (the column default 'free' is
   // correct for the trigger-seeded personal path). PRICING-LOCK enforcement: when a plan is
   // given, also stamp tasks_limit from planPolicy so the account is born with the right cap
@@ -411,7 +422,7 @@ export async function initAccountBillingServiceRole(
     const aiCreditsLimit = planLimitsFor(plan).aiCreditsMonthlyLimit;
     if (aiCreditsLimit !== null) row.ai_credits_limit = aiCreditsLimit;
   }
-  const { error } = await supabase
+  const { error } = await db
     .from("account_billing")
     .upsert(row, { onConflict: "account_id", ignoreDuplicates: true });
   if (error) {
@@ -423,17 +434,18 @@ export async function initAccountBillingServiceRole(
 
 export async function getUsage(accountId: string): Promise<AccountBillingUsage | null> {
   const supabase = await createClient();
+  const db = asTypedDb(supabase);
   // CLIENT-FACING projection (SSR-cookie / RLS). Selects an EXPLICIT non-secret column
   // list — `stripe_customer_id` / `stripe_subscription_id` are deliberately omitted so
   // the Stripe attachment never reaches Account Settings or any client surface (CS-2).
   // Those ids are read only via getStripeAttachmentServiceRole below (service-role).
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("account_billing")
     .select(
       "tasks_used, tasks_limit, period_started_at, plan, plan_status, current_period_end, cancel_at_period_end",
     )
     .eq("account_id", accountId)
-    .maybeSingle<AccountBillingRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_billing.getUsage failed: ${error.message}`);
   }
@@ -442,8 +454,10 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
     tasksUsed: data.tasks_used,
     tasksLimit: data.tasks_limit,
     periodStartedAt: data.period_started_at,
-    plan: data.plan,
-    planStatus: data.plan_status,
+    // CHECK-constrained text columns: narrowed against the repository's own
+    // constant sets, throwing rather than mislabelling an unknown tier.
+    plan: narrowColumn("account_billing.plan", PLAN_TIERS, data.plan),
+    planStatus: narrowColumn("account_billing.plan_status", PLAN_STATUSES, data.plan_status),
     currentPeriodEnd: data.current_period_end,
     cancelAtPeriodEnd: data.cancel_at_period_end,
   };
@@ -459,7 +473,8 @@ export async function getUsage(accountId: string): Promise<AccountBillingUsage |
  */
 export async function getPlan(accountId: string): Promise<PlanTier | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select("plan")
     .eq("account_id", accountId)
@@ -488,7 +503,8 @@ export async function getPlanState(
   accountId: string,
 ): Promise<AccountPlanState | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select("plan, plan_status")
     .eq("account_id", accountId)
@@ -513,7 +529,8 @@ export async function getPlanStateServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: read plan state for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select("plan, plan_status")
     .eq("account_id", accountId)
@@ -566,7 +583,8 @@ export async function getBillingModeServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: read billing_mode for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select("billing_mode")
     .eq("account_id", accountId)
@@ -592,7 +610,8 @@ export async function setBillingModeInternalFreeServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: set billing_mode=internal_free (reason=${reason}) for account ${accountId} by user ${setByUserId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .update({
       billing_mode: "internal_free",
@@ -626,7 +645,8 @@ export async function revertBillingModeToStandardServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: revert billing_mode=standard for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .update({
       billing_mode: "standard",
@@ -666,13 +686,6 @@ export interface StripeAttachment {
   currentPeriodEnd: string | null;
 }
 
-interface StripeAttachmentRow {
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  cancel_at_period_end: boolean;
-  current_period_end: string | null;
-}
-
 /**
  * Service-role read of the account's Stripe attachment. Server-only — these ids must
  * never be surfaced to a client (see the `getUsage` projection note). Returns null when
@@ -684,13 +697,14 @@ export async function getStripeAttachmentServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: read Stripe attachment for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select(
       "stripe_customer_id, stripe_subscription_id, cancel_at_period_end, current_period_end",
     )
     .eq("account_id", accountId)
-    .maybeSingle<StripeAttachmentRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `account_billing.getStripeAttachmentServiceRole failed: ${error.message}`,
@@ -720,7 +734,8 @@ export async function attachStripeCustomerIfAbsentServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: attach Stripe customer (if absent) for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .update({ stripe_customer_id: customerId })
     .eq("account_id", accountId)
@@ -765,7 +780,8 @@ export async function replaceStaleStripeCustomerServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: replace stale Stripe customer for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .update({ stripe_customer_id: newCustomerId })
     .eq("account_id", accountId)
@@ -804,13 +820,6 @@ export interface AccountTrialState {
   originPlan: "pro" | "team" | null;
 }
 
-interface AccountTrialRow {
-  trial_consumed_at: string | null;
-  trial_started_at: string | null;
-  trial_ends_at: string | null;
-  trial_origin_plan: "pro" | "team" | null;
-}
-
 /**
  * Service-role read of the account's trial state. Server-only — the raw consumed/ends
  * timestamps must never be surfaced to a client (the sanitized offer boolean is derived in
@@ -823,11 +832,12 @@ export async function getTrialStateServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: read trial state for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select("trial_consumed_at, trial_started_at, trial_ends_at, trial_origin_plan")
     .eq("account_id", accountId)
-    .maybeSingle<AccountTrialRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_billing.getTrialStateServiceRole failed: ${error.message}`);
   }
@@ -836,7 +846,11 @@ export async function getTrialStateServiceRole(
     consumedAt: data.trial_consumed_at,
     startedAt: data.trial_started_at,
     endsAt: data.trial_ends_at,
-    originPlan: data.trial_origin_plan,
+    originPlan: narrowNullableColumn(
+      "account_billing.trial_origin_plan",
+      TRIAL_ORIGIN_PLANS,
+      data.trial_origin_plan,
+    ),
   };
 }
 
@@ -865,6 +879,7 @@ export async function claimAccountTrialServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: claim one trial (origin=${originPlan}) for account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("claim_account_trial", {
     p_account_id: accountId,
     p_origin_plan: originPlan,
@@ -899,7 +914,7 @@ export async function syncTrialWindowServiceRole(
   accountId: string,
   fields: { trialStartedAt?: string | null; trialEndsAt?: string | null },
 ): Promise<void> {
-  const patch: Record<string, unknown> = {};
+  const patch: TableUpdate<"account_billing"> = {};
   if ("trialStartedAt" in fields) patch.trial_started_at = fields.trialStartedAt ?? null;
   if ("trialEndsAt" in fields) patch.trial_ends_at = fields.trialEndsAt ?? null;
   if (Object.keys(patch).length === 0) return;
@@ -907,7 +922,8 @@ export async function syncTrialWindowServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: sync trial window for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_billing")
     .update(patch)
     .eq("account_id", accountId);
@@ -933,7 +949,7 @@ export async function updateStripeAttachmentServiceRole(
   accountId: string,
   fields: StripeAttachmentUpdate,
 ): Promise<void> {
-  const patch: Record<string, unknown> = {};
+  const patch: TableUpdate<"account_billing"> = {};
   if ("stripeCustomerId" in fields) patch.stripe_customer_id = fields.stripeCustomerId ?? null;
   if ("stripeSubscriptionId" in fields)
     patch.stripe_subscription_id = fields.stripeSubscriptionId ?? null;
@@ -944,7 +960,8 @@ export async function updateStripeAttachmentServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: update Stripe attachment for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_billing")
     .update(patch)
     .eq("account_id", accountId);

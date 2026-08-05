@@ -4,7 +4,10 @@ import type {
   AccountMembershipRecord,
   MembershipRole,
 } from "@/contracts/accounts";
+import { MembershipRoleSchema } from "@/contracts/accounts";
 import type { RpcArgs, RpcRows } from "@/types/rpc";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableRow } from "@/types/tables";
 
 /**
  * Repository for `account_memberships`.
@@ -18,19 +21,14 @@ import type { RpcArgs, RpcRows } from "@/types/rpc";
  * will broaden this to "members of the same account can see each other".
  */
 
-interface AccountMembershipsRow {
-  account_id: string;
-  user_id: string;
-  role: MembershipRole;
-  invited_by_user_id: string | null;
-  joined_at: string;
-}
-
-function rowToRecord(row: AccountMembershipsRow): AccountMembershipRecord {
+// SUPABASE-TABLE-TYPING-1A — generated row; `role` is a CHECK-constrained text
+// column the generator widens to `string`, narrowed here with the contract
+// schema so an unknown role cannot become an authorization decision.
+function rowToRecord(row: TableRow<"account_memberships">): AccountMembershipRecord {
   return {
     accountId: row.account_id,
     userId: row.user_id,
-    role: row.role,
+    role: MembershipRoleSchema.parse(row.role),
     invitedByUserId: row.invited_by_user_id,
     joinedAt: row.joined_at,
   };
@@ -50,7 +48,8 @@ export async function insertOwnerMembershipServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: insertOwner for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_memberships")
     .insert({ account_id: accountId, user_id: userId, role: "owner" });
   if (error) {
@@ -74,7 +73,8 @@ export async function insertMembershipServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: insertMember (${role}) for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_memberships")
     .insert({ account_id: accountId, user_id: userId, role });
   if (error) {
@@ -88,14 +88,15 @@ export async function listByAccount(
   accountId: string,
 ): Promise<readonly AccountMembershipRecord[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("*")
     .eq("account_id", accountId);
   if (error) {
     throw new Error(`account_memberships.listByAccount failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as AccountMembershipsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -119,6 +120,7 @@ export async function listMemberIdentities(
   accountId: string,
 ): Promise<readonly AccountMemberIdentity[]> {
   const supabase = await createClient();
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("get_account_member_identities", {
     p_account_id: accountId,
   } satisfies RpcArgs<"get_account_member_identities">);
@@ -142,14 +144,15 @@ export async function listByUser(
   userId: string,
 ): Promise<readonly AccountMembershipRecord[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("*")
     .eq("user_id", userId);
   if (error) {
     throw new Error(`account_memberships.listByUser failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as AccountMembershipsRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /**
@@ -166,7 +169,8 @@ export async function isMember(
   accountId: string,
 ): Promise<boolean> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("account_id")
     .eq("account_id", accountId)
@@ -186,7 +190,8 @@ export async function countMembersServiceRole(accountId: string): Promise<number
   const supabase = getServiceRoleClient(
     `account_memberships: countMembers for account ${accountId}`,
   );
-  const { count, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { count, error } = await db
     .from("account_memberships")
     .select("*", { count: "exact", head: true })
     .eq("account_id", accountId);
@@ -209,7 +214,8 @@ export async function isMemberServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: isMemberServiceRole for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("account_id")
     .eq("account_id", accountId)
@@ -233,7 +239,8 @@ export async function getRoleServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: getRoleServiceRole for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("role")
     .eq("account_id", accountId)
@@ -256,7 +263,8 @@ export async function removeMembershipServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: removeMembership for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_memberships")
     .delete()
     .eq("account_id", accountId)
@@ -278,7 +286,8 @@ export async function updateMemberRoleServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: updateMemberRole (${role}) for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_memberships")
     .update({ role })
     .eq("account_id", accountId)
@@ -298,7 +307,8 @@ export async function getRole(
   userId: string,
 ): Promise<MembershipRole | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("role")
     .eq("account_id", accountId)
@@ -322,7 +332,8 @@ export async function listByUserServiceRole(
   const supabase = getServiceRoleClient(
     `account_memberships: listByUserServiceRole (mobile v1)`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_memberships")
     .select("*")
     .eq("user_id", userId);
@@ -331,5 +342,5 @@ export async function listByUserServiceRole(
       `account_memberships.listByUserServiceRole failed: ${error.message}`,
     );
   }
-  return (data ?? []).map((r) => rowToRecord(r as AccountMembershipsRow));
+  return (data ?? []).map(rowToRecord);
 }

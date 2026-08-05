@@ -59,6 +59,9 @@ on:
       - "scripts/ci/rpc-dynamic-callers.json"
       - "scripts/ci/rpc-result-contracts.json"
       - "scripts/ci/rpc-return-compat.json"
+      - "scripts/ci/typed-db-guard.mjs"
+      - "scripts/ci/typed-db-manifest.json"
+      - "types/tables.ts"
       - "types/rpc.ts"
       - "package.json"
       - "package-lock.json"
@@ -95,6 +98,9 @@ on:
       - "scripts/ci/rpc-dynamic-callers.json"
       - "scripts/ci/rpc-result-contracts.json"
       - "scripts/ci/rpc-return-compat.json"
+      - "scripts/ci/typed-db-guard.mjs"
+      - "scripts/ci/typed-db-manifest.json"
+      - "types/tables.ts"
       - "types/rpc.ts"
       - "package.json"
       - "package-lock.json"
@@ -177,6 +183,14 @@ jobs:
         # unambiguous failure, not a confusing PostgREST error 20 minutes into
         # the billing suites. Loopback-only; no connection string, no secret.
         run: node scripts/ci/rpc-signature-guard.mjs run --out-dir .
+
+      - name: Typed table-access guard (migrated repositories)
+        # SUPABASE-TABLE-TYPING-1A — the migrated billing/account repositories
+        # must keep routing table access through the generated Database types.
+        # `tsc` cannot see a regression here: going back to the untyped client
+        # still compiles, because its row generic is `any`. Runs after the type
+        # drift gate (it reads the generated types) and before the suite groups.
+        run: node scripts/ci/typed-db-guard.mjs check
 
       - name: Export loopback stack environment for the database suite groups
         # Suites are opt-in and read connection values from process env with

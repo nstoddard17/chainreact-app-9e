@@ -344,6 +344,45 @@ describe("db-ci.yml — loopback-only, zero cloud credentials", () => {
     expect(text).not.toMatch(/rpc-signature-guard\.mjs (inventory|callers)\b/);
   });
 
+  // ── SUPABASE-TABLE-TYPING-1A ────────────────────────────────────────────
+  // Migrated repositories must keep using the generated table types. tsc cannot
+  // see this regression: the untyped client's row generic is `any`, so going
+  // back to it still compiles.
+
+  it("runs the typed table-access guard after the type gate and before the suites", () => {
+    expect(text).toContain("typed-db-guard.mjs check");
+    const typesIdx = text.indexOf("npm run db:types:check");
+    const guardIdx = text.indexOf("typed-db-guard.mjs check");
+    expect(typesIdx).toBeGreaterThan(-1);
+    expect(guardIdx).toBeGreaterThan(typesIdx);
+    for (const group of ["security", "billing", "accounts"]) {
+      expect(guardIdx).toBeLessThan(text.indexOf(`--group ${group}`));
+    }
+  });
+
+  it("triggers db-ci when the typed-db guard, its manifest, or the table helpers change", () => {
+    for (const p of [
+      '"scripts/ci/typed-db-guard.mjs"',
+      '"scripts/ci/typed-db-manifest.json"',
+      '"types/tables.ts"',
+    ]) {
+      expect(text).toContain(p);
+    }
+  });
+
+  it("keeps every earlier database protection alongside the new guard", () => {
+    for (const step of [
+      "npm run lint:migrations",
+      "npm run supabase:test:reset",
+      "npm run db:types:check",
+      "rpc-signature-guard.mjs run",
+      "db-suite-gate.mjs preflight",
+      "npm run supabase:test:stop",
+    ]) {
+      expect(text).toContain(step);
+    }
+  });
+
   it("introduces no retries, no failure masking, and no pass-with-no-tests", () => {
     expect(text).not.toContain("continue-on-error");
     expect(text).not.toContain("--passWithNoTests");

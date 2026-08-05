@@ -518,6 +518,47 @@ Durable rules:
   error deep inside the billing suites. It is loopback-only: no connection string, no
   hosted project, no secret.
 
+## Table access is migrating to the generated types (SUPABASE-TABLE-TYPING-1A)
+
+RPC calls are guarded on both sides. Table access is not yet: no client used
+`SupabaseClient<Database>`, so `.from()` table names, select columns, insert and
+update payloads and returned rows were all effectively `any`. Typing the shared
+service-role factory compiles **69 errors across ~30 repositories at once**, so the
+migration is repository by repository, tracked in
+[`scripts/ci/typed-db-manifest.json`](../../scripts/ci/typed-db-manifest.json).
+
+Durable rules for a migrating repository:
+
+- **Route table access through `asTypedDb()`** ([`repositories/supabase/typedDb.ts`](../../repositories/supabase/typedDb.ts)).
+  It is an identity function over the SAME cached client — no second connection, no
+  cast, no `any`. `.rpc()` deliberately keeps using the untyped client: typing it would
+  make argument types strictly non-nullable, which is wrong (a Postgres parameter
+  accepts NULL), and RPCs are already guarded by `RpcArgs`/`RpcReturns`.
+- **Never hand-write a table shape.** Use `TableRow` / `TableInsert` / `TableUpdate` /
+  `TableColumns` from [`types/tables.ts`](../../types/tables.ts). `Insert` for inserts and
+  `Update` for partial writes — never `Row`, which would demand database-managed columns.
+- **A partial select is not a Row.** Let Supabase infer the projection; drop
+  `.single<HandWrittenRow>()` generics so the shape comes from the query. Typing a
+  projection as a full row claims columns the query never fetched.
+- **A CHECK-constrained text column is `string` to the generator.** Narrow it at the
+  single place the row is mapped, using the repository's OWN constant set via
+  `narrowColumn` / `narrowNullableColumn`
+  ([`core/database/columnNarrowing.ts`](../../core/database/columnNarrowing.ts)), and let an
+  unknown value THROW. Never assert it with a handwritten interface.
+- **Nullability comes from the database, not from convenience.** If a column is
+  nullable, either narrow after an explicit check, return not-found, or make the domain
+  type honest. Never a non-null assertion, and never a security-sensitive default — a
+  missing usage limit must not become unlimited, a missing owner must not become the
+  caller.
+- **JSON columns:** opaque metadata that is only stored and returned stays `Json`;
+  a JSON value that controls billing, authorization, ownership, deletion or execution
+  must be runtime-validated before any field is trusted.
+- **The guard is the ratchet.** `scripts/ci/typed-db-guard.mjs` fails a manifest file
+  that drifts back to the untyped client, duplicates a generated Row, or reaches for
+  `as any` / `as unknown as`. `tsc` cannot catch that regression on its own, because the
+  untyped client's row generic is `any`. Add a file to the manifest only once it
+  genuinely uses the typed client; a stale or duplicate entry fails too.
+
 ## Open questions
 
 No open questions remain that block Slice 1.

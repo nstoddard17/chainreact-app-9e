@@ -1,9 +1,12 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { RpcArgs, RpcRow } from "@/types/rpc";
+import type { TableRow } from "@/types/tables";
+import { narrowColumn } from "@/core/database/columnNarrowing";
 import {
   parseRpcResult,
   scheduleAccountDeletionRowSchema,
 } from "@/core/database/rpcResultSchemas";
+import { asTypedDb } from "./supabase/typedDb";
 
 /**
  * Repository for `account_deletions` — the durable deletion audit ledger
@@ -15,7 +18,9 @@ import {
  * RLS (`account_deletions_select_subject`) when the UI needs them (10e).
  */
 
-export type AccountDeletionStatus = "pending" | "cancelled" | "purged";
+/** Mirrors the account_deletions.status CHECK constraint. */
+export const ACCOUNT_DELETION_STATUSES = ["pending", "cancelled", "purged"] as const;
+export type AccountDeletionStatus = (typeof ACCOUNT_DELETION_STATUSES)[number];
 
 export interface AccountDeletionRecord {
   id: string;
@@ -29,24 +34,12 @@ export interface AccountDeletionRecord {
   purgedAt: string | null;
 }
 
-interface AccountDeletionsRow {
-  id: string;
-  account_id: string;
-  owner_user_id: string;
-  status: AccountDeletionStatus;
-  requested_at: string;
-  requested_by_user_id: string | null;
-  purge_after: string;
-  cancelled_at: string | null;
-  purged_at: string | null;
-}
-
-function rowToRecord(row: AccountDeletionsRow): AccountDeletionRecord {
+function rowToRecord(row: TableRow<"account_deletions">): AccountDeletionRecord {
   return {
     id: row.id,
     accountId: row.account_id,
     ownerUserId: row.owner_user_id,
-    status: row.status,
+    status: narrowColumn("account_deletions.status", ACCOUNT_DELETION_STATUSES, row.status),
     requestedAt: row.requested_at,
     requestedByUserId: row.requested_by_user_id,
     purgeAfter: row.purge_after,
@@ -115,6 +108,7 @@ export async function scheduleAccountDeletionAtomic(input: {
   const supabase = getServiceRoleClient(
     `account_deletions: scheduleAccountDeletionAtomic for account ${input.accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase
     .rpc("schedule_account_deletion", {
       p_account_id: input.accountId,
@@ -158,7 +152,8 @@ export async function insertPending(input: {
   const supabase = getServiceRoleClient(
     `account_deletions: insertPending for account ${input.accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_deletions")
     .insert({
       account_id: input.accountId,
@@ -169,7 +164,7 @@ export async function insertPending(input: {
       purge_after: input.purgeAfter,
     })
     .select()
-    .single<AccountDeletionsRow>();
+    .single();
   if (error || !data) {
     throw new Error(
       `account_deletions.insertPending failed: ${error?.message ?? "no row"}`,
@@ -190,7 +185,8 @@ export async function markPendingCancelled(
   const supabase = getServiceRoleClient(
     `account_deletions: markPendingCancelled for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_deletions")
     .update({ status: "cancelled", cancelled_at: cancelledAt })
     .eq("account_id", accountId)
@@ -213,7 +209,8 @@ export async function markPurged(input: {
   const supabase = getServiceRoleClient(
     `account_deletions: markPurged for account ${input.accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_deletions")
     .update({
       status: "purged",
@@ -239,7 +236,8 @@ export async function getPendingOwnerForOrphanedAccount(
   const supabase = getServiceRoleClient(
     `account_deletions: getPendingOwner for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_deletions")
     .select("owner_user_id")
     .eq("account_id", accountId)
@@ -262,13 +260,14 @@ export async function getLatestForAccount(
   const supabase = getServiceRoleClient(
     `account_deletions: getLatestForAccount for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_deletions")
     .select("*")
     .eq("account_id", accountId)
     .order("requested_at", { ascending: false })
     .limit(1)
-    .maybeSingle<AccountDeletionsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_deletions.getLatestForAccount failed: ${error.message}`);
   }

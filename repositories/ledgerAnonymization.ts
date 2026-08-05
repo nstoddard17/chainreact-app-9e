@@ -1,4 +1,6 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import type { TableName } from "@/types/tables";
 
 /**
  * Ledger anonymization + retention teardown (4.ACCOUNT-MODEL-10d).
@@ -59,12 +61,13 @@ export async function anonymizeAccountLedgers(input: {
   const supabase = getServiceRoleClient(
     `ledger anonymization: anonymize ledgers for account ${input.accountId}`,
   );
+  const db = asTypedDb(supabase);
   const stamp = {
     anonymized_at: input.anonymizedAt,
     ledger_purge_after: input.ledgerPurgeAfter,
   };
 
-  const tue = await supabase
+  const tue = await db
     .from("task_usage_events")
     .update({
       account_id: null,
@@ -83,7 +86,7 @@ export async function anonymizeAccountLedgers(input: {
     throw new Error(`anonymizeAccountLedgers task_usage_events failed: ${tue.error.message}`);
   }
 
-  const ace = await supabase
+  const ace = await db
     .from("ai_cost_events")
     .update({
       account_id: null,
@@ -104,7 +107,7 @@ export async function anonymizeAccountLedgers(input: {
     throw new Error(`anonymizeAccountLedgers ai_cost_events failed: ${ace.error.message}`);
   }
 
-  const bsc = await supabase
+  const bsc = await db
     .from("billing_shadow_comparisons")
     .update({
       account_id: null,
@@ -142,9 +145,14 @@ export async function deleteExpiredAnonymizedLedgers(
   const supabase = getServiceRoleClient(
     "ledger anonymization: purge expired anonymized ledger rows",
   );
+  const db = asTypedDb(supabase);
 
-  async function purge(table: string): Promise<number> {
-    const { data, error } = await supabase
+  // A bare `string` would defeat the point of the typed client: these are the
+  // three anonymizable ledgers, and a typo is now a compile error.
+  async function purge(
+    table: Extract<TableName, "task_usage_events" | "ai_cost_events" | "billing_shadow_comparisons">,
+  ): Promise<number> {
+    const { data, error } = await db
       .from(table)
       .delete()
       .not("anonymized_at", "is", null)

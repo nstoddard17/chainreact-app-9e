@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
 
 /**
  * Service-role teardown helpers for account purge (4.ACCOUNT-MODEL-10c).
@@ -32,13 +33,6 @@ export interface PurgeIntegrationRow {
   refreshTokenEncrypted: string | null;
 }
 
-interface IntegrationsPurgeRow {
-  id: string;
-  provider: string;
-  access_token_encrypted: string;
-  refresh_token_encrypted: string | null;
-}
-
 /**
  * Every integration row (active OR already-disconnected) owned by the account,
  * with its encrypted tokens, so the purge can best-effort revoke at the provider
@@ -52,14 +46,15 @@ export async function listIntegrationsForPurge(
   const supabase = getServiceRoleClient(
     `account purge: list integrations for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("integrations")
     .select("id, provider, access_token_encrypted, refresh_token_encrypted")
     .eq("account_id", accountId);
   if (error) {
     throw new Error(`accountPurge.listIntegrationsForPurge failed: ${error.message}`);
   }
-  return ((data ?? []) as IntegrationsPurgeRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     id: r.id,
     provider: r.provider,
     accessTokenEncrypted: r.access_token_encrypted,
@@ -72,7 +67,8 @@ export async function deleteIntegration(integrationId: string): Promise<void> {
   const supabase = getServiceRoleClient(
     `account purge: delete integration ${integrationId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("integrations")
     .delete()
     .eq("id", integrationId);
@@ -86,7 +82,8 @@ export async function deleteWorkflowRunsByAccount(accountId: string): Promise<nu
   const supabase = getServiceRoleClient(
     `account purge: delete workflow_runs for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflow_runs")
     .delete()
     .eq("account_id", accountId)
@@ -106,7 +103,8 @@ export async function deleteWorkflowsByAccount(accountId: string): Promise<numbe
   const supabase = getServiceRoleClient(
     `account purge: delete workflows for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("workflows")
     .delete()
     .eq("account_id", accountId)
@@ -122,7 +120,8 @@ export async function deleteAccountBilling(accountId: string): Promise<void> {
   const supabase = getServiceRoleClient(
     `account purge: delete account_billing for account ${accountId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_billing")
     .delete()
     .eq("account_id", accountId);
@@ -142,7 +141,8 @@ export async function deleteAccount(accountId: string): Promise<void> {
   const supabase = getServiceRoleClient(
     `account purge: delete account ${accountId}`,
   );
-  const { error } = await supabase.from("accounts").delete().eq("id", accountId);
+  const db = asTypedDb(supabase);
+  const { error } = await db.from("accounts").delete().eq("id", accountId);
   if (error) {
     throw new Error(`accountPurge.deleteAccount failed: ${error.message}`);
   }
@@ -158,6 +158,7 @@ export async function deleteAuthUser(userId: string): Promise<void> {
   const supabase = getServiceRoleClient(
     `account purge: delete auth user ${userId}`,
   );
+  const db = asTypedDb(supabase);
   const { error } = await supabase.auth.admin.deleteUser(userId);
   if (error && !/not.?found/i.test(error.message)) {
     throw new Error(`accountPurge.deleteAuthUser failed: ${error.message}`);
@@ -185,7 +186,8 @@ export async function listPendingDeletionAccounts(): Promise<readonly string[]> 
   const supabase = getServiceRoleClient(
     "account billing reconcile: list pending-deletion accounts",
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("id")
     .eq("deletion_status", "pending_deletion");
@@ -194,7 +196,7 @@ export async function listPendingDeletionAccounts(): Promise<readonly string[]> 
       `accountPurge.listPendingDeletionAccounts failed: ${error.message}`,
     );
   }
-  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+  return (data ?? []).map((r) => r.id);
 }
 
 export async function listDuePendingAccounts(
@@ -203,7 +205,8 @@ export async function listDuePendingAccounts(
   const supabase = getServiceRoleClient(
     "account purge: list due pending-deletion accounts",
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("accounts")
     .select("id, owner_user_id")
     .eq("deletion_status", "pending_deletion")
@@ -211,7 +214,7 @@ export async function listDuePendingAccounts(
   if (error) {
     throw new Error(`accountPurge.listDuePendingAccounts failed: ${error.message}`);
   }
-  return ((data ?? []) as Array<{ id: string; owner_user_id: string }>).map((r) => ({
+  return (data ?? []).map((r) => ({
     accountId: r.id,
     ownerUserId: r.owner_user_id,
   }));

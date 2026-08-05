@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { RpcArgs } from "@/types/rpc";
 import { deductResultSchema, parseRpcResult } from "@/core/database/rpcResultSchemas";
+import { asTypedDb } from "./supabase/typedDb";
 
 /**
  * AI credit balance mutations (Slice 4.AI-CREDITS-3, deduct-only).
@@ -38,6 +39,7 @@ export async function deductAiCredits(
   const supabase = getServiceRoleClient(
     `ai credit gate: deductAiCredits ${amount} for account ${accountId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase.rpc("deduct_ai_credits_if_available", {
     p_account_id: accountId,
     p_amount: amount,
@@ -60,12 +62,6 @@ export interface AiCreditUsage {
   aiCreditsPeriodStartedAt: string;
 }
 
-interface AiCreditRow {
-  ai_credits_used: number;
-  ai_credits_limit: number;
-  ai_credits_period_started_at: string;
-}
-
 /**
  * Read an account's AI credit usage via the SSR-cookie / RLS client (account
  * members only — never cross-account). Returns null when no billing row exists.
@@ -74,11 +70,12 @@ interface AiCreditRow {
  */
 export async function getAiCreditUsage(accountId: string): Promise<AiCreditUsage | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_billing")
     .select("ai_credits_used, ai_credits_limit, ai_credits_period_started_at")
     .eq("account_id", accountId)
-    .maybeSingle<AiCreditRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_billing.getAiCreditUsage failed: ${error.message}`);
   }

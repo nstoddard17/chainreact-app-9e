@@ -1,5 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { asTypedDb } from "./supabase/typedDb";
+import { z } from "zod";
+import type { TableInsert, TableRow } from "@/types/tables";
+import type { Json } from "@/types/database.types";
 
 /**
  * Repository for task_usage_events (Slice 4.COST-3) — the append-only task
@@ -14,6 +18,15 @@ import { getServiceRoleClient } from "./supabase/serviceRoleClient";
  * `metadata` summary.
  */
 
+export const TaskUsageEventTypeSchema = z.enum([
+  "node_task_charged",
+  "run_estimate_recorded",
+  "billing_reserved",
+  "billing_reconciled",
+  "billing_refunded",
+  "internal_poll_cost_recorded",
+]);
+
 export type TaskUsageEventType =
   | "node_task_charged"
   | "run_estimate_recorded"
@@ -23,7 +36,8 @@ export type TaskUsageEventType =
   | "internal_poll_cost_recorded";
 
 export interface TaskUsageEventInsert {
-  accountId: string;
+  /** NULL on ledger-anonymized rows (account_id is cleared on purge). */
+  accountId: string | null;
   workflowId: string | null;
   workflowRunId: string | null;
   nodeId?: string | null;
@@ -40,7 +54,7 @@ export interface TaskUsageEventInsert {
   costPolicyVersion: string;
   testMode: boolean;
   /** Redacted numeric summary only — never node config. */
-  metadata?: Record<string, unknown>;
+  metadata?: Json;
 }
 
 export interface TaskUsageEventRecord extends TaskUsageEventInsert {
@@ -48,29 +62,7 @@ export interface TaskUsageEventRecord extends TaskUsageEventInsert {
   createdAt: string;
 }
 
-interface TaskUsageEventRow {
-  id: string;
-  account_id: string;
-  workflow_id: string | null;
-  workflow_run_id: string | null;
-  node_id: string | null;
-  provider: string | null;
-  node_type: string | null;
-  node_kind: string | null;
-  event_type: TaskUsageEventType;
-  billable: boolean;
-  tasks_charged: number;
-  estimated_tasks: number | null;
-  actual_tasks: number | null;
-  charge_on: string | null;
-  cost_reason: string | null;
-  cost_policy_version: string;
-  test_mode: boolean;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
-function toInsertRow(e: TaskUsageEventInsert): Record<string, unknown> {
+function toInsertRow(e: TaskUsageEventInsert): TableInsert<"task_usage_events"> {
   return {
     account_id: e.accountId,
     workflow_id: e.workflowId,
@@ -92,7 +84,7 @@ function toInsertRow(e: TaskUsageEventInsert): Record<string, unknown> {
   };
 }
 
-function rowToRecord(row: TaskUsageEventRow): TaskUsageEventRecord {
+function rowToRecord(row: TableRow<"task_usage_events">): TaskUsageEventRecord {
   return {
     id: row.id,
     accountId: row.account_id,
@@ -102,7 +94,7 @@ function rowToRecord(row: TaskUsageEventRow): TaskUsageEventRecord {
     provider: row.provider,
     nodeType: row.node_type,
     nodeKind: row.node_kind,
-    eventType: row.event_type,
+    eventType: TaskUsageEventTypeSchema.parse(row.event_type),
     billable: row.billable,
     tasksCharged: row.tasks_charged,
     estimatedTasks: row.estimated_tasks,
@@ -124,7 +116,8 @@ export async function insertEvents(
   const supabase = getServiceRoleClient(
     `engine: task_usage_events insert (${events.length})`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("task_usage_events")
     .insert(events.map(toInsertRow));
   if (error) {
@@ -137,7 +130,8 @@ export async function listByRun(
   runId: string,
 ): Promise<readonly TaskUsageEventRecord[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("task_usage_events")
     .select("*")
     .eq("workflow_run_id", runId)
@@ -145,7 +139,7 @@ export async function listByRun(
   if (error) {
     throw new Error(`task_usage_events.listByRun failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as TaskUsageEventRow));
+  return (data ?? []).map(rowToRecord);
 }
 
 /** Filters for an owner/admin analytics range read (COST-7). */
@@ -177,7 +171,8 @@ export async function listEventsForAnalytics(
   const supabase = getServiceRoleClient(
     "analytics: task_usage_events range read (owner/admin)",
   );
-  let query = supabase.from("task_usage_events").select("*");
+  const db = asTypedDb(supabase);
+  let query = db.from("task_usage_events").select("*");
   if (q.from) query = query.gte("created_at", q.from);
   if (q.to) query = query.lte("created_at", q.to);
   if (q.accountId) query = query.eq("account_id", q.accountId);
@@ -190,5 +185,5 @@ export async function listEventsForAnalytics(
       `task_usage_events.listEventsForAnalytics failed: ${error.message}`,
     );
   }
-  return (data ?? []).map((r) => rowToRecord(r as TaskUsageEventRow));
+  return (data ?? []).map(rowToRecord);
 }

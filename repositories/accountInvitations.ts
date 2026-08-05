@@ -1,6 +1,11 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { RpcArgs, RpcReturns } from "@/types/rpc";
-import { accountInvitationRowSchema, parseRpcResult } from "@/core/database/rpcResultSchemas";
+import {
+  accountInvitationRowSchema,
+  parseRpcResult,
+  type AccountInvitationRow,
+} from "@/core/database/rpcResultSchemas";
+import { asTypedDb } from "./supabase/typedDb";
 
 /**
  * Repository for `account_invitations` (4.ACCOUNT-MODEL-15).
@@ -34,21 +39,7 @@ export interface AccountInvitationRecord {
   createdAt: string;
 }
 
-interface AccountInvitationsRow {
-  id: string;
-  account_id: string;
-  email: string;
-  role: InvitationRole;
-  status: InvitationStatus;
-  invited_by_user_id: string | null;
-  expires_at: string | null;
-  accepted_by_user_id: string | null;
-  accepted_at: string | null;
-  revoked_at: string | null;
-  created_at: string;
-}
-
-function rowToRecord(row: AccountInvitationsRow): AccountInvitationRecord {
+function rowToRecord(row: AccountInvitationRow): AccountInvitationRecord {
   return {
     id: row.id,
     accountId: row.account_id,
@@ -82,7 +73,8 @@ export async function insertPending(input: {
   const supabase = getServiceRoleClient(
     `account_invitations: insertPending for account ${input.accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_invitations")
     .insert({
       account_id: input.accountId,
@@ -92,7 +84,7 @@ export async function insertPending(input: {
       invited_by_user_id: input.invitedByUserId,
     })
     .select()
-    .single<AccountInvitationsRow>();
+    .single();
   if (error || !data) {
     // 23505 = unique_violation → an existing pending invite for this email.
     if (error?.code === "23505") {
@@ -102,7 +94,7 @@ export async function insertPending(input: {
       `account_invitations.insertPending failed: ${error?.message ?? "no row"}`,
     );
   }
-  return rowToRecord(data);
+  return rowToRecord(accountInvitationRowSchema.parse(data));
 }
 
 export async function getByTokenHashServiceRole(
@@ -111,15 +103,16 @@ export async function getByTokenHashServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: getByTokenHash`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_invitations")
     .select("*")
     .eq("token_hash", tokenHash)
-    .maybeSingle<AccountInvitationsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_invitations.getByTokenHashServiceRole failed: ${error.message}`);
   }
-  return data ? rowToRecord(data) : null;
+  return data ? rowToRecord(accountInvitationRowSchema.parse(data)) : null;
 }
 
 export async function getByIdServiceRole(
@@ -128,15 +121,16 @@ export async function getByIdServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: getById ${invitationId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_invitations")
     .select("*")
     .eq("id", invitationId)
-    .maybeSingle<AccountInvitationsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(`account_invitations.getByIdServiceRole failed: ${error.message}`);
   }
-  return data ? rowToRecord(data) : null;
+  return data ? rowToRecord(accountInvitationRowSchema.parse(data)) : null;
 }
 
 export async function listPendingForAccountServiceRole(
@@ -145,7 +139,8 @@ export async function listPendingForAccountServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: listPending for account ${accountId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_invitations")
     .select("*")
     .eq("account_id", accountId)
@@ -154,7 +149,7 @@ export async function listPendingForAccountServiceRole(
   if (error) {
     throw new Error(`account_invitations.listPendingForAccountServiceRole failed: ${error.message}`);
   }
-  return (data ?? []).map((r) => rowToRecord(r as AccountInvitationsRow));
+  return (data ?? []).map((r) => rowToRecord(accountInvitationRowSchema.parse(r)));
 }
 
 /**
@@ -168,7 +163,8 @@ export async function countPendingForAccountServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: countPending for account ${accountId}`,
   );
-  const { count, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { count, error } = await db
     .from("account_invitations")
     .select("*", { count: "exact", head: true })
     .eq("account_id", accountId)
@@ -193,7 +189,8 @@ export async function countCreatedSinceForAccountServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: countCreatedSince for account ${accountId}`,
   );
-  const { count, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { count, error } = await db
     .from("account_invitations")
     .select("*", { count: "exact", head: true })
     .eq("account_id", accountId)
@@ -214,7 +211,8 @@ export async function countCreatedSinceByInviterServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: countCreatedSince by inviter`,
   );
-  const { count, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { count, error } = await db
     .from("account_invitations")
     .select("*", { count: "exact", head: true })
     .eq("invited_by_user_id", inviterUserId)
@@ -235,7 +233,8 @@ export async function markAcceptedServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: markAccepted ${invitationId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_invitations")
     .update({ status: "accepted", accepted_by_user_id: acceptedByUserId, accepted_at: acceptedAt })
     .eq("id", invitationId)
@@ -252,7 +251,8 @@ export async function markRevokedServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: markRevoked ${invitationId}`,
   );
-  const { error } = await supabase
+  const db = asTypedDb(supabase);
+  const { error } = await db
     .from("account_invitations")
     .update({ status: "revoked", revoked_at: revokedAt })
     .eq("id", invitationId)
@@ -287,6 +287,7 @@ export async function replaceInvitationServiceRole(input: {
   const supabase = getServiceRoleClient(
     `account_invitations: replace ${input.invitationId}`,
   );
+  const db = asTypedDb(supabase);
   const { data, error } = await supabase
     .rpc("replace_account_invitation", {
       p_invitation_id: input.invitationId,
@@ -330,17 +331,18 @@ export async function updatePendingRoleServiceRole(
   const supabase = getServiceRoleClient(
     `account_invitations: updatePendingRole ${invitationId}`,
   );
-  const { data, error } = await supabase
+  const db = asTypedDb(supabase);
+  const { data, error } = await db
     .from("account_invitations")
     .update({ role })
     .eq("id", invitationId)
     .eq("status", "pending")
     .select()
-    .maybeSingle<AccountInvitationsRow>();
+    .maybeSingle();
   if (error) {
     throw new Error(
       `account_invitations.updatePendingRoleServiceRole failed: ${error.message}`,
     );
   }
-  return data ? rowToRecord(data) : null;
+  return data ? rowToRecord(accountInvitationRowSchema.parse(data)) : null;
 }

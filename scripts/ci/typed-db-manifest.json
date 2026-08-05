@@ -1,0 +1,28 @@
+{
+  "$comment": [
+    "SUPABASE-TABLE-TYPING-1A — repositories whose TABLE access has been migrated",
+    "to the generated Database types. Listing a file here opts it into",
+    "scripts/ci/typed-db-guard.mjs, which fails if it ever drifts back to the",
+    "untyped client, reintroduces a handwritten table-row duplicate, or reaches",
+    "for `as any` / `as unknown as`.",
+    "",
+    "This is a MIGRATION ledger, not an allowlist: the repo-wide ban arrives when",
+    "the list covers every repository and repositories/supabase/typedDb.ts is",
+    "deleted. Add a file only once it genuinely routes .from() through asTypedDb.",
+    "",
+    "Batch 1A scope: account billing + entitlement state, account lifecycle and",
+    "deletion, ownership and membership, and the ledger/usage tables those",
+    "repositories write through."
+  ],
+  "migratedFiles": [
+    "repositories/accountBilling.ts",
+    "repositories/accountBillingAiCredits.ts",
+    "repositories/accountDeletions.ts",
+    "repositories/accountPurge.ts",
+    "repositories/accounts.ts",
+    "repositories/accountMemberships.ts",
+    "repositories/accountInvitations.ts",
+    "repositories/ledgerAnonymization.ts",
+    "repositories/taskUsageEvents.ts"
+  ]
+}
