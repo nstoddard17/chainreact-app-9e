@@ -55,6 +55,7 @@ interface CliArgs {
   dryRun: boolean;
   apply: boolean;
   dryRunReportPath: string | null;
+  validateReportPath: string | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -67,6 +68,7 @@ function parseArgs(argv: string[]): CliArgs {
     dryRun: false,
     apply: false,
     dryRunReportPath: null,
+    validateReportPath: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -78,6 +80,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--apply") args.apply = true;
     else if (a === "--config") args.configPath = argv[++i] ?? args.configPath;
     else if (a === "--dry-run-report") args.dryRunReportPath = argv[++i] ?? null;
+    else if (a === "--validate") args.validateReportPath = argv[++i] ?? null;
     else {
       throw new Error(`unknown argument '${a}'. Secrets are never accepted as arguments.`);
     }
@@ -190,7 +193,14 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  if (args.dryRun === args.apply) {
+  if (args.validateReportPath) {
+    // READ-ONLY post-apply validation of an apply artifact. Requires the same
+    // fail-closed environment preflight as every other mode (run below).
+    if (args.dryRun || args.apply) {
+      console.error("--validate cannot be combined with --dry-run or --apply.");
+      return 1;
+    }
+  } else if (args.dryRun === args.apply) {
     console.error("pass exactly one of --dry-run or --apply.");
     return 1;
   }
@@ -261,6 +271,50 @@ async function main(): Promise<number> {
 
   mkdirSync(ARTIFACT_DIR, { recursive: true });
   const operationId = `transplant-${Date.now().toString(36)}`;
+
+  if (args.validateReportPath) {
+    const applyArtifact = JSON.parse(readFileSync(args.validateReportPath, "utf8")) as {
+      mode?: string;
+      items?: Array<{
+        provider: string;
+        sourceIntegrationId: string;
+        destinationIntegrationId?: string;
+        status: string;
+      }>;
+    };
+    if (applyArtifact.mode !== "apply" || !Array.isArray(applyArtifact.items)) {
+      console.error("--validate expects an apply artifact.");
+      return 1;
+    }
+    const expected = applyArtifact.items
+      .filter((i) => i.status === "verified" && i.destinationIntegrationId)
+      .map((i) => ({
+        provider: i.provider,
+        sourceIntegrationId: i.sourceIntegrationId,
+        destinationIntegrationId: i.destinationIntegrationId!,
+      }));
+    // Snapshot the source rows now; the apply already proved byte-equality at
+    // write time, this re-proves it AFTER the whole batch.
+    const before = new Map<string, string>();
+    for (const row of await source.getIntegrationsByIds(
+      expected.map((e) => e.sourceIntegrationId),
+    )) {
+      before.set(row.id, JSON.stringify(row));
+    }
+    const { validateBatch } = await import("./validateBatch");
+    const result = await validateBatch({
+      source,
+      destAccountId: config.destAccountId,
+      destConnectedByUserId: config.destConnectedByUserId,
+      expected,
+      sourceBefore: before,
+    });
+    for (const row of result.rows) console.log(JSON.stringify(row));
+    console.log(
+      `active integrations in destination account: ${result.activeInDestAccount}`,
+    );
+    return 0;
+  }
 
   if (args.dryRun) {
     const { report, serialized } = await runDryRun(deps, config, operationId);
