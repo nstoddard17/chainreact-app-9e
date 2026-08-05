@@ -147,6 +147,43 @@ normal workflow activation, never copied.
    key suites were verified to fail against sabotaged (ciphertext-copy,
    rollback-disabled) behavior.
 
+## SCOPE-GATE-REFINEMENT-1 (2026-08-04) — provider-specific scope assertion
+
+The first real dry-run flagged 8 providers `reconnect_required` for missing
+required scopes. Auditing the actual connect flows showed most were FALSE
+positives: `integrations.scopes` is not a reliable record of granted scopes for
+several providers. Encoded per provider in
+[`scopeAssertion.ts`](../../../../scripts/integrations-transplant/scopeAssertion.ts)
+with cited evidence:
+
+| Mode | Providers | Evidence |
+|---|---|---|
+| `never_persisted` — flow hardcodes a non-provider value | asana (`oauth.ts:263 scopes: []`), notion (`:164`), trello (`auth.ts:112`), fleetio (`auth.ts:92`), mailchimp (`oauth.ts:208` synthetic `["account_access"]`) | provider never echoes grants; column can never show what was granted |
+| `provider_optional` — reads `json.scope`, provider may omit it | dropbox (`oauth.ts:166`), hubspot (`oauth.ts:199`) | EMPTY = absence of metadata (→ `scopes_not_asserted`); NON-EMPTY is real evidence and stays strict |
+| strict (default) | every other provider, incl. all Google/Microsoft/slack/shopify/github/facebook | provider reliably echoes granted scopes |
+
+Two documented normalizations, neither global:
+
+- **monday** — UPSTREAM DEFECT: monday returns a **comma**-separated scope
+  string but `integrations/monday/oauth.ts:237` splits on `" "`, so all granted
+  scopes land in ONE mangled array element. The transplant splits elements on
+  commas before comparing (it can never invent a scope the provider didn't
+  return). **Fixing the provider handler is a separate follow-up.**
+- **shopify** — Shopify's documented access-scope semantics: `write_<resource>`
+  confers read access, so a granted `write_orders` satisfies a `read_orders`
+  requirement. Applied to shopify only.
+
+`scopes_not_asserted` is **not a pass**: it means no scope evidence exists
+either way, so the credential must clear the provider's read-only identity
+probe at apply (strict mode already refuses providers with no probe). Reports
+carry `scopeStatus`: `scopes_verified` · `scopes_missing` ·
+`scopes_not_asserted` · `scopes_not_applicable`.
+
+Verified real outcomes: google-calendar genuinely lacks `calendar.readonly`
+(Google echoes grants reliably → stays `reconnect_required`); shopify's 10
+granted `write_*` scopes cover all 11 requirements under the write-implies-read
+rule; monday's single mangled element contains all 10 required scopes.
+
 ## What this slice deliberately does NOT do
 
 - No migration (none needed — the schema already supports everything).
