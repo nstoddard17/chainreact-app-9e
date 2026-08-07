@@ -509,8 +509,8 @@ describe("per-provider accessors", () => {
     });
   });
 
-  describe("gmail:delete_email required deleteMode (parity-gmail.md decision 2)", () => {
-    it("`deleteMode` is a required select with no defaultValue", () => {
+  describe("gmail:delete_email required deleteMode (parity-gmail.md decision 2 + GOOGLE-OAUTH-REVIEW-READINESS-2)", () => {
+    it("`deleteMode` is a required select offering ONLY 'trash' — 'permanent' is retired (needs the never-requested mail.google.com scope) and must not be creatable from any builder/catalog surface", () => {
       const meta = listActionMetasForProvider("gmail").find(
         (m) => m.key === "gmail:delete_email",
       );
@@ -520,10 +520,7 @@ describe("per-provider accessors", () => {
       expect(f!.type).toBe("select");
       expect(f!.required).toBe(true);
       expect(f!.defaultValue).toBeUndefined();
-      expect(f!.options!.map((o) => o.value).sort()).toEqual([
-        "permanent",
-        "trash",
-      ]);
+      expect(f!.options!.map((o) => o.value)).toEqual(["trash"]);
     });
   });
 

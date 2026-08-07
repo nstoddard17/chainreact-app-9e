@@ -12,10 +12,10 @@ import { defineWriteSmokeFixture } from "@/tests/smoke-actions/contract";
  *            `labelIds` CONTAINS "TRASH" (a trashed message keeps its id but gains TRASH;
  *            the delete echo is never trusted).
  *
- * Uses `deleteMode: "trash"` (recoverable) rather than "permanent" so the read-back can
- * positively prove the state; the "permanent" mode shares the same handler + delete
- * wrapper and is not separately smoke-certified (it would 404 on read-back). No email
- * sent. Scope: `gmail.modify`.
+ * Uses `deleteMode: "trash"` — the ONLY supported mode. The former "permanent" mode is
+ * retired (GOOGLE-OAUTH-REVIEW-READINESS-2): users.messages.delete needs the
+ * never-requested mail.google.com scope, and the handler now rejects a legacy
+ * "permanent" config with a clear error. No email sent. Scope: `gmail.modify`.
  */
 export default defineWriteSmokeFixture({
   provider: "gmail",

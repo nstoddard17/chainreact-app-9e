@@ -3,24 +3,21 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 /**
  * Builder-facing metadata for `gmail:delete_email`.
  *
- * Mirrors `deleteEmail.schema.ts`. The `deleteMode` enum is REQUIRED
- * with NO default per parity-gmail.md decision 2 — the two modes have
- * meaningfully different consequences and the workflow author must
- * choose explicitly. V1 silently defaulted to `trash` via a boolean;
- * V2 surfaces the user-visible consequence at config time.
+ * Mirrors `deleteEmail.schema.ts`. The `deleteMode` select is REQUIRED
+ * with NO default (parity-gmail.md decision 2), and since
+ * GOOGLE-OAUTH-REVIEW-READINESS-2 it offers ONLY `"trash"`: the former
+ * `"permanent"` option required Google's full-mailbox
+ * `https://mail.google.com/` scope (never requested — the mode never
+ * worked) and is retired rather than expanding the OAuth surface. The
+ * handler still recognizes a legacy saved `"permanent"` value and
+ * rejects it with a clear error — it is never silently run as trash.
  *
  * Required scope: `gmail.modify`.
  *
- * Outputs differ by mode:
- *   - `trash`: returns Gmail's `messages.trash` response (messageId,
- *     threadId, labelIds, deleteMode='trash'). See deleteEmail.ts:45-52.
- *   - `permanent`: returns only `messageId` + `deleteMode='permanent'`
- *     (Gmail's `messages.delete` returns 204 No Content). See
- *     deleteEmail.ts:67-72.
- *
- * The `outputs[]` below describes the trash path (richer); the
- * permanent path's outputs are a subset. Both modes share the
- * `messageId` + `deleteMode` outputs.
+ * Risk metadata stays `isDestructive`/`riskLevel: "high"`: trashing
+ * removes the message from the mailbox and Gmail purges Trash after
+ * ~30 days, so the effect can become irreversible (same posture as
+ * microsoft-outlook:delete_email's retention-window delete).
  */
 export const deleteEmailMeta: ActionMeta = {
   key: "gmail:delete_email",
@@ -28,7 +25,7 @@ export const deleteEmailMeta: ActionMeta = {
   type: "delete_email",
   displayName: "Delete Email",
   description:
-    "Delete a single Gmail message. Choose 'Move to trash' (recoverable for 30 days per Gmail TOS) or 'Permanent delete' (irreversible). No silent default — explicit mode required. Requires the gmail.modify scope.",
+    "Move a single Gmail message to the trash folder (recoverable for about 30 days per Gmail TOS, then purged). Permanent immediate deletion is not supported — it would require the full-mailbox mail.google.com permission, which ChainReact does not request. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [
@@ -43,20 +40,17 @@ export const deleteEmailMeta: ActionMeta = {
       name: "deleteMode",
       label: "Delete mode",
       description:
-        "'Move to trash' moves the message to Gmail's trash folder (recoverable for 30 days). 'Permanent delete' removes the message immediately and irreversibly. No default — choose explicitly.",
+        "'Move to trash' moves the message to Gmail's trash folder (recoverable for about 30 days, then purged by Gmail). Explicit — no default.",
       type: "select",
       required: true,
-      options: [
-        { value: "trash", label: "Move to trash (recoverable)" },
-        { value: "permanent", label: "Permanent delete (irreversible)" },
-      ],
+      options: [{ value: "trash", label: "Move to trash (recoverable)" }],
     },
   ],
   outputs: [
     { name: "messageId", type: "string", description: "Echoes the input messageId." },
-    { name: "deleteMode", type: "string", description: "Echoes the chosen mode ('trash' or 'permanent')." },
-    { name: "threadId", type: "string", description: "Gmail thread id. Only present when deleteMode='trash' — Gmail's permanent delete returns no body." },
-    { name: "labelIds", type: "array", description: "Label ids on the trashed message. Only present when deleteMode='trash'." },
+    { name: "deleteMode", type: "string", description: "Echoes the chosen mode ('trash')." },
+    { name: "threadId", type: "string", description: "Gmail thread id of the trashed message." },
+    { name: "labelIds", type: "array", description: "Label ids on the trashed message (includes TRASH)." },
   ],
   producesFileRef: false,
   consumesFileRef: false,
@@ -64,5 +58,6 @@ export const deleteEmailMeta: ActionMeta = {
   isDestructive: true,
   requiresConfirmation: false,
   riskLevel: "high",
-  riskDescription: "Permanent deletion. Gmail does not retain a recoverable copy after this call.",
+  riskDescription:
+    "Removes the message from the mailbox. Gmail purges trashed messages after about 30 days, after which recovery is impossible.",
 };

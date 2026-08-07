@@ -17,11 +17,16 @@ consent screen / one verification request carries the union of every requested s
 | google-docs | `documents`, `drive`, `userinfo.email` | unchanged |
 | google-analytics | `analytics.readonly`, `analytics.edit`, `userinfo.email` | unchanged |
 
-Requested-scope count for the shared client drops **13 → 9**; restricted scopes drop
-**5 → 3** (`gmail.readonly` and `gmail.compose` removed; `gmail.send` — sensitive —
-also removed). No capability was removed: every registered action, trigger, and
-resolver was traced to its exact Google endpoint and the endpoint's documented
-accepted-scope list before any scope was cut.
+Requested-scope count for the shared client drops **13 → 10 total unique OAuth
+scopes** (corrected by GOOGLE-OAUTH-REVIEW-READINESS-2 — the earlier "9" omitted the
+non-sensitive `userinfo.email` identity scope from the total). Precisely: **10 total
+= 9 sensitive/restricted scopes requiring elevated verification + 1 non-sensitive
+identity scope**. Restricted scopes drop **5 → 3**; sensitive drop **7 → 6**
+(`gmail.readonly`/`gmail.compose` restricted and `gmail.send` sensitive removed;
+sensitive `calendar.readonly` swapped for sensitive-but-narrower
+`calendar.calendarlist.readonly`). No capability was removed: every registered
+action, trigger, and resolver was traced to its exact Google endpoint and the
+endpoint's documented accepted-scope list before any scope was cut.
 
 ## 2. Evidence — why each change is safe
 
@@ -34,11 +39,18 @@ create_draft_reply), `users.messages.modify` / `trash` / `labels.create` (label,
 read-state, archive, trash actions). The former quad was redundant — `modify` is
 "all read/write except immediate permanent deletion."
 
-**Pre-existing gap surfaced (NOT introduced by this change):** `gmail:delete_email`'s
-`permanent: true` mode calls `users.messages.delete`, which Google authorizes ONLY
-under `https://mail.google.com/` — never requested by ChainReact. That mode 403s in
-production under the old quad too. Recommended follow-up: remove the permanent mode
-(or map it to a typed capability error). Trash mode is fully covered.
+**Pre-existing gap surfaced and RESOLVED (GOOGLE-OAUTH-REVIEW-READINESS-2):**
+`gmail:delete_email`'s `"permanent"` mode called `users.messages.delete`, which
+Google authorizes ONLY under `https://mail.google.com/` — never requested by
+ChainReact, so the mode 403'd for as long as it existed. Rather than requesting the
+full-mailbox scope, the mode is retired: the builder select offers only
+`"trash"`, the `users.messages.delete` wrapper is deleted, and the handler
+recognizes a legacy saved `"permanent"` config and rejects it with a clear
+"no longer supported — edit this step to use Move to trash" error. A legacy
+permanent-delete step is NEVER silently converted to a trash operation (that
+would change the meaning of a destructive workflow). Trash mode is fully covered
+by `gmail.modify`; Gmail purges trashed messages after ~30 days, so risk metadata
+stays `isDestructive`/`riskLevel: "high"`.
 
 **Calendar → granular calendarlist scope, as `optional`.** The whole action/trigger
 surface (`events.insert/list/get/patch/delete/watch`) runs on `calendar.events`. The
@@ -98,10 +110,19 @@ On the OAuth consent screen of `chainreact-462214` ("Data access" / scopes list)
 **Add:**
 - `https://www.googleapis.com/auth/calendar.calendarlist.readonly`
 
-**Keep (final list, 9):** `gmail.modify` · `calendar.events` ·
-`calendar.calendarlist.readonly` · `drive` · `drive.metadata.readonly` ·
-`spreadsheets` · `documents` · `analytics.readonly` · `analytics.edit` ·
-plus `userinfo.email` (non-sensitive; may show under basic scopes).
+**Keep (final list — 10 total unique scopes):**
+- Restricted (3): `https://www.googleapis.com/auth/gmail.modify` ·
+  `https://www.googleapis.com/auth/drive` ·
+  `https://www.googleapis.com/auth/drive.metadata.readonly`
+- Sensitive (6): `https://www.googleapis.com/auth/calendar.events` ·
+  `https://www.googleapis.com/auth/calendar.calendarlist.readonly` ·
+  `https://www.googleapis.com/auth/spreadsheets` ·
+  `https://www.googleapis.com/auth/documents` ·
+  `https://www.googleapis.com/auth/analytics.readonly` ·
+  `https://www.googleapis.com/auth/analytics.edit`
+- Non-sensitive identity (1): `https://www.googleapis.com/auth/userinfo.email`
+  (may render under basic scopes in the console; part of the runtime request
+  union for the five non-Gmail providers).
 
 Order of operations: deploy the code change to production FIRST (so the app never
 requests a scope missing from the console), then edit the console scope list, then
@@ -125,9 +146,11 @@ update/resubmit the verification request so Google reviews only the 9-scope set.
   outputs) → restricted verification + annual CASA remain required.
 - **Sensitive:** `calendar.events`, `calendar.calendarlist.readonly`,
   `spreadsheets`, `documents`, `analytics.readonly`, `analytics.edit`.
-- **Non-sensitive:** `userinfo.email`.
-- A reviewer demonstration video is therefore still required, but now covers 9
-  scopes instead of 13, with one Gmail scope instead of four.
+- **Non-sensitive:** `userinfo.email` (identity only — documented but not part of
+  the elevated-verification demonstration count).
+- A reviewer demonstration video is therefore still required, but now covers **9
+  sensitive/restricted scopes** (of 10 total, down from 12 elevated of 13 total),
+  with one Gmail scope instead of four.
 
 The seeded reviewer templates (`20260810000000_seed_official_templates_google_review.sql`,
 GOOGLE-REVIEW-CERTIFICATION-2) still demonstrate every remaining scope;
@@ -155,6 +178,25 @@ create_draft_reply; calendarlist via the create_event calendar picker).
    replace `drive.metadata.readonly` (picker + watch would then only cover
    picker-granted files). UX change; would leave Gmail/Drive/Docs as the only
    restricted providers.
-2. **`gmail:delete_email` permanent mode** — remove or re-scope (currently 403s;
-   requires `mail.google.com`, which we will not request).
+2. ~~**`gmail:delete_email` permanent mode**~~ — DONE in
+   GOOGLE-OAUTH-REVIEW-READINESS-2 (mode retired; legacy configs rejected with a
+   clear error; wrapper deleted).
 3. Optional-scope pattern for other convenience pickers if future scope adds recur.
+
+## 9. Per-provider OAuth requests (GOOGLE-OAUTH-REVIEW-READINESS-2)
+
+Distinct concepts: the Cloud Console consent configuration carries the 10-scope
+UNION; each provider's connect flow requests only its own subset. The dispatcher
+concatenates `required + optional` into the ONE initial authorize URL
+(`services/oauth/dispatcher.ts` — there is no separate/incremental consent path).
+
+| Provider | Required (requested at connect) | Optional (also in the same authorize URL) | Total |
+| --- | --- | --- | --- |
+| gmail | gmail.modify | — | 1 |
+| google-drive | drive, userinfo.email | — | 2 |
+| google-sheets | spreadsheets, drive.metadata.readonly, userinfo.email | — | 3 |
+| google-docs | documents, drive, userinfo.email | — | 3 |
+| google-calendar | calendar.events, userinfo.email | calendar.calendarlist.readonly | 3 |
+| google-analytics | analytics.readonly, analytics.edit, userinfo.email | — | 3 |
+
+(All URIs are `https://www.googleapis.com/auth/<name>`.)

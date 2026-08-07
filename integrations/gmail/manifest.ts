@@ -40,11 +40,13 @@ import { ProviderManifestSchema, type ProviderManifest } from "@/contracts/integ
  *     shrinks the consent screen and the Google verification surface
  *     without removing any capability. Existing tokens (granted the
  *     quad) trivially satisfy required ⊆ granted.
- *   - NOT requested: mail.google.com. Consequence: delete_email's
- *     `permanent: true` mode calls users.messages.delete, which Google
- *     authorizes ONLY under mail.google.com — that mode 403s under the
- *     former quad too (pre-existing gap, not introduced here). The
- *     trash mode is the supported path.
+ *   - NOT requested: mail.google.com. delete_email's former
+ *     "permanent" mode needed users.messages.delete, which Google
+ *     authorizes ONLY under mail.google.com — it 403'd under the old
+ *     quad too. GOOGLE-OAUTH-REVIEW-READINESS-2 retired the mode
+ *     rather than requesting the full-mailbox scope: the builder
+ *     offers trash only, and the handler rejects a legacy saved
+ *     "permanent" config with a clear error (never silently trashes).
  *   - No gmail.labels (covered by gmail.modify per Google docs).
  *   - No gmail.settings.basic — updateSignature was a V1 orphan and is
  *     skipped per parity-gmail.md §7.

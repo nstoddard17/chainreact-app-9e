@@ -2,15 +2,17 @@
  * @jest-environment node
  *
  * Tests for the Gmail deleteEmail action handler. Pins the
- * mode-dispatch contract:
- *   - deleteMode="trash"     → usersMessagesTrash (NOT delete)
- *   - deleteMode="permanent" → usersMessagesDelete (NOT trash)
+ * mode contract (GOOGLE-OAUTH-REVIEW-READINESS-2):
+ *   - deleteMode="trash"     → usersMessagesTrash
+ *   - deleteMode="permanent" → RETIRED legacy value: recognized,
+ *     rejected with a clear error BEFORE any Gmail call, and never
+ *     silently converted to trash (users.messages.delete needs the
+ *     never-requested mail.google.com scope).
  */
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
 const mockRefreshAndRetry = jest.fn();
 const mockUsersMessagesTrash = jest.fn();
-const mockUsersMessagesDelete = jest.fn();
 
 jest.mock("@/services/oauth/refreshAndRetry", () => ({
   refreshAndRetry: (...args: unknown[]) => mockRefreshAndRetry(...args),
@@ -27,17 +29,12 @@ jest.mock("@/integrations/gmail/api/usersMessagesTrash", () => ({
   usersMessagesTrash: (...args: unknown[]) => mockUsersMessagesTrash(...args),
 }));
 
-jest.mock("@/integrations/gmail/api/usersMessagesDelete", () => ({
-  usersMessagesDelete: (...args: unknown[]) => mockUsersMessagesDelete(...args),
-}));
-
 import { deleteEmail } from "@/integrations/gmail/actions/deleteEmail";
 import { DeleteEmailConfigSchema } from "@/integrations/gmail/actions/deleteEmail.schema";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
   mockUsersMessagesTrash.mockReset();
-  mockUsersMessagesDelete.mockReset();
 });
 
 function makeGmailTriggerEvent(): TriggerEvent {
@@ -83,7 +80,7 @@ describe("deleteEmail — trash mode", () => {
     });
   });
 
-  it("calls usersMessagesTrash (NOT usersMessagesDelete)", async () => {
+  it("calls usersMessagesTrash", async () => {
     await deleteEmail(
       baseHandlerInput({
         config: { messageId: "msg-1", deleteMode: "trash" },
@@ -95,7 +92,6 @@ describe("deleteEmail — trash mode", () => {
       accessToken: "token",
       messageId: "msg-1",
     });
-    expect(mockUsersMessagesDelete).not.toHaveBeenCalled();
   });
 
   it("returns { messageId, threadId, labelIds, deleteMode: 'trash' }", async () => {
@@ -128,40 +124,31 @@ describe("deleteEmail — trash mode", () => {
   });
 });
 
-describe("deleteEmail — permanent mode", () => {
-  beforeEach(() => {
+describe("deleteEmail — legacy permanent mode is retired (GOOGLE-OAUTH-REVIEW-READINESS-2)", () => {
+  it("rejects with a clear 'no longer supported' error BEFORE any Gmail call", async () => {
     wireRefreshAndRetry();
-    mockUsersMessagesDelete.mockResolvedValue({ messageId: "msg-2" });
-  });
 
-  it("calls usersMessagesDelete (NOT usersMessagesTrash)", async () => {
-    await deleteEmail(
-      baseHandlerInput({
-        config: { messageId: "msg-2", deleteMode: "permanent" },
-      }),
-    );
+    await expect(
+      deleteEmail(
+        baseHandlerInput({
+          config: { messageId: "msg-2", deleteMode: "permanent" },
+        }),
+      ),
+    ).rejects.toThrow(/no longer supported.*mail\.google\.com/s);
 
-    expect(mockUsersMessagesDelete).toHaveBeenCalledTimes(1);
-    expect(mockUsersMessagesDelete.mock.calls[0]![0]).toEqual({
-      accessToken: "token",
-      messageId: "msg-2",
-    });
+    // Never silently converted to trash, never sent to Google at all.
+    expect(mockRefreshAndRetry).not.toHaveBeenCalled();
     expect(mockUsersMessagesTrash).not.toHaveBeenCalled();
   });
 
-  it("returns { messageId, deleteMode: 'permanent' } — no threadId / labelIds (204 response)", async () => {
-    const result = await deleteEmail(
-      baseHandlerInput({
-        config: { messageId: "msg-2", deleteMode: "permanent" },
-      }),
-    );
-
-    expect(result).toEqual({
-      output: {
-        messageId: "msg-2",
-        deleteMode: "permanent",
-      },
-    });
+  it("error text tells the author the recovery (switch the step to trash)", async () => {
+    await expect(
+      deleteEmail(
+        baseHandlerInput({
+          config: { messageId: "msg-2", deleteMode: "permanent" },
+        }),
+      ),
+    ).rejects.toThrow(/Move to trash/);
   });
 });
 
@@ -176,7 +163,6 @@ describe("deleteEmail — error propagation", () => {
     ).rejects.toThrow();
     expect(mockRefreshAndRetry).not.toHaveBeenCalled();
     expect(mockUsersMessagesTrash).not.toHaveBeenCalled();
-    expect(mockUsersMessagesDelete).not.toHaveBeenCalled();
   });
 
   it("throws ZodError when deleteMode is an invalid enum", async () => {
@@ -205,20 +191,6 @@ describe("deleteEmail — error propagation", () => {
     ).rejects.toThrow(/trash failed: Not Found/);
   });
 
-  it("propagates permanent-path errors untouched", async () => {
-    wireRefreshAndRetry();
-    mockUsersMessagesDelete.mockRejectedValueOnce(
-      new Error("Gmail delete failed: PERMISSION_DENIED"),
-    );
-
-    await expect(
-      deleteEmail(
-        baseHandlerInput({
-          config: { messageId: "msg-x", deleteMode: "permanent" },
-        }),
-      ),
-    ).rejects.toThrow(/delete failed: PERMISSION_DENIED/);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -239,7 +211,7 @@ describe("DeleteEmailConfigSchema", () => {
     ).toBe(true);
   });
 
-  it("accepts deleteMode: 'permanent'", () => {
+  it("still PARSES deleteMode: 'permanent' (legacy recognition — the handler rejects it with a clear error instead of a cryptic schema failure)", () => {
     expect(
       DeleteEmailConfigSchema.safeParse({
         messageId: "msg-1",

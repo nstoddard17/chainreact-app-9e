@@ -1,64 +1,52 @@
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActionHandler } from "@/services/execution/handlers/types";
-import { usersMessagesDelete } from "../api/usersMessagesDelete";
 import { usersMessagesTrash } from "../api/usersMessagesTrash";
 import { DeleteEmailConfigSchema } from "./deleteEmail.schema";
 
 /**
- * Gmail `delete_email` — explicit-mode delete.
+ * Gmail `delete_email` — trash-only delete.
  *
- * Per parity-gmail.md decision 2: requires `deleteMode: "trash" |
- * "permanent"`. No silent default. The handler dispatches:
- *   - `"trash"`     → `usersMessagesTrash`   (recoverable 30d)
- *   - `"permanent"` → `usersMessagesDelete`  (irreversible)
+ * `deleteMode` remains REQUIRED with no silent default (parity-gmail.md
+ * decision 2), but `"trash"` is the only supported value:
+ *   - `"trash"` → `usersMessagesTrash` (recoverable ~30d, then Gmail
+ *     purges it). Authorized by `gmail.modify`.
+ *   - `"permanent"` → REJECTED with a clear error
+ *     (GOOGLE-OAUTH-REVIEW-READINESS-2). Google authorizes
+ *     `users.messages.delete` only under `https://mail.google.com/`,
+ *     which ChainReact does not request — this mode never succeeded in
+ *     production. A legacy saved workflow that still carries it must
+ *     fail loudly here, never silently degrade to trash: converting a
+ *     permanent-delete step into a trash step would change the meaning
+ *     of a destructive workflow behind the author's back.
  *
- * Output is mode-aware:
- *   - `trash`: `{ messageId, threadId, deleteMode: "trash",
- *     labelIds }` — Gmail returns the modified message with the
- *     TRASH label, so labelIds reflects the new state.
- *   - `permanent`: `{ messageId, deleteMode: "permanent" }` — no
- *     threadId / labelIds because the message no longer exists
- *     and Gmail responds 204 with no body. The wrapper echoes
- *     the input messageId so downstream nodes have a stable
- *     reference for any audit-log step.
+ * Output: `{ messageId, threadId, labelIds, deleteMode: "trash" }` —
+ * Gmail returns the modified message with the TRASH label, so labelIds
+ * reflects the new state.
  */
 export const deleteEmail: ActionHandler = async (input) => {
   const config = DeleteEmailConfigSchema.parse(input.config);
+
+  if (config.deleteMode === "permanent") {
+    throw new Error(
+      "Gmail 'Permanent delete' is no longer supported: Google only allows " +
+        "permanent deletion under the full-mailbox mail.google.com scope, " +
+        "which ChainReact does not request (this mode could never complete). " +
+        "Edit this step and set Delete mode to 'Move to trash' — Gmail " +
+        "purges trashed messages after about 30 days.",
+    );
+  }
 
   const providerAccountId =
     input.triggerEvent.provider === "gmail"
       ? input.triggerEvent.providerAccountId
       : null;
 
-  if (config.deleteMode === "trash") {
-    const result = await refreshAndRetry({
-      accountId: input.accountId,
-      provider: "gmail",
-      providerAccountId,
-      apiCall: async (accessToken) =>
-        usersMessagesTrash({
-          accessToken,
-          messageId: config.messageId,
-        }),
-    });
-
-    return {
-      output: {
-        messageId: result.id,
-        threadId: result.threadId,
-        labelIds: result.labelIds,
-        deleteMode: "trash" as const,
-      },
-    };
-  }
-
-  // permanent
   const result = await refreshAndRetry({
     accountId: input.accountId,
     provider: "gmail",
     providerAccountId,
     apiCall: async (accessToken) =>
-      usersMessagesDelete({
+      usersMessagesTrash({
         accessToken,
         messageId: config.messageId,
       }),
@@ -66,8 +54,10 @@ export const deleteEmail: ActionHandler = async (input) => {
 
   return {
     output: {
-      messageId: result.messageId,
-      deleteMode: "permanent" as const,
+      messageId: result.id,
+      threadId: result.threadId,
+      labelIds: result.labelIds,
+      deleteMode: "trash" as const,
     },
   };
 };
