@@ -223,3 +223,37 @@ Adopt the resource-scoped direction, staged with a decision gate:
 
 If the spike fails, stop after Batch 2 (Scenario B) and keep `drive` with the
 documented justification (folder-inbox automation has no narrow mechanism).
+
+## 12. Spike status (GOOGLE-DRIVE-FOLDER-GRANT-SPIKE-1, 2026-08-07)
+
+**BLOCKED — no safe non-production Google environment exists on this machine;
+the live pass was NOT run and no behavioral claims were added.** The only
+Google OAuth client available locally is the PRODUCTION client (forbidden for
+the spike); there is no throwaway Google Cloud project, no test Google
+accounts, no gcloud. The consent, Picker, and second-account steps also
+inherently require a human in a browser.
+
+What DID ship: a complete, self-contained, lint/type-clean spike harness at
+[`scripts/spikes/google-drive-folder-grant/`](../../../../scripts/spikes/google-drive-folder-grant/README.md)
+— narrow-grant OAuth (drive.file only, contamination check on the granted
+scope string, refuses the production client id), real Google Picker
+authorization (folder + control-file), Events subscription with
+`includeDescendants: true`, a Pub/Sub listener that auto-probes every
+delivered event with the narrow token (`event → files.get → content read`,
+one sanitized result row per event = the §7 matrix evidence), direct probes
+for pre-existing children / `files.list` / `changes.list` corpus, the
+picked-file control subscription (Sheets-escape analogue), and cleanup.
+State/tokens live outside the repo (OS temp dir); no secret is printed.
+
+GA status re-verified 2026-08-07 from the Drive API release notes: Drive
+subscriptions Developer Preview 2025-07-07 → **"Generally Available:
+Subscriptions are now generally available for Google Drive events"
+2026-05-18**.
+
+Minimal owner setup to unblock (detail in the harness README): throwaway GCP
+project (Drive + Workspace Events + Picker + Pub/Sub APIs enabled), testing-
+mode OAuth client with `http://localhost:8765/callback`, API key, Pub/Sub
+topic `drive-spike-events` (publisher grant to
+`drive-api-event-push@system.gserviceaccount.com`) + pull subscription, two
+throwaway Google accounts (A authorizes + owns the spike folder; B has editor
+access), gcloud login for Pub/Sub pull. Then run scripts 01→05 per README.
