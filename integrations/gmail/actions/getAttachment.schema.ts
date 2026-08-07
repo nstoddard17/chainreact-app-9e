@@ -38,8 +38,7 @@ import { z } from "zod";
  *     not workflow-author config. Allowing overrides would diverge
  *     the staged file's identity from the provider's.
  *
- * Scope requirement: `gmail.readonly` (already shipped in Slice 2 —
- * see Gmail 2.3 plan §10 scope analysis).
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole scope).
  */
 export const GetAttachmentConfigSchema = z
   .object({

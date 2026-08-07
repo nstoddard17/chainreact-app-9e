@@ -25,8 +25,8 @@ import { usersLabelsList } from "@/integrations/gmail/api/usersLabelsList";
  *     still queries with their own token, so a co-member never receives another
  *     member's labels or result.
  *   - Refreshable → `refreshAndRetry({provider: "gmail", providerAccountId: null})`
- *     so a stale access token refreshes once. Uses only the granted
- *     `gmail.readonly` scope — no reconnect required.
+ *     so a stale access token refreshes once. Covered by the granted
+ *     `gmail.modify` scope — no reconnect required.
  *   - Maps each label to `{ value: id, label: name }`. `q` filters client-side
  *     (case-insensitive substring on the name).
  *

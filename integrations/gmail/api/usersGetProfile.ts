@@ -11,7 +11,7 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  * gap, continue from the new cursor.
  *
  * Endpoint: GET {GMAIL_API_BASE}/gmail/v1/users/me/profile
- * Required scope: gmail.readonly (already in the manifest).
+ * Required scope: gmail.modify (the manifest's sole scope).
  *
  * Returns historyId as a string — the API delivers it that way and the
  * BigInt comparison in historyState.ts wants a string anyway.

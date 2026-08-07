@@ -23,8 +23,7 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  *     server-side default (when omitted) is 100.
  *   - `pageToken` (optional): for continuing a paginated search.
  *
- * Scope requirement: `gmail.readonly` (already shipped in Slice 2
- * for the polling trigger + getProfile lookup).
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole scope).
  *
  * Pagination policy: single-page only. The `search_emails` handler
  * does NOT auto-loop through pages — workflow authors who want

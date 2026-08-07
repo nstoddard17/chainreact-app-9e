@@ -13,7 +13,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * one of textBody/htmlBody" is documented in the description; per-field
  * renderers can't gate cross-field requirements.
  *
- * Required scopes: `gmail.send` + `gmail.readonly`.
+ * Required scope: `gmail.modify`.
  *
  * Outputs match `replyToEmail.ts:100-109` exactly.
  */
@@ -23,7 +23,7 @@ export const replyToEmailMeta: ActionMeta = {
   type: "reply_to_email",
   displayName: "Reply to Email",
   description:
-    "Send a reply to an existing Gmail message. The To recipient, threadId, In-Reply-To, and References headers are derived from the original message's metadata. Subject defaults to 'Re: <original>'. Requires gmail.send + gmail.readonly.",
+    "Send a reply to an existing Gmail message. The To recipient, threadId, In-Reply-To, and References headers are derived from the original message's metadata. Subject defaults to 'Re: <original>'. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [

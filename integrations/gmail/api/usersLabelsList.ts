@@ -11,7 +11,7 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  *     one refresh + retry cycle.
  *   - Other HTTP errors propagate with Google's error `message` / `status`.
  *
- * Scope requirement: `gmail.readonly` (already granted — labels read is covered).
+ * Scope requirement: `gmail.modify` (the manifest's sole scope covers labels read).
  * Returns only label id / name / type — no message content.
  *
  * Endpoint: GET {GMAIL_API_BASE}/gmail/v1/users/me/labels

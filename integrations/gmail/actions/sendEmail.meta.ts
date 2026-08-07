@@ -20,7 +20,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * (RFC 5322 `Reply-To:` header verbatim; signature appended per
  * `sendEmail.ts:148-156`).
  *
- * Required scope: `gmail.send` (with `gmail.modify` covering the
+ * Required scope: `gmail.modify` (covers messages.send AND the
  * post-send labels application).
  *
  * Outputs match `sendEmail.ts:159-167` exactly.
@@ -31,7 +31,7 @@ export const sendEmailMeta: ActionMeta = {
   type: "send_email",
   displayName: "Send Email",
   description:
-    "Send a new email from the connected Gmail account. At least one of Text Body or HTML Body must be provided. Optionally apply Gmail labels to the sent message via labels (label ids only — use Create Label upstream if you need to generate one). Requires the gmail.send scope (and gmail.modify when labels are applied).",
+    "Send a new email from the connected Gmail account. At least one of Text Body or HTML Body must be provided. Optionally apply Gmail labels to the sent message via labels (label ids only — use Create Label upstream if you need to generate one). Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [

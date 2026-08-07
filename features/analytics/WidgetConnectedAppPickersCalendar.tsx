@@ -13,8 +13,9 @@ import { OptionsSelectField } from "./WidgetConnectedAppPickerShared";
  * Google Calendar calendar field — a manual calendar-id input that DEFAULTS to
  * the viewer's primary calendar, so there's no guessing for the common case.
  *
- * Deliberately NOT a dropdown: listing calendars needs the `calendar.readonly`
- * (calendarList.list) scope, which we do not add silently. The granted
+ * Deliberately NOT a dropdown: listing calendars needs a calendarList.list
+ * scope (`calendar.calendarlist.readonly`, or the pre-minimization
+ * `calendar.readonly`), which this widget does not assume. The granted
  * `calendar.events` scope reads events on a known calendar id, so the safe v1 is
  * "primary by default, type a calendar ID to target another" (often your email,
  * or a shared calendar's address). Server-side validation stays authoritative.

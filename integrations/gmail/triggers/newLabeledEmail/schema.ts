@@ -24,7 +24,7 @@ import { z } from "zod";
  *   - V1 newEmail filter fields (`subject`, `hasAttachment`,
  *     `labelIds[]`) — not the same trigger.
  *
- * Scope requirement: `gmail.readonly` (already shipped in Slice 2).
+ * Scope requirement: `gmail.modify` (the manifest's sole scope).
  */
 export const GmailNewLabeledEmailConfigSchema = z
   .object({

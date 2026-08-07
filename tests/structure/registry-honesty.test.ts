@@ -1632,17 +1632,22 @@ describe("manifest.google-calendar", () => {
       expect(googleCalendarManifest.accountIdField).toBe("email");
     });
 
-    it("declares the scope set (calendar.events + calendar.readonly + userinfo.email)", () => {
-      // CONFIG-FIELD-UX-SWEEP-4 (Marcus-approved pre-launch) added
-      // `calendar.readonly` so the `google-calendar:calendars` picker can call
-      // calendarList.list (calendar.events alone doesn't grant it). RE-CONSENT:
-      // existing connections must reconnect to gain the scope.
+    it("declares the scope set (calendar.events + userinfo.email required; granular calendarlist read optional)", () => {
+      // GOOGLE-OAUTH-SCOPE-MINIMIZATION-1: the broad `calendar.readonly`
+      // (which grants read of EVERY event on every calendar) is replaced by
+      // the granular `calendar.calendarlist.readonly`, which is all the
+      // `google-calendar:calendars` picker's calendarList.list call needs.
+      // It lives in `optional` so connection health (required ⊆ granted)
+      // never flags pre-existing tokens, whose `calendar.readonly` grant
+      // also satisfies calendarList.list; the dispatcher requests
+      // required+optional together, so new connects still get the picker.
       expect(googleCalendarManifest.scopes.required).toEqual([
         "https://www.googleapis.com/auth/calendar.events",
-        "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/userinfo.email",
       ]);
-      expect(googleCalendarManifest.scopes.optional).toEqual([]);
+      expect(googleCalendarManifest.scopes.optional).toEqual([
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+      ]);
       expect(googleCalendarManifest.scopes.deprecated).toEqual([]);
     });
 

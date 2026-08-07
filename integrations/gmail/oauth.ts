@@ -17,8 +17,8 @@ import {
  *     and future Drive/Docs/Sheets ports).
  *   - This module is the Gmail-specific shell:
  *       * the `/api/integrations/oauth/gmail/callback` redirect URL,
- *       * the accountId lookup against `users.getProfile` (uses the
- *         gmail.readonly scope we already request).
+ *       * the accountId lookup against `users.getProfile` (authorized
+ *         by the gmail.modify scope we request).
  *   - revoke is a stub deferred to the disconnect-UX slice (matches
  *     Slack's pattern for the same parent decision).
  */
@@ -86,8 +86,8 @@ export const gmailOAuth: ProviderOAuth = {
     });
 
     // Look up the connected account's email via the Gmail API. Uses the
-    // freshly-issued access token; gmail.readonly scope (which we always
-    // request) covers users.getProfile.
+    // freshly-issued access token; gmail.modify (the manifest's sole
+    // scope) covers users.getProfile.
     const profileRes = await fetch(
       `${gmailApiBase()}/gmail/v1/users/me/profile`,
       {

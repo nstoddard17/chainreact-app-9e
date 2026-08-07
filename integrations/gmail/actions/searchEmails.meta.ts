@@ -23,7 +23,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *   - `labelIds` uses string-array chips backed by the `gmail:labels`
  *     option source with `allowManualEntry` (raw-id paste path kept).
  *
- * Required scope: `gmail.readonly`.
+ * Required scope: `gmail.modify`.
  *
  * Outputs match `searchEmails.ts:75-86` exactly. The `messages` array
  * carries per-message projections shaped by `projectMessage`.
@@ -34,7 +34,7 @@ export const searchEmailsMeta: ActionMeta = {
   type: "search_emails",
   displayName: "Search Emails",
   description:
-    "Search Gmail messages. Two modes: 'Filters' composes a q-syntax query from named fields (workflow-friendly); 'Raw query' passes a q-syntax string directly (advanced). Fields not used by the chosen mode are rejected at save time. Requires the gmail.readonly scope.",
+    "Search Gmail messages. Two modes: 'Filters' composes a q-syntax query from named fields (workflow-friendly); 'Raw query' passes a q-syntax string directly (advanced). Fields not used by the chosen mode are rejected at save time. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [

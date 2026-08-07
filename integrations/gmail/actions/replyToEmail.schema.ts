@@ -26,8 +26,8 @@ import { z } from "zod";
  *   - `attachments` — DEFERRED to Gmail 2.3 (P-S3 FileRef contract).
  *     `.strict()` rejects.
  *
- * Scope requirement: `gmail.send` + `gmail.readonly`; both shipped in
- * Gmail 2.1 Commit 1.
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole
+ * scope — it authorizes both messages.send and the messages.get lookup).
  */
 export const ReplyToEmailConfigSchema = z
   .object({

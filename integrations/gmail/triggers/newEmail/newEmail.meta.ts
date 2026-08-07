@@ -36,7 +36,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * `payloadShape` mirrors `messageHydration.ts:buildTriggerEvent`'s
  * payload — Gmail message metadata (no body, no attachment bytes).
  *
- * Required scope: `gmail.readonly` (manifest required set).
+ * Required scope: `gmail.modify` (the manifest's sole scope).
  */
 export const newEmailTriggerMeta: TriggerMeta = {
   key: "gmail:new_email",
@@ -44,7 +44,7 @@ export const newEmailTriggerMeta: TriggerMeta = {
   type: "new_email",
   displayName: "New Email",
   description:
-    "Fires when a new email arrives in the connected Gmail inbox. Optionally narrow by sender addresses, subject text, attachment presence, and Gmail label ids. Polls every 5 minutes by default. Requires the gmail.readonly scope.",
+    "Fires when a new email arrives in the connected Gmail inbox. Optionally narrow by sender addresses, subject text, attachment presence, and Gmail label ids. Polls every 5 minutes by default. Requires the gmail.modify scope.",
   category: "email",
   activation: "polling",
   requiresIntegration: true,

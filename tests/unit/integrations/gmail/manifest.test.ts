@@ -15,16 +15,17 @@ describe("gmail manifest", () => {
     expect(getProvider("gmail")).toBe(gmailManifest);
   });
 
-  it("declares Gmail-required scopes exactly (Slice 2 Q6 + Gmail 2.1 P-G1 expansion)", () => {
-    // Slice 2: gmail.readonly + gmail.send.
-    // Gmail 2.1 / P-G1 (decision 6 accepted 2026-05-12): + gmail.modify
-    // (label add/remove, mark read/unread, archive, trash, labels-on-send)
-    // + gmail.compose (drafts + thread reply).
+  it("declares gmail.modify as the ONLY scope (GOOGLE-OAUTH-SCOPE-MINIMIZATION-1)", () => {
+    // gmail.modify authorizes every endpoint the registered surface calls
+    // (getProfile, history/messages/labels reads, messages.send,
+    // drafts.create, messages.modify/trash, labels.create). The former
+    // quad (readonly + send + modify + compose) was redundant — three
+    // restricted scopes + one sensitive where one restricted suffices.
+    // A second Gmail scope reappearing here means the consent screen and
+    // the Google verification surface grew — that needs an explicit
+    // owner decision, not a convenience addition.
     expect(gmailManifest.scopes.required).toEqual([
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.send",
       "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.compose",
     ]);
     expect(gmailManifest.scopes.optional).toEqual([]);
     expect(gmailManifest.scopes.deprecated).toEqual([]);

@@ -30,8 +30,9 @@ import { calendarListList } from "@/integrations/google-calendar/api/calendarLis
  *     spot. No raw payload / access-role internals leaked.
  *   - Deleted entries are dropped.
  *
- * SCOPE / RECONNECT: `calendarList.list` requires `calendar.readonly`, which was
- * ADDED to the manifest in this slice. A token that predates the addition gets
+ * SCOPE / RECONNECT: `calendarList.list` needs the manifest's optional
+ * `calendar.calendarlist.readonly` (or a superset — pre-minimization tokens
+ * carry `calendar.readonly`, which also works). A token holding neither gets
  * HTTP 403 → `InsufficientScopeError` → `PROVIDER_REAUTH_REQUIRED` (the client
  * renders a Reconnect prompt). Refresh can't fix it — only re-consent grants the
  * new scope. Manual id entry (`allowManualEntry`) keeps the field usable

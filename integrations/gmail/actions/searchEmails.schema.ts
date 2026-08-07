@@ -33,7 +33,7 @@ import { z } from "zod";
  *   - `dateRange` presets ("today", "last_7_days", etc.).
  *   - V1's broken `threadId:` operator.
  *
- * Scope requirement: `gmail.readonly` (already shipped in Slice 2).
+ * Scope requirement: `gmail.modify` (the manifest's sole scope).
  *
  * `.strict()` rejects unknown fields on both union branches —
  * neither V1's `customQuery` (folded into `query`) nor V1's

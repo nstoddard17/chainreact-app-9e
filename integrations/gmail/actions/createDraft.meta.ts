@@ -11,7 +11,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Schema-level "at least one of textBody/htmlBody" is documented in
  * the description.
  *
- * Required scope: `gmail.compose`.
+ * Required scope: `gmail.modify`.
  *
  * Outputs match `createDraft.ts:79-88` exactly.
  */
@@ -21,7 +21,7 @@ export const createDraftMeta: ActionMeta = {
   type: "create_draft",
   displayName: "Create Draft",
   description:
-    "Create a Gmail draft email (does not send). At least one of Text Body or HTML Body must be provided. Use Add Label downstream to tag the draft. Requires the gmail.compose scope.",
+    "Create a Gmail draft email (does not send). At least one of Text Body or HTML Body must be provided. Use Add Label downstream to tag the draft. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [

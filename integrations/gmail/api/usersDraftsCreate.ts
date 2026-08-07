@@ -13,8 +13,7 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  *     `message` / `status` surfaced when present in the response
  *     body.
  *
- * Scope requirement: `gmail.compose` (added to the Gmail manifest in
- * Gmail 2.1 Commit 1 / P-G1).
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole scope).
  *
  * Endpoint: POST {GMAIL_API_BASE}/gmail/v1/users/me/drafts
  * Body:     application/json — `{ message: { raw, threadId? } }`

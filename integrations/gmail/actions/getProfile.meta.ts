@@ -9,7 +9,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * so the run-detail API + variable picker redact it (token wiring still
  * works). No message content.
  *
- * Required scope: `gmail.readonly`.
+ * Required scope: `gmail.modify`.
  */
 export const getProfileMeta: ActionMeta = {
   key: "gmail:get_profile",
@@ -17,7 +17,7 @@ export const getProfileMeta: ActionMeta = {
   type: "get_profile",
   displayName: "Get Profile",
   description:
-    "Read the connected Gmail mailbox profile: account email address, total message count, total thread count, and current historyId. Read-only — no message content. Requires the gmail.readonly scope.",
+    "Read the connected Gmail mailbox profile: account email address, total message count, total thread count, and current historyId. Read-only — no message content. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [],

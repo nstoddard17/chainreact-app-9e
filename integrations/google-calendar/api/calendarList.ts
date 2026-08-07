@@ -11,9 +11,11 @@ import { calendarApiBase } from "./_base";
  * Lists the calendars on the user's calendar list (the picker source for the
  * `calendarId` config field). Read-only.
  *
- * SCOPE: requires `calendar.readonly` (or full `calendar`). The narrower
- * `calendar.events` scope does NOT grant this — a token that predates the
- * `calendar.readonly` manifest addition returns HTTP 403
+ * SCOPE: requires `calendar.calendarlist.readonly` (the manifest's optional
+ * scope since GOOGLE-OAUTH-SCOPE-MINIMIZATION-1) or a superset —
+ * `calendar.calendarlist`, `calendar.readonly` (granted by pre-minimization
+ * tokens), or full `calendar`. The `calendar.events` scope does NOT grant
+ * this — a token holding none of the accepted scopes returns HTTP 403
  * (`ACCESS_TOKEN_SCOPE_INSUFFICIENT`). We surface that as
  * `InsufficientScopeError` so the resolver maps it to a reconnect prompt
  * (refreshing the token would keep the same scopes and cannot fix it).
@@ -88,7 +90,8 @@ export async function calendarListList(
     );
   }
   if (res.status === 403) {
-    // Missing `calendar.readonly` scope (old token predates the manifest add).
+    // Token lacks every calendarList-capable scope (predates both the
+    // calendar.readonly add and its granular replacement).
     // Do NOT surface Google's raw body — just a typed reconnect signal.
     throw new InsufficientScopeError(
       "Google Calendar calendarList.list returned HTTP 403 (insufficient scope)",

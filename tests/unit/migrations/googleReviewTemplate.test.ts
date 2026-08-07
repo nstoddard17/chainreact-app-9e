@@ -285,10 +285,14 @@ describe("Google reviewer templates — full OAuth scope coverage", () => {
    * Google provider, so it has no workflow node — it is treated as connect-only below.
    */
   const COVERAGE: ReadonlyArray<[string, string]> = [
-    ["gmail.readonly", "gmail:new_email"],
-    ["gmail.send", "gmail:send_email"],
-    ["gmail.modify", "gmail:add_label"],
-    ["gmail.compose", "gmail:create_draft_reply"],
+    // GOOGLE-OAUTH-SCOPE-MINIMIZATION-1: gmail.modify is Gmail's ONLY
+    // requested scope (it authorizes read, send, drafts, and label
+    // mutation). The reviewer templates demonstrate its full extent
+    // through all four capability classes it carries.
+    ["gmail.modify", "gmail:new_email"], // read: history/messages/labels
+    ["gmail.modify", "gmail:send_email"], // send: messages.send
+    ["gmail.modify", "gmail:add_label"], // mutate: messages.modify
+    ["gmail.modify", "gmail:create_draft_reply"], // drafts: drafts.create
     ["drive", "google-drive:upload_file"],
     ["drive", "google-docs:share_document"],
     ["drive.metadata.readonly", "google-sheets:append_row"],
@@ -297,7 +301,9 @@ describe("Google reviewer templates — full OAuth scope coverage", () => {
     ["documents", "google-docs:update_document"],
     ["documents", "google-docs:get_document"],
     ["calendar.events", "google-calendar:create_event"],
-    ["calendar.readonly", "google-calendar:create_event"],
+    // Granular replacement for the former calendar.readonly — backs the
+    // calendars picker on create_event's calendarId field.
+    ["calendar.calendarlist.readonly", "google-calendar:create_event"],
     ["analytics.readonly", "google-analytics:run_report"],
     ["analytics.edit", "google-analytics:create_conversion_event"],
   ];

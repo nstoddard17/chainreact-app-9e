@@ -8,7 +8,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * structural mailbox metadata (INBOX / SENT / user labels), not message PII,
  * so `labels` is NOT marked sensitive (mirrors structural-output precedent).
  *
- * Required scope: `gmail.readonly`.
+ * Required scope: `gmail.modify`.
  */
 export const listLabelsMeta: ActionMeta = {
   key: "gmail:list_labels",
@@ -16,7 +16,7 @@ export const listLabelsMeta: ActionMeta = {
   type: "list_labels",
   displayName: "List Labels",
   description:
-    "List all Gmail labels on the connected mailbox (id, name, system/user type). Read-only — returns label metadata only, no message content. Requires the gmail.readonly scope.",
+    "List all Gmail labels on the connected mailbox (id, name, system/user type). Read-only — returns label metadata only, no message content. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [],

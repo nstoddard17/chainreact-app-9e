@@ -28,7 +28,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * — Gmail message metadata plus the two label-specific fields
  * (`labelAppliedId`, `labelsAdded`).
  *
- * Required scope: `gmail.readonly` (manifest required set).
+ * Required scope: `gmail.modify` (the manifest's sole scope).
  */
 export const newLabeledEmailTriggerMeta: TriggerMeta = {
   key: "gmail:new_labeled_email",
@@ -36,7 +36,7 @@ export const newLabeledEmailTriggerMeta: TriggerMeta = {
   type: "new_labeled_email",
   displayName: "New Labeled Email",
   description:
-    "Fires when a Gmail label is applied to an email in the connected inbox. Use this to react to filter-driven label automation or manual labeling. Polls every 5 minutes by default. Requires the gmail.readonly scope.",
+    "Fires when a Gmail label is applied to an email in the connected inbox. Use this to react to filter-driven label automation or manual labeling. Polls every 5 minutes by default. Requires the gmail.modify scope.",
   category: "email",
   activation: "polling",
   requiresIntegration: true,

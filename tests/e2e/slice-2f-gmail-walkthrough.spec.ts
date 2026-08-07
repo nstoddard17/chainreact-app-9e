@@ -132,16 +132,13 @@ test.describe("Slice 2f — full Gmail walkthrough", () => {
     expect(integration.access_token_encrypted).not.toBe("ya29.mock-e2e-access");
     expect(integration.refresh_token_encrypted).toBeTruthy();
     expect(integration.refresh_token_encrypted).not.toBe("1//mock-e2e-refresh");
-    // Scopes: exactly the manifest's required quad (Gmail 2.1 added
-    // gmail.modify + gmail.compose for label / draft / lifecycle
-    // actions — pre-Gmail-2.1 the manifest required only readonly +
-    // send).
+    // Scopes: exactly the manifest's single scope
+    // (GOOGLE-OAUTH-SCOPE-MINIMIZATION-1 collapsed the former
+    // readonly/send/modify/compose quad — gmail.modify authorizes the
+    // whole registered surface).
     const scopes = integration.scopes as readonly string[];
     expect([...scopes].sort()).toEqual([
-      "https://www.googleapis.com/auth/gmail.compose",
       "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.send",
     ]);
 
     // OAuth state row was atomically consumed — total count back to baseline.

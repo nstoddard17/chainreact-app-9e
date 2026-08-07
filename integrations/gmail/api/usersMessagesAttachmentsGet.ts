@@ -19,8 +19,7 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
  *   - Other HTTP errors propagate verbatim with Google's error
  *     `message` / `status` surfaced when present in the response body.
  *
- * Scope requirement: `gmail.readonly` (already shipped in Slice 2 —
- * see Gmail 2.3 plan §10 scope analysis).
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole scope).
  *
  * Endpoint: GET {GMAIL_API_BASE}/gmail/v1/users/me/messages/{messageId}/attachments/{attachmentId}
  */

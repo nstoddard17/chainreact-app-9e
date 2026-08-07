@@ -29,7 +29,7 @@ import { z } from "zod";
  * Attachments — DEFERRED to Gmail 2.3 (P-S3). `.strict()` rejects an
  * `attachments` key with a clean Zod error.
  *
- * Scope requirement: `gmail.compose` (added in Gmail 2.1 Commit 1).
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole scope).
  */
 export const CreateDraftConfigSchema = z
   .object({

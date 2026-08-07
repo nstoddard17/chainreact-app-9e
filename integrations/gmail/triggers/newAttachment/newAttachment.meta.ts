@@ -29,7 +29,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * only; workflows that need attachment bytes chain
  * `gmail/get_attachment(messageId, attachmentId)` downstream.
  *
- * Required scope: `gmail.readonly` (manifest required set).
+ * Required scope: `gmail.modify` (the manifest's sole scope).
  */
 export const newAttachmentTriggerMeta: TriggerMeta = {
   key: "gmail:new_attachment",
@@ -37,7 +37,7 @@ export const newAttachmentTriggerMeta: TriggerMeta = {
   type: "new_attachment",
   displayName: "New Email Attachment",
   description:
-    "Fires when a new email with at least one attachment arrives in the connected Gmail inbox. The payload includes per-attachment metadata (filename, mimeType, size, attachmentId) — NO bytes. To download attachment content, chain the gmail/get_attachment action downstream. Polls every 5 minutes by default. Requires the gmail.readonly scope.",
+    "Fires when a new email with at least one attachment arrives in the connected Gmail inbox. The payload includes per-attachment metadata (filename, mimeType, size, attachmentId) — NO bytes. To download attachment content, chain the gmail/get_attachment action downstream. Polls every 5 minutes by default. Requires the gmail.modify scope.",
   category: "email",
   activation: "polling",
   requiresIntegration: true,

@@ -8,7 +8,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * level is the terminal API call (`users.drafts.create` instead of
  * `users.messages.send`).
  *
- * Required scopes: `gmail.compose` + `gmail.readonly`.
+ * Required scope: `gmail.modify`.
  *
  * Outputs match `createDraftReply.ts:105-114` exactly.
  */
@@ -18,7 +18,7 @@ export const createDraftReplyMeta: ActionMeta = {
   type: "create_draft_reply",
   displayName: "Create Draft Reply",
   description:
-    "Create a Gmail draft reply to an existing message (does not send). The To recipient, threadId, In-Reply-To, and References headers are derived from the original message's metadata. Subject defaults to 'Re: <original>'. Requires gmail.compose + gmail.readonly.",
+    "Create a Gmail draft reply to an existing message (does not send). The To recipient, threadId, In-Reply-To, and References headers are derived from the original message's metadata. Subject defaults to 'Re: <original>'. Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [

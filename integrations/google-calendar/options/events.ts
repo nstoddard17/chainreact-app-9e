@@ -51,11 +51,11 @@ import { NotFoundError } from "@/integrations/google-calendar/api/errors";
  * full-text over the event) rather than filtered client-side, so searching
  * reaches beyond the first page. `hasMore` reports `nextPageToken` honestly.
  *
- * SCOPE / RECONNECT: `events.list` reads on `calendar.readonly` / the events
- * scope. A token predating the manifest's `calendar.readonly` addition gets
- * HTTP 403 → `InsufficientScopeError` → `PROVIDER_REAUTH_REQUIRED`. Manual id
- * entry (`allowManualEntry`) + `{{...}}` upstream mapping keep the field usable
- * meanwhile.
+ * SCOPE / RECONNECT: `events.list` is authorized by the required
+ * `calendar.events` scope (every ChainReact Google Calendar token has it).
+ * A degenerate token missing it gets HTTP 403 → `InsufficientScopeError` →
+ * `PROVIDER_REAUTH_REQUIRED`. Manual id entry (`allowManualEntry`) +
+ * `{{...}}` upstream mapping keep the field usable meanwhile.
  */
 
 const PAGE_SIZE = 100;

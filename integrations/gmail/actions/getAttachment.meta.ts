@@ -12,7 +12,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * `producesFileRef: true` advertises this to the variable picker for
  * file-aware rendering (file icon, type chip).
  *
- * Required scope: `gmail.readonly`.
+ * Required scope: `gmail.modify`.
  *
  * Outputs match `getAttachment.ts:124-132` exactly.
  */
@@ -22,7 +22,7 @@ export const getAttachmentMeta: ActionMeta = {
   type: "get_attachment",
   displayName: "Get Email Attachment",
   description:
-    "Download a single Gmail attachment and stage it as a FileRef in v2 storage. The FileRef is consumable by any downstream action that accepts file inputs (e.g. drive/upload_file). Requires the gmail.readonly scope.",
+    "Download a single Gmail attachment and stage it as a FileRef in v2 storage. The FileRef is consumable by any downstream action that accepts file inputs (e.g. drive/upload_file). Requires the gmail.modify scope.",
   category: "email",
   requiresIntegration: true,
   fields: [

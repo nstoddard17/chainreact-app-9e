@@ -33,8 +33,8 @@ import { z } from "zod";
  *   - `attachments` — DEFERRED to Gmail 2.3 (P-S3 FileRef contract).
  *     `.strict()` rejects unknown keys including `attachments`.
  *
- * Scope requirement: `gmail.compose` + `gmail.readonly` (for the
- * `users.messages.get` lookup); both shipped in Gmail 2.1 Commit 1.
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole
+ * scope — it authorizes both drafts.create and the messages.get lookup).
  */
 export const CreateDraftReplyConfigSchema = z
   .object({

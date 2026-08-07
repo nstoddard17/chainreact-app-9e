@@ -22,24 +22,34 @@ import { ProviderManifestSchema, type ProviderManifest } from "@/contracts/integ
  *   - refreshable: true — Gmail's refreshToken is the first end-to-end
  *     refresh path against a real provider (Slice 2b infra).
  *
- * Scopes:
- *   - gmail.readonly: required for the polling trigger AND for the
- *     callback-time accountId lookup via users.getProfile.
- *   - gmail.send: required for the send action handler.
- *   - gmail.modify (Gmail 2.1 / P-G1): required for label add/remove,
- *     mark read/unread, archive, trash, and labels-on-send on the
- *     send_email expansion. Covers `users.messages.modify`,
- *     `users.messages.trash`, `users.labels.create`.
- *   - gmail.compose (Gmail 2.1 / P-G1): required for draft creation +
- *     thread reply ports (createDraft, createDraftReply, replyToEmail).
- *     Covers `users.drafts.create` and `users.messages.send` with
- *     `threadId`. Re-consent required for existing users at next
- *     connect — accepted trade-off per parity-gmail.md §10 (P-G1).
+ * Scopes (GOOGLE-OAUTH-SCOPE-MINIMIZATION-1, 2026-08-07 — single scope):
+ *   - gmail.modify is the ONLY requested scope. Per Google's method
+ *     reference it authorizes every endpoint the registered Gmail
+ *     surface calls: users.getProfile (callback identity + trigger
+ *     seed), users.history.list / users.messages.list / get /
+ *     attachments.get / users.labels.list (triggers + read actions),
+ *     users.messages.send (send_email, reply_to_email),
+ *     users.drafts.create (create_draft, create_draft_reply),
+ *     users.messages.modify / trash / users.labels.create (label,
+ *     read-state, archive, trash actions). It is "all read/write
+ *     operations except immediate permanent deletion".
+ *   - The former quad (readonly + send + modify + compose) was fully
+ *     redundant: modify is a superset of readonly's reads and of the
+ *     send/compose grants for the methods we call. Requesting one
+ *     restricted scope instead of three restricted + one sensitive
+ *     shrinks the consent screen and the Google verification surface
+ *     without removing any capability. Existing tokens (granted the
+ *     quad) trivially satisfy required ⊆ granted.
+ *   - NOT requested: mail.google.com. Consequence: delete_email's
+ *     `permanent: true` mode calls users.messages.delete, which Google
+ *     authorizes ONLY under mail.google.com — that mode 403s under the
+ *     former quad too (pre-existing gap, not introduced here). The
+ *     trash mode is the supported path.
  *   - No gmail.labels (covered by gmail.modify per Google docs).
  *   - No gmail.settings.basic — updateSignature was a V1 orphan and is
  *     skipped per parity-gmail.md §7.
  *   - No openid/email/profile — userinfo lookup uses
- *     gmail.googleapis.com/v1/users/me/profile (covered by gmail.readonly),
+ *     gmail.googleapis.com/v1/users/me/profile (covered by gmail.modify),
  *     not the OAuth identity endpoint.
  *
  * Health-check interval: 6h matches the V1 cadence for Google integrations
@@ -55,12 +65,7 @@ export const gmailManifest: ProviderManifest = ProviderManifestSchema.parse({
   oauthFlows: ["v2"],
   accountIdField: "email",
   scopes: {
-    required: [
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.compose",
-    ],
+    required: ["https://www.googleapis.com/auth/gmail.modify"],
     optional: [],
     deprecated: [],
   },

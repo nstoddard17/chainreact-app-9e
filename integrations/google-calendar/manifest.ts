@@ -13,18 +13,25 @@ import {
  * 5 action handlers register) and `webhookTrigger` (when the watch-based
  * `event_changed` trigger registers).
  *
- * Scopes:
- *   - `calendar.events` covers the five action handlers (events.insert /
- *     events.list / events.update / events.delete / events.patch) AND the
- *     watch trigger (events.watch).
- *   - `calendar.readonly` (added CONFIG-FIELD-UX-SWEEP-4, Marcus-approved
- *     pre-launch) grants `calendarList.list`, which backs the
- *     `google-calendar:calendars` picker. This is the minimal scope that
- *     covers listing the user's calendars (the broader `calendar` scope would
- *     also grant writes we don't need here). RE-CONSENT: tokens that predate
- *     this addition lack the scope; the calendars resolver surfaces HTTP 403
- *     as a reconnect prompt (PROVIDER_REAUTH_REQUIRED) and the field keeps a
- *     manual-id fallback. calendarId still defaults to "primary".
+ * Scopes (GOOGLE-OAUTH-SCOPE-MINIMIZATION-1, 2026-08-07):
+ *   - `calendar.events` (required) covers the five action handlers
+ *     (events.insert / events.list / events.update / events.delete /
+ *     events.patch) AND the watch trigger (events.watch) — the entire
+ *     registered runtime surface.
+ *   - `calendar.calendarlist.readonly` (OPTIONAL) replaces the broad
+ *     `calendar.readonly` that CONFIG-FIELD-UX-SWEEP-4 added for the
+ *     `google-calendar:calendars` picker. Per Google's method reference,
+ *     calendarList.list accepts this granular scope — it grants ONLY the
+ *     user's calendar list (ids/names), not read access to every event on
+ *     every calendar the way `calendar.readonly` did. It sits in
+ *     `optional` (the dispatcher still requests required+optional in one
+ *     authorize URL) because only the picker uses it: connection health /
+ *     readiness compares granted scopes against `required` alone, so
+ *     pre-existing tokens — granted `calendar.readonly`, which also
+ *     satisfies calendarList.list — stay healthy without a forced
+ *     reconnect. Tokens lacking BOTH scopes surface the picker 403 as
+ *     PROVIDER_REAUTH_REQUIRED with a manual-id fallback, unchanged.
+ *     calendarId still defaults to "primary".
  *   - `userinfo.email` is the OIDC scope that lets us identify the
  *     connected account at callback time via the OIDC userinfo endpoint
  *     (oauth2.googleapis.com). Calendar's own API doesn't expose a
@@ -50,10 +57,11 @@ export const googleCalendarManifest: ProviderManifest =
     scopes: {
       required: [
         "https://www.googleapis.com/auth/calendar.events",
-        "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/userinfo.email",
       ],
-      optional: [],
+      optional: [
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+      ],
       deprecated: [],
     },
     capabilities: {

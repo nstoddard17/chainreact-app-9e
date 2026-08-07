@@ -28,8 +28,8 @@ import { z } from "zod";
  *   - V1 newEmail fields (`subject`, `hasAttachment`, `labelIds[]`,
  *     AI content filter, …) — not the same trigger.
  *
- * Scope requirement: `gmail.readonly` (already shipped in Slice 2;
- * format=full requires no additional scope per Gmail 2.3 plan §11).
+ * Scope requirement: covered by `gmail.modify` (the manifest's sole
+ * scope; format=full requires no additional scope).
  */
 export const GmailNewAttachmentConfigSchema = z
   .object({
