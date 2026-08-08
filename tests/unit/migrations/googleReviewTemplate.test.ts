@@ -295,7 +295,11 @@ describe("Google reviewer templates — full OAuth scope coverage", () => {
     ["gmail.modify", "gmail:create_draft_reply"], // drafts: drafts.create
     ["drive", "google-drive:upload_file"],
     ["drive", "google-docs:share_document"],
-    ["drive.metadata.readonly", "google-sheets:append_row"],
+    // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — Sheets dropped the RESTRICTED
+    // drive.metadata.readonly for non-sensitive drive.file. The reviewer sees it
+    // exercised the same way: choosing the spreadsheet in the Picker IS the
+    // per-file grant, and the trigger's files.watch runs on that file.
+    ["drive.file", "google-sheets:append_row"],
     ["spreadsheets", "google-sheets:append_row"],
     ["documents", "google-docs:create_document"],
     ["documents", "google-docs:update_document"],

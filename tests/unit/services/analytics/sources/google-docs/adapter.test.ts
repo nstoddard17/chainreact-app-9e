@@ -51,7 +51,10 @@ const FACTS = [
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetIntegration.mockResolvedValue({ providerAccountId: "gd-user-1" });
+  mockGetIntegration.mockResolvedValue({
+    providerAccountId: "gd-user-1",
+    scopes: ["https://www.googleapis.com/auth/drive"],
+  });
   mockRefresh.mockImplementation((input: { apiCall: (t: string) => unknown }) => input.apiCall("tok"));
   mockScan.mockResolvedValue({ facts: FACTS, truncated: false });
 });

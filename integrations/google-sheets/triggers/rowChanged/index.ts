@@ -10,7 +10,7 @@ import { sheetsRowChangedSubscriptionHandler } from "./renew";
  * watch-based push trigger.
  *
  * Three registrations:
- *   - activation: snapshots row count + Drive pageToken + creates the
+ *   - activation: snapshots row count + creates the
  *     watch via Drive files.watch on the spreadsheet's fileId.
  *   - deactivation: stops the watch when the workflow is disabled.
  *   - subscription handler: renews the watch before its expiry. Picked

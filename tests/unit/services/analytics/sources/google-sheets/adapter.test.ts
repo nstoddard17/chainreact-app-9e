@@ -35,7 +35,12 @@ const ms = (iso: string) => Date.parse(iso);
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetIntegration.mockResolvedValue({ providerAccountId: "gs-user-1" });
+  mockGetIntegration.mockResolvedValue({
+    providerAccountId: "gs-user-1",
+    // A HISTORICAL broad-grant connection — the only kind this dataset can
+    // answer accurately (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2).
+    scopes: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+  });
   mockRefresh.mockImplementation((input: { apiCall: (t: string) => unknown }) => input.apiCall("tok"));
   mockScan.mockResolvedValue({
     facts: [
@@ -84,6 +89,84 @@ describe("metrics + credential", () => {
       googleSheetsAnalyticsSource.query({ metricKey: "spreadsheets_count", range: RANGE }, CTX),
     ).rejects.toMatchObject({ code: "MISSING_CREDENTIAL" });
     expect(mockScan).not.toHaveBeenCalled();
+  });
+
+  // ── Scope-aware honest degradation (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2) ──
+  // Sheets no longer REQUESTS a whole-Drive scope. This dataset answers a TOTAL
+  // ("how many spreadsheets do you have"), which a per-file grant cannot see, so
+  // the business invariant is: broad grant -> real answer; narrow grant -> say so
+  // and scan nothing. A partial count presented as a total is never acceptable.
+
+  const NARROW_SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/userinfo.email",
+  ];
+
+  it("HISTORICAL broad grant still gets the full dataset", async () => {
+    mockGetIntegration.mockResolvedValue({
+      providerAccountId: "gs-user-1",
+      scopes: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+    });
+    const r = await googleSheetsAnalyticsSource.query(
+      { metricKey: "spreadsheets_count", range: RANGE },
+      CTX,
+    );
+    expect(r.totals).toEqual({ spreadsheets_count: 2 });
+    expect(mockScan).toHaveBeenCalled();
+  });
+
+  it("NARROW connection reports SCOPE_UNAVAILABLE and never runs the Drive scan", async () => {
+    mockGetIntegration.mockResolvedValue({
+      providerAccountId: "gs-user-1",
+      scopes: NARROW_SCOPES,
+    });
+    await expect(
+      googleSheetsAnalyticsSource.query({ metricKey: "spreadsheets_count", range: RANGE }, CTX),
+    ).rejects.toMatchObject({ code: "SCOPE_UNAVAILABLE" });
+    // The whole point: no partial corpus is ever fetched.
+    expect(mockScan).not.toHaveBeenCalled();
+  });
+
+  it("a drive.file-only connection can NEVER produce a spreadsheet total from its partial corpus", async () => {
+    mockGetIntegration.mockResolvedValue({
+      providerAccountId: "gs-user-1",
+      scopes: NARROW_SCOPES,
+    });
+    // Even if the narrow token COULD list a couple of app-authorized files,
+    // there must be no code path that turns them into a headline number.
+    mockScan.mockResolvedValue({
+      facts: [{ createdMs: Date.now(), modifiedMs: Date.now() }],
+      truncated: false,
+    });
+
+    for (const metricKey of [
+      "spreadsheets_count",
+      "spreadsheets_created_over_time",
+      "spreadsheets_modified_over_time",
+    ]) {
+      const outcome = await googleSheetsAnalyticsSource
+        .query({ metricKey, range: RANGE }, CTX)
+        .then((r) => ({ resolved: true as const, r }))
+        .catch((e: { code?: string }) => ({ resolved: false as const, code: e.code }));
+
+      expect(outcome.resolved).toBe(false);
+      if (!outcome.resolved) expect(outcome.code).toBe("SCOPE_UNAVAILABLE");
+    }
+    expect(mockScan).not.toHaveBeenCalled();
+  });
+
+  it("explains the narrow-grant state honestly and reassures that workflows still work", async () => {
+    mockGetIntegration.mockResolvedValue({
+      providerAccountId: "gs-user-1",
+      scopes: NARROW_SCOPES,
+    });
+    const err = await googleSheetsAnalyticsSource
+      .query({ metricKey: "spreadsheets_count", range: RANGE }, CTX)
+      .catch((e: Error) => e);
+
+    expect((err as Error).message).toMatch(/resource-specific Google Drive access/i);
+    expect((err as Error).message).toMatch(/workflows are unaffected/i);
   });
 
   it("never surfaces a file name / cell value / owner", async () => {

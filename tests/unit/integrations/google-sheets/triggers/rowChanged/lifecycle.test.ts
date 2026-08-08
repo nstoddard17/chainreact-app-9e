@@ -122,7 +122,7 @@ const baseIntegration = {
 };
 
 describe("Sheets row_changed activate", () => {
-  it("snapshots row count + Drive pageToken, then registers the file-watch", async () => {
+  it("snapshots row count, then registers the file-watch", async () => {
     mockValuesGet.mockResolvedValueOnce({
       values: [
         ["a", "b", "c"],
@@ -150,7 +150,6 @@ describe("Sheets row_changed activate", () => {
       }),
     );
     // Drive baseline cursor captured exactly once.
-    expect(mockChangesGetStartPageToken).toHaveBeenCalledTimes(1);
     // files.watch called against the spreadsheet's fileId.
     expect(mockFilesWatch).toHaveBeenCalledTimes(1);
     expect(mockFilesWatch.mock.calls[0]![0].fileId).toBe("ss-1");
@@ -162,7 +161,6 @@ describe("Sheets row_changed activate", () => {
       sheetName: "Sheet1",
       headerRow: false,
       resourceId: "res-id",
-      pageToken: "page-100",
       lastRowCount: 3,
     });
     expect(result.channelId).toMatch(
@@ -220,6 +218,7 @@ describe("Sheets row_changed activate", () => {
       expiration: String(Date.now() + 1000),
     });
 
+    mockValuesGet.mockResolvedValueOnce({ values: [["a"], ["b"]] });
     await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
 
     expect(mockFilesWatch.mock.calls[0]![0].channelToken).toBe("the-real-hmac");
@@ -263,14 +262,20 @@ describe("Sheets row_changed activate", () => {
     ).rejects.toThrow(/sheetName/);
   });
 
-  it("throws when getStartPageToken returns no token", async () => {
-    mockValuesGet.mockResolvedValueOnce({ values: [] });
-    mockChangesGetStartPageToken.mockResolvedValueOnce({
-      startPageToken: "",
+  it("makes NO account-wide Drive changes call during activation (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2)", async () => {
+    // The old activation fetched a changes.getStartPageToken cursor and
+    // persisted it, but nothing ever read it — write-only dead state, and an
+    // account-wide Drive call this provider no longer has a broad scope for.
+    // Activation must now touch only the explicitly selected spreadsheet.
+    mockValuesGet.mockResolvedValueOnce({ values: [["a"], ["b"]] });
+    mockFilesWatch.mockResolvedValueOnce({
+      id: "channel-from-google",
+      resourceId: "res-id",
+      expiration: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
-    await expect(
-      activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" }),
-    ).rejects.toThrow(/no startPageToken/);
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
+    expect(mockChangesGetStartPageToken).not.toHaveBeenCalled();
+    expect(mockFilesWatch).toHaveBeenCalledTimes(1);
   });
 
   // ──────────────────────────────────────────────────────────────────

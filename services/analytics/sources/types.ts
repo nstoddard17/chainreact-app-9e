@@ -143,6 +143,19 @@ export class AnalyticsSourceError extends Error {
     | "UNKNOWN_METRIC"
     | "INVALID_QUERY"
     | "MISSING_CREDENTIAL"
+    /**
+     * The connection is healthy but was granted narrower permissions than this
+     * dataset needs, so an ACCURATE answer is impossible
+     * (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2).
+     *
+     * Deliberately distinct from MISSING_CREDENTIAL (nothing to reconnect —
+     * reconnecting grants the same narrow set) and from PROVIDER_ERROR/
+     * RATE_LIMITED (not transient, so the cache layer must NOT fall back to a
+     * stale snapshot that was computed under a broader grant). The widget
+     * renders the message and shows NO number: a partial count presented as a
+     * total is the exact dishonesty this code exists to prevent.
+     */
+    | "SCOPE_UNAVAILABLE"
     | "PROVIDER_ERROR"
     | "RATE_LIMITED";
   constructor(message: string, code: AnalyticsSourceError["code"]) {

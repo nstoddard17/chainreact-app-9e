@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { buildChannelToken } from "@/integrations/_shared/google/channelToken";
-import { changesGetStartPageToken } from "@/integrations/google-drive/api/changesGetStartPageToken";
 import { filesWatch } from "@/integrations/google-drive/api/filesWatch";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActivationFn } from "@/services/triggers/activationRegistry";
@@ -64,22 +63,12 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     .filter((n): n is string => typeof n === "string" && n.length > 0);
   const worksheetSnapshot = buildWorksheetListSnapshot({ names });
 
-  // 3a. Capture Drive baseline cursor (parity with row_changed; pull
-  // doesn't consume it but renew + future polling-mode parity may).
-  const pageBaseline = await refreshAndRetry({
-    accountId: integration.accountId,
-    provider: "google-sheets",
-    providerAccountId: integration.providerAccountId,
-    apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
-  });
-  const pageToken = pageBaseline.startPageToken;
-  if (!pageToken) {
-    throw new Error(
-      "google-sheets new_worksheet activate: changes.getStartPageToken returned no startPageToken.",
-    );
-  }
-
-  // 3b. Register the Drive file-watch on the spreadsheet's fileId.
+  // 3a. Register the Drive file-watch on the spreadsheet's fileId.
+  //     GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 removed a
+  //     `changes.getStartPageToken` call that used to run here: its token was
+  //     persisted but NEVER read by pull / renew / deactivate, so it was
+  //     write-only dead state — and it was an account-wide Drive call this
+  //     provider no longer has a whole-Drive scope for.
   const channelId = `chainreact-${node.id}-${randomUUID()}`;
   const channelToken = buildChannelToken({ channelId });
 
@@ -106,7 +95,6 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     worksheetSnapshot,
     channelId,
     resourceId: watch.resourceId,
-    pageToken,
     expiresAt,
   };
 };

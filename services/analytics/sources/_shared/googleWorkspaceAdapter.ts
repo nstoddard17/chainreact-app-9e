@@ -57,6 +57,18 @@ export interface WorkspaceFilesAdapterConfig {
   noun: string;
   /** Connect-CTA noun ("Google Docs" / "Google Sheets"). */
   connectNoun: string;
+  /**
+   * Drive scopes that authorize this dataset's whole-corpus `files.list` scan.
+   * The connection must hold AT LEAST ONE of them
+   * (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2).
+   *
+   * This exists because the scan answers "how many <noun>s do you have" — a
+   * TOTAL. Under a narrow per-file grant (`drive.file`) `files.list` silently
+   * returns only the handful of files the user picked for a workflow, which
+   * would render as a confident, wrong total. When no listed scope is granted
+   * the dataset reports SCOPE_UNAVAILABLE instead of scanning.
+   */
+  scanScopes: readonly string[];
 }
 
 function liveFreshness(): NormalizedAnalyticsResult["freshness"] {
@@ -177,6 +189,23 @@ export function createWorkspaceFilesAnalyticsSource(
     if (!integration) {
       throw new AnalyticsSourceError(`Connect ${cfg.connectNoun} to use this widget.`, "MISSING_CREDENTIAL");
     }
+
+    // Scope-aware honest degradation. Read the ACTUAL granted scopes on the
+    // row — never the manifest, which describes what NEW connections request
+    // and would misjudge every historical connection. A connection granted
+    // only per-file Drive access cannot see the user's whole corpus, so there
+    // is no accurate total to report and we must not scan.
+    const granted = new Set(integration.scopes ?? []);
+    if (!cfg.scanScopes.some((s) => granted.has(s))) {
+      throw new AnalyticsSourceError(
+        `${cfg.connectNoun} account analytics aren't available for this connection, ` +
+          `because ChainReact now uses resource-specific Google Drive access — ` +
+          `it can see the files you pick for workflows, not your whole Drive. ` +
+          `Your ${cfg.noun} workflows are unaffected.`,
+        "SCOPE_UNAVAILABLE",
+      );
+    }
+
     return { providerAccountId: integration.providerAccountId };
   }
 

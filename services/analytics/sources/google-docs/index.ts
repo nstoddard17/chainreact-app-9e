@@ -22,4 +22,13 @@ export const googleDocsAnalyticsSource = createWorkspaceFilesAnalyticsSource({
   createdLabel: "Documents created over time",
   noun: "document",
   connectNoun: "Google Docs",
+  // google-docs still REQUESTS `drive` (its share/export/watch surface needs
+  // it), so this dataset stays available. The check is declared anyway so the
+  // honesty guarantee is uniform: if Docs ever narrows to per-file access,
+  // this dataset degrades honestly instead of silently under-counting.
+  scanScopes: [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive.metadata.readonly",
+  ],
 });

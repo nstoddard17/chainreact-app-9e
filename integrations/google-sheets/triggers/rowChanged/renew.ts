@@ -21,7 +21,7 @@ import type { SubscriptionHandler } from "@/services/triggers/subscriptionRegist
  *   3. Best-effort `channels.stop` on the OLD channel (404 → swallow).
  *   4. Persist new channelId / resourceId / expiresAt. The Sheets-
  *      specific config (`sheetName`, `headerRow`, `lastRowCount`,
- *      `pageToken`) survives rotation untouched.
+ *      row snapshot) survives rotation untouched.
  *
  * Why register-new-then-stop-old: if step 3 fails, we still have a
  * working new channel. If we stopped first and the new registration
@@ -122,7 +122,7 @@ export const sheetsRowChangedSubscriptionHandler: SubscriptionHandler = {
       }
     }
 
-    // 4: persist new state. lastRowCount / sheetName / pageToken untouched.
+    // 4: persist new state. lastRowCount / sheetName untouched.
     const newConfig = {
       ...config,
       channelId: newChannelId,

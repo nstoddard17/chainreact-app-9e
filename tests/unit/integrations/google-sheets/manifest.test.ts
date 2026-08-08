@@ -22,7 +22,7 @@ describe("google-sheets manifest", () => {
     // (the Sheets API itself has no list endpoint).
     expect(googleSheetsManifest.scopes.required).toEqual([
       "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive.metadata.readonly",
+      "https://www.googleapis.com/auth/drive.file",
       "https://www.googleapis.com/auth/userinfo.email",
     ]);
     expect(googleSheetsManifest.scopes.optional).toEqual([]);

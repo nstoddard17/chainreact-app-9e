@@ -145,7 +145,6 @@ describe("Sheets new_worksheet activate", () => {
 
     expect(mockSpreadsheetsGet).toHaveBeenCalledTimes(1);
     expect(mockSpreadsheetsGet.mock.calls[0]![0].spreadsheetId).toBe("ss-1");
-    expect(mockChangesGetStartPageToken).toHaveBeenCalledTimes(1);
     expect(mockFilesWatch).toHaveBeenCalledTimes(1);
     expect(mockFilesWatch.mock.calls[0]![0].fileId).toBe("ss-1");
 
@@ -154,7 +153,6 @@ describe("Sheets new_worksheet activate", () => {
       webhookEnabled: true,
       spreadsheetId: "ss-1",
       resourceId: "res-id",
-      pageToken: "page-100",
     });
     expect(result.channelId).toMatch(/^chainreact-node-trigger-nw-[0-9a-f-]+$/);
 
@@ -275,19 +273,22 @@ describe("Sheets new_worksheet activate", () => {
     expect(mockFilesWatch).not.toHaveBeenCalled();
   });
 
-  it("throws when getStartPageToken returns no token", async () => {
+  it("makes NO account-wide Drive changes call during activation (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2)", async () => {
+    // The old activation fetched a changes.getStartPageToken cursor and
+    // persisted it, but nothing ever read it — write-only dead state, and an
+    // account-wide Drive call this provider no longer has a broad scope for.
+    // Activation must now touch only the explicitly selected spreadsheet.
     mockSpreadsheetsGet.mockResolvedValueOnce({
       sheets: [{ properties: { sheetId: 0, title: "Sheet1" } }],
     });
-    mockChangesGetStartPageToken.mockResolvedValueOnce({ startPageToken: "" });
-    await expect(
-      activate({
-        node: baseNode,
-        integration: baseIntegration,
-        workflowId: "wf-test",
-      }),
-    ).rejects.toThrow(/no startPageToken/);
-    expect(mockFilesWatch).not.toHaveBeenCalled();
+    mockFilesWatch.mockResolvedValueOnce({
+      id: "channel-from-google",
+      resourceId: "res-id",
+      expiration: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+    await activate({ node: baseNode, integration: baseIntegration, workflowId: "wf-test" });
+    expect(mockChangesGetStartPageToken).not.toHaveBeenCalled();
+    expect(mockFilesWatch).toHaveBeenCalledTimes(1);
   });
 
   it("passes the channel HMAC token on the watch request", async () => {

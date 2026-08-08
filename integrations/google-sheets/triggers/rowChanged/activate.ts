@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { buildChannelToken } from "@/integrations/_shared/google/channelToken";
-import { changesGetStartPageToken } from "@/integrations/google-drive/api/changesGetStartPageToken";
 import { filesWatch } from "@/integrations/google-drive/api/filesWatch";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import type { ActivationFn } from "@/services/triggers/activationRegistry";
@@ -22,8 +21,6 @@ import {
  * that the only viable real-time mechanic is to register a Drive
  * `files.watch` against the spreadsheet's fileId. So this activate hook
  * imports Drive's wrappers directly:
- *   - `changesGetStartPageToken` for the Drive cursor (kept for future
- *     polling-mode parity; not used in pull's current implementation).
  *   - `filesWatch` for the actual subscription registration.
  *
  * The Slice 5 plan doc records this cross-provider import as deliberate
@@ -47,8 +44,7 @@ import {
  *      truncate, don't auto-raise). For `changeKinds = ["added"]`
  *      (the Slice 5 default), no snapshot is seeded — the existing
  *      count-delta fast path is preserved for backwards compat.
- *   4. Drive watch registration — capture `pageToken` (persisted for
- *      future polling-mode parity), generate channelId + HMAC token,
+ *   4. Drive watch registration: generate channelId + HMAC token,
  *      call `files.watch` with `fileId = spreadsheetId`. Returns
  *      `{id, resourceId, expiration}`.
  *   5. Return the merged config patch. Lifecycle merges this with
@@ -104,23 +100,13 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     snapshot = result.snapshot;
   }
 
-  // 4. Capture Drive baseline cursor. Persisted for future polling-mode
-  //    parity; pull does NOT consume this in Slice 5 Batch 1 (it reads
-  //    values.get directly, which is cheaper than walking changes.list).
-  const pageBaseline = await refreshAndRetry({
-    accountId: integration.accountId,
-    provider: "google-sheets",
-    providerAccountId: integration.providerAccountId,
-    apiCall: (accessToken) => changesGetStartPageToken({ accessToken }),
-  });
-  const pageToken = pageBaseline.startPageToken;
-  if (!pageToken) {
-    throw new Error(
-      "google-sheets activate: changes.getStartPageToken returned no startPageToken.",
-    );
-  }
-
-  // 5. Register the Drive file-watch on the spreadsheet's fileId.
+  // 4. Register the Drive file-watch on the spreadsheet's fileId.
+  //    GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 removed a
+  //    `changes.getStartPageToken` call that used to run here: its token was
+  //    persisted but NEVER read by pull / renew / deactivate (pull reads
+  //    values.get directly), so it was write-only dead state — and it was an
+  //    account-wide Drive call, which this provider no longer has a
+  //    whole-Drive scope for.
   const channelId = `chainreact-${node.id}-${randomUUID()}`;
   const channelToken = buildChannelToken({ channelId });
 
@@ -156,7 +142,6 @@ export const activate: ActivationFn = async ({ node, integration }) => {
     ...(snapshot !== null ? { snapshot } : {}),
     channelId,
     resourceId: watch.resourceId,
-    pageToken,
     lastRowCount,
     expiresAt,
   };
