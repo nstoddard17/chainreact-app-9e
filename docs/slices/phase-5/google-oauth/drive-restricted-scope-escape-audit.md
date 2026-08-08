@@ -38,6 +38,7 @@ any narrow-scope design.
 | --- | --- | --- |
 | sheets:spreadsheets resolver | Drive files.list (spreadsheet mimeType) | enumeration for the picker |
 | sheets:row_changed + new_worksheet triggers | Drive files.watch on the CONFIGURED spreadsheetId (+ vestigial changes.getStartPageToken, channels.stop) | Sheets has no native push; watch needs a Drive scope |
+| connected-app Analytics source `google-sheets` — **CORRECTION added by CLOSEOUT-1 (2026-08-08); missed by this audit and by §7's "not blocked by any unconfirmed behavior" claim** | flat metadata-only Drive files.list scan (`services/analytics/sources/google-sheets/` + `_shared/googleWorkspaceFiles.ts`) | dashboard Spreadsheets count / created-over-time / modified-over-time widgets; under a narrow token the scan silently shrinks to app-granted files (forbidden silent truncation) — the escape needs an explicit dataset disposition (scope-aware unavailable state · retire · keep scope) BEFORE the scope can drop |
 
 Poll paths for both Sheets triggers read ONLY the Sheets API (`spreadsheets`
 scope). The persisted Drive page token is never consumed.
