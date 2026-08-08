@@ -217,6 +217,30 @@ export const FieldSensitivitySchema = z.enum(["secret", "connection", "recipient
 export type FieldSensitivity = z.infer<typeof FieldSensitivitySchema>;
 
 /**
+ * GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — explicit provider-resource
+ * selection ("Choose from Google Drive") as an alternative to an
+ * `optionsSource` resolver.
+ *
+ * WHY THIS EXISTS: an `optionsSource` picker enumerates the user's resources
+ * server-side, which for Google Drive-backed resources requires a RESTRICTED
+ * whole-corpus scope (`drive.metadata.readonly` / `drive`). A resource picker
+ * inverts that: the provider's own selection UI runs in the browser, the user
+ * picks one resource, and the selection ITSELF is the authorization grant
+ * (Google's `drive.file` model). No corpus listing, no restricted scope.
+ *
+ * The value stays exactly what the handler schema already expects — a stable
+ * provider resource id — so a picker field is a WIDGET upgrade on a `text`
+ * field, not a new value shape. Manual paste of a known id remains possible
+ * for power users (the input is still an input), which keeps upstream
+ * `{{...}}` variable mapping working unchanged.
+ *
+ * Rule 17 note: a picker field is resolver-EQUIVALENT for the "no raw id box"
+ * bar — it is a real account-aware selector, not a text box.
+ */
+export const FieldResourcePickerSchema = z.enum(["google-sheets:spreadsheet"]);
+export type FieldResourcePicker = z.infer<typeof FieldResourcePickerSchema>;
+
+/**
  * CONFIG-UX-SETUP-ADVANCED-1 — top-level conditional visibility for a field.
  *
  * Shows the field only while a SIBLING field's value matches. Backs the
@@ -809,6 +833,14 @@ export const FieldMetaSchema = z
      */
     allowManualEntry: z.boolean().optional(),
     /**
+     * Explicit provider-resource selection for a `text` field — the value is
+     * chosen through the PROVIDER's own picker UI instead of a server-side
+     * corpus listing. See {@link FieldResourcePickerSchema} for why this
+     * exists (it is what lets Google Sheets drop a restricted Drive scope).
+     * Mutually exclusive with `optionsSource`.
+     */
+    resourcePicker: FieldResourcePickerSchema.optional(),
+    /**
      * For `keyvalue` fields, hint the renderer about cap behavior. The
      * underlying handler schema enforces the authoritative cap.
      */
@@ -988,6 +1020,21 @@ export const FieldMetaSchema = z
         path: ["type"],
         message:
           "`optionsSource` is only valid on `select`, `combobox`, `string-array`, or `spreadsheet-rows` fields.",
+      });
+    }
+    if (field.resourcePicker && field.type !== "text") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["resourcePicker"],
+        message: "`resourcePicker` is only valid on `text` fields.",
+      });
+    }
+    if (field.resourcePicker && field.optionsSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["resourcePicker"],
+        message:
+          "`resourcePicker` and `optionsSource` are mutually exclusive — a field is either provider-picked or resolver-listed.",
       });
     }
     if (field.numeric && field.type !== "number") {

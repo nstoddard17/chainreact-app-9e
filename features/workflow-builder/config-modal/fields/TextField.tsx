@@ -9,7 +9,10 @@ import { insertAtCursor } from "./_insertAtCursor";
 import { validateReferences } from "./_variableValidator";
 import { describePrefillSource } from "./_prefillSource";
 import { FieldSetupHint } from "./FieldSetupHint";
+import { ResourcePickerButton } from "./ResourcePickerButton";
 import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassification";
+import { useGraphSlice } from "../../state/graphSlice";
+import { useConfigSlice } from "../../state/configSlice";
 import type { FieldRendererProps } from "./types";
 
 /**
@@ -32,6 +35,14 @@ import type { FieldRendererProps } from "./types";
  *     parent `error` prop still wins — schema-level errors take
  *     priority. Save is NOT gated on these warnings — see
  *     `_variableValidator.ts` for the rationale.
+ *
+ * GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — when the field declares
+ * `resourcePicker`, a "Choose from Google Drive" button renders beside
+ * the input. Picking commits the provider's stable resource id to the
+ * SAME value the schema already expects, so nothing downstream changes.
+ * The input stays editable on purpose: pasting a known id and mapping
+ * an upstream `{{...}}` variable both keep working, and the field can
+ * never be stranded if the picker is unavailable.
  */
 
 export const TextField: React.FC<FieldRendererProps> = ({
@@ -45,6 +56,12 @@ export const TextField: React.FC<FieldRendererProps> = ({
   const controlId = `field-${field.name}`;
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
+
+  // Threaded to the picker-session route so the server applies the same
+  // credential-sharing policy the options resolver uses (account-shared vs
+  // creator-pinned, accepted per-node owner). Never trusted from the client.
+  const workflowId = useGraphSlice((s) => s.workflowId) ?? undefined;
+  const nodeId = useConfigSlice((s) => s.activeNodeId) ?? undefined;
 
   const warnings = React.useMemo(
     () => validateReferences({ value: stringValue, sources }),
@@ -107,6 +124,19 @@ export const TextField: React.FC<FieldRendererProps> = ({
           latestValuesBySource={latestValuesBySource}
         />
       </div>
+      {field.resourcePicker ? (
+        <div className="mt-1.5">
+          <ResourcePickerButton
+            picker={field.resourcePicker}
+            fieldLabel={field.label}
+            fieldName={field.name}
+            workflowId={workflowId}
+            nodeId={nodeId}
+            disabled={disabled}
+            onPicked={(resourceId) => onChange(resourceId)}
+          />
+        </div>
+      ) : null}
       {warnings.length > 0 ? (
         <ul
           className="mt-1 flex flex-col gap-0.5"
