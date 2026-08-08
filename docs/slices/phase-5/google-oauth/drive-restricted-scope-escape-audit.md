@@ -250,6 +250,26 @@ subscriptions Developer Preview 2025-07-07 → **"Generally Available:
 Subscriptions are now generally available for Google Drive events"
 2026-05-18**.
 
+**SPIKE-2 addendum (2026-08-08) — "use the existing dev Google connection"
+traced and ruled out as the spike vehicle.** The dev deployment
+(dev.chainreact.app + chainreact-dev Supabase) is non-production on the
+ChainReact side only: its Google side IS the production OAuth client in the
+production Google Cloud project. Evidence: (a) the transplant runbook's
+shared-OAuth-client rule — transplanted tokens refresh in dev only when dev
+runs the SAME provider OAuth app as production, and the transplanted Google
+connections do work in dev; (b) no Google client exists in
+`.env.development.local` (Vercel dev env carries the shared client); (c) a
+read-only query of the dev project's `integrations` rows shows all six Google
+providers connected with the BROAD pre-minimization grants (`drive` on
+drive/docs, `drive.metadata.readonly` on sheets, the 4-scope Gmail quad) —
+usable as Account A's identity, but contaminated as proof tokens, and their
+client is production's. A fresh `drive.file`-only grant on that client would
+require adding a localhost redirect URI (a production Cloud Console change),
+and Workspace Events + Pub/Sub would have to be enabled/created in the
+production project — all forbidden. Conclusion: the spike still needs a
+throwaway Google-side environment; the dev-connected Google account itself is
+a fine Account A once that exists.
+
 Minimal owner setup to unblock (detail in the harness README): throwaway GCP
 project (Drive + Workspace Events + Picker + Pub/Sub APIs enabled), testing-
 mode OAuth client with `http://localhost:8765/callback`, API key, Pub/Sub
