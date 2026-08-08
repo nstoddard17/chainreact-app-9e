@@ -140,6 +140,16 @@ the folder-trigger→downstream-action chain is, until the spike proves grants.
 
 ## 7. Verdicts
 
+> **DONE (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2, 2026-08-08).** The
+> `drive.metadata.readonly` verdict below was executed: Picker foundation +
+> Sheets migration shipped locally, the Drive-enumerating resolver is deleted,
+> and the scope is replaced by `drive.file`. The Sheets connected-app analytics
+> dataset (the CORRECTION above) degrades honestly for narrow connections
+> instead of reporting a partial total. The `drive` verdict below is UNCHANGED
+> and still gated on the blocked folder-grant spike — Drive/Docs keep `drive`,
+> which is now ChainReact's only restricted scope besides `gmail.modify`.
+> Final state: `docs/slices/phase-5/google-oauth/scope-minimization.md` §10.
+
 - **`drive.metadata.readonly` → ELIMINATE — ARCHITECTURAL** (Picker foundation
   + Sheets picker/trigger swap). No product loss: the pick UX is equivalent or
   better; watch-on-picked-file is documented-safe; poll paths already

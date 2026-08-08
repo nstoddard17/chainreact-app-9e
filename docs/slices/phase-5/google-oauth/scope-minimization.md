@@ -13,15 +13,21 @@ consent screen / one verification request carries the union of every requested s
 | gmail | `gmail.readonly`, `gmail.send`, `gmail.modify`, `gmail.compose` | **`gmail.modify` only** |
 | google-calendar | `calendar.events`, `calendar.readonly`, `userinfo.email` | required: `calendar.events`, `userinfo.email` · **optional: `calendar.calendarlist.readonly`** |
 | google-drive | `drive`, `userinfo.email` | unchanged |
-| google-sheets | `spreadsheets`, `drive.metadata.readonly`, `userinfo.email` | unchanged |
+| google-sheets | `spreadsheets`, `drive.metadata.readonly`, `userinfo.email` | **`spreadsheets`, `drive.file`, `userinfo.email`** (CLOSEOUT-2) |
 | google-docs | `documents`, `drive`, `userinfo.email` | unchanged |
 | google-analytics | `analytics.readonly`, `analytics.edit`, `userinfo.email` | unchanged |
 
+> **SUPERSEDED HEADLINE — see §10 for the FINAL state.** This section records the
+> first batch. After CLOSEOUT-2 the totals are **10 unique scopes = 2 restricted +
+> 6 sensitive + 2 non-sensitive**.
+
 Requested-scope count for the shared client drops **13 → 10 total unique OAuth
 scopes** (corrected by GOOGLE-OAUTH-REVIEW-READINESS-2 — the earlier "9" omitted the
-non-sensitive `userinfo.email` identity scope from the total). Precisely: **10 total
-= 9 sensitive/restricted scopes requiring elevated verification + 1 non-sensitive
-identity scope**. Restricted scopes drop **5 → 3**; sensitive drop **7 → 6**
+non-sensitive `userinfo.email` identity scope from the total). As of THIS batch:
+**10 total = 9 sensitive/restricted + 1 non-sensitive identity scope**; CLOSEOUT-2
+later moved Sheets' Drive scope to non-sensitive `drive.file`, making it
+**8 sensitive/restricted + 2 non-sensitive**. Restricted scopes drop **5 → 3**
+(→ **2** in CLOSEOUT-2); sensitive drop **7 → 6**
 (`gmail.readonly`/`gmail.compose` restricted and `gmail.send` sensitive removed;
 sensitive `calendar.readonly` swapped for sensitive-but-narrower
 `calendar.calendarlist.readonly`). No capability was removed: every registered
@@ -182,6 +188,91 @@ create_draft_reply; calendarlist via the create_event calendar picker).
    GOOGLE-OAUTH-REVIEW-READINESS-2 (mode retired; legacy configs rejected with a
    clear error; wrapper deleted).
 3. Optional-scope pattern for other convenience pickers if future scope adds recur.
+
+## 10. FINAL STATE — GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 (2026-08-08)
+
+Derived from the manifests at commit time, not from prose.
+
+**10 total unique OAuth scopes = 2 RESTRICTED + 6 sensitive + 2 non-sensitive.**
+(Restricted 5 → 3 → **2** across the three batches.)
+
+- **Restricted (2):** `gmail.modify` (whole shipped Gmail surface — read/trigger,
+  label + read-state mutation, drafts, send) · `drive` (required by the CURRENT
+  shipped Drive/Docs architecture: whole-Drive + folder watch and changes feed,
+  arbitrary existing-resource actions, Docs share/export, Drive search/list, and
+  the Drive/Docs analytics sources. NOT permanently unavoidable — see the
+  resource-scoped redesign in `drive-restricted-scope-escape-audit.md`.)
+- **Sensitive (6):** `calendar.events` · `calendar.calendarlist.readonly` (optional) ·
+  `spreadsheets` · `documents` · `analytics.readonly` · `analytics.edit`
+- **Non-sensitive (2):** `userinfo.email` · **`drive.file`** (new)
+
+Per-provider request sets (dispatcher sends required+optional in ONE authorize URL;
+no incremental path):
+
+| Provider | Required | Optional | Count |
+| --- | --- | --- | --- |
+| gmail | gmail.modify | — | 1 |
+| google-drive | drive, userinfo.email | — | 2 |
+| google-sheets | spreadsheets, **drive.file**, userinfo.email | — | 3 |
+| google-docs | documents, drive, userinfo.email | — | 3 |
+| google-calendar | calendar.events, userinfo.email | calendar.calendarlist.readonly | 3 |
+| google-analytics | analytics.readonly, analytics.edit, userinfo.email | — | 3 |
+
+### What changed in CLOSEOUT-2
+
+1. **Sheets escaped restricted.** `drive.metadata.readonly` → `drive.file`. The
+   `google-sheets:spreadsheets` resolver (which enumerated the user's whole Drive
+   through `files.list` and was the sole reason for the restricted scope) is
+   DELETED. All 13 spreadsheetId surfaces now use explicit Google Picker
+   selection, where the user's pick IS the per-file grant. `spreadsheets` is not
+   per-file, so every action keeps working on any spreadsheet id — saved
+   workflows and `{{upstream}}` mapping included. Both triggers' dead
+   `changes.getStartPageToken` call is gone.
+2. **Sheets connected-app Analytics — scope-aware honest degradation** (owner
+   decision, Option 1). The dataset answers a TOTAL, which a per-file grant
+   cannot see. Connections holding a historical broad grant keep the full
+   dataset; narrow connections get a typed `SCOPE_UNAVAILABLE` state and the
+   Drive scan never runs. **A partial count is never shown as a total** — that
+   invariant is pinned by regression tests. Workflows are unaffected.
+3. **Browser credential boundary (durable).** `/api/integrations/picker-session`
+   is the ONLY route that returns a provider access token to a browser, because
+   Google Picker is a browser widget with no server-mediated equivalent. It is
+   picker-keyed (not provider-keyed), carries the options resolver's exact
+   credential-sharing authorization, returns no refresh token or ciphertext,
+   refreshes proactively, is POST-only + `no-store`, is never logged, and the
+   client holds it only for the open picker. Rationale lives in
+   `services/integrations/pickerSession.ts`.
+
+### Existing-user impact
+
+Nothing breaks and no reconnect campaign is needed. Health compares required ⊆
+granted, so historical broader grants stay valid; token refresh ignores scopes.
+New connections get the narrow set. A formerly-broad connection that reconnects
+receives the narrow set: its Sheets ACTIONS keep working (the `spreadsheets`
+scope is not per-file), its Sheets account-level analytics dataset becomes
+`SCOPE_UNAVAILABLE`, and a trigger watching a spreadsheet that was never picked
+through the Picker needs that spreadsheet re-picked.
+
+### Cloud Console delta (owner, AFTER this code reaches production)
+
+REMOVE: `gmail.readonly` · `gmail.send` · `gmail.compose` · `calendar.readonly` ·
+`drive.metadata.readonly`
+ADD: `calendar.calendarlist.readonly` · `drive.file`
+KEEP (final 10): the list at the top of this section.
+
+Also required for the Picker: enable the **Google Picker API**, create a
+**browser API key** restricted to (a) HTTP referrers `chainreact.app`,
+`dev.chainreact.app`, `localhost` and (b) the Picker API only, and set
+`NEXT_PUBLIC_GOOGLE_PICKER_API_KEY` + `NEXT_PUBLIC_GOOGLE_PICKER_APP_ID` (the
+Cloud project NUMBER). Both are public browser identifiers, not secrets; unset
+disables the picker button and falls back to manual ID entry.
+
+### Verification posture
+
+Restricted verification, the demonstration video, and CASA all REMAIN — Gmail
+restricted data is still accessed/stored/transmitted. The value delivered is a
+smaller, defensible case: 5 restricted scopes → 2, no redundant permissions, and
+a much smaller restricted-data surface.
 
 ## 9. Per-provider OAuth requests (GOOGLE-OAUTH-REVIEW-READINESS-2)
 
