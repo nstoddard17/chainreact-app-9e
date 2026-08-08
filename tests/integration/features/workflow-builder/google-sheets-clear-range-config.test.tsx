@@ -64,6 +64,7 @@ import { googleSheetsClearRangeMeta } from "@/integrations/google-sheets/actions
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { pickComboboxOption } from "./helpers/comboboxField";
+import { setSpreadsheetId } from "./helpers/resourcePickerField";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -157,9 +158,9 @@ it("Google Sheets clear_range meta declares isDestructive + requiresConfirmation
   const byName = new Map(
     googleSheetsClearRangeMeta.fields.map((f) => [f.name, f]),
   );
-  expect(byName.get("spreadsheetId")!.type).toBe("combobox");
-  expect(byName.get("spreadsheetId")!.optionsSource).toBe(
-    "google-sheets:spreadsheets",
+  expect(byName.get("spreadsheetId")!.type).toBe("text");
+  expect(byName.get("spreadsheetId")!.resourcePicker).toBe(
+    "google-sheets:spreadsheet",
   );
   expect(byName.get("range")!.type).toBe("text");
   expect(byName.get("range")!.required).toBe(true);
@@ -210,14 +211,14 @@ it("end-to-end: pick spreadsheet → type range → Modal Save (draft only) → 
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+      screen.getByRole("textbox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
   expect(screen.getByRole("textbox", { name: /^range$/i })).toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: /^sheet$/i })).toBeNull();
 
   // 4. Pick the spreadsheet via the async picker.
-  await pickComboboxOption(user, /^spreadsheet$/i, "Q4 Forecast");
+  await setSpreadsheetId(user, SPREADSHEET_ID);
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.spreadsheetId,
   ).toBe(SPREADSHEET_ID);

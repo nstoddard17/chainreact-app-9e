@@ -3968,8 +3968,12 @@ describe("per-provider accessors", () => {
         const meta = gsheetsActionMetas().find((m) => m.key === key)!;
         const f = meta.fields.find((x) => x.name === "spreadsheetId");
         expect(f).toBeDefined();
-        expect(f!.type).toBe("combobox");
-        expect(f!.optionsSource).toBe("google-sheets:spreadsheets");
+        // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — explicit Google Picker
+        // selection replaces the Drive-enumerating resolver. A regression to
+        // `optionsSource` here would re-require a restricted Drive scope.
+        expect(f!.type).toBe("text");
+        expect(f!.resourcePicker).toBe("google-sheets:spreadsheet");
+        expect(f!.optionsSource).toBeUndefined();
         expect(f!.required).toBe(true);
       }
       // create_spreadsheet explicitly does NOT carry a spreadsheetId.
@@ -4609,11 +4613,14 @@ describe("per-provider accessors", () => {
           )!;
         }
 
-        it("config is spreadsheetId combobox only (schema is single-field)", () => {
+        it("config is a Picker-backed spreadsheetId only (schema is single-field)", () => {
           expect(meta().fields.map((f) => f.name)).toEqual(["spreadsheetId"]);
           const f = meta().fields[0]!;
-          expect(f.type).toBe("combobox");
-          expect(f.optionsSource).toBe("google-sheets:spreadsheets");
+          // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — the picked file IS the
+          // grant, which is what let Sheets drop drive.metadata.readonly.
+          expect(f.type).toBe("text");
+          expect(f.resourcePicker).toBe("google-sheets:spreadsheet");
+          expect(f.optionsSource).toBeUndefined();
           expect(f.required).toBe(true);
         });
 

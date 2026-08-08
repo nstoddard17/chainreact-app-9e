@@ -67,6 +67,7 @@ import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builde
 import { googleSheetsRowChangedTriggerMeta } from "@/integrations/google-sheets/triggers/rowChanged/rowChanged.meta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { pickComboboxOption } from "./helpers/comboboxField";
+import { setSpreadsheetId } from "./helpers/resourcePickerField";
 
 const baseWorkflow: WorkflowDetail = {
   id: "wf-1",
@@ -178,8 +179,8 @@ it("Google Sheets row_changed meta field shape + payload-sensitive flags — Sli
   const byName = new Map(
     googleSheetsRowChangedTriggerMeta.fields.map((f) => [f.name, f]),
   );
-  expect(byName.get("spreadsheetId")!.optionsSource).toBe(
-    "google-sheets:spreadsheets",
+  expect(byName.get("spreadsheetId")!.resourcePicker).toBe(
+    "google-sheets:spreadsheet",
   );
   expect(byName.get("sheetName")!.optionsSource).toBe("google-sheets:sheets");
   expect(byName.get("sheetName")!.dependsOn).toBe("spreadsheetId");
@@ -271,12 +272,12 @@ it("end-to-end: trigger picker → spreadsheet → sheet (cascade) → headerRow
   await openLastNodeOfKind("trigger");
   await waitFor(() => {
     expect(
-      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+      screen.getByRole("textbox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
 
   // 4. Pick the spreadsheet — sheet picker is gated until then.
-  await pickComboboxOption(user, /^spreadsheet$/i, "Q4 Forecast");
+  await setSpreadsheetId(user, SPREADSHEET_ID);
   expect(useConfigSlice.getState().drafts[trigger.id]!.values.spreadsheetId).toBe(
     SPREADSHEET_ID,
   );

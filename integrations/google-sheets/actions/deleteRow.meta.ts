@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *
  * Mirrors `deleteRow.schema.ts`:
  *   - `spreadsheetId`  (required) — combobox from
- *                       `google-sheets:spreadsheets`.
+ *                       the Google Picker.
  *   - `sheetName`      (required) — combobox from
  *                       `google-sheets:sheets`, gated on spreadsheetId.
  *                       Handler resolves sheetName → numeric sheetId via
@@ -38,11 +38,11 @@ export const googleSheetsDeleteRowMeta: ActionMeta = {
       name: "spreadsheetId",
       label: "Spreadsheet",
       description:
-        "Pick a Google Sheets file from your connected account. The picker lists files most-recently-modified first.",
-      type: "combobox",
-      optionsSource: "google-sheets:spreadsheets",
+        "Choose the Google Sheets file this step works with. Picking it here is also what grants ChainReact access to that one file.",
+      type: "text",
+      resourcePicker: "google-sheets:spreadsheet",
       required: true,
-      placeholder: "Search spreadsheets…",
+      placeholder: "Choose a spreadsheet, or paste its ID",
     },
     {
       name: "sheetName",

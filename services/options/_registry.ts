@@ -25,15 +25,18 @@ import { slackUsersResolver } from "@/integrations/slack/options/users";
 // newly-added `mpim:read` scope; surfaces missing_scope as reconnect.
 import { slackGroupDmsResolver } from "@/integrations/slack/options/groupDms";
 
-// Google Sheets resolvers — Slice 3.GSHEETS-2.
-// `spreadsheets` enumerates the connected user's spreadsheets via
-// Drive's `files.list` (requires `drive.metadata.readonly` scope —
-// added to the google-sheets manifest in the same slice). `sheets`
-// enumerates the worksheets/tabs of a selected spreadsheet via Sheets'
-// `spreadsheets.get?includeGridData=false`; depends on spreadsheetId.
-// Together they back the two-hop cascade documented in
-// docs/slices/phase-3/google-sheets-action-metadata-plan.md §4.
-import { googleSheetsSpreadsheetsResolver } from "@/integrations/google-sheets/options/spreadsheets";
+// Google Sheets resolvers — Slice 3.GSHEETS-2, narrowed by
+// GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2.
+// The former `google-sheets:spreadsheets` resolver enumerated the user's
+// whole Drive via `files.list`, which is what forced the RESTRICTED
+// `drive.metadata.readonly` scope. It is GONE: spreadsheet selection now
+// happens in Google's own Picker (`resourcePicker` field metadata), where the
+// user's pick IS the per-file grant. `sheets` enumerates the worksheets/tabs
+// of the already-selected spreadsheet via Sheets'
+// `spreadsheets.get?includeGridData=false` (Sheets scope, no Drive scope) and
+// still depends on spreadsheetId — the cascade documented in
+// docs/slices/phase-3/google-sheets-action-metadata-plan.md §4 is unchanged
+// below its first hop.
 import { googleSheetsSheetsResolver } from "@/integrations/google-sheets/options/sheets";
 // RESOLVERS-1 — `google-sheets:columns` reads the sheet's header row so
 // find_row.column / row_changed.keyColumn are picked, not hand-typed
@@ -714,7 +717,6 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   slackChannelsResolver,
   slackUsersResolver,
   slackGroupDmsResolver,
-  googleSheetsSpreadsheetsResolver,
   googleSheetsSheetsResolver,
   // HubSpot (Slice 3.HUBSPOT-2). Resolver-first ahead of HubSpot
   // metadata batches (HUBSPOT-3..6); 17 of the 26 HubSpot mutation /

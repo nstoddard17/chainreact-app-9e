@@ -21,7 +21,7 @@ import {
  *     breadth we can split into a read-only mode, but Batch 1 needs full
  *     read/write.
  *   - `drive.metadata.readonly` (Slice 3.GSHEETS-2) — required for the
- *     `google-sheets:spreadsheets` builder options resolver. The Sheets
+ *     the Google Picker builder options resolver. The Sheets
  *     API has no "list spreadsheets" endpoint; spreadsheet enumeration
  *     happens via Drive's `files.list` filtered by spreadsheet mimeType.
  *     The metadata-only scope grants read access to file ids + names +

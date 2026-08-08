@@ -5,7 +5,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *
  * Mirrors `clearRange.schema.ts`:
  *   - `spreadsheetId`  (required) — combobox from
- *                       `google-sheets:spreadsheets`.
+ *                       the Google Picker.
  *   - `range`          (required) — A1 notation (typically with a
  *                       sheet-name prefix like `Sheet1!A2:Z100`; bare
  *                       sheet names are also accepted by Sheets).
@@ -33,11 +33,11 @@ export const googleSheetsClearRangeMeta: ActionMeta = {
       name: "spreadsheetId",
       label: "Spreadsheet",
       description:
-        "Pick a Google Sheets file from your connected account. The picker lists files most-recently-modified first.",
-      type: "combobox",
-      optionsSource: "google-sheets:spreadsheets",
+        "Choose the Google Sheets file this step works with. Picking it here is also what grants ChainReact access to that one file.",
+      type: "text",
+      resourcePicker: "google-sheets:spreadsheet",
       required: true,
-      placeholder: "Search spreadsheets…",
+      placeholder: "Choose a spreadsheet, or paste its ID",
     },
     {
       name: "range",

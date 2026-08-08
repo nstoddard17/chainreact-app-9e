@@ -61,6 +61,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail, WorkflowNode } from "@/contracts/workflow";
 import { openLastNodeOfKind } from "../helpers/openLastNodeOfKind";
 import { pickComboboxOption } from "../helpers/comboboxField";
+import { setSpreadsheetId } from "../helpers/resourcePickerField";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -349,7 +350,7 @@ describe("the cell range follows the tab", () => {
     );
     const action = await addAppendRowAndOpen(user);
 
-    await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+    await setSpreadsheetId(user, SPREADSHEET_ID);
     await waitFor(() =>
       expect(screen.getByRole("combobox", { name: /^tab$/i })).toBeInTheDocument(),
     );
@@ -696,7 +697,7 @@ describe("name-matched suggestions", () => {
     );
     const action = await addAppendRowAndOpen(user);
 
-    await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+    await setSpreadsheetId(user, SPREADSHEET_ID);
     await waitFor(() =>
       expect(screen.getByRole("combobox", { name: /^tab$/i })).toBeInTheDocument(),
     );

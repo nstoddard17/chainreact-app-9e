@@ -1477,6 +1477,12 @@ describe("resource-field-discovery-coverage", () => {
       // Only plain typed inputs can strand a user on an opaque id. Pickers,
       // structured editors, temporal/boolean/number controls are all fine.
       if (field.type !== "text") return;
+      // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — a `resourcePicker` field is
+      // a REAL account-aware selector (the provider's own picker UI); it just
+      // stores its stable id in a text-typed value instead of a combobox.
+      // That satisfies this rule's actual bar — the user never has to locate
+      // an opaque provider id — so it is not an offender.
+      if (field.resourcePicker) return;
       if (!RESOURCE_NAME_RE.test(field.name)) return;
       const key = `${metaKey}.${field.name}`;
       if (EXEMPT[key]) return;

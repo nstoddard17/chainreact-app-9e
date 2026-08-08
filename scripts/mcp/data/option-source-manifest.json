@@ -359,12 +359,6 @@
       ]
     },
     {
-      "source": "google-sheets:spreadsheets",
-      "provider": "google-sheets",
-      "requiresIntegration": true,
-      "requiredDeps": null
-    },
-    {
       "source": "hubspot:call_disposition",
       "provider": "hubspot",
       "requiresIntegration": true,

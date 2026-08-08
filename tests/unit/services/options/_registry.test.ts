@@ -44,14 +44,12 @@ describe("options resolver registry", () => {
     expect(r?.requiredDeps).toBeUndefined();
   });
 
-  it("getOptionsResolver resolves the google-sheets:spreadsheets resolver (Slice 3.GSHEETS-2)", () => {
-    const r = getOptionsResolver("google-sheets:spreadsheets");
-    expect(r).toBeDefined();
-    expect(r?.source).toBe("google-sheets:spreadsheets");
-    expect(r?.provider).toBe("google-sheets");
-    expect(r?.requiresIntegration).toBe(true);
-    // Top-level picker — no deps.
-    expect(r?.requiredDeps).toBeUndefined();
+  it("has NO google-sheets:spreadsheets resolver — spreadsheet selection moved to the Google Picker (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2)", () => {
+    // The resolver enumerated the user's whole Drive via files.list, which is
+    // what forced the RESTRICTED drive.metadata.readonly scope. Its return
+    // would re-introduce that scope requirement, so its ABSENCE is the
+    // contract.
+    expect(getOptionsResolver("google-sheets:spreadsheets")).toBeUndefined();
   });
 
   it("getOptionsResolver resolves the google-sheets:sheets resolver (Slice 3.GSHEETS-2)", () => {

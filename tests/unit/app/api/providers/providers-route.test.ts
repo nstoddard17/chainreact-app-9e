@@ -448,6 +448,7 @@ describe("GET /api/providers/[id]/actions", () => {
           required: boolean;
           defaultValue?: unknown;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           numeric?: { min?: number; max?: number; integer?: boolean };
@@ -833,6 +834,7 @@ describe("GET /api/providers/[id]/actions", () => {
           name: string;
           type: string;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           required: boolean;
@@ -873,8 +875,11 @@ describe("GET /api/providers/[id]/actions", () => {
     const spreadsheetField = readRows.fields.find(
       (f) => f.name === "spreadsheetId",
     )!;
-    expect(spreadsheetField.type).toBe("combobox");
-    expect(spreadsheetField.optionsSource).toBe("google-sheets:spreadsheets");
+    // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — the Picker declaration must
+    // survive the route layer, or the builder would render a raw ID box.
+    expect(spreadsheetField.type).toBe("text");
+    expect(spreadsheetField.resourcePicker).toBe("google-sheets:spreadsheet");
+    expect(spreadsheetField.optionsSource).toBeUndefined();
 
     const getCellValue = body.actions.find(
       (a) => a.key === "google-sheets:get_cell_value",
@@ -1004,6 +1009,7 @@ describe("GET /api/providers/[id]/actions", () => {
           name: string;
           type: string;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           defaultValue?: unknown;
@@ -1100,6 +1106,7 @@ describe("GET /api/providers/[id]/actions", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           defaultValue?: unknown;
@@ -1242,6 +1249,7 @@ describe("GET /api/providers/[id]/actions", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           defaultValue?: unknown;
@@ -1481,6 +1489,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
         }>;
@@ -1617,6 +1626,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           name: string;
           type: string;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
         }>;
@@ -1826,6 +1836,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           required: boolean;
           defaultValue?: unknown;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           numeric?: { min?: number; max?: number; integer?: boolean };
@@ -2124,6 +2135,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          resourcePicker?: string;
           allowManualEntry?: boolean;
           dependsOn?: string;
           description?: string;

@@ -77,6 +77,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { pickComboboxOption } from "./helpers/comboboxField";
 import { selectFieldOption } from "./helpers/selectField";
+import { setSpreadsheetId } from "./helpers/resourcePickerField";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -214,9 +215,9 @@ it("append_row metadata asks which spreadsheet and which tab, and keeps the raw 
   ]);
 
   const byName = new Map(googleSheetsAppendRowMeta.fields.map((f) => [f.name, f]));
-  expect(byName.get("spreadsheetId")!.type).toBe("combobox");
-  expect(byName.get("spreadsheetId")!.optionsSource).toBe(
-    "google-sheets:spreadsheets",
+  expect(byName.get("spreadsheetId")!.type).toBe("text");
+  expect(byName.get("spreadsheetId")!.resourcePicker).toBe(
+    "google-sheets:spreadsheet",
   );
   expect(byName.get("sheetName")!.optionsSource).toBe("google-sheets:sheets");
   // Real columns, not positional chips.
@@ -288,7 +289,7 @@ it("a user picks a spreadsheet and a tab, fills the sheet's real columns by name
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+      screen.getByRole("textbox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
   // The tab picker exists but waits for its parent — it says which choice
@@ -302,7 +303,7 @@ it("a user picks a spreadsheet and a tab, fills the sheet's real columns by name
   expect(document.body.textContent).not.toMatch(/paste json|json array/i);
 
   // 4. Pick the spreadsheet, then the tab.
-  await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+  await setSpreadsheetId(user, SPREADSHEET_ID);
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.spreadsheetId,
   ).toBe(SPREADSHEET_ID);
@@ -431,7 +432,7 @@ it("never asks the provider for columns before a tab is chosen", async () => {
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+      screen.getByRole("textbox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
 
@@ -487,11 +488,11 @@ it("drops a stale tab when the spreadsheet changes", async () => {
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+      screen.getByRole("textbox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
 
-  await pickComboboxOption(user, /^spreadsheet$/i, "Workflow activity log");
+  await setSpreadsheetId(user, SPREADSHEET_ID);
 
   await waitFor(() => {
     expect(

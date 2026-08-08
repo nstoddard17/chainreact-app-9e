@@ -66,6 +66,7 @@ import { googleSheetsReadRowsMeta } from "@/integrations/google-sheets/actions/r
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { pickComboboxOption } from "./helpers/comboboxField";
+import { setSpreadsheetId } from "./helpers/resourcePickerField";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -163,9 +164,9 @@ it("Google Sheets read_rows meta exposes spreadsheetId combobox + range text —
   expect(names).not.toContain("sheetName");
 
   const byName = new Map(googleSheetsReadRowsMeta.fields.map((f) => [f.name, f]));
-  expect(byName.get("spreadsheetId")!.type).toBe("combobox");
-  expect(byName.get("spreadsheetId")!.optionsSource).toBe(
-    "google-sheets:spreadsheets",
+  expect(byName.get("spreadsheetId")!.type).toBe("text");
+  expect(byName.get("spreadsheetId")!.resourcePicker).toBe(
+    "google-sheets:spreadsheet",
   );
   expect(byName.get("spreadsheetId")!.required).toBe(true);
   expect(byName.get("range")!.type).toBe("text");
@@ -213,7 +214,7 @@ it("end-to-end: async spreadsheet combobox → range text → Modal Save (draft 
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("combobox", { name: /^spreadsheet$/i }),
+      screen.getByRole("textbox", { name: /^spreadsheet$/i }),
     ).toBeInTheDocument();
   });
   expect(screen.getByRole("textbox", { name: /^range$/i })).toBeInTheDocument();
@@ -222,14 +223,19 @@ it("end-to-end: async spreadsheet combobox → range text → Modal Save (draft 
 
   // 4. Pick a spreadsheet via the async picker. Saved value is the
   //    underlying spreadsheet id, not the visible label.
-  await pickComboboxOption(user, /^spreadsheet$/i, "Q4 Forecast");
+  await setSpreadsheetId(user, SPREADSHEET_ID);
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.spreadsheetId,
   ).toBe(SPREADSHEET_ID);
-  expect(mockFetchOptionsSource).toHaveBeenCalled();
-  expect(mockFetchOptionsSource.mock.calls[0]![0]).toBe(
-    "google-sheets:spreadsheets",
-  );
+  // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — no Drive enumeration happens for
+  // the spreadsheet field any more. Its options resolver is gone (it is what
+  // forced the restricted drive.metadata.readonly scope); selection is an
+  // explicit Google Picker grant instead.
+  expect(
+    mockFetchOptionsSource.mock.calls.filter(
+      (c: unknown[]) => c[0] === "google-sheets:spreadsheets",
+    ),
+  ).toHaveLength(0);
 
   // 5. Type the A1 range.
   await user.type(screen.getByRole("textbox", { name: /^range$/i }), RANGE);

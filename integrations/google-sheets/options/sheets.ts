@@ -19,7 +19,7 @@ import { spreadsheetsGet } from "../api/spreadsheetsGet";
  * which the existing `spreadsheetsGet` wrapper already handles.
  *
  * Architecture:
- *   - `requiresIntegration: true` — same as `google-sheets:spreadsheets`.
+ *   - `requiresIntegration: true` — same as the Google Picker.
  *   - `requiredDeps: ["spreadsheetId"]` — the route validates this
  *     before dispatch and short-circuits with `MISSING_DEPENDENCY` +
  *     `missingDependency: "spreadsheetId"` if absent. The renderer
@@ -48,7 +48,7 @@ import { spreadsheetsGet } from "../api/spreadsheetsGet";
  * few hundred tabs in practice). No pagination to plumb.
  *
  * Client-side `q` filter — case-insensitive substring match on the
- * label. Mirrors `google-sheets:spreadsheets`.
+ * label. Mirrors the Google Picker.
  *
  * Error sanitization:
  *   - Missing `ctx.deps.spreadsheetId` → `MISSING_DEPENDENCY` (defense

@@ -4,8 +4,8 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `google-sheets:read_rows`.
  *
  * Mirrors `readRows.schema.ts`:
- *   - `spreadsheetId`      (required) — async combobox sourced from
- *                           `google-sheets:spreadsheets` (Slice 3.GSHEETS-2).
+ *   - `spreadsheetId`      (required) — explicit Google Picker
+ *                           selection (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2).
  *   - `range`              (required) — A1 notation. Schema treats this
  *                           as authoritative; the meta surfaces a text
  *                           input rather than splitting sheet picker +
@@ -38,11 +38,11 @@ export const googleSheetsReadRowsMeta: ActionMeta = {
       name: "spreadsheetId",
       label: "Spreadsheet",
       description:
-        "Pick a Google Sheets file from your connected account. The picker lists files most-recently-modified first.",
-      type: "combobox",
-      optionsSource: "google-sheets:spreadsheets",
+        "Choose the Google Sheets file this step works with. Picking it here is also what grants ChainReact access to that one file.",
+      type: "text",
+      resourcePicker: "google-sheets:spreadsheet",
       required: true,
-      placeholder: "Search spreadsheets…",
+      placeholder: "Choose a spreadsheet, or paste its ID",
     },
     {
       name: "range",
