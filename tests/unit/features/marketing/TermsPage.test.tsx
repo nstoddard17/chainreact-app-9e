@@ -56,6 +56,28 @@ describe("TermsPage — core legal statements", () => {
     expect(screen.getByText(/laws of the State of Texas/i)).toBeInTheDocument();
   });
 
+  it("carves Google API information out of the general content license (Limited Use)", () => {
+    const { container } = render(<TermsPage />);
+    const text = container.textContent ?? "";
+    expect(text).toMatch(/Information ChainReact receives from Google APIs/i);
+    expect(text).toMatch(/Google API Services User Data Policy/i);
+    expect(text).toMatch(/Limited Use requirements/i);
+    const links = screen
+      .getAllByRole("link")
+      .filter(
+        (a) =>
+          a.getAttribute("href") ===
+          "https://developers.google.com/terms/api-services-user-data-policy",
+      );
+    expect(links.length).toBeGreaterThan(0);
+  });
+
+  it("reflects the version 3.1 / August 15, 2026 metadata for the Google carve-out", () => {
+    render(<TermsPage />);
+    expect(screen.getByText(/Effective August 15, 2026/i)).toBeInTheDocument();
+    expect(screen.getByText(/Version 3\.1/i)).toBeInTheDocument();
+  });
+
   it("includes the 'as is' / 'as available' disclaimer", () => {
     const { container } = render(<TermsPage />);
     const text = container.textContent ?? "";

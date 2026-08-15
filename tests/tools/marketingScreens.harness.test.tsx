@@ -45,6 +45,8 @@ import { MarketingFooter } from "@/features/marketing/MarketingFooter";
 import { MarketingHero } from "@/features/marketing/MarketingHero";
 import { PricingPage } from "@/features/marketing/PricingPage";
 import { TermsPage } from "@/features/marketing/TermsPage";
+import { PrivacyPage } from "@/features/marketing/PrivacyPage";
+import { SecurityPage } from "@/features/marketing/SecurityPage";
 import { HelpCenterPage } from "@/features/marketing/HelpCenterPage";
 import { HelpArticlePage } from "@/features/marketing/HelpArticlePage";
 import { HELP_ARTICLES } from "@/features/marketing/help/helpCatalog";
@@ -113,8 +115,14 @@ describe("RESPONSIVE-MARKETING-9 — public funnel fixtures", () => {
     if (article) emit("07-help-article", <HelpArticlePage article={article} />);
   });
 
-  it("writes a long-form legal page", () => {
+  it("writes the long-form legal pages", () => {
     emit("08-legal-terms", <TermsPage />);
+    // Privacy + Security joined the measured corpus with
+    // GOOGLE-PRIVACY-LIMITED-USE-CLOSEOUT-1: the Google API User Data and
+    // data-protection sections are Google-review surfaces, so the 360→1600
+    // sweep must prove them contained and legible, not just the Terms idiom.
+    emit("11-legal-privacy", <PrivacyPage />);
+    emit("12-legal-security", <SecurityPage />);
   });
 
   it("writes the hostile-content states", () => {

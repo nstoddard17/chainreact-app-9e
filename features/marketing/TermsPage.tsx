@@ -42,14 +42,19 @@ import { MarketingFooter } from "./MarketingFooter";
  *
  * Wording is the legal copy supplied with the slice (21 numbered sections plus
  * a Contact block). Production values are filled in: legal entity
- * "ChainReact, Inc.", effective June 18, 2026, version 3.0, and the
- * legal@chainreact.app mailbox. Texas governs. No em dashes in visible copy.
+ * "ChainReact, Inc." and the legal@chainreact.app mailbox; the effective date
+ * and version constants below advance with substantive edits (currently 3.1,
+ * which added the Google API Limited Use carve-out). Texas governs. No em
+ * dashes in visible copy.
  */
 
 const TERMS_EMAIL = "legal@chainreact.app";
 const ENTITY = "ChainReact, Inc.";
-const EFFECTIVE = "June 18, 2026";
-const VERSION = "3.0";
+// Version 3.1 (GOOGLE-PRIVACY-LIMITED-USE-CLOSEOUT-1): adds the Google API /
+// Limited Use carve-out to the User Content license. Substantive change, so the
+// effective date and version advance per the page's established convention.
+const EFFECTIVE = "August 15, 2026";
+const VERSION = "3.1";
 
 // One-paragraph plain-language summary (convenience only, not binding).
 const SUMMARY =
@@ -150,6 +155,28 @@ const SECTIONS: ReadonlyArray<Section> = [
       },
       {
         p: "You grant ChainReact a limited license to host, process, transmit, display, and use your content only as necessary to provide, maintain, secure, improve, and support the Service.",
+      },
+      {
+        node: (
+          <p className="tos-p" key="google-limited-use">
+            Information ChainReact receives from Google APIs, including Google Workspace APIs, is
+            subject to the additional limitations described in our{" "}
+            <Link className="tos-mail" href="/privacy">
+              Privacy Policy
+            </Link>{" "}
+            and the{" "}
+            <a
+              className="tos-mail"
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including its Limited Use requirements. Where those limitations are narrower than the
+            license above, the narrower limitations control for that information.
+          </p>
+        ),
       },
       {
         p: "You are responsible for your workflows and for the data they access, send, modify, create, delete, or otherwise process. You should test workflows before using them in production or with important data.",

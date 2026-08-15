@@ -19,8 +19,11 @@ import {
   Baby,
   Globe,
   Mail,
+  ShieldCheck,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { MarketingHeader } from "./MarketingHeader";
 import { MarketingFooter } from "./MarketingFooter";
 
@@ -50,13 +53,17 @@ import { MarketingFooter } from "./MarketingFooter";
  */
 
 const PRIVACY_EMAIL = "privacy@chainreact.app";
-const UPDATED = "June 17, 2026";
+const UPDATED = "August 15, 2026";
 
-// Hero positioning — the five primary privacy points.
+const GOOGLE_USER_DATA_POLICY_URL =
+  "https://developers.google.com/terms/api-services-user-data-policy";
+
+// Hero positioning — the six primary privacy points.
 const PRIVACY_POINTS: ReadonlyArray<string> = [
   "We use data to provide the service",
   "Connected app data powers authorized workflows",
   "We do not sell connected app data",
+  "Google user data follows Google's Limited Use requirements",
   "Workflow data is account-scoped",
   "AI features use limited, safe context",
 ];
@@ -114,7 +121,8 @@ const CARDS: ReadonlyArray<Card> = [
 type Block =
   | { p: string }
   | { list: ReadonlyArray<string> }
-  | { note: { tone: "info" | "good" | "warn"; text: string } };
+  | { note: { tone: "info" | "good" | "warn"; text: string } }
+  | { node: ReactNode };
 
 interface Section {
   id: string;
@@ -125,7 +133,12 @@ interface Section {
   blocks: ReadonlyArray<Block>;
 }
 
-// Sections 3–14 — the detailed privacy model.
+// Detailed sections — the privacy model. Rendered section numbers derive from
+// array order. "Google API User Data" + "How we protect sensitive and
+// connected-app data" carry the Google Limited Use review disclosures
+// (GOOGLE-PRIVACY-LIMITED-USE-CLOSEOUT-1); every claim there is
+// implementation-verified — see
+// docs/slices/phase-5/google-oauth/privacy-limited-use-closeout.md.
 const SECTIONS: ReadonlyArray<Section> = [
   {
     id: "collect",
@@ -173,6 +186,12 @@ const SECTIONS: ReadonlyArray<Section> = [
           "Detect abuse, investigate security issues, and comply with legal obligations.",
         ],
       },
+      {
+        note: {
+          tone: "info",
+          text: 'The general uses described in this section do not expand our permitted use of Google user data received from Google APIs. Google Workspace API data is subject to the more limited uses described in the "Google API User Data" section of this Privacy Policy, and is not used for general product improvement outside those limits.',
+        },
+      },
     ],
   },
   {
@@ -193,6 +212,75 @@ const SECTIONS: ReadonlyArray<Section> = [
         ],
       },
       { note: { tone: "good", text: "ChainReact does not sell connected app data." } },
+    ],
+  },
+  {
+    id: "google-api",
+    icon: ShieldCheck,
+    feature: true,
+    title: "Google API User Data",
+    pull: "Google user data is used only to provide the features you ask for.",
+    blocks: [
+      {
+        p: "When you connect a Google service to ChainReact (such as Gmail, Google Drive, Google Sheets, Google Docs, Google Calendar, or Google Analytics), ChainReact accesses and processes Google user data only as necessary to provide the Google-connected features, integrations, and workflows that you choose to configure and use.",
+      },
+      {
+        node: (
+          <p className="pp-p" key="google-limited-use">
+            ChainReact&apos;s use and transfer to any other app of information received from Google
+            APIs will adhere to the{" "}
+            <a
+              className="pp-mail"
+              href={GOOGLE_USER_DATA_POLICY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements.
+          </p>
+        ),
+      },
+      {
+        list: [
+          "ChainReact does not use Google Workspace API data for advertising or to build advertising profiles.",
+          "ChainReact does not use Google user data to determine creditworthiness or for lending decisions.",
+          "ChainReact does not use Google Workspace API data to create, train, or improve generalized or foundational artificial-intelligence or machine-learning models, and does not send Google Workspace API data to third-party AI services for those services to train such models.",
+          "ChainReact does not allow humans to read Google user data unless we have your explicit permission (for example, support you request), it is necessary for security purposes such as investigating abuse, it is necessary to comply with applicable law, or the data has been aggregated and anonymized for internal operations.",
+          "Google Workspace API data is transferred only as necessary to provide or improve the specific user-facing features you request, for security purposes, to comply with applicable law, or as otherwise permitted by the Google API Services User Data Policy.",
+        ],
+      },
+      { note: { tone: "good", text: "ChainReact does not sell Google user data." } },
+      {
+        p: "Connecting a Google account does not automatically send Google Workspace data to an AI service. If you explicitly configure a ChainReact workflow step or AI-assisted feature to process Google Workspace data, only the data needed to perform that user-requested functionality is processed, subject to the Limited Use requirements described above.",
+      },
+    ],
+  },
+  {
+    id: "protect",
+    icon: KeyRound,
+    title: "How we protect sensitive and connected-app data",
+    blocks: [
+      {
+        p: "ChainReact maintains administrative and technical safeguards designed to protect connected-app credentials, Google user data, and other sensitive information:",
+      },
+      {
+        list: [
+          "OAuth access and refresh tokens are encrypted before storage using AES-256-GCM authenticated encryption, with a unique random nonce for every encrypted value.",
+          "Encryption and decryption of stored credentials happen only on ChainReact's servers. OAuth credentials and raw secrets are not displayed in the ChainReact interface. The narrow exception is a short-lived access token supplied directly to Google's own file-picker component when you choose a file, which is never stored in the browser.",
+          "Data in transit between your browser and ChainReact is encrypted using HTTPS (TLS), and ChainReact connects to provider APIs over HTTPS.",
+          "Account and workspace ownership, membership, and role checks are enforced on the server before protected operations. Workflow, integration, and run data is scoped to the account or workspace that owns it.",
+          "Database access controls and server-side authorization limit access to stored credentials; direct client access to stored tokens is not permitted.",
+          "Run and error views are designed to avoid exposing raw credentials, tokens, and unnecessary provider payloads. Errors are surfaced as safe summaries and classifications.",
+          "Access to third-party data is limited by the permissions you grant during each provider's OAuth flow and by the supported functionality of the integration.",
+        ],
+      },
+      {
+        note: {
+          tone: "info",
+          text: "No method of storage or transmission is completely secure, but ChainReact maintains safeguards designed to reduce unauthorized access, disclosure, alteration, or misuse of sensitive information.",
+        },
+      },
     ],
   },
   {
@@ -243,9 +331,14 @@ const SECTIONS: ReadonlyArray<Section> = [
         p: "ChainReact may use AI features to explain workflow issues, suggest improvements, create drafts, or help repair workflows. These features are designed to use limited, allow-listed workflow context and should not receive OAuth tokens, credentials, raw secrets, or unnecessary sensitive provider data.",
       },
       {
+        p: "Connecting an integration does not automatically send its data to an AI service. AI features process content only when you explicitly direct data to an AI-enabled workflow step or use an AI-assisted feature, and they receive only the data relevant to that user-requested task.",
+      },
+      {
         list: [
           "Deterministic workflow checks, such as basic validation, can run without AI.",
-          "AI features may process workflow structure, labels, safe summaries, and selected instructions you provide.",
+          "AI features may process workflow structure, labels, safe summaries, selected instructions you provide, and content you explicitly direct to an AI-enabled workflow step.",
+          "OAuth tokens, credentials, and raw secrets are excluded from AI model inputs.",
+          'Google Workspace API data used by an AI feature remains subject to the "Google API User Data" section of this Privacy Policy, and is not used to create, train, or improve generalized or foundational AI or machine-learning models.',
           "AI usage may be metered separately through AI credits.",
         ],
       },
@@ -360,6 +453,9 @@ const SECTIONS: ReadonlyArray<Section> = [
 function BlockView({ block }: { block: Block }) {
   if ("p" in block) {
     return <p className="pp-p">{block.p}</p>;
+  }
+  if ("node" in block) {
+    return <>{block.node}</>;
   }
   if ("list" in block) {
     return (

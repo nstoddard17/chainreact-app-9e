@@ -12,7 +12,7 @@ import { PrivacyPage } from "@/features/marketing/PrivacyPage";
 export const metadata: Metadata = {
   title: "Privacy — ChainReact",
   description:
-    "How ChainReact collects and uses account, workflow, integration, billing, and run data, how connected app data powers authorized workflows, and how AI features use limited, safe context. We do not sell connected app data.",
+    "How ChainReact collects and uses account, workflow, integration, billing, and run data, and how connected app data powers authorized workflows. ChainReact's use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. We do not sell connected app data.",
 };
 
 export default function Page() {
