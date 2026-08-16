@@ -295,15 +295,20 @@ describe("Google reviewer templates — full OAuth scope coverage", () => {
     ["gmail.modify", "gmail:create_draft_reply"], // drafts: drafts.create
     ["drive", "google-drive:upload_file"],
     ["drive", "google-docs:share_document"],
+    // GOOGLE-OAUTH-SCOPE-DISCREPANCY-CLOSEOUT-1 — `documents` was RETIRED:
+    // every Docs API method the surface calls (documents.create/get/
+    // batchUpdate) accepts `drive`, which google-docs already requires for
+    // share/export/folder placement/picker/watch. The Docs nodes therefore
+    // now demonstrate the maximum extent of `drive`, not a separate scope.
+    ["drive", "google-docs:create_document"],
+    ["drive", "google-docs:update_document"],
+    ["drive", "google-docs:get_document"],
     // GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2 — Sheets dropped the RESTRICTED
     // drive.metadata.readonly for non-sensitive drive.file. The reviewer sees it
     // exercised the same way: choosing the spreadsheet in the Picker IS the
     // per-file grant, and the trigger's files.watch runs on that file.
     ["drive.file", "google-sheets:append_row"],
     ["spreadsheets", "google-sheets:append_row"],
-    ["documents", "google-docs:create_document"],
-    ["documents", "google-docs:update_document"],
-    ["documents", "google-docs:get_document"],
     ["calendar.events", "google-calendar:create_event"],
     // Granular replacement for the former calendar.readonly — backs the
     // calendars picker on create_event's calendarId field.

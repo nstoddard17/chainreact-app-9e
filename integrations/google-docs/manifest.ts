@@ -24,27 +24,32 @@ import {
  *   - `pollingTrigger`: false (no polling trigger planned — both
  *     triggers go through Drive watch per GDOCS-1 §3.5 D-GD2).
  *
- * Scopes — Docs read+write + Drive (for share/export/folder
- * placement) + OIDC userinfo:
- *   - `documents` (read/write) — required for the V2 surface
- *     (create + update via documents.batchUpdate; get reads
- *     documents.get). `documents.readonly` is too narrow for the
- *     write actions; the first time real users complain about consent
- *     breadth we can split into a read-only mode, but Batch 1 needs
- *     full read/write.
- *   - `drive` — required for share_document's permissions.create,
- *     export_document's files.export, create_document's folder
- *     placement (files.update parents patch), and the future
- *     trigger surface's files.watch. The narrower scopes
- *     (drive.file, drive.metadata.readonly) don't cover sharing or
- *     export.
+ * Scopes — Drive + OIDC userinfo. `documents` was RETIRED by
+ * GOOGLE-OAUTH-SCOPE-DISCREPANCY-CLOSEOUT-1 (least-privilege audit):
+ *   - `drive` — authorizes the ENTIRE current Docs surface. Google's
+ *     documented authorization for every Docs API method we call
+ *     (documents.create, documents.get, documents.batchUpdate) accepts
+ *     `drive`, and `drive` is independently required anyway for
+ *     share_document's permissions.create, export_document's
+ *     files.export, create_document's folder placement (files.update
+ *     parents patch), the `google-docs:documents` picker (Drive
+ *     files.list filtered to the Docs mimeType), and both triggers'
+ *     Drive watch transport. The narrower scopes (drive.file,
+ *     drive.metadata.readonly) don't cover sharing, export, or the
+ *     whole-Drive picker/trigger surface.
+ *   - `documents` (RETIRED — do not re-add): it authorized only the
+ *     three Docs-API methods above, every one of which `drive`
+ *     already authorizes, so it granted no capability and only
+ *     widened the consent screen. Existing connections that hold the
+ *     historical `documents` grant stay healthy (required ⊆ granted
+ *     still holds after the narrowing). Pinned by the union guard
+ *     (tests/unit/integrations/googleScopeUnion.test.ts).
  *   - `userinfo.email` is the OIDC scope that lets us identify the
  *     connected account at callback time via the OIDC userinfo
  *     endpoint (`openidconnect.googleapis.com`). Docs' own API
- *     doesn't expose a getProfile-like endpoint that works with
- *     `documents` alone, so userinfo is the cleanest source of the
- *     user's email — same pattern Gmail / Calendar / Drive / Sheets
- *     use.
+ *     doesn't expose a getProfile-like endpoint, so userinfo is the
+ *     cleanest source of the user's email — same pattern Gmail /
+ *     Calendar / Drive / Sheets use.
  *
  * tokenScope: "user" matches Gmail / Calendar / Drive / Sheets — one
  * Docs integration per (user, email). A user with all five Google
@@ -65,7 +70,6 @@ export const googleDocsManifest: ProviderManifest =
     accountIdField: "email",
     scopes: {
       required: [
-        "https://www.googleapis.com/auth/documents",
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/userinfo.email",
       ],

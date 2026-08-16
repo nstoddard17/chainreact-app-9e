@@ -291,3 +291,14 @@ concatenates `required + optional` into the ONE initial authorize URL
 | google-analytics | analytics.readonly, analytics.edit, userinfo.email | — | 3 |
 
 (All URIs are `https://www.googleapis.com/auth/<name>`.)
+
+---
+
+**SUPERSEDED (2026-08-16):** the tables above are the historical record of the
+minimization audit. Two later closeouts changed the request sets: Sheets swapped
+`drive.metadata.readonly` → `drive.file` (GOOGLE-OAUTH-PRODUCTION-SCOPE-CLOSEOUT-2)
+and Docs retired `documents` — every Docs API method the surface calls accepts
+`drive` (GOOGLE-OAUTH-SCOPE-DISCREPANCY-CLOSEOUT-1). The current authoritative
+union (9 integration scopes; 11 with sign-in identity) lives in
+[`scope-discrepancy-closeout.md`](./scope-discrepancy-closeout.md) and is pinned by
+`tests/unit/integrations/googleScopeUnion.test.ts`.

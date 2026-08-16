@@ -65,7 +65,6 @@ describe("googleDocsOAuth.generatePkce", () => {
 
 describe("googleDocsOAuth.buildAuthUrl", () => {
   const SCOPES = [
-    "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/userinfo.email",
   ];
@@ -117,7 +116,7 @@ describe("googleDocsOAuth.handleCallback", () => {
           refresh_token: "1//docs-refresh",
           expires_in: 3599,
           scope:
-            "https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email",
         },
       },
       {
@@ -161,7 +160,7 @@ describe("googleDocsOAuth.handleCallback", () => {
           access_token: "ya29.docs-access",
           refresh_token: "1//docs-refresh",
           expires_in: 3599,
-          scope: "https://www.googleapis.com/auth/documents",
+          scope: "https://www.googleapis.com/auth/drive",
         },
       },
       { ok: false, status: 500, json: {} },
@@ -180,7 +179,7 @@ describe("googleDocsOAuth.handleCallback", () => {
           access_token: "ya29.docs-access",
           refresh_token: "1//docs-refresh",
           expires_in: 3599,
-          scope: "https://www.googleapis.com/auth/documents",
+          scope: "https://www.googleapis.com/auth/drive",
         },
       },
       { ok: true, json: { sub: "google-uid-1" } },

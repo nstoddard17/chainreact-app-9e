@@ -21,10 +21,11 @@ import {
  *   - Redirect URL: `/api/integrations/oauth/google-docs/callback`.
  *   - accountId lookup: OIDC userinfo (the `userinfo.email` scope
  *     grants it). Docs' own API doesn't expose a getProfile-like
- *     endpoint that works with the `documents` scope alone — the
- *     OIDC userinfo endpoint is the cleanest source of truth for the
- *     user's email; same pattern Sheets / Drive / Calendar / Gmail
- *     use.
+ *     endpoint — the OIDC userinfo endpoint is the cleanest source of
+ *     truth for the user's email; same pattern Sheets / Drive /
+ *     Calendar / Gmail use. (The manifest requests `drive` +
+ *     `userinfo.email` only; `documents` was retired as redundant —
+ *     see the manifest scope comment.)
  *
  * Env vars read:
  *   - `NEXT_PUBLIC_APP_URL` — for the redirect URL.

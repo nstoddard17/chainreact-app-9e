@@ -61,15 +61,17 @@ describe("google-docs manifest — capabilities", () => {
 });
 
 describe("google-docs manifest — scopes", () => {
-  it("requires documents + drive + userinfo.email", () => {
+  it("requires drive + userinfo.email (documents retired — drive authorizes the whole Docs surface)", () => {
     expect(googleDocsManifest.scopes.required).toEqual([
-      "https://www.googleapis.com/auth/documents",
       "https://www.googleapis.com/auth/drive",
       "https://www.googleapis.com/auth/userinfo.email",
     ]);
   });
 
-  it("DOES NOT include documents.readonly (single-scope-per-manifest convention)", () => {
+  it("DOES NOT include documents or documents.readonly (GOOGLE-OAUTH-SCOPE-DISCREPANCY-CLOSEOUT-1: every Docs API method we call accepts drive, so documents granted nothing)", () => {
+    expect(googleDocsManifest.scopes.required).not.toContain(
+      "https://www.googleapis.com/auth/documents",
+    );
     expect(googleDocsManifest.scopes.required).not.toContain(
       "https://www.googleapis.com/auth/documents.readonly",
     );

@@ -44,8 +44,10 @@ import {
  * subjects, sender/recipient addresses, message ids, or raw payloads are read,
  * returned, or stored.
  *
- * SCOPES: uses only the already-granted `gmail.readonly` scope (messages.list).
- * No new scope is requested.
+ * SCOPES: `messages.list` is fully authorized by `gmail.modify` — the only
+ * scope the Gmail manifest requests (GOOGLE-OAUTH-SCOPE-MINIMIZATION-1).
+ * No new scope is requested. (An earlier revision of this comment named
+ * `gmail.readonly`, which ChainReact does not request.)
  */
 
 const PROVIDER_KEY = "gmail";
